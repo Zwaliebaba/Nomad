@@ -1,0 +1,16 @@
+[package]
+name = "nomad-types"
+description = "Shared primitives of Nomad: identities, ticks and Universe time, units and small shared enums (Design doc 20 §3, D-086)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+# Only serde (doc 20 §3, D-086): the simulation, the protocol and the client all depend on
+# this crate.
+[dependencies]
+serde = { workspace = true }

@@ -6,9 +6,10 @@
 //! (doc 10 §2, §4; D-022, D-042, D-043).
 //!
 //! Every object has a typed identity wrapping a [`SimId`](crate::SimId), allocated from the
-//! Universe's [`SimIdAllocator`]. Objects live in ordered maps keyed by that identity, and
-//! child lists are kept in increasing identity order, so iteration and the snapshot encoding
-//! are canonical (doc 11 §5, D-049).
+//! Universe's [`SimIdAllocator`]. The identities and the small kind enums live in
+//! `nomad-types` and are re-exported here (D-086). Objects live in ordered maps keyed by
+//! that identity, and child lists are kept in increasing identity order, so iteration and
+//! the snapshot encoding are canonical (doc 11 §5, D-049).
 //!
 //! Positions are in the **system frame**: km, 2D, origin at the star, +y = system north
 //! (doc 10 §8). Lane travel is a timed transit, not a distance (D-042).
@@ -26,35 +27,15 @@ pub use validate::{
     GalaxyReport, InvariantLimits, SectorReport, Violation, WorstTrip, allowed_gates,
     allowed_sites, validate,
 };
+// Identities and kinds shared with the protocol and the client (D-086, doc 20 §3).
+pub use nomad_types::{GateId, LaneId, LaneKind, SectorId, SiteId, SystemId, SystemKind};
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use serde::{Deserialize, Serialize};
 
-use crate::id::{SimIdAllocator, sim_id_newtype};
+use crate::id::SimIdAllocator;
 use crate::time::Ticks;
-
-sim_id_newtype!(
-    /// Identity of a sector (doc 10 §2).
-    SectorId
-);
-sim_id_newtype!(
-    /// Identity of a star system (doc 10 §2). Also the scope of per-system random streams
-    /// (doc 11 §5).
-    SystemId
-);
-sim_id_newtype!(
-    /// Identity of a site, a fixed location in a system (doc 10 §5).
-    SiteId
-);
-sim_id_newtype!(
-    /// Identity of a gate at a system's edge (doc 10 §4.1).
-    GateId
-);
-sim_id_newtype!(
-    /// Identity of a jump or trunk lane between two gates (doc 10 §4.2).
-    LaneId
-);
 
 /// A point in the system frame, in km (doc 10 §8).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -85,36 +66,6 @@ impl PositionKm {
         let dy = self.y - other.y;
         libm::sqrt(dx * dx + dy * dy)
     }
-}
-
-/// The kinds of system (doc 10 §4.1, D-043).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum SystemKind {
-    /// 7 sites; one holds a commander's mother station at season start.
-    Home,
-    /// 5–7 sites.
-    Standard,
-    /// 8–9 sites with richer deposits; the contested centre of a sector. Up to 5 gates.
-    Hub,
-    /// NPC raiders operate from here. Not claimable in the MVP and not counted for control.
-    RaiderHaven,
-}
-
-impl SystemKind {
-    /// Whether commanders can claim sites here and the system counts for control
-    /// (doc 10 §4.1, §6).
-    pub const fn is_claimable(self) -> bool {
-        !matches!(self, Self::RaiderHaven)
-    }
-}
-
-/// The kinds of lane between gates (doc 10 §4.2).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum LaneKind {
-    /// Between systems of one sector; 40–70 min.
-    Jump,
-    /// Between border systems of neighbouring sectors; 90–150 min.
-    Trunk,
 }
 
 /// A cluster of systems (doc 10 §2).

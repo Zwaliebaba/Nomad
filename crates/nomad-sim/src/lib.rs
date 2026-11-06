@@ -12,6 +12,12 @@
 //!   the MVP stage-1 generator and its invariant validator;
 //! - holdings and the system control rule ([`ControlState`], D-041).
 //!
+//! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
+//! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
+//! `ControlState`) live in `nomad-types`, so that the protocol and the client can use them
+//! without depending on this crate (D-086, Design doc 20 §3). They are re-exported here
+//! under their old paths.
+//!
 //! **Determinism contract (D-049):** the same build, the same snapshot and the same inputs
 //! produce bit-identical state. This crate reads no clock, does no I/O and starts no threads
 //! (D-050). Everything non-deterministic enters through [`TickInputs`].

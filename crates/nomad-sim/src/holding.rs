@@ -3,6 +3,12 @@
 //! A holding is a site owned by a commander. Only a holding whose core module is complete
 //! counts for control; until then the claim is an outpost (doc 10 §5, RK-09). Claiming,
 //! capture and the core module itself are doc 15 rules and are not modelled yet.
+//!
+//! Holding identities and control states are public (doc 16 §2), so [`HoldingId`],
+//! [`ControlState`] and [`majority_threshold`] live in `nomad-types` (D-086, doc 20 §3) and
+//! are re-exported here.
+
+pub use nomad_types::{ControlState, HoldingId, majority_threshold};
 
 use std::collections::BTreeMap;
 
@@ -10,12 +16,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::galaxy::{Galaxy, SiteId, SystemId};
-use crate::id::{CommanderId, SimIdAllocator, sim_id_newtype};
-
-sim_id_newtype!(
-    /// Identity of a holding. A holding keeps its identity when captured.
-    HoldingId
-);
+use crate::id::{CommanderId, SimIdAllocator};
 
 /// A site owned by a commander (doc 10 §5, D-041).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,42 +28,6 @@ pub struct Holding {
     /// Whether the core module is complete. Until it is, the site is an outpost and does not
     /// count for control (D-041).
     pub core_complete: bool,
-}
-
-/// Who controls a claimable system (doc 10 §6, D-041). Derived from holdings whenever it is
-/// needed, never stored.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum ControlState {
-    /// This commander owns a strict majority of the system's sites as completed holdings.
-    Controlled(CommanderId),
-    /// Nobody has a majority, and at least two commanders own completed holdings there.
-    Contested,
-    /// Nobody has a majority, and at most one commander owns completed holdings there.
-    Open,
-}
-
-/// The number of completed holdings needed to control a system with `site_count` sites: a
-/// strict majority, ⌊n/2⌋+1 (D-041). 4 of 7, 4 of 6, 5 of 8.
-pub const fn majority_threshold(site_count: usize) -> usize {
-    site_count / 2 + 1
-}
-
-impl ControlState {
-    /// The control state of a system with `site_count` sites, given how many **completed**
-    /// holdings each commander owns there (D-041).
-    pub fn from_counts(site_count: usize, completed: &BTreeMap<CommanderId, usize>) -> Self {
-        let threshold = majority_threshold(site_count);
-        // At most one commander can hold a strict majority of a system's sites; iterating in
-        // commander order keeps the answer defined even for inconsistent counts.
-        if let Some((&owner, _)) = completed.iter().find(|&(_, &n)| n >= threshold) {
-            return Self::Controlled(owner);
-        }
-        if completed.values().filter(|&&n| n > 0).count() >= 2 {
-            Self::Contested
-        } else {
-            Self::Open
-        }
-    }
 }
 
 /// Why a holding could not be placed.
@@ -165,48 +130,6 @@ mod tests {
     const YOU: CommanderId = CommanderId(1);
     const HOSTILE: CommanderId = CommanderId(2);
     const OTHER: CommanderId = CommanderId(3);
-
-    fn counts(pairs: &[(CommanderId, usize)]) -> BTreeMap<CommanderId, usize> {
-        pairs.iter().copied().collect()
-    }
-
-    #[test]
-    fn majority_is_strict() {
-        assert_eq!(majority_threshold(7), 4);
-        assert_eq!(majority_threshold(6), 4);
-        assert_eq!(majority_threshold(8), 5);
-        assert_eq!(majority_threshold(9), 5);
-    }
-
-    #[test]
-    fn from_counts_covers_every_state() {
-        // Phase-1 Kestrel-7: "YOU 3 · HSTL 2 · FREE 2" is CONTESTED (doc 10 §6).
-        assert_eq!(
-            ControlState::from_counts(7, &counts(&[(YOU, 3), (HOSTILE, 2)])),
-            ControlState::Contested
-        );
-        assert_eq!(
-            ControlState::from_counts(7, &counts(&[(YOU, 4), (HOSTILE, 2)])),
-            ControlState::Controlled(YOU)
-        );
-        // Half is not a majority.
-        assert_eq!(
-            ControlState::from_counts(6, &counts(&[(YOU, 3), (HOSTILE, 3)])),
-            ControlState::Contested
-        );
-        assert_eq!(
-            ControlState::from_counts(6, &counts(&[(YOU, 3)])),
-            ControlState::Open
-        );
-        assert_eq!(
-            ControlState::from_counts(7, &counts(&[])),
-            ControlState::Open
-        );
-        assert_eq!(
-            ControlState::from_counts(7, &counts(&[(YOU, 0), (HOSTILE, 1)])),
-            ControlState::Open
-        );
-    }
 
     /// One sector with a 7-site claimable system and a raider haven with 2 sites.
     fn kestrel() -> (UniverseState, Vec<SiteId>, Vec<SiteId>) {

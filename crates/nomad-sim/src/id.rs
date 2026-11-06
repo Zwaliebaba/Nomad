@@ -1,20 +1,12 @@
 //! Stable identities (Design doc 11 §5, D-049).
+//!
+//! [`SimId`] and [`CommanderId`] live in `nomad-types` (D-086, doc 20 §3) and are re-exported
+//! here. The allocator stays in the simulation: it is part of the Universe state, and only
+//! the simulation hands out identities.
+
+pub use nomad_types::{CommanderId, SimId};
 
 use serde::{Deserialize, Serialize};
-
-/// Stable identity of a simulated object, assigned in increasing order and never reused.
-///
-/// A `hecs` entity handle is only a storage detail. `SimId` is the identity used for
-/// persistence, the protocol and deterministic ordering.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct SimId(u64);
-
-impl SimId {
-    /// The raw value, for logging and the protocol.
-    pub const fn get(self) -> u64 {
-        self.0
-    }
-}
 
 /// Hands out [`SimId`]s. It is part of the Universe state, so it survives snapshots.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,7 +24,7 @@ impl Default for SimIdAllocator {
 impl SimIdAllocator {
     /// Allocates the next identity.
     pub fn allocate(&mut self) -> SimId {
-        let id = SimId(self.next);
+        let id = SimId::from_raw(self.next);
         self.next = self
             .next
             .checked_add(1)
@@ -40,40 +32,6 @@ impl SimIdAllocator {
         id
     }
 }
-
-/// Identity of a commander, human or AI (Design glossary).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CommanderId(pub u32);
-
-/// Declares a typed identity that wraps a [`SimId`] (`CODING_STANDARDS.md` §4: identifiers
-/// are newtypes). Only the module that declares it, and its descendants, can create one, so
-/// every value comes from the Universe's [`SimIdAllocator`].
-macro_rules! sim_id_newtype {
-    ($(#[$meta:meta])* $name:ident) => {
-        $(#[$meta])*
-        #[derive(
-            Clone,
-            Copy,
-            Debug,
-            PartialEq,
-            Eq,
-            PartialOrd,
-            Ord,
-            Hash,
-            serde::Serialize,
-            serde::Deserialize,
-        )]
-        pub struct $name($crate::id::SimId);
-
-        impl $name {
-            /// The underlying simulation identity.
-            pub const fn sim_id(self) -> $crate::id::SimId {
-                self.0
-            }
-        }
-    };
-}
-pub(crate) use sim_id_newtype;
 
 #[cfg(test)]
 mod tests {
