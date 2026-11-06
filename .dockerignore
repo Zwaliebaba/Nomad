@@ -1,0 +1,9 @@
+# Only the workspace manifests, the lock file, the toolchain file and crates/ are needed.
+target
+.git
+.github
+.vscode
+.claude
+Design
+tools
+screenshots

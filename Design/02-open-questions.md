@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q108) on 2026-11-06.**
+Status: **Q1–Q108 answered on 2026-11-06. Q109–Q111 are open.**
 
 ## Answer summary
 
@@ -543,3 +543,16 @@ All three read only `CommanderView` and run inside the deterministic step.
 
 **✅ Q108 — Inner modules outside the dome (D-067, doc 14 §9.1, doc 15 §5; found with D-111).** Inner slots, which hold the factories and the dry dock, are supposed to lie inside the dome. In the phase-1 scene they never did: with the dome circle at radius 36 voxels (1.26 km) around the station centre, 0% of FB-2, 16% of FA-1 and 11% of the dry dock were inside it, and after the spread almost none are. Covering them would take a radius of about 64 voxels, which breaks doc 15's 1.26 km and would swallow the solar array, which D-100 wants visibly outside.
 *Recommendation:* keep the dome radius and treat the phase-1 scene as illustrative, not as a slot layout. The real slot geometry (inner slots inside the dome, outer slots outside) is designed with S4 and module placement (D-067), and the phase-1 scene is brought into line then.
+
+## S. Round 14, from the Docker Desktop trial (open)
+
+*Derived* from a trial of `nomad-server` in Docker Desktop on 2026-11-06. N2's server already runs in a Linux container (D-029), with a `Dockerfile` in the repository. There is no networking yet. These three gaps appear once N3 adds it, because doc 20 assumes the client and server share one Windows user's machine and files. Settle them before N3 starts.
+
+**Q109 — Bind address and port (doc 20 §2; D-085, D-087; N3).** The server is specified to bind to 127.0.0.1. Inside a container that address cannot be reached through a published port. No design document names a port either. QUIC through Docker Desktop's UDP forwarding is also untested, and cannot be tested before N3.
+*Recommendation (Proposed):* add a bind-address setting (`--bind`, or `NOMAD_BIND`) and fix a default UDP port in N3. The default address stays 127.0.0.1, so the MVP does not change. The image sets 0.0.0.0, and the host publishes the port on loopback only (`-p 127.0.0.1:PORT:PORT/udp`), which keeps D-085's "localhost only".
+
+**Q110 — Getting the token and certificate to the client (doc 20 §5, §9; D-087; N3).** The client reads its token from the per-user data directory and pins the fingerprint of the server's self-signed certificate. With the server in a container, those files sit in a volume the client cannot read. A shared bind mount would expose them, but user-only file permissions mean little across the Windows file share, and the Universe database should stay off that share.
+*Recommendation (Proposed):* add an operator command that prints the address, token and certificate fingerprint (for example `docker exec nomad nomad-server connect-info`), and let the client import them once into its own per-user configuration. The certificate and token stay in the data directory, so they survive an image upgrade. Hosting will need the same step. The cost is that the token appears in a terminal.
+
+**Q111 — The client and a server it did not start (doc 20 §2, §7; D-085; N5).** The client starts the server if none is running. With the server in a container, the client cannot tell that from a server that is missing, so it could start a second, Windows server with a different Universe. "Shut down Universe" also misbehaves: under `--restart unless-stopped` the container restarted within a second of a clean exit, so the Universe would not stay stopped. "Start the Universe when I log in to Windows" does not apply either.
+*Recommendation (Proposed):* keep the MVP on the Windows process model of D-085 and treat the container as a developer and soak-test mode, not a player-facing option. Add an explicit client setting for an external server: with it set, the client never starts a server and hides "Shut down Universe" and the logon option, and the operator stops the server with `docker stop`. Whichever way this is answered, record it as a new decision extending D-085.
