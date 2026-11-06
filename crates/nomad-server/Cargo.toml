@@ -11,15 +11,24 @@ build = "build.rs"
 [lints]
 workspace = true
 
-# No networking yet: QUIC, sessions and nomad-protocol arrive with N3 (N2 plan §3).
 [dependencies]
 directories = { workspace = true }
+nomad-protocol = { workspace = true }
 nomad-sim = { workspace = true }
 nomad-types = { workspace = true }
 postcard = { workspace = true }
+quinn = { workspace = true }
+rcgen = { workspace = true }
+ring = { workspace = true }
 rusqlite = { workspace = true }
+rustls = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+
+# The integration tests drive the server through the client link (D-125).
+[dev-dependencies]
+nomad-link = { workspace = true }

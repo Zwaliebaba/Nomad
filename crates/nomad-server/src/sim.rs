@@ -12,7 +12,14 @@
 //!   the state an uninterrupted run would have. If the wall clock moved on by more than a
 //!   second meanwhile, catch-up continues to the new target first. Every commander is
 //!   offline throughout (D-047): the first catch-up tick also carries a journaled
-//!   `Disconnected` input for each commander who still counts as connected.
+//!   `Disconnected` input for each commander who still counts as connected, and commander
+//!   inputs that reach the thread during catch-up are dropped (inputs are refused then, so
+//!   only one sent just as catch-up began can arrive). Catch-up ticks are not published
+//!   one by one, except one that carries command outcomes, so that commands submitted just
+//!   before the catch-up get their results (N3 plan §4.5).
+//! - **Restart without catch-up:** commanders restored as connected from the snapshot have
+//!   no session any more, so the first tick disconnects them, before any new session's
+//!   `Connected` of the same tick (N3).
 //! - **Live:** one tick per 100 ms against the monotonic clock. Overruns run back to back,
 //!   with a warning when the thread is more than 10 ticks behind. If the Universe falls
 //!   more than a minute behind the wall clock, as after the computer slept, the thread
@@ -32,8 +39,8 @@ use std::time::Duration;
 
 use nomad_sim::snapshot::{self, encode, state_hash};
 use nomad_sim::{
-    CommanderInput, CommanderInputKind, OperatorInput, SeasonClock, TICK_MILLIS, Tick, TickInputs,
-    TickOutputs, Ticks, UniverseState, step,
+    CommanderId, CommanderInput, CommanderInputKind, OperatorInput, SeasonClock, TICK_MILLIS, Tick,
+    TickInputs, TickOutputs, Ticks, UniverseState, step,
 };
 use tracing::{debug, info, warn};
 
@@ -59,6 +66,10 @@ const WALL_CHECK_TICKS: u64 = 10;
 /// The `client_seq` of the `Disconnected` inputs the server journals when catch-up starts
 /// (D-047). The highest value, so it applies after the commander's own inputs of that tick.
 pub(crate) const SERVER_DISCONNECT_SEQ: u64 = u64::MAX;
+/// The `client_seq` of the `Disconnected` inputs for commanders restored as connected at a
+/// start without catch-up. The lowest value, so that a new session's `Connected` in the
+/// same tick applies after it (the network hands out sequence numbers from 1, N3).
+pub(crate) const STARTUP_DISCONNECT_SEQ: u64 = 0;
 /// After the season ends, the idle thread wakes at least this often (it also wakes for
 /// every request).
 const SEASON_OVER_WAKE: Duration = Duration::from_hours(1);
@@ -206,6 +217,7 @@ impl Runner {
                 // Stopped right at the end of a catch-up: end the mode on the next tick.
                 self.pending.operator.insert(0, OperatorInput::CatchUpEnd);
             }
+            self.disconnect_restored();
         }
         if self.stop.is_none() {
             self.live()?;
@@ -406,6 +418,50 @@ impl Runner {
             }));
     }
 
+    /// At a start without catch-up, commanders restored as connected from the snapshot or
+    /// the journal have no session any more: the first tick disconnects them (N3). Their
+    /// inputs sort first in the tick, so a session that connects at once stays connected.
+    fn disconnect_restored(&mut self) {
+        let restored: Vec<CommanderId> = self.sim.state.connected().iter().copied().collect();
+        if restored.is_empty() {
+            return;
+        }
+        info!(
+            commanders = restored.len(),
+            "start: commanders restored as connected go offline until they reconnect"
+        );
+        self.pending
+            .commanders
+            .extend(restored.into_iter().map(|commander| CommanderInput {
+                commander,
+                client_seq: STARTUP_DISCONNECT_SEQ,
+                kind: CommanderInputKind::Disconnected,
+            }));
+    }
+
+    /// Drops commander inputs that reached the thread during catch-up: nobody is online
+    /// then (D-047), and inputs are refused, so only one sent just as catch-up began can
+    /// arrive. The network answers such a command with `CatchingUp` when the server is live
+    /// again (N3 plan §4.5).
+    fn drop_catch_up_commander_inputs(&mut self) {
+        if !self.pending.commanders.is_empty() {
+            warn!(
+                inputs = self.pending.commanders.len(),
+                "commander inputs dropped: they arrived during catch-up"
+            );
+            self.pending.commanders.clear();
+        }
+    }
+
+    /// Publishes a catch-up tick if it carries command outcomes, so the commands submitted
+    /// just before the catch-up get their results; other catch-up ticks are not published
+    /// (doc 20 §7).
+    fn publish_catch_up_tick(&self, outputs: &TickOutputs) {
+        if !outputs.commands.is_empty() {
+            self.sim.shared.publish(&ServerEvent::Tick(outputs.clone()));
+        }
+    }
+
     /// Fast-forwards to the wall clock (doc 11 §7, D-047). The caller has checked that the
     /// target is at least 2 ticks ahead.
     fn catch_up(&mut self) -> Result<(), ServerError> {
@@ -431,9 +487,11 @@ impl Runner {
         loop {
             while self.sim.state.tick().next() < target {
                 let outputs = self.advance()?;
+                self.publish_catch_up_tick(&outputs);
                 if outputs.tick.get().is_multiple_of(CATCH_UP_POLL_TICKS) {
                     self.sim.alarm.reset();
                     self.drain_inbox()?;
+                    self.drop_catch_up_commander_inputs();
                     if self.stop.is_some() {
                         info!(
                             tick = outputs.tick.get(),
@@ -453,9 +511,21 @@ impl Runner {
             }
             target = next_target;
         }
+        // Whatever arrived during catch-up is read now; commander inputs among it are
+        // dropped, so every command answered after this ran live.
+        self.drain_inbox()?;
+        self.drop_catch_up_commander_inputs();
+        if self.stop.is_some() {
+            info!(
+                tick = self.sim.state.tick().get(),
+                "catch-up interrupted; it resumes at the next start"
+            );
+            return Ok(());
+        }
         // The target tick runs live: the mode ends as it begins.
         self.pending.operator.insert(0, OperatorInput::CatchUpEnd);
         let outputs = self.advance()?;
+        self.publish_catch_up_tick(&outputs);
         let elapsed = self.sim.clock.monotonic().saturating_sub(started);
         let done = outputs.tick.since(from);
         let final_progress = CatchUpProgress {

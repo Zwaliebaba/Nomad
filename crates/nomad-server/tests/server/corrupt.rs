@@ -160,20 +160,32 @@ fn a_damaged_latest_snapshot_falls_back_to_the_one_before() {
             kind: CommanderInputKind::Connected,
         }))
         .unwrap();
+    // Disconnected again before the stop: a commander still connected at a restart is
+    // disconnected on its first tick (N3), which would make the states differ for a reason
+    // that is not this test's.
+    run_live_until(&server, &clock, 3_005);
+    server
+        .submit(nomad_server::Input::Commander(CommanderInput {
+            commander: CommanderId(2),
+            client_seq: 2,
+            kind: CommanderInputKind::Disconnected,
+        }))
+        .unwrap();
     run_live_until(&server, &clock, 3_010);
     let (_, expected) = server.state_hash().unwrap();
     server.shutdown().unwrap();
 
     // Snapshots 3,000 and 3,010 are the latest two; damage the newer one. Its state
-    // follows from the older one plus the journal after it (the input of tick 3,003).
+    // follows from the older one plus the journal after it (the inputs of ticks 3,003 and
+    // 3,006).
     execute(
         &created.dir,
         "UPDATE snapshots SET bytes = x'4e4f4d4144534e5003000000ff' WHERE tick = 3010;",
     );
     let server = start_live(&created.dir, &clock);
     assert_eq!(server.start_report().snapshot_tick, Tick::new(3_000));
-    assert_eq!(server.start_report().replayed_entries, 1);
-    // Replay ends at tick 3,003; the 7 ticks to the wall clock run back to back.
+    assert_eq!(server.start_report().replayed_entries, 2);
+    // Replay ends at tick 3,006; the 4 ticks to the wall clock run back to back.
     assert!(server.wait_for_tick(Tick::new(3_010), crate::common::TIMEOUT));
     let (tick, hash) = server.state_hash().unwrap();
     server.shutdown().unwrap();

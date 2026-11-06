@@ -9,6 +9,7 @@ mod cli;
 mod common;
 mod corrupt;
 mod lock;
+mod net;
 mod recovery;
 mod retention;
 mod season_end;

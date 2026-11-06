@@ -19,6 +19,7 @@ use tracing::info;
 use crate::clock::Clock;
 use crate::error::ServerError;
 use crate::ids::{Difficulty, random_u64, random_universe_id, universe_id_text};
+use crate::net::identity::Identity;
 use crate::paths::{DATABASE_FILE, DataDir, UniverseLock};
 use crate::store::{Meta, SnapshotRecord, Store};
 
@@ -133,7 +134,10 @@ pub fn create(
         rules_hash: None,
         journal_floor: Tick::ZERO,
     };
-    if let Err(e) = Store::create(&dir.join(DATABASE_FILE), &meta, &record) {
+    // The certificate, key and token, created once and kept (D-151).
+    let stored = Store::create(&dir.join(DATABASE_FILE), &meta, &record)
+        .and_then(|_store| Identity::load_or_create(&dir).map(|_| ()));
+    if let Err(e) = stored {
         drop(lock);
         // Best effort: the error that matters is the one being returned.
         let _ = fs::remove_dir_all(&dir);

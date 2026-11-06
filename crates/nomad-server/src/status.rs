@@ -5,8 +5,10 @@
 
 use std::fmt;
 use std::fs;
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
+use nomad_protocol::{CONNECTION_FILE, ConnectionFile};
 use nomad_sim::{SeasonClock, Tick};
 
 use crate::clock::Clock;
@@ -30,6 +32,8 @@ pub struct UniverseReport {
     pub meta: Meta,
     /// Whether a server holds its lock.
     pub running: bool,
+    /// Where the running server listens, from its connection file (N3 plan §4.9).
+    pub endpoint: Option<SocketAddr>,
     /// Its snapshots, oldest first.
     pub snapshots: Vec<SnapshotInfo>,
     /// The size of its journal.
@@ -73,12 +77,19 @@ pub fn inspect(dir: &Path, clock: &dyn Clock, build: &str) -> Result<UniverseRep
     let journal = store.journal_stats()?;
     drop(store);
     let running = UniverseLock::is_held(dir)?;
+    // A connection file without the lock is stale, left by a crash (N3 plan §4.2).
+    let endpoint = running
+        .then(|| fs::read_to_string(dir.join(CONNECTION_FILE)).ok())
+        .flatten()
+        .and_then(|text| serde_json::from_str::<ConnectionFile>(&text).ok())
+        .map(|file| file.address);
     let size = |path: PathBuf| fs::metadata(path).map_or(0, |m| m.len());
     let mut wal = db_path.clone().into_os_string();
     wal.push("-wal");
     Ok(UniverseReport {
         dir: dir.to_owned(),
         running,
+        endpoint,
         wall_tick: wall_tick(SeasonClock::new(meta.season_start_unix_ms), clock.utc_ms()),
         meta,
         snapshots,
@@ -107,15 +118,11 @@ impl UniverseReport {
             None => writeln!(f, "Universe     {}", meta.universe_id)?,
         }
         writeln!(f, "Directory    {}", self.dir.display())?;
-        writeln!(
-            f,
-            "Server       {}",
-            if self.running {
-                "running (the lock is held)"
-            } else {
-                "not running"
-            }
-        )?;
+        match (self.running, self.endpoint) {
+            (true, Some(endpoint)) => writeln!(f, "Server       running on {endpoint} (UDP)")?,
+            (true, None) => writeln!(f, "Server       running (the lock is held)")?,
+            (false, _) => writeln!(f, "Server       not running")?,
+        }
         writeln!(
             f,
             "Created      {} by build {} (this build: {})",
@@ -277,6 +284,7 @@ mod tests {
                 journal_floor: Tick::ZERO,
             },
             running: false,
+            endpoint: None,
             snapshots: vec![SnapshotInfo {
                 tick: last_snapshot,
                 build: "test-build".to_owned(),

@@ -4,8 +4,8 @@
 //! One server hosts one Universe (D-026, D-085). This crate creates it, runs it in real
 //! time, saves it continuously, recovers it after a crash and catches it up after
 //! downtime. It contains no game rules: those live in `nomad-sim`, which this crate drives
-//! through `step`, the snapshot codec and the state hash (D-050). There is no networking
-//! yet; N3 puts [`ServerHandle`] behind QUIC.
+//! through `step`, the snapshot codec and the state hash (D-050). Clients reach it over QUIC
+//! (N3).
 //!
 //! - [`create()`] generates the MVP stage-1 Universe and writes its `meta` row and tick-0
 //!   snapshot (doc 10 §4.4; D-106, D-107).
@@ -18,7 +18,11 @@
 //!     and at the season's final tick it stops advancing (D-116);
 //!   - the **persistence** thread commits journal batches at least once per second and
 //!     writes a snapshot every 3,000 ticks, applying retention (doc 11 §8; the journal is
-//!     kept for 48 h, D-110).
+//!     kept for 48 h, D-110);
+//!   - with [`ServerConfig::net`], the **network** thread runs the endpoint: QUIC on UDP,
+//!     127.0.0.1 and [`DEFAULT_PORT`] by default (D-150), with the identity of D-151 and
+//!     the connection file `server.json` (D-120). Sessions authenticate with the token,
+//!     send commands and receive their outcomes (N3 plan).
 //! - [`ServerHandle::shutdown`], or [`ShutdownTrigger::shutdown`] from a Ctrl+C handler,
 //!   stops cleanly with a final snapshot. Dropping the handle stops like a crash.
 //! - [`status::inspect`] reports what is on disk without running anything.
@@ -33,6 +37,7 @@ mod create;
 mod error;
 mod ids;
 mod journal;
+mod net;
 mod paths;
 mod persist;
 mod recovery;
@@ -54,6 +59,8 @@ pub use ids::{
     Difficulty, ParseDifficultyError, ParseUniverseIdError, UNIVERSE_ID_LEN, parse_universe_id,
     random_universe_id, universe_id_text,
 };
+pub use net::identity::{IDENTITY_FILE, Identity};
+pub use net::{BIND_ENV, DEFAULT_PORT, Limits, NetConfig, PORT_ENV, local_connect_address};
 pub use paths::{DATA_DIR_ENV, DATABASE_FILE, DataDir, LOCK_FILE, UniverseLock};
 pub use recovery::{CheckpointMismatch, ReplayCheck};
 pub use reject::wire_reason;

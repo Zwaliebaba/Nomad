@@ -1,0 +1,22 @@
+[package]
+name = "nomad-link"
+description = "The client side of a Nomad connection: QUIC with a pinned certificate, the handshake and a channel API on a background thread (Design doc 20 §5, §8; D-125)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+nomad-protocol = { workspace = true }
+nomad-types = { workspace = true }
+quinn = { workspace = true }
+ring = { workspace = true }
+rustls = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

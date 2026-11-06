@@ -168,6 +168,29 @@ pub enum ServerError {
     /// A server thread panicked.
     #[error("the {0} thread panicked")]
     ThreadPanicked(&'static str),
+    /// The network endpoint could not bind its UDP socket (N3; D-150).
+    #[error(
+        "cannot listen on UDP {addr}: {source} (another program may use the port; choose \
+         another with --port or NOMAD_PORT)"
+    )]
+    Bind {
+        /// The address and port.
+        addr: std::net::SocketAddr,
+        /// The underlying error.
+        source: io::Error,
+    },
+    /// The server's identity (certificate, key and token, D-151) is damaged or could not be
+    /// made.
+    #[error("server identity {}: {detail}", .path.display())]
+    Identity {
+        /// The identity file.
+        path: PathBuf,
+        /// What is wrong.
+        detail: String,
+    },
+    /// The network endpoint could not be set up (TLS or QUIC configuration).
+    #[error("network endpoint: {0}")]
+    Network(String),
 }
 
 impl ServerError {
