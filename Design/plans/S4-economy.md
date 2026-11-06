@@ -1,6 +1,6 @@
 # Work package S4 — Economy
 
-Status: **Planned and decided** (Q115–Q127 → D-126 to D-138). Written together with `S5-combat.md`, because power, modules and module damage are shared between the two. Builds on S3 (entities, rules file, holdings, validator). This plan is also the brief for whoever builds S4.
+Status: **Built** (Q115–Q127 → D-126 to D-138). Code in `crates/nomad-sim/src/economy/`; `nomad-harness --economy` reports the D-070 measures. Written together with `S5-combat.md`, because power, modules and module damage are shared between the two. Builds on S3 (entities, rules file, holdings, validator). This plan is also the brief for whoever builds S4.
 
 ## 1. Goal
 

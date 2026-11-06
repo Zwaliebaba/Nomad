@@ -8,7 +8,7 @@ Targets: one Universe of up to 100 commanders, played in seasons. The MVP is one
 
 ## Status
 
-The MVP design is complete; the build works towards milestone MVP-α, the headless game (Design doc 30). Done: the deterministic simulation core, the Universe structure, ships, fleets and orders (S1–S3), the server shell with persistence and catch-up (N1–N2), and phase-1 client milestones M1–M4. Start at [`Design/README.md`](Design/README.md).
+The MVP design is complete; the build works towards milestone MVP-α, the headless game (Design doc 30). Done: the deterministic simulation core, the Universe structure, ships, fleets and orders (S1–S3), the economy (S4) and ship combat (S5a), the server shell with persistence and catch-up (N1–N2), and phase-1 client milestones M1–M4. Start at [`Design/README.md`](Design/README.md).
 
 ## Repository layout
 
@@ -16,7 +16,7 @@ The MVP design is complete; the build works towards milestone MVP-α, the headle
 Design/                 Design documents (source of truth), including the phase-1 visual slice package
 crates/
   nomad-client/         Game client (phase 1: the visual slice; milestones M1–M4 done)
-  nomad-sim/            Deterministic simulation core (Design doc 11): tick, timers, SimId, random streams, snapshots
+  nomad-sim/            Deterministic simulation (Design doc 11): tick, timers, SimId, random streams, snapshots; galaxy, fleets, economy, combat
   nomad-types/          Shared primitives (Design doc 20 §3): SimId and typed ids, ticks, Universe time, small enums, command shapes
   nomad-protocol/       Wire protocol (Design doc 20 §5): versioned client and server messages, length-prefixed postcard framing
   nomad-harness/        Headless fast-forward runner: pacing runs and determinism checks
@@ -71,6 +71,7 @@ Run the headless simulation harness (fast-forward, reports the state hash and sp
 cargo run -p nomad-harness -- --ticks 36000 --diagnostics 10000
 cargo run -p nomad-harness -- --fleets --seed 7          # fleet demo: random orders, consistency checks
 cargo run -p nomad-harness -- --combat skirmish          # time-to-kill scenarios (also: battle, stress)
+cargo run --release -p nomad-harness -- --economy --days 7   # scripted builders, D-070 pacing measures
 ```
 
 ### Run the server
