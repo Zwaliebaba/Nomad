@@ -9,6 +9,8 @@ use std::ffi::OsString;
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use nomad_types::UniverseId;
 
@@ -123,6 +125,18 @@ impl DataDir {
     }
 }
 
+/// How long [`UniverseLock::acquire`] keeps retrying a lock that is held before it reports
+/// [`ServerError::Locked`]. A lock can stay held for a moment after its owner let go of it:
+/// on Linux a `flock` lasts as long as any copy of its descriptor, and a child process that
+/// another thread forks holds a copy until it calls `exec` (the server's own test binary
+/// spawns servers while other tests lock and unlock); on Windows a lock can briefly outlive
+/// the process that held it. A real second server holds the lock far longer than this, so it
+/// is still refused. Real time, not the simulation [`crate::Clock`]: this waits on the
+/// operating system.
+const LOCK_GRACE: Duration = Duration::from_millis(500);
+/// Pause between attempts within [`LOCK_GRACE`].
+const LOCK_RETRY: Duration = Duration::from_millis(20);
+
 /// The exclusive lock on one Universe, held for as long as a server runs it (N2 plan
 /// §4.2). Released when dropped, or by the operating system if the process dies.
 #[derive(Debug)]
@@ -131,8 +145,8 @@ pub struct UniverseLock {
 }
 
 impl UniverseLock {
-    /// Takes the lock of the Universe in `dir`, or fails at once with
-    /// [`ServerError::Locked`] if another server holds it.
+    /// Takes the lock of the Universe in `dir`, or fails with [`ServerError::Locked`] if
+    /// another server still holds it after [`LOCK_GRACE`].
     pub fn acquire(dir: &Path) -> Result<Self, ServerError> {
         let path = dir.join(LOCK_FILE);
         let file = OpenOptions::new()
@@ -142,21 +156,31 @@ impl UniverseLock {
             .truncate(false)
             .open(&path)
             .map_err(|e| ServerError::io(format!("cannot open {}", path.display()), e))?;
-        match file.try_lock() {
-            Ok(()) => Ok(Self { _file: file }),
-            Err(TryLockError::WouldBlock) => Err(ServerError::Locked {
-                dir: dir.to_owned(),
-                lock: path,
-            }),
-            Err(TryLockError::Error(e)) => Err(ServerError::io(
-                format!("cannot lock {}", path.display()),
-                e,
-            )),
+        let deadline = Instant::now() + LOCK_GRACE;
+        loop {
+            match file.try_lock() {
+                Ok(()) => return Ok(Self { _file: file }),
+                Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
+                    thread::sleep(LOCK_RETRY);
+                }
+                Err(TryLockError::WouldBlock) => {
+                    return Err(ServerError::Locked {
+                        dir: dir.to_owned(),
+                        lock: path,
+                    });
+                }
+                Err(TryLockError::Error(e)) => {
+                    return Err(ServerError::io(
+                        format!("cannot lock {}", path.display()),
+                        e,
+                    ));
+                }
+            }
         }
     }
 
     /// Whether a server currently holds the lock of the Universe in `dir`. Takes and drops
-    /// the lock if it is free; never waits.
+    /// the lock if it is free; waits at most [`LOCK_GRACE`].
     pub fn is_held(dir: &Path) -> Result<bool, ServerError> {
         match Self::acquire(dir) {
             Ok(_lock) => Ok(false),
