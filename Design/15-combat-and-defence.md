@@ -62,7 +62,7 @@ Other documents own the rest: costs, production, power supply and the command ca
 
 ### 3.3 Movement
 
-*Proposed.*
+*Agreed with doc 15 (round 6); acceleration and turn rates in D-101; docking in D-102.*
 
 - Each class has a tactical top speed, an acceleration and a turn rate (2D kinematics).
 - **Cruise mode:**
@@ -73,7 +73,7 @@ Other documents own the rest: costs, production, power supply and the command ca
 
 ### 3.4 Fleet orders
 
-*Proposed.* The orders are:
+*Agreed with doc 15 (round 6).* The orders are:
 
 - Move
 - Attack (target)
@@ -225,7 +225,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 ## 12. Starting values
 
-*Proposed; to be tuned (§11).*
+*Agreed as starting values (D-058); tuned against §11 in the pacing simulation.*
 
 | Unit | Hull | Tactical / cruise (m/s) | Weapons | Range | Lock | Command |
 |---|---|---|---|---|---|---|

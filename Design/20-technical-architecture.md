@@ -87,6 +87,11 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
   | Server → client | `Pong` | Reply to `Ping` |
   | Server → client | `Bye { reason }` | End of session |
 
+- **As built in N1** (implementation details within D-087):
+  - **Frozen layout:** `Hello` stays variant 0 with `protocol` as its first field, and `Bye { VersionMismatch }` stays variant 0. A version mismatch can then be reported between builds whose layouts differ. That matters because the server outlives the client (D-026).
+  - **Frame limits:** 16 MiB from server to client, 64 KiB from client to server.
+  - **IDs:** `UniverseId` is a `u64`, shown as the 8-character base-32 ID (D-107). Commands are grouped by target (`Command::Fleet { fleet, order }`, later `Holding`, economy and doctrine).
+  - **Still to add in N3:** a nonce on `Ping`/`Pong`.
 - **Commands:**
   - The server checks only the envelope: size, rate and session.
   - The simulation's single validator (D-077) checks the meaning: ownership, resources, rules.

@@ -135,6 +135,13 @@ Rejections return a reason (doc 20 §5). The visibility check is added at S7.
 
 ## 6. Tasks, in order
 
+0. **Follow-ups from N1** (implementation fixes within agreed decisions):
+   - **Keep `nomad-types` data-only (D-086):** move `ControlState::from_counts`, `majority_threshold` and the deposit value table back into `nomad-sim` as free functions, so the client links no rules. Snapshot hashes must not change.
+   - **`Owner` enum:** `Commander(CommanderId)` or `Npc(FactionId)` replaces `Option<CommanderId>` in the types and the view, so raiders can own things (D-014).
+   - **Order targets name their system:** Move, AttackMove and Patrol waypoints carry `{ system, position }`, so an order cannot apply in the wrong system after a jump.
+   - **Holding launch:** add `Command::Holding { holding, order: HoldingOrder::LaunchReady }` for the phase-1 LAUNCH button (doc 15 §5.3). `Retreat` gets an optional destination, defaulting to the nearest owned holding.
+
+   The protocol is still at version 1 and has never been released, so these shapes may change freely.
 1. Rules file and loader; rules stored in the state (Q95). Snapshot format bump.
 2. Galaxy positions to metres; update the validator, tests and harness output.
 3. `hecs` integration: components, the `SimId` index, canonical snapshot tables. Prove snapshot and restore change nothing.

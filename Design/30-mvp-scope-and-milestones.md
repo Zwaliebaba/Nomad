@@ -42,7 +42,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | A4 | Strategist military | XL |
 | | A5 | Personalities, difficulty, schedules | M |
 | | A6 | Acceptance and pacing tuning (D-083, D-058, D-070) | L, iterative |
-| **Server and network** | N1 | `nomad-types`, `nomad-protocol` (doc 20 §3, §5) | M |
+| **Server and network** | N1 ✅ | `nomad-types`, `nomad-protocol` (doc 20 §3, §5) | M |
 | | N2 | Server shell: pacing, SQLite journal and snapshots, recovery, catch-up (doc 20 §4, §6, §7) | M |
 | | N3 | QUIC transport, sessions, token, commands and results | M |
 | | N4 | Replication with interest management (doc 16 §6) | L |
