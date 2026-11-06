@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@1",
+  "format": "nomad-rules@2",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -83,6 +83,83 @@
       "MULE": 2
     },
     "mother_station_dry_docks": 1
+  },
+  "combat": {
+    "engagement_s": 30,
+    "ranging_laser_lock_rate_percent": 150,
+    "multipliers": {
+      "LIGHT_CANNON": { "light": 100, "medium": 50, "heavy": 25, "structure": 25, "dome": 10 },
+      "TORPEDO": { "light": 25, "medium": 150, "heavy": 150, "structure": 150, "dome": 100 },
+      "RAIDER_TORPEDO": { "light": 25, "medium": 150, "heavy": 150, "structure": 150, "dome": 0 },
+      "FLAK": { "light": 200, "medium": 25, "heavy": 10, "structure": 10, "dome": 0 },
+      "BATTERY": { "light": 50, "medium": 100, "heavy": 100, "structure": 75, "dome": 75 },
+      "TURRET": { "light": 100, "medium": 100, "heavy": 100, "structure": 0, "dome": 0 }
+    },
+    "classes": {
+      "VX": {
+        "hull": 600,
+        "size": "LIGHT",
+        "hit_radius_m": 90,
+        "lock_ms": 2000,
+        "ranging_laser_m": null,
+        "weapons": [
+          { "kind": "LIGHT_CANNON", "damage": 8, "interval_ms": 250, "speed_m_per_s": 800, "range_m": 1500, "spread_mrad": [20, 4], "burst_radius_m": null }
+        ]
+      },
+      "LANCER": {
+        "hull": 800,
+        "size": "LIGHT",
+        "hit_radius_m": 120,
+        "lock_ms": 4000,
+        "ranging_laser_m": null,
+        "weapons": [
+          { "kind": "TORPEDO", "damage": 160, "interval_ms": 4000, "speed_m_per_s": 350, "range_m": 3000, "spread_mrad": [30, 6], "burst_radius_m": null }
+        ]
+      },
+      "WARDEN": {
+        "hull": 7500,
+        "size": "MEDIUM",
+        "hit_radius_m": 120,
+        "lock_ms": 3000,
+        "ranging_laser_m": null,
+        "weapons": [
+          { "kind": "BATTERY", "damage": 60, "interval_ms": 2000, "speed_m_per_s": 800, "range_m": 3000, "spread_mrad": [20, 4], "burst_radius_m": null },
+          { "kind": "BATTERY", "damage": 60, "interval_ms": 2000, "speed_m_per_s": 800, "range_m": 3000, "spread_mrad": [20, 4], "burst_radius_m": null },
+          { "kind": "FLAK", "damage": 30, "interval_ms": 1000, "speed_m_per_s": 800, "range_m": 2000, "spread_mrad": [20, 4], "burst_radius_m": 150 }
+        ]
+      },
+      "MULE": {
+        "hull": 2500,
+        "size": "MEDIUM",
+        "hit_radius_m": 50,
+        "lock_ms": 1000,
+        "ranging_laser_m": null,
+        "weapons": []
+      },
+      "RAIDER_STRIKE_CRAFT": {
+        "hull": 700,
+        "size": "LIGHT",
+        "hit_radius_m": 90,
+        "lock_ms": 4000,
+        "ranging_laser_m": null,
+        "weapons": [
+          { "kind": "RAIDER_TORPEDO", "damage": 100, "interval_ms": 4000, "speed_m_per_s": 350, "range_m": 2500, "spread_mrad": [30, 6], "burst_radius_m": null }
+        ]
+      },
+      "HEAVY_CRUISER": {
+        "hull": 30000,
+        "size": "HEAVY",
+        "hit_radius_m": 190,
+        "lock_ms": 3000,
+        "ranging_laser_m": 4000,
+        "weapons": [
+          { "kind": "BATTERY", "damage": 70, "interval_ms": 2000, "speed_m_per_s": 800, "range_m": 3500, "spread_mrad": [20, 4], "burst_radius_m": null },
+          { "kind": "BATTERY", "damage": 70, "interval_ms": 2000, "speed_m_per_s": 800, "range_m": 3500, "spread_mrad": [20, 4], "burst_radius_m": null },
+          { "kind": "BATTERY", "damage": 70, "interval_ms": 2000, "speed_m_per_s": 800, "range_m": 3500, "spread_mrad": [20, 4], "burst_radius_m": null },
+          { "kind": "BATTERY", "damage": 70, "interval_ms": 2000, "speed_m_per_s": 800, "range_m": 3500, "spread_mrad": [20, 4], "burst_radius_m": null }
+        ]
+      }
+    }
   },
   "mother_station": {
     "voxel_m": 35,

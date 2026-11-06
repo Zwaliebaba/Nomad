@@ -20,11 +20,14 @@
 //! | Docking | D-102 (Q93) |
 //! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE, one dry dock |
 //! | Cruise drop range | Doc 15 §3.3: a hostile within 20 km (a hook until S7) |
+//! | Combat: hull, weapons, multipliers, hit radii | [`combat`] (doc 15 §3–§4, §12; D-052, D-143) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
 //!
 //! Starting values adopted from this implementation (D-113): separation distance, obstacle
 //! margin, look-ahead time (D-105 fixes the behaviour, D-113 the numbers), the guard radius
 //! (S3 plan §4.4 names it without a value) and the launch point.
+
+pub mod combat;
 
 use std::collections::BTreeMap;
 
@@ -34,7 +37,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@1";
+pub const RULES_FORMAT: &str = "nomad-rules@2";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -79,6 +82,8 @@ pub struct Rules {
     pub start_kit: StartKit,
     /// The mother station's layout, for obstacles and the launch point.
     pub mother_station: StationLayout,
+    /// Hull, weapons and the multiplier table (S5).
+    pub combat: combat::CombatRules,
 }
 
 /// One ship class (doc 15 §3.3, §12; D-101).
@@ -328,7 +333,7 @@ impl Rules {
                 ));
             }
         }
-        Ok(())
+        self.combat.check(&self.ship_classes)
     }
 }
 
@@ -422,8 +427,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@1", "nomad-rules@2"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@2"
+            swap("nomad-rules@2", "nomad-rules@3"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@3"
         ));
         assert!(matches!(
             swap("\"ops_area_radius_m\"", "\"ops_radius_m\""),
