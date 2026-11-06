@@ -1,7 +1,8 @@
 //! Configuration and asset loading (phase-1 doc 03).
 //!
 //! Every file is parsed with `serde`. A file whose `format` version this build does not know is
-//! rejected with a clear error before the rest of it is read (`CODING_STANDARDS.md` §9).
+//! rejected with a clear error before the rest of it is read (`CODING_STANDARDS.md` §9). The voxel
+//! assets (`crate::assets`) share the asset root and the error type defined here.
 
 mod scene;
 
@@ -37,6 +38,11 @@ pub fn scene_config_path(asset_root: &Path) -> PathBuf {
     asset_root.join("layout").join("scene_config.json")
 }
 
+/// Location of `station_scene.json` under an asset root.
+pub fn station_scene_path(asset_root: &Path) -> PathBuf {
+    asset_root.join("voxels").join("station_scene.json")
+}
+
 /// Reads and validates `scene_config.json`.
 pub fn load_scene_config(path: &Path) -> Result<SceneConfig, ConfigError> {
     let text = std::fs::read_to_string(path).map_err(|source| ConfigError::Read {
@@ -46,7 +52,29 @@ pub fn load_scene_config(path: &Path) -> Result<SceneConfig, ConfigError> {
     SceneConfig::from_json(&text, path)
 }
 
-/// Why a configuration file was rejected.
+/// Rejects a file whose `format` is not `expected`, before the rest of it is parsed, so a file from
+/// another version is reported as such and not as a confusing schema error.
+pub fn check_format(text: &str, path: &Path, expected: &'static str) -> Result<(), ConfigError> {
+    #[derive(serde::Deserialize)]
+    struct FormatProbe {
+        format: String,
+    }
+    let probe: FormatProbe = serde_json::from_str(text).map_err(|source| ConfigError::Parse {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    if probe.format == expected {
+        Ok(())
+    } else {
+        Err(ConfigError::UnsupportedFormat {
+            path: path.to_path_buf(),
+            found: probe.format,
+            expected,
+        })
+    }
+}
+
+/// Why a configuration or asset file was rejected.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("cannot read {}: {source}", path.display())]
@@ -156,7 +184,8 @@ mod tests {
     }
 
     #[test]
-    fn default_asset_root_holds_the_scene_config() {
+    fn default_asset_root_holds_the_scene_files() {
         assert!(scene_config_path(&default_asset_root()).is_file());
+        assert!(station_scene_path(&default_asset_root()).is_file());
     }
 }

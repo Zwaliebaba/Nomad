@@ -3,6 +3,7 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
+use super::context::TargetFormat;
 use crate::camera::ViewTransform;
 use crate::config::{GridLineStyle, OpsGridConfig};
 
@@ -67,7 +68,7 @@ pub struct GridPass {
 }
 
 impl GridPass {
-    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &wgpu::Device, target: TargetFormat) -> Self {
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("grid uniforms"),
             contents: bytemuck::bytes_of(&GridUniforms::zeroed()),
@@ -97,14 +98,15 @@ impl GridPass {
             label: Some("grid.wgsl"),
             source: wgpu::ShaderSource::Wgsl(super::GRID_WGSL.into()),
         });
-        // Drawn over the background with premultiplied alpha. Voxels (M2) are opaque and drawn
-        // after it, so they cover the grid without a depth test here (doc 05 frame order 2–3).
+        // Drawn over the background with premultiplied alpha, testing nothing and writing no
+        // depth. The opaque voxels come after it and cover it, so the grid always lies behind and
+        // under the station, as in the reference (doc 05 frame order 2–3).
         let pipeline = super::fullscreen_pipeline(
             device,
             &pipeline_layout,
             &shader,
             "fs_grid",
-            format,
+            target,
             Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
             "grid",
         );

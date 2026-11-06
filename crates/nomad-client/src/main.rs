@@ -1,8 +1,9 @@
 //! Game client.
 //!
 //! Phase 1 implements the visual slice specified in `Design/phase1-visual-slice/`. This is
-//! milestone M1 (phase-1 doc 06): a `winit` window with a `wgpu` surface, the screen-space
-//! background, the infinite ops grid, and the snap-rotation camera with zoom and pan.
+//! milestone M2 (phase-1 doc 06): a `winit` window with a `wgpu` surface, the screen-space
+//! background, the infinite ops grid, the snap-rotation camera with zoom and pan (M1), and the
+//! station voxels from `station_scene.json`, greedy-meshed and shaded relative to the camera.
 //!
 //! ```text
 //! nomad-client [--size WxH] [--view N] [--zoom Z]
@@ -12,9 +13,11 @@
 //! `--screenshot` renders one frame offscreen, without a window, and writes a PNG.
 
 mod app;
+mod assets;
 mod camera;
 mod cli;
 mod config;
+mod mesh;
 mod render;
 mod screenshot;
 
@@ -25,6 +28,7 @@ use std::process::ExitCode;
 use glam::Vec2;
 use tracing_subscriber::EnvFilter;
 
+use assets::voxel::StationScene;
 use camera::{Camera, Projection};
 use cli::{Command, Options};
 use config::{ConfigError, SceneConfig};
@@ -85,13 +89,17 @@ fn init_tracing() {
 }
 
 fn run(options: &Options) -> Result<(), AppError> {
-    let config_path = config::scene_config_path(&config::asset_root());
+    let asset_root = config::asset_root();
+    let config_path = config::scene_config_path(&asset_root);
     tracing::info!(path = %config_path.display(), "loading scene config");
     let scene = config::load_scene_config(&config_path)?;
+    let station_path = config::station_scene_path(&asset_root);
+    tracing::info!(path = %station_path.display(), "loading station scene");
+    let station = assets::voxel::load_station_scene(&station_path)?;
     let camera = initial_camera(&scene, options)?;
     match &options.screenshot {
-        Some(path) => render_screenshot(&scene, &camera, options.size, path),
-        None => app::run(scene, camera, options.size),
+        Some(path) => render_screenshot(&scene, &station, &camera, options.size, path),
+        None => app::run(scene, station, camera, options.size),
     }
 }
 
@@ -122,13 +130,14 @@ fn initial_camera(scene: &SceneConfig, options: &Options) -> Result<Camera, AppE
 /// `--screenshot`: one frame offscreen, no window.
 fn render_screenshot(
     scene: &SceneConfig,
+    station: &StationScene,
     camera: &Camera,
     (width, height): (u32, u32),
     path: &Path,
 ) -> Result<(), AppError> {
     let gpu = Gpu::headless()?;
     gpu.check_size(width, height)?;
-    let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, scene);
+    let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, scene, station);
     let image = renderer.render_to_image(width, height, &camera.transform(), Layers::default())?;
     screenshot::save(path, &image)?;
     tracing::info!(

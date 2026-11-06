@@ -8,12 +8,22 @@
 //! alpha 0.05, look like the reference renders; blending in linear space would make them
 //! noticeably brighter. Revisit if bloom (M3) needs a linear intermediate target.
 //!
-//! MSAA and the depth buffer arrive with the voxel pass (M2); M1 draws only screen-space passes.
+//! # Depth and MSAA
+//!
+//! The scene pass renders into a 4× multisampled colour target with a depth buffer and resolves
+//! into the frame (doc 05: "use MSAA, not FXAA, on voxels"). Adapters that cannot multisample the
+//! frame format fall back to one sample, with a warning.
 
 use std::sync::Arc;
 
 use winit::event_loop::OwnedDisplayHandle;
 use winit::window::Window;
+
+/// Depth buffer format of the scene pass. 32-bit float is available on every backend, including
+/// the GLES fallback.
+pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+/// MSAA sample count of the scene pass (doc 05).
+pub const MSAA_SAMPLES: u32 = 4;
 
 /// Adapter, device and queue. (wgpu objects keep their instance alive.)
 pub struct Gpu {
@@ -84,6 +94,26 @@ impl Gpu {
         })
     }
 
+    /// [`MSAA_SAMPLES`] when the adapter can multisample both `color` and [`DEPTH_FORMAT`],
+    /// otherwise 1.
+    pub fn sample_count(&self, color: wgpu::TextureFormat) -> u32 {
+        let supported = [color, DEPTH_FORMAT].into_iter().all(|format| {
+            self.adapter
+                .get_texture_format_features(format)
+                .flags
+                .sample_count_supported(MSAA_SAMPLES)
+        });
+        if supported {
+            MSAA_SAMPLES
+        } else {
+            tracing::warn!(
+                ?color,
+                "the adapter cannot multisample the frame; rendering without MSAA"
+            );
+            1
+        }
+    }
+
     /// Rejects sizes above the device's 2D texture limit.
     pub fn check_size(&self, width: u32, height: u32) -> Result<(), GpuError> {
         let limit = self.device.limits().max_texture_dimension_2d;
@@ -95,6 +125,112 @@ impl Gpu {
             });
         }
         Ok(())
+    }
+}
+
+/// Formats and sample count shared by every pipeline of the scene pass.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TargetFormat {
+    pub color: wgpu::TextureFormat,
+    pub sample_count: u32,
+}
+
+impl TargetFormat {
+    pub fn multisample(self) -> wgpu::MultisampleState {
+        wgpu::MultisampleState {
+            count: self.sample_count,
+            ..Default::default()
+        }
+    }
+}
+
+/// Depth state for a pipeline of the scene pass. The screen-space passes (background, grid)
+/// neither test nor write depth: they are drawn first, behind everything (doc 05 frame order).
+pub fn depth_stencil(
+    write: bool,
+    compare: Option<wgpu::CompareFunction>,
+) -> wgpu::DepthStencilState {
+    wgpu::DepthStencilState {
+        format: DEPTH_FORMAT,
+        depth_write_enabled: Some(write),
+        depth_compare: compare,
+        stencil: wgpu::StencilState::default(),
+        bias: wgpu::DepthBiasState::default(),
+    }
+}
+
+/// The multisampled colour target (when MSAA is on) and the depth buffer for one frame size.
+pub struct FrameTargets {
+    size: (u32, u32),
+    msaa_color: Option<wgpu::TextureView>,
+    depth: wgpu::TextureView,
+}
+
+impl FrameTargets {
+    pub fn new(device: &wgpu::Device, format: TargetFormat, (width, height): (u32, u32)) -> Self {
+        // Both attachments share the pass's sample count.
+        let attachment = |label, texture_format| {
+            device
+                .create_texture(&wgpu::TextureDescriptor {
+                    label: Some(label),
+                    size: wgpu::Extent3d {
+                        width,
+                        height,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: format.sample_count,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: texture_format,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                })
+                .create_view(&wgpu::TextureViewDescriptor::default())
+        };
+        Self {
+            size: (width, height),
+            msaa_color: (format.sample_count > 1).then(|| attachment("msaa colour", format.color)),
+            depth: attachment("depth", DEPTH_FORMAT),
+        }
+    }
+
+    pub fn size(&self) -> (u32, u32) {
+        self.size
+    }
+
+    /// The colour attachment for `frame`: the MSAA target resolving into `frame`, or `frame`
+    /// itself without MSAA. Cleared to `clear`.
+    pub fn color_attachment<'a>(
+        &'a self,
+        frame: &'a wgpu::TextureView,
+        clear: wgpu::Color,
+    ) -> wgpu::RenderPassColorAttachment<'a> {
+        let (view, resolve_target, store) = match &self.msaa_color {
+            // The samples are not needed once resolved.
+            Some(msaa) => (msaa, Some(frame), wgpu::StoreOp::Discard),
+            None => (frame, None, wgpu::StoreOp::Store),
+        };
+        wgpu::RenderPassColorAttachment {
+            view,
+            depth_slice: None,
+            resolve_target,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(clear),
+                store,
+            },
+        }
+    }
+
+    /// The depth attachment, cleared to the far plane and discarded after the pass.
+    pub fn depth_attachment(&self) -> wgpu::RenderPassDepthStencilAttachment<'_> {
+        wgpu::RenderPassDepthStencilAttachment {
+            view: &self.depth,
+            depth_ops: Some(wgpu::Operations {
+                load: wgpu::LoadOp::Clear(1.0),
+                store: wgpu::StoreOp::Discard,
+            }),
+            stencil_ops: None,
+        }
     }
 }
 

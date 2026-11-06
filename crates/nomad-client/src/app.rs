@@ -15,6 +15,7 @@ use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 use crate::AppError;
+use crate::assets::voxel::StationScene;
 use crate::camera::{Camera, Turn, ZoomStep};
 use crate::config::SceneConfig;
 use crate::render::context::{Acquired, Gpu, WindowSurface};
@@ -37,11 +38,17 @@ const MAX_FRAME_DT_S: f32 = 0.1;
 const SKIPPED_FRAME_RETRY: Duration = Duration::from_millis(100);
 
 /// Opens the window and runs until it is closed.
-pub fn run(scene: SceneConfig, camera: Camera, size: (u32, u32)) -> Result<(), AppError> {
+pub fn run(
+    scene: SceneConfig,
+    station: StationScene,
+    camera: Camera,
+    size: (u32, u32),
+) -> Result<(), AppError> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Wait);
     let mut app = App {
         scene,
+        station,
         initial_camera: camera,
         size,
         running: None,
@@ -53,6 +60,7 @@ pub fn run(scene: SceneConfig, camera: Camera, size: (u32, u32)) -> Result<(), A
 
 struct App {
     scene: SceneConfig,
+    station: StationScene,
     initial_camera: Camera,
     size: (u32, u32),
     running: Option<Running>,
@@ -78,7 +86,7 @@ impl App {
             .with_inner_size(PhysicalSize::new(width, height));
         let window = Arc::new(event_loop.create_window(attributes)?);
         let (gpu, surface) = WindowSurface::create(&window, event_loop.owned_display_handle())?;
-        let renderer = Renderer::new(&gpu, surface.view_format(), &self.scene);
+        let renderer = Renderer::new(&gpu, surface.view_format(), &self.scene, &self.station);
         let mut camera = self.initial_camera.clone();
         let (w, h) = surface.size();
         camera.set_viewport(Vec2::new(w as f32, h as f32));

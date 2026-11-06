@@ -7,7 +7,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use super::{ConfigError, Rgb};
+use super::{ConfigError, Rgb, check_format};
 
 /// The one format version this build reads.
 pub const SCENE_CONFIG_FORMAT: &str = "voxel-rts/scene-config@1";
@@ -97,29 +97,14 @@ pub struct BackgroundConfig {
     pub color_edge: Rgb,
 }
 
-#[derive(Deserialize)]
-struct FormatProbe {
-    format: String,
-}
-
 impl SceneConfig {
     /// Parses and validates the JSON text of a scene config. `path` is used in error messages.
     pub fn from_json(text: &str, path: &Path) -> Result<Self, ConfigError> {
-        let parse_error = |source| ConfigError::Parse {
+        check_format(text, path, SCENE_CONFIG_FORMAT)?;
+        let config: Self = serde_json::from_str(text).map_err(|source| ConfigError::Parse {
             path: path.to_path_buf(),
             source,
-        };
-        // Check the version first so a file from another version is reported as such, not as a
-        // confusing schema error.
-        let probe: FormatProbe = serde_json::from_str(text).map_err(parse_error)?;
-        if probe.format != SCENE_CONFIG_FORMAT {
-            return Err(ConfigError::UnsupportedFormat {
-                path: path.to_path_buf(),
-                found: probe.format,
-                expected: SCENE_CONFIG_FORMAT,
-            });
-        }
-        let config: Self = serde_json::from_str(text).map_err(parse_error)?;
+        })?;
         config
             .validate()
             .map_err(|(field, reason)| ConfigError::Invalid {

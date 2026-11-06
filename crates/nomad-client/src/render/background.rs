@@ -10,6 +10,7 @@ use bytemuck::{Pod, Zeroable};
 use glam::Vec2;
 use wgpu::util::DeviceExt;
 
+use super::context::TargetFormat;
 use crate::config::{Rgb, SceneConfig};
 
 /// Gradient centre (35%, 25%) and middle stop 55% `#0c1322` (doc 01 §3). Radius 0.95 in canvas
@@ -190,7 +191,7 @@ impl BackgroundUniforms {
 }
 
 impl BackgroundPass {
-    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, config: &SceneConfig) -> Self {
+    pub fn new(device: &wgpu::Device, target: TargetFormat, config: &SceneConfig) -> Self {
         let [ref_w, ref_h] = config.reference_resolution;
         let reference_size = Vec2::new(ref_w as f32, ref_h as f32);
         let uniforms = BackgroundUniforms::new(config, reference_size);
@@ -229,12 +230,12 @@ impl BackgroundPass {
             &pipeline_layout,
             &shader,
             "fs_background",
-            format,
+            target,
             None,
             "background",
         );
 
-        let star_pipeline = star_pipeline(device, &pipeline_layout, &shader, format);
+        let star_pipeline = star_pipeline(device, &pipeline_layout, &shader, target);
         let stars = generate_stars(reference_size);
         let star_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("stars"),
@@ -279,7 +280,7 @@ fn star_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
     shader: &wgpu::ShaderModule,
-    format: wgpu::TextureFormat,
+    target: TargetFormat,
 ) -> wgpu::RenderPipeline {
     let attributes = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32, 2 => Float32];
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -296,14 +297,14 @@ fn star_pipeline(
             })],
         },
         primitive: wgpu::PrimitiveState::default(),
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
+        depth_stencil: Some(super::context::depth_stencil(false, None)),
+        multisample: target.multisample(),
         fragment: Some(wgpu::FragmentState {
             module: shader,
             entry_point: Some("fs_star"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             targets: &[Some(wgpu::ColorTargetState {
-                format,
+                format: target.color,
                 blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::ALL,
             })],

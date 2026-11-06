@@ -38,7 +38,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
 ```
 
-Run the phase-1 client (milestone M1: window, background, infinite ops grid and camera):
+Run the phase-1 client (milestones M1 and M2: window, background, infinite ops grid, camera and the station voxels):
 
 ```bash
 cargo run -p nomad-client                      # 1920x1080 window
