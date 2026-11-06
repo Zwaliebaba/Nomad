@@ -1,5 +1,6 @@
 //! Kinds of galaxy object (Design doc 10 §4; D-042, D-043). Galaxy topology is public
-//! (D-044, doc 16 §2), so clients receive these.
+//! (D-044, doc 16 §2), so clients receive these. Which kinds can be claimed is a rule and
+//! lives in `nomad-sim` (D-086).
 
 use serde::{Deserialize, Serialize};
 
@@ -14,14 +15,6 @@ pub enum SystemKind {
     Hub,
     /// NPC raiders operate from here. Not claimable in the MVP and not counted for control.
     RaiderHaven,
-}
-
-impl SystemKind {
-    /// Whether commanders can claim sites here and the system counts for control
-    /// (doc 10 §4.1, §6).
-    pub const fn is_claimable(self) -> bool {
-        !matches!(self, Self::RaiderHaven)
-    }
 }
 
 /// The kinds of lane between gates (doc 10 §4.2).

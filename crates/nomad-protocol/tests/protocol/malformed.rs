@@ -8,10 +8,10 @@ use nomad_protocol::{
     MAX_SERVER_FRAME_LEN, MalformedBody, PROTOCOL_VERSION, ProtocolError, ServerMessage,
     WireMessage, check_version, decode_body, decode_frame, encode_frame, hello_protocol,
 };
-use nomad_types::{Command, FleetId, FleetOrder};
+use nomad_types::{Command, FleetId, FleetOrder, Queueing};
 
 use crate::round_trip::frame;
-use crate::samples::{client_messages, id, point, server_messages};
+use crate::samples::{at, client_messages, id, server_messages};
 
 /// A frame with the given body, whatever it contains.
 fn raw_frame(body: &[u8]) -> Vec<u8> {
@@ -140,14 +140,15 @@ fn oversized_frames_are_rejected() {
 
 #[test]
 fn oversized_messages_are_not_encoded() {
-    // 5,000 waypoints of 16 bytes do not fit in a 64 KiB client frame.
+    // 5,000 waypoints of 17 bytes do not fit in a 64 KiB client frame.
     let message = ClientMessage::Command {
         client_seq: 1,
         command: Command::Fleet {
             fleet: FleetId(id(1)),
             order: FleetOrder::Patrol {
-                route: vec![point(1.0, 2.0); 5_000],
+                route: vec![at(2, 1.0, 2.0); 5_000],
             },
+            queue: Queueing::Replace,
         },
     };
     let mut out = vec![1, 2, 3];

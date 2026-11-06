@@ -13,9 +13,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use nomad_types::{
-    CommanderId, ControlState, LaneKind, PositionMetres, SimId, SystemId, SystemKind, Tick,
-};
+use nomad_types::{ControlState, LaneKind, Location, Owner, SimId, SystemId, SystemKind, Tick};
 use serde::{Deserialize, Serialize};
 
 /// One collection of the view, keyed by identity.
@@ -67,8 +65,9 @@ pub struct EntityChanges {
 pub struct EntityEntry {
     /// What it is.
     pub kind: EntityKind,
-    /// Its owner, if it has one. Ownership of holdings is public (D-044).
-    pub owner: Option<CommanderId>,
+    /// Its owner, if it has one: a commander or an NPC faction (D-014). Ownership of
+    /// holdings is public (D-044).
+    pub owner: Option<Owner>,
     /// Where it is, if it has a place in a system frame. Sectors, systems and lanes have
     /// none, and neither does a fleet in lane transit (doc 16 §4).
     pub location: Option<Location>,
@@ -93,13 +92,4 @@ pub enum EntityKind {
     Holding,
     /// A fleet (doc 15 §3.4).
     Fleet,
-}
-
-/// A place in a system: which system, and where in its frame (doc 10 §8).
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Location {
-    /// The system.
-    pub system: SystemId,
-    /// The point in the system frame, in metres (D-099 item 2).
-    pub position: PositionMetres,
 }

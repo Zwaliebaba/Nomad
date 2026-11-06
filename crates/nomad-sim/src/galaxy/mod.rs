@@ -21,7 +21,10 @@ mod deposit;
 mod generate;
 mod validate;
 
-pub use deposit::{Deposit, DepositKind, DepositValue, MAX_DEPOSITS_PER_SITE, Richness};
+pub use deposit::{
+    Deposit, DepositKind, DepositValue, MAX_DEPOSITS_PER_SITE, Richness, base_value, deposit_value,
+    richness_per_mille,
+};
 pub use generate::{GenerationError, STAGE1_COMMANDERS, generate_stage1, stage1_sites};
 pub use validate::{
     GalaxyReport, InvariantLimits, SectorReport, Violation, WorstTrip, allowed_gates,
@@ -68,6 +71,12 @@ impl PositionKm {
     }
 }
 
+/// Whether commanders can claim sites in a system of `kind` and the system counts for
+/// control (doc 10 §4.1, §6): every kind except raider havens.
+pub const fn is_claimable(kind: SystemKind) -> bool {
+    !matches!(kind, SystemKind::RaiderHaven)
+}
+
 /// A cluster of systems (doc 10 §2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sector {
@@ -102,7 +111,7 @@ pub struct Site {
 impl Site {
     /// The total value of its deposits (D-066).
     pub fn value(&self) -> DepositValue {
-        self.deposits.iter().map(|d| d.value()).sum()
+        self.deposits.iter().copied().map(deposit_value).sum()
     }
 }
 

@@ -4,8 +4,12 @@
 //! richness, and never runs out: deposits limit the extraction rate, not a quantity. Deposit
 //! kinds and richness are public (D-044, doc 16 §2), and so is the value derived from them.
 //! Deposit value feeds doc 10 invariant 5 (balanced home neighbourhoods) and the D-041
-//! season tie-break. Harvesting and extraction rates are doc 14 §6 and belong to the
-//! simulation.
+//! season tie-break.
+//!
+//! Only the data lives here. The value table (ore 1, crystal 3, richness ×0.5/×1/×1.5) is a
+//! game rule and lives in `nomad-sim`, which computes [`DepositValue`]s (D-086: the client
+//! links no rules). Harvesting and extraction rates are doc 14 §6 and belong to the
+//! simulation too.
 
 use std::fmt;
 use std::iter::Sum;
@@ -22,18 +26,8 @@ pub enum DepositKind {
     CrystalVein,
 }
 
-impl DepositKind {
-    /// Value of a standard deposit of this kind: ore 1, crystal 3 (D-066).
-    pub const fn base_value(self) -> u64 {
-        match self {
-            Self::OreField => 1,
-            Self::CrystalVein => 3,
-        }
-    }
-}
-
-/// How rich a deposit is (D-066). Stored as an enum; the multiplier is an integer per-mille,
-/// so no floating point enters values or, later, rates (D-049).
+/// How rich a deposit is (D-066). Stored as an enum; the simulation turns it into an integer
+/// per-mille multiplier, so no floating point enters values or, later, rates (D-049).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Richness {
     /// ×0.5.
@@ -42,17 +36,6 @@ pub enum Richness {
     Standard,
     /// ×1.5.
     Rich,
-}
-
-impl Richness {
-    /// The richness multiplier in thousandths: 500, 1,000 or 1,500.
-    pub const fn per_mille(self) -> u64 {
-        match self {
-            Self::Poor => 500,
-            Self::Standard => 1_000,
-            Self::Rich => 1_500,
-        }
-    }
 }
 
 /// One deposit on a site.
@@ -79,11 +62,6 @@ impl Deposit {
             kind: DepositKind::CrystalVein,
             richness,
         }
-    }
-
-    /// Its value: base value × richness (D-066).
-    pub const fn value(self) -> DepositValue {
-        DepositValue(self.kind.base_value() * self.richness.per_mille())
     }
 }
 
@@ -142,23 +120,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn values_follow_d066() {
-        assert_eq!(Deposit::ore(Richness::Poor).value().milli(), 500);
-        assert_eq!(Deposit::ore(Richness::Standard).value().milli(), 1_000);
-        assert_eq!(Deposit::ore(Richness::Rich).value().milli(), 1_500);
-        assert_eq!(Deposit::crystal(Richness::Poor).value().milli(), 1_500);
-        assert_eq!(Deposit::crystal(Richness::Standard).value().milli(), 3_000);
-        assert_eq!(Deposit::crystal(Richness::Rich).value().milli(), 4_500);
-    }
-
-    #[test]
     fn values_add_and_display() {
         let total: DepositValue = [
-            Deposit::ore(Richness::Poor),
-            Deposit::crystal(Richness::Rich),
+            DepositValue::from_milli(500),
+            DepositValue::from_milli(4_500),
         ]
         .into_iter()
-        .map(Deposit::value)
         .sum();
         assert_eq!(total, DepositValue::from_milli(5_000));
         assert_eq!(total.to_string(), "5");

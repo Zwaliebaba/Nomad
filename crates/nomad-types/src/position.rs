@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::id::SystemId;
+
 /// A point in a star system's frame, in metres: 2D, origin at the star, +x towards system
 /// east, +y towards system north (doc 10 §8).
 ///
@@ -32,6 +34,19 @@ impl PositionMetres {
     pub const fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite()
     }
+}
+
+/// A place in a system: which system, and where in its frame (doc 10 §8).
+///
+/// Used wherever a point must not be read in the wrong system: entity locations in the view,
+/// and the targets of Move, Attack-move and Patrol orders, so that an order queued behind a
+/// jump cannot apply in the system the fleet left (S3 plan §6 task 0).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Location {
+    /// The system.
+    pub system: SystemId,
+    /// The point in the system frame, in metres (D-099 item 2).
+    pub position: PositionMetres,
 }
 
 #[cfg(test)]

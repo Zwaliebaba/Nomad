@@ -10,8 +10,8 @@ use nomad_protocol::{
 use nomad_types::Command;
 
 use crate::samples::{
-    CLIENT_VARIANTS, ORDER_VARIANTS, SERVER_VARIANTS, client_messages, client_variant,
-    fleet_orders, order_variant, server_messages, server_variant,
+    CLIENT_VARIANTS, COMMAND_VARIANTS, ORDER_VARIANTS, SERVER_VARIANTS, client_messages,
+    client_variant, command_variant, fleet_orders, order_variant, server_messages, server_variant,
 };
 
 pub fn frame<M: WireMessage>(message: &M) -> Vec<u8> {
@@ -78,6 +78,15 @@ fn samples_cover_every_variant() {
         })
         .collect::<BTreeSet<_>>();
     assert_eq!(commanded, orders);
+    // And every kind of command.
+    let commands = client_messages()
+        .iter()
+        .filter_map(|m| match m {
+            ClientMessage::Command { command, .. } => Some(command_variant(command)),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(commands, (0..COMMAND_VARIANTS).collect());
 }
 
 #[test]

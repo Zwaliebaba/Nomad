@@ -18,7 +18,8 @@
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
 //! `ControlState`) live in `nomad-types`, so that the protocol and the client can use them
 //! without depending on this crate (D-086, Design doc 20 §3). They are re-exported here
-//! under their old paths.
+//! under their old paths. `nomad-types` holds data only: the rules that derive control
+//! states and deposit values, and which systems can be claimed, are here.
 //!
 //! **Determinism contract (D-049):** the same build, the same snapshot and the same inputs
 //! produce bit-identical state. This crate reads no clock, does no I/O and starts no threads
@@ -46,7 +47,9 @@ pub use galaxy::{
     Galaxy, GateId, Lane, LaneId, LaneKind, PositionKm, SectorId, Site, SiteId, System, SystemId,
     SystemKind,
 };
-pub use holding::{ControlState, Holding, HoldingError, HoldingId, majority_threshold};
+pub use holding::{
+    ControlState, Holding, HoldingError, HoldingId, control_from_counts, majority_threshold,
+};
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 pub use rng::{RngStreams, StreamKey, purpose};

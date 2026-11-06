@@ -33,7 +33,7 @@ use thiserror::Error;
 
 use crate::galaxy::{
     DepositValue, Galaxy, GateId, LaneId, LaneKind, MAX_DEPOSITS_PER_SITE, PositionKm, SectorId,
-    SiteId, SystemId, SystemKind,
+    SiteId, SystemId, SystemKind, is_claimable,
 };
 use crate::id::SimId;
 use crate::time::{TICKS_PER_SECOND, Ticks};
@@ -593,7 +593,7 @@ fn check_sector(
     let candidates: Vec<SystemId> = systems
         .iter()
         .copied()
-        .filter(|&id| galaxy.system(id).is_some_and(|s| s.kind.is_claimable()))
+        .filter(|&id| galaxy.system(id).is_some_and(|s| is_claimable(s.kind)))
         .collect();
     let dead_ends = candidates
         .iter()
