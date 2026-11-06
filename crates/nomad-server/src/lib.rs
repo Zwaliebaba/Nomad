@@ -36,6 +36,7 @@ mod journal;
 mod paths;
 mod persist;
 mod recovery;
+mod reject;
 mod retention;
 mod server;
 mod sim;
@@ -55,6 +56,7 @@ pub use ids::{
 };
 pub use paths::{DATA_DIR_ENV, DATABASE_FILE, DataDir, LOCK_FILE, UniverseLock};
 pub use recovery::{CheckpointMismatch, ReplayCheck};
+pub use reject::wire_reason;
 pub use retention::{
     HOURLY_WINDOW, JOURNAL_WINDOW, KEEP_LATEST, RetentionPlan, plan as retention_plan,
 };

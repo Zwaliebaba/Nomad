@@ -14,7 +14,8 @@
 //!   [`DepositKind`], [`Richness`], [`DepositValue`]) and [`ControlState`];
 //! - the shape of [`Command`]s (doc 15 §3.4), shared by the protocol and the simulation's
 //!   validator, including economy commands and module shapes ([`EconomyCommand`],
-//!   [`ModuleKind`], [`Slot`], [`BuildItem`], [`PowerProfile`]; doc 14).
+//!   [`ModuleKind`], [`Slot`], [`BuildItem`], [`PowerProfile`]; doc 14), and the reasons a
+//!   refused command reports to the client ([`InvalidReason`], D-123).
 //!
 //! **Data only (D-086):** this crate holds shapes, not rules. How a control state or a
 //! deposit value is derived, which systems can be claimed and what a command may do are
@@ -30,6 +31,7 @@ mod economy;
 mod galaxy;
 mod id;
 mod position;
+mod rejection;
 mod ship;
 mod time;
 
@@ -43,5 +45,6 @@ pub use id::{
     SiteId, SystemId, UniverseId,
 };
 pub use position::{Location, PositionMetres};
+pub use rejection::InvalidReason;
 pub use ship::ShipClass;
 pub use time::{SeasonClock, TICK_MILLIS, TICKS_PER_SECOND, Tick, Ticks};

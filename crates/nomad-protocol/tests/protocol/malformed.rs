@@ -100,7 +100,7 @@ fn assert_oversized_header_rejected<M: WireMessage + Debug>(len: u32) {
         expected
     );
     // The framing is lost for good: later input is ignored and the error repeats.
-    decoder.push(&frame(&ClientMessage::Ping));
+    decoder.push(&frame(&ClientMessage::Ping { nonce: 7 }));
     assert_eq!(decoder.buffered_len(), 0);
     assert_eq!(
         decoder.next_message().expect_err("the input is rejected"),
@@ -202,7 +202,7 @@ fn malformed_bodies_are_rejected() {
         MalformedBody::Decode(Postcard::DeserializeBadVarint)
     );
     // Ping followed by a stray byte in the same frame.
-    let mut body = frame(&ClientMessage::Ping)[HEADER_LEN..].to_vec();
+    let mut body = frame(&ClientMessage::Ping { nonce: 7 })[HEADER_LEN..].to_vec();
     body.push(0);
     assert_eq!(
         malformed::<ClientMessage>(&raw_frame(&body)),
@@ -218,12 +218,15 @@ fn malformed_bodies_are_rejected() {
 fn a_malformed_frame_does_not_desynchronise_the_stream() {
     let mut decoder = FrameDecoder::<ClientMessage>::new();
     decoder.push(&raw_frame(&[200, 1, 2, 3]));
-    decoder.push(&frame(&ClientMessage::Ping));
+    decoder.push(&frame(&ClientMessage::Ping { nonce: 7 }));
     assert!(matches!(
         decoder.next_message(),
         Err(ProtocolError::Malformed(MalformedBody::Decode(_)))
     ));
-    assert_eq!(decoder.next_message().unwrap(), Some(ClientMessage::Ping));
+    assert_eq!(
+        decoder.next_message().unwrap(),
+        Some(ClientMessage::Ping { nonce: 7 })
+    );
     assert_eq!(decoder.next_message().unwrap(), None);
     decoder.finish().unwrap();
 }
@@ -248,7 +251,7 @@ fn version_mismatch_is_detected() {
     assert_eq!(check_version(found).unwrap_err(), expected);
 
     // Anything other than a Hello is not a handshake.
-    let ping = &frame(&ClientMessage::Ping)[HEADER_LEN..];
+    let ping = &frame(&ClientMessage::Ping { nonce: 7 })[HEADER_LEN..];
     assert_eq!(
         hello_protocol(ping).unwrap_err(),
         ProtocolError::Malformed(MalformedBody::NotHello)
