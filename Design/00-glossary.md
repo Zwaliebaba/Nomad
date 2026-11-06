@@ -124,3 +124,16 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **In-system lane** | A route between gates and sites inside a system, where interception happens. |
 | **Controlled / Contested / Open** | System control states. *Controlled:* one commander holds a strict majority of the sites. *Contested:* no majority, and two or more owners. *Open:* no majority, and at most one owner. |
 | **Ops area** | The region (proposed radius 20 km) around a site where the tactical ops-grid view applies. |
+
+## Time and simulation (doc 11, proposed)
+
+| Term | Meaning |
+|---|---|
+| **Tick** | One 100 ms simulation step (10 Hz). Tick 0 is the season start. |
+| **Universe time** | UTC, computed from the tick. Used for calendar rules such as exposure windows and season end. |
+| **Deadline tick** | How every timer is stored: an absolute tick, never a countdown. |
+| **Rate group** | Systems that run below 10 Hz (2 Hz, 1 Hz, every 10 s, every 60 s), staggered across ticks. |
+| **SimId** | The stable, never-reused identity of a simulated object. Used for persistence, the protocol and ordering. |
+| **Snapshot / journal** | A full saved state every 5 min, plus an append-only log of external inputs flushed at least every second. |
+| **Catch-up** | Fast-forwarding the Universe after the server was down, until it reaches the wall clock again. |
+| **Freeze** | An operator tool for exceptional outages: shifts all deadlines by the outage instead of catching up. |

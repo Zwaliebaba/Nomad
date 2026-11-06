@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q40) on 2026-11-06.** Answers are recorded in `03-decision-log.md`, and the question is then marked ✅ here. The full original text of each question stays below for history. Recommendations are mine, and the owner is free to overrule them.
+Status: **Q1–Q40 answered on 2026-11-06. Open: Q41–Q44 from doc 11 (section I).** Answers are recorded in `03-decision-log.md`, and the question is then marked ✅ here. The full original text of each question stays below for history. Recommendations are mine, and the owner is free to overrule them.
 
 ## Answer summary
 
@@ -216,3 +216,17 @@ Also: should a commander's holdings come out of Reinforced at staggered times, s
 
 **✅ Q40 — Phase-1 shield arcs (doc 10 §8).** The pylons sit exactly on the sector boundaries in phase-1 doc 01 §6, not at the centres of their arcs.
 *Recommendation:* centre each arc on its pylon (N 180–270°, E 270–360°, S 0–90°, W 90–180°) and define grid north as azimuth 225°, which is screen-up in view 0. The siege scenario is unaffected. Also rename the camera clamp's "sector bounds" to "ops-area bounds".
+
+## I. Open (round 5, from `11-time-and-simulation.md`)
+
+**Q41 — Downtime and catch-up (doc 11 §7).** When the server starts after being down (in the MVP: whenever your PC was off), it fast-forwards through the missed time until it reaches the wall clock. Everyone is offline during catch-up, so the existing offline rules apply. NPC raiders start no new raids during catch-up. For exceptional long outages on a hosted server, an operator may freeze the Universe instead. This also confirms the provisional reading of D-036: whole-Universe fast-forward is allowed.
+*Recommendation:* adopt.
+
+**Q42 — Persistence (doc 11 §6, §8).** Full snapshots every 5 min and on clean shutdown, plus a journal of all inputs (player commands, connect and disconnect events, operator commands) flushed at least once per second. On a crash, at most about 1 s of commands is lost; recovery is snapshot, then journal replay, then catch-up. Server upgrades always go through a clean-shutdown snapshot.
+*Recommendation:* adopt.
+
+**Q43 — Determinism scope (doc 11 §5).** The same build, snapshot and journal produce bit-identical state. Stable `SimId`s; ordering by `SimId`; `f64` positions with the `libm` crate for transcendental functions; integer resources; seeded random streams per system and purpose; a determinism hash test in CI.
+*Recommendation:* adopt.
+
+**Q44 — Simulation crate boundary (doc 11 §9).** `nomad-sim` is a pure library (`step(state, inputs) -> outputs`) with no clock, I/O, threads or networking. The Deputy and the AI run inside the deterministic step. A later `nomad-server` owns time, the network, persistence and catch-up.
+*Recommendation:* adopt.
