@@ -31,7 +31,7 @@ Other documents own the rest: costs, production, power supply and the command ca
   - Everything inside the dome can be damaged **only during a Siege**.
 - **Scale:** 1 voxel ≈ 35 m, so the mother-station dome has a radius of about 1.26 km (doc 10 §8).
 
-*Proposed:* hull, shield points and damage are integers. Multipliers are integer percentages: `damage = base × multiplier / 100`, rounded down. This follows the same determinism reasoning as integer resources (D-049).
+*Agreed (D-052):* hull, shield points and damage are integers. Multipliers are integer percentages: `damage = base × multiplier / 100`, rounded down. This follows the same determinism reasoning as integer resources (D-049).
 
 ## 3. Ships and fleets
 
@@ -132,7 +132,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 
 ### 5.3 Turrets and abilities
 
-*Proposed.* Turrets are station modules with Turret-class weapons. They fire outward through the one-way dome ("TURRETS 4 · 2 FIRING"). Their number is limited by power and build area.
+*Agreed with doc 15 (round 6).* Turrets are station modules with Turret-class weapons. They fire outward through the one-way dome ("TURRETS 4 · 2 FIRING"). Their number is limited by power and build area.
 
 The phase-1 command card maps to these mechanics:
 
