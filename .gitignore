@@ -16,6 +16,10 @@
 # rustc will dump stack traces when hitting an internal compiler error to PWD
 rustc-ice-*.txt
 
+# Phase-1 fonts (JetBrains Mono, Rajdhani) are OFL and deliberately not bundled: download them
+# locally (phase-1 README, ground rule 4; AGENTS.md).
+/Design/phase1-visual-slice/assets/fonts/
+
 # Local F12 screenshots from nomad-client. Milestone screenshots are committed (phase-1 doc 06).
 /screenshots/*
 !/screenshots/milestones/
@@ -29,3 +33,6 @@ rustc-ice-*.txt
 
 # Claude Code agent worktrees (isolated checkouts, never committed)
 /.claude/worktrees/
+
+# Python bytecode from tools/
+__pycache__/

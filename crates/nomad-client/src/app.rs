@@ -15,11 +15,11 @@ use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 use crate::AppError;
-use crate::assets::voxel::StationScene;
+use crate::assets::SceneAssets;
 use crate::camera::{Camera, Turn, ZoomStep};
-use crate::config::SceneConfig;
+use crate::pick;
 use crate::render::context::{Acquired, Gpu, WindowSurface};
-use crate::render::{Layers, Renderer};
+use crate::render::{FrameInput, Layers, Renderer};
 use crate::screenshot;
 
 /// Window title: the working title (D-018).
@@ -34,20 +34,22 @@ const MAX_FRAME_DT_S: f32 = 0.1;
 /// spinning.
 const SKIPPED_FRAME_RETRY: Duration = Duration::from_millis(100);
 
-/// Opens the window and runs until it is closed.
+/// Opens the window and runs until it is closed. With `fullscreen` the window opens
+/// borderless fullscreen on the current monitor (D-108); `size` is then the window size F11
+/// returns to.
 pub fn run(
-    scene: SceneConfig,
-    station: StationScene,
+    assets: SceneAssets,
     camera: Camera,
     size: (u32, u32),
+    fullscreen: bool,
 ) -> Result<(), AppError> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Wait);
     let mut app = App {
-        scene,
-        station,
+        assets,
         initial_camera: camera,
         size,
+        fullscreen,
         running: None,
         error: None,
     };
@@ -56,10 +58,11 @@ pub fn run(
 }
 
 struct App {
-    scene: SceneConfig,
-    station: StationScene,
+    assets: SceneAssets,
     initial_camera: Camera,
     size: (u32, u32),
+    /// Open borderless fullscreen (D-108).
+    fullscreen: bool,
     running: Option<Running>,
     /// A fatal error raised inside the event loop, reported after it exits.
     error: Option<AppError>,
@@ -75,6 +78,8 @@ struct Running {
     /// Keyboard and edge-scroll pan speed, from `scene_config.json` (D-063).
     pan_speed_ref_px_per_s: f32,
     last_frame: Instant,
+    /// What the last frame drew besides the camera (the hovered module); F12 reuses it.
+    frame_input: FrameInput,
 }
 
 impl App {
@@ -82,10 +87,11 @@ impl App {
         let (width, height) = self.size;
         let attributes = Window::default_attributes()
             .with_title(WINDOW_TITLE)
-            .with_inner_size(PhysicalSize::new(width, height));
+            .with_inner_size(PhysicalSize::new(width, height))
+            .with_fullscreen(self.fullscreen.then_some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(attributes)?);
         let (gpu, surface) = WindowSurface::create(&window, event_loop.owned_display_handle())?;
-        let renderer = Renderer::new(&gpu, surface.view_format(), &self.scene, &self.station);
+        let renderer = Renderer::new(&gpu, surface.view_format(), &self.assets);
         let mut camera = self.initial_camera.clone();
         let (w, h) = surface.size();
         camera.set_viewport(Vec2::new(w as f32, h as f32));
@@ -96,8 +102,9 @@ impl App {
             renderer,
             camera,
             input: Input::default(),
-            pan_speed_ref_px_per_s: self.scene.camera.pan_speed_ref_px_per_s,
+            pan_speed_ref_px_per_s: self.assets.config.camera.pan_speed_ref_px_per_s,
             last_frame: Instant::now(),
+            frame_input: FrameInput::default(),
         })
     }
 }
@@ -170,7 +177,7 @@ impl ApplicationHandler for App {
                 };
                 running.wheel(steps);
             }
-            WindowEvent::RedrawRequested => match running.frame() {
+            WindowEvent::RedrawRequested => match running.frame(&self.assets) {
                 Ok(true) => running.window.request_redraw(),
                 Ok(false) => event_loop
                     .set_control_flow(ControlFlow::WaitUntil(Instant::now() + SKIPPED_FRAME_RETRY)),
@@ -227,9 +234,9 @@ impl Running {
         }
     }
 
-    /// Advances the camera and draws one frame. Returns whether a frame was presented; fails only
-    /// when the window surface is lost.
-    fn frame(&mut self) -> Result<bool, AppError> {
+    /// Advances the camera, picks the module under the cursor and draws one frame. Returns whether
+    /// a frame was presented; fails only when the window surface is lost.
+    fn frame(&mut self, assets: &SceneAssets) -> Result<bool, AppError> {
         let now = Instant::now();
         let dt_s = now
             .duration_since(self.last_frame)
@@ -248,11 +255,20 @@ impl Running {
                 .pan_screen_px(direction * self.pan_speed_ref_px_per_s * layout * dt_s);
         }
         self.camera.update(dt_s);
+        let view = self.camera.transform();
+        // Doc 06 M3: hover a module → highlight + ELEV tag. Picked against this frame's view, so
+        // the highlight follows turns, zooms and pans under a still cursor.
+        let hovered = self
+            .input
+            .cursor
+            .filter(|_| !self.input.unfocused)
+            .and_then(|cursor| pick::module_at(&assets.station, &view, cursor));
+        self.frame_input = FrameInput { hovered };
 
         match self.surface.acquire(&self.gpu) {
             Acquired::Frame(frame, target) => {
                 self.renderer
-                    .render(&target, &self.camera.transform(), Layers::default());
+                    .render(&target, &view, Layers::default(), self.frame_input);
                 self.window.pre_present_notify();
                 self.gpu.queue.present(frame);
                 Ok(true)
@@ -267,7 +283,7 @@ impl Running {
         let view = self.camera.transform();
         match self
             .renderer
-            .render_to_image(w, h, &view, Layers::default())
+            .render_to_image(w, h, &view, Layers::default(), self.frame_input)
         {
             Ok(image) => {
                 let path = screenshot::next_path();

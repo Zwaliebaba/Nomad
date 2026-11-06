@@ -6,40 +6,60 @@
 //! With `--galaxy` it instead generates the MVP stage-1 sector for the seed and prints a
 //! summary of it (Design doc 10 §4.4).
 //!
+//! With `--fleets` it runs the fleet demo instead (S3 plan §6 task 11): the four stage-1
+//! start kits under scripted and seeded random orders, by default for 6 simulated hours,
+//! reporting commands, jumps, docking, a consistency check and the tick time.
+//!
+//! `--rules PATH` replaces the rules embedded in the build with another rules file, for
+//! tuning runs (D-104). The Universe keeps the rules it was created with.
+//!
 //! ```text
 //! nomad-harness [--seed N] [--ticks N] [--diagnostics N] [--mean-interval-secs N] [--restore-at N]
-//! nomad-harness --galaxy [--seed N]
+//!               [--rules PATH]
+//! nomad-harness --galaxy [--seed N] [--rules PATH]
+//! nomad-harness --fleets [--seed N] [--hours N | --ticks N] [--order-interval-secs N]
+//!               [--restore-at N] [--rules PATH]
 //! ```
 
+mod fleets;
 mod galaxy;
 
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
 
 use nomad_sim::snapshot::{decode, encode, state_hash};
 use nomad_sim::{
-    OperatorInput, SeasonConfig, TICKS_PER_SECOND, TickInputs, Ticks, UniverseState, step,
+    OperatorInput, Rules, SeasonConfig, TICKS_PER_SECOND, TickInputs, Ticks, UniverseState, step,
 };
 
 struct Args {
     seed: u64,
-    ticks: u64,
+    ticks: Option<u64>,
+    hours: u64,
+    order_interval_secs: u64,
+    fleets: bool,
     diagnostics: u32,
     mean_interval_secs: u64,
     restore_at: Option<u64>,
     galaxy: bool,
+    rules: Option<PathBuf>,
 }
 
 impl Default for Args {
     fn default() -> Self {
         Self {
             seed: 1,
-            ticks: 36_000, // one hour of Universe time
+            ticks: None,
+            hours: 6,
+            order_interval_secs: 60,
+            fleets: false,
             diagnostics: 10_000,
             mean_interval_secs: 10,
             restore_at: None,
             galaxy: false,
+            rules: None,
         }
     }
 }
@@ -51,16 +71,22 @@ fn parse_args() -> Result<Args, String> {
         let mut value = || it.next().ok_or_else(|| format!("{flag} needs a value"));
         match flag.as_str() {
             "--seed" => args.seed = parse(&value()?)?,
-            "--ticks" => args.ticks = parse(&value()?)?,
+            "--ticks" => args.ticks = Some(parse(&value()?)?),
+            "--hours" => args.hours = parse(&value()?)?,
+            "--order-interval-secs" => args.order_interval_secs = parse(&value()?)?,
+            "--fleets" => args.fleets = true,
             "--diagnostics" => args.diagnostics = parse(&value()?)?,
             "--mean-interval-secs" => args.mean_interval_secs = parse(&value()?)?,
             "--restore-at" => args.restore_at = Some(parse(&value()?)?),
             "--galaxy" => args.galaxy = true,
+            "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--help" | "-h" => {
                 return Err(
                     "usage: nomad-harness [--seed N] [--ticks N] [--diagnostics N] \
-                            [--mean-interval-secs N] [--restore-at N]\n       \
-                     nomad-harness --galaxy [--seed N]"
+                            [--mean-interval-secs N] [--restore-at N] [--rules PATH]\n       \
+                     nomad-harness --galaxy [--seed N] [--rules PATH]\n       \
+                     nomad-harness --fleets [--seed N] [--hours N | --ticks N] \
+                            [--order-interval-secs N] [--restore-at N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -75,15 +101,45 @@ fn parse<T: std::str::FromStr>(text: &str) -> Result<T, String> {
         .map_err(|_| format!("not a valid number: {text}"))
 }
 
+/// The embedded rules, or the rules file given with `--rules` (D-104).
+fn load_rules(path: Option<&PathBuf>) -> Result<Rules, String> {
+    let Some(path) = path else {
+        return Ok(Rules::embedded());
+    };
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read rules file {}: {e}", path.display()))?;
+    Rules::from_json(&text).map_err(|e| format!("{}: {e}", path.display()))
+}
+
 fn run() -> Result<(), String> {
     let args = parse_args()?;
+    let rules = load_rules(args.rules.as_ref())?;
     if args.galaxy {
-        return galaxy::print(&mut io::stdout().lock(), args.seed);
+        return galaxy::print(&mut io::stdout().lock(), args.seed, rules);
     }
-    let mut state = UniverseState::new(SeasonConfig {
-        seed: args.seed,
-        season_start_unix_ms: 0,
-    });
+    if args.fleets {
+        let hours = Ticks::from_hours(args.hours).get();
+        return fleets::run(
+            &mut io::stdout().lock(),
+            fleets::FleetRun {
+                seed: args.seed,
+                ticks: args.ticks.unwrap_or(hours),
+                order_interval_secs: args.order_interval_secs,
+                restore_at: args.restore_at,
+                rules,
+            },
+        );
+    }
+    // One hour of Universe time by default.
+    let ticks = args.ticks.unwrap_or(36_000);
+    let mut state = UniverseState::with_rules(
+        SeasonConfig {
+            seed: args.seed,
+            season_start_unix_ms: 0,
+        },
+        rules,
+    )
+    .map_err(|e| e.to_string())?;
     let spawn = TickInputs {
         operator: vec![OperatorInput::SpawnDiagnostics {
             count: args.diagnostics,
@@ -94,7 +150,7 @@ fn run() -> Result<(), String> {
 
     let started = Instant::now();
     let mut fired: u64 = 0;
-    for t in 0..args.ticks {
+    for t in 0..ticks {
         if Some(t) == args.restore_at {
             let bytes = encode(&state).map_err(|e| e.to_string())?;
             state = decode(&bytes).map_err(|e| e.to_string())?;
@@ -109,7 +165,7 @@ fn run() -> Result<(), String> {
     let elapsed = started.elapsed().as_secs_f64();
 
     let hash = state_hash(&state).map_err(|e| e.to_string())?;
-    let universe_secs = args.ticks as f64 / TICKS_PER_SECOND as f64;
+    let universe_secs = ticks as f64 / TICKS_PER_SECOND as f64;
     let speed = if elapsed > 0.0 {
         universe_secs / elapsed
     } else {
@@ -119,7 +175,7 @@ fn run() -> Result<(), String> {
         io::stdout(),
         "ticks {} | universe time {:.1} h | timers fired {fired} | hash {hash:016x} | \
          elapsed {elapsed:.3} s | speed {speed:.0}x real time",
-        args.ticks,
+        ticks,
         universe_secs / 3_600.0,
     )
     .map_err(|e| e.to_string())

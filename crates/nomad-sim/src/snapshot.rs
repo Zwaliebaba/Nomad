@@ -6,6 +6,7 @@
 
 use thiserror::Error;
 
+use crate::rules::RulesError;
 use crate::state::UniverseState;
 use crate::util::fnv1a64;
 
@@ -14,9 +15,17 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// The snapshot schema version this build writes and reads. Newer builds migrate older
 /// versions forward (Design doc 11 §8).
 ///
-/// Version 2 adds the season galaxy and holdings (Design doc 10). Version 1 was never
-/// persisted outside tests, so there is nothing to migrate from.
-pub const FORMAT: u32 = 2;
+/// Version history. None of these was persisted outside tests, so there is nothing to migrate
+/// from; until milestone β a new version simply rejects older snapshots (D-099 item 9):
+///
+/// - 2: the season galaxy and holdings (Design doc 10);
+/// - 3: the catch-up mode (doc 11 §7, D-047; N2 plan §4.5);
+/// - 4: the season's rules, copied into the Universe at creation (D-104);
+/// - 5: galaxy positions in metres instead of km (D-099 item 2);
+/// - 6: ships and fleets as canonical entity tables, the jump-transit queue, mother-station
+///   and dry-dock fields on holdings, and the rules without the separation response time
+///   (S3 plan §4.2).
+pub const FORMAT: u32 = 6;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]
@@ -41,6 +50,10 @@ pub enum SnapshotError {
     /// Deserialisation failed.
     #[error("snapshot decoding failed: {0}")]
     Decode(postcard::Error),
+    /// The rules stored in the snapshot are out of range (D-104). A snapshot comes from
+    /// outside the process, so its rules are checked like a rules file.
+    #[error("snapshot rules are invalid: {0}")]
+    InvalidRules(#[source] RulesError),
 }
 
 /// Encodes the full Universe state.
@@ -68,7 +81,9 @@ pub fn decode(bytes: &[u8]) -> Result<UniverseState, SnapshotError> {
             expected: FORMAT,
         });
     }
-    let (state, remaining) = postcard::take_from_bytes(body).map_err(SnapshotError::Decode)?;
+    let (state, remaining): (UniverseState, _) =
+        postcard::take_from_bytes(body).map_err(SnapshotError::Decode)?;
+    state.rules.check().map_err(SnapshotError::InvalidRules)?;
     if remaining.is_empty() {
         Ok(state)
     } else {
@@ -122,6 +137,21 @@ mod tests {
     }
 
     #[test]
+    fn catch_up_mode_survives_a_round_trip() {
+        let mut state = universe();
+        step(
+            &mut state,
+            &TickInputs {
+                operator: vec![crate::OperatorInput::CatchUpStart],
+                commanders: vec![],
+            },
+        );
+        let decoded = decode(&encode(&state).unwrap()).unwrap();
+        assert!(decoded.catching_up());
+        assert_eq!(decoded, state);
+    }
+
+    #[test]
     fn rejects_foreign_and_future_snapshots() {
         assert!(matches!(decode(b"garbage"), Err(SnapshotError::BadMagic)));
         let mut bytes = encode(&universe()).unwrap();
@@ -140,6 +170,33 @@ mod tests {
         assert!(matches!(
             decode(&bytes),
             Err(SnapshotError::TrailingBytes(1))
+        ));
+    }
+
+    #[test]
+    fn a_universe_keeps_its_rules() {
+        let mut rules = crate::Rules::embedded();
+        rules.movement.formation_spacing_m = 200.0;
+        let state = UniverseState::with_rules(universe().season(), rules.clone()).unwrap();
+        let decoded = decode(&encode(&state).unwrap()).unwrap();
+        assert_eq!(decoded.rules(), &rules);
+        assert_ne!(decoded.rules(), universe().rules());
+        assert!(
+            UniverseState::with_rules(universe().season(), {
+                rules.gates.jump_range_m = 0.0;
+                rules
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn rejects_snapshots_with_invalid_rules() {
+        let mut state = universe();
+        state.rules.ship_classes.clear();
+        assert!(matches!(
+            decode(&encode(&state).unwrap()),
+            Err(SnapshotError::InvalidRules(_))
         ));
     }
 

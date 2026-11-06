@@ -67,6 +67,13 @@ impl<T> TimerQueue<T> {
         self.deadline_of.get(&id).copied()
     }
 
+    /// Every pending timer's deadline and payload, in firing order.
+    pub fn pending(&self) -> impl Iterator<Item = (Tick, &T)> {
+        self.by_deadline
+            .iter()
+            .map(|(&(deadline, _), payload)| (deadline, payload))
+    }
+
     /// Number of pending timers.
     pub fn len(&self) -> usize {
         self.by_deadline.len()

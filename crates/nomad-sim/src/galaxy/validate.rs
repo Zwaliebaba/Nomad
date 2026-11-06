@@ -14,7 +14,9 @@
 //! - **Invariant 1:** the galaxy is connected, and each sector's internal graph has a cycle.
 //! - **Invariant 2:** sector diameter of at most 4 jumps.
 //! - **Invariant 3:** the worst-case trip between two sites of a sector takes at most 6 h for
-//!   the slowest warship class: straight in-system legs at cruise speed plus lane transits.
+//!   the slowest commander warship, the WARDEN (D-099 item 5): straight in-system legs, at
+//!   tactical speed inside the origin and destination ops areas and at cruise speed
+//!   elsewhere, plus a 5 s spool-up and the transit for every jump (D-099 item 4).
 //! - **Invariant 4:** home systems at least 2 jumps apart.
 //! - **Invariant 5:** every home neighbourhood (the home and all systems within 2 jumps) has
 //!   a total deposit value within ±10 % of every other home's, with the D-066 values
@@ -32,14 +34,17 @@ use std::ops::RangeInclusive;
 use thiserror::Error;
 
 use crate::galaxy::{
-    DepositValue, Galaxy, GateId, LaneId, LaneKind, MAX_DEPOSITS_PER_SITE, PositionKm, SectorId,
-    SiteId, SystemId, SystemKind,
+    DepositValue, Galaxy, GateId, LaneId, LaneKind, MAX_DEPOSITS_PER_SITE, PositionMetres,
+    SectorId, SiteId, SystemId, SystemKind, is_claimable,
 };
+use crate::geometry::distance_m;
 use crate::id::SimId;
+use crate::rules::Rules;
 use crate::time::{TICKS_PER_SECOND, Ticks};
 
 /// The limits the validator checks against. [`Default`] gives the agreed starting values
-/// (D-043), which the pacing simulation may tune (D-037).
+/// (D-043) with the speeds of the embedded rules; [`InvariantLimits::from_rules`] takes them
+/// from a season's rules, which the pacing simulation may tune (D-037, D-104).
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvariantLimits {
     /// Invariant 2: maximum sector diameter.
@@ -50,13 +55,19 @@ pub struct InvariantLimits {
     pub min_home_separation_jumps: u32,
     /// Invariant 6: maximum share of dead ends among systems that are not raider havens.
     pub max_dead_end_percent: u32,
-    /// Cruise speed of the slowest warship class, for invariant 3 and in-system trips. The
-    /// WARDEN frigate's 500 m/s is a doc 15 §12 starting value.
+    /// Cruise speed of the slowest commander warship, for invariant 3 and in-system trips:
+    /// the WARDEN frigate's 500 m/s (doc 15 §12, D-099 item 5).
     pub slowest_warship_cruise_m_per_s: f64,
+    /// Its tactical speed, inside ops areas: the WARDEN's 110 m/s (doc 15 §12, D-099 item 4).
+    pub slowest_warship_tactical_m_per_s: f64,
+    /// Radius of a site's ops area, where ships move at tactical speed (D-103).
+    pub ops_area_radius_m: f64,
+    /// Spool-up before every jump (D-055).
+    pub gate_spool_up: Ticks,
     /// Longest trip between two points of one system at that speed (doc 10 §4.1).
     pub max_in_system_trip: Ticks,
     /// Minimum distance between two sites of one system (doc 10 §8).
-    pub min_site_spacing_km: f64,
+    pub min_site_spacing_m: f64,
     /// Jump lane transit range (doc 10 §4.2).
     pub jump_transit: RangeInclusive<Ticks>,
     /// Trunk lane transit range (doc 10 §4.2).
@@ -68,14 +79,26 @@ pub struct InvariantLimits {
 
 impl Default for InvariantLimits {
     fn default() -> Self {
+        Self::from_rules(&Rules::embedded())
+    }
+}
+
+impl InvariantLimits {
+    /// The agreed limits (D-043), with the speeds of the slowest commander warship, the
+    /// ops-area radius and the spool-up taken from `rules`.
+    pub fn from_rules(rules: &Rules) -> Self {
+        let warship = rules.class(rules.slowest_commander_warship());
         Self {
             max_sector_diameter_jumps: 4,
             max_sector_trip: Ticks::from_hours(6),
             min_home_separation_jumps: 2,
             max_dead_end_percent: 10,
-            slowest_warship_cruise_m_per_s: 500.0,
+            slowest_warship_cruise_m_per_s: warship.cruise_speed_m_per_s,
+            slowest_warship_tactical_m_per_s: warship.tactical_speed_m_per_s,
+            ops_area_radius_m: rules.movement.ops_area_radius_m,
+            gate_spool_up: Ticks::from_secs(rules.gates.spool_up_s),
             max_in_system_trip: Ticks::from_minutes(15),
-            min_site_spacing_km: 50.0,
+            min_site_spacing_m: 50_000.0,
             jump_transit: Ticks::from_minutes(40)..=Ticks::from_minutes(70),
             trunk_transit: Ticks::from_minutes(90)..=Ticks::from_minutes(150),
             max_neighbourhood_spread_percent: 10,
@@ -114,6 +137,42 @@ pub struct WorstTrip {
     pub duration_s: f64,
 }
 
+/// How fast the slowest commander warship travels, for invariant 3.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct TripSpeeds {
+    cruise_m_per_s: f64,
+    tactical_m_per_s: f64,
+    ops_area_radius_m: f64,
+    spool_up_s: f64,
+}
+
+impl TripSpeeds {
+    fn new(limits: &InvariantLimits) -> Self {
+        Self {
+            cruise_m_per_s: limits.slowest_warship_cruise_m_per_s,
+            tactical_m_per_s: limits.slowest_warship_tactical_m_per_s,
+            ops_area_radius_m: limits.ops_area_radius_m,
+            spool_up_s: secs(limits.gate_spool_up),
+        }
+    }
+
+    /// A straight leg of `distance_m` whose first `tactical_m` lie inside ops areas.
+    fn leg_s(self, distance_m: f64, tactical_m: f64) -> f64 {
+        let tactical = tactical_m.min(distance_m);
+        tactical / self.tactical_m_per_s + (distance_m - tactical) / self.cruise_m_per_s
+    }
+
+    /// From a site to a gate, or back: tactical speed inside the site's ops area.
+    fn site_gate_s(self, site: PositionMetres, gate: PositionMetres) -> f64 {
+        self.leg_s(distance_m(site, gate), self.ops_area_radius_m)
+    }
+
+    /// Between two sites of one system: tactical speed inside both ops areas.
+    fn site_site_s(self, a: PositionMetres, b: PositionMetres) -> f64 {
+        self.leg_s(distance_m(a, b), 2.0 * self.ops_area_radius_m)
+    }
+}
+
 /// What the validator measured in one sector.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SectorReport {
@@ -145,8 +204,8 @@ pub struct GalaxyReport {
     pub min_home_separation_jumps: Option<u32>,
     /// The longest straight trip between two points of one system, in seconds.
     pub longest_in_system_trip_s: f64,
-    /// The smallest distance between two sites of one system, in km.
-    pub closest_sites_km: Option<f64>,
+    /// The smallest distance between two sites of one system, in metres.
+    pub closest_sites_m: Option<f64>,
     /// Invariant 5: each home system's neighbourhood deposit value.
     pub home_neighbourhoods: BTreeMap<SystemId, DepositValue>,
     /// Everything that is wrong, in the order it was found.
@@ -211,14 +270,14 @@ pub enum Violation {
         transit: Ticks,
     },
     /// Two sites of one system are closer than the minimum spacing (doc 10 §8).
-    #[error("sites {a:?} and {b:?} are {distance_km:.1} km apart")]
+    #[error("sites {a:?} and {b:?} are {distance_m:.0} m apart")]
     SitesTooClose {
         /// One site.
         a: SiteId,
         /// The other.
         b: SiteId,
         /// Their distance.
-        distance_km: f64,
+        distance_m: f64,
     },
     /// Crossing a system takes longer than allowed (doc 10 §4.1).
     #[error("crossing system {system:?} takes {duration_s:.0} s")]
@@ -307,7 +366,7 @@ pub fn validate(galaxy: &Galaxy, limits: &InvariantLimits) -> GalaxyReport {
     let mut violations = Vec::new();
     check_integrity(galaxy, &mut violations);
     check_lanes(galaxy, limits, &mut violations);
-    let (longest_in_system_trip_s, closest_sites_km) =
+    let (longest_in_system_trip_s, closest_sites_m) =
         check_systems(galaxy, limits, &mut violations);
 
     let sectors = galaxy
@@ -340,7 +399,7 @@ pub fn validate(galaxy: &Galaxy, limits: &InvariantLimits) -> GalaxyReport {
         sectors,
         min_home_separation_jumps,
         longest_in_system_trip_s,
-        closest_sites_km,
+        closest_sites_m,
         home_neighbourhoods,
         violations,
     }
@@ -456,7 +515,7 @@ fn check_lanes(galaxy: &Galaxy, limits: &InvariantLimits, out: &mut Vec<Violatio
     }
 }
 
-/// Per-system checks. Returns the longest in-system trip (s) and the closest site pair (km).
+/// Per-system checks. Returns the longest in-system trip (s) and the closest site pair (m).
 fn check_systems(
     galaxy: &Galaxy,
     limits: &InvariantLimits,
@@ -465,7 +524,7 @@ fn check_systems(
     let max_trip_s = secs(limits.max_in_system_trip);
     let speed = limits.slowest_warship_cruise_m_per_s;
     let mut longest_s: f64 = 0.0;
-    let mut closest_km: Option<f64> = None;
+    let mut closest_m: Option<f64> = None;
     for (id, system) in galaxy.systems() {
         if let Some(range) = allowed_sites(system.kind)
             && !range.contains(&system.sites.len())
@@ -486,22 +545,22 @@ fn check_systems(
             });
         }
 
-        let sites: Vec<(SiteId, PositionKm)> = system
+        let sites: Vec<(SiteId, PositionMetres)> = system
             .sites
             .iter()
             .filter_map(|&s| Some((s, galaxy.site(s)?.position)))
             .collect();
         for (i, &(a, pa)) in sites.iter().enumerate() {
             for &(b, pb) in &sites[i + 1..] {
-                let distance_km = pa.distance_km(pb);
-                closest_km = Some(closest_km.map_or(distance_km, |c| c.min(distance_km)));
-                if distance_km < limits.min_site_spacing_km {
-                    out.push(Violation::SitesTooClose { a, b, distance_km });
+                let distance_m = distance_m(pa, pb);
+                closest_m = Some(closest_m.map_or(distance_m, |c| c.min(distance_m)));
+                if distance_m < limits.min_site_spacing_m {
+                    out.push(Violation::SitesTooClose { a, b, distance_m });
                 }
             }
         }
 
-        let points: Vec<PositionKm> = sites
+        let points: Vec<PositionMetres> = sites
             .iter()
             .map(|&(_, p)| p)
             .chain(
@@ -525,7 +584,7 @@ fn check_systems(
             });
         }
     }
-    (longest_s, closest_km)
+    (longest_s, closest_m)
 }
 
 fn check_sector(
@@ -593,7 +652,7 @@ fn check_sector(
     let candidates: Vec<SystemId> = systems
         .iter()
         .copied()
-        .filter(|&id| galaxy.system(id).is_some_and(|s| s.kind.is_claimable()))
+        .filter(|&id| galaxy.system(id).is_some_and(|s| is_claimable(s.kind)))
         .collect();
     let dead_ends = candidates
         .iter()
@@ -609,7 +668,7 @@ fn check_sector(
     }
 
     // Invariant 3.
-    let worst_trip = worst_trip(galaxy, &systems, limits.slowest_warship_cruise_m_per_s);
+    let worst_trip = worst_trip(galaxy, &systems, TripSpeeds::new(limits));
     if let Some(trip) = worst_trip
         && trip.duration_s > secs(limits.max_sector_trip)
     {
@@ -647,16 +706,16 @@ fn check_sector(
 
 /// Shortest travel times between all gates of `systems`.
 struct GateTimes {
-    gates: Vec<(GateId, PositionKm)>,
+    gates: Vec<(GateId, PositionMetres)>,
     index: BTreeMap<GateId, usize>,
     /// Row-major `gates.len()²` matrix of seconds; infinite where there is no route.
     time: Vec<f64>,
 }
 
-/// Floyd–Warshall over the gates of `systems`: straight legs between gates of one system,
-/// and jump lanes between systems.
-fn gate_times(galaxy: &Galaxy, systems: &[SystemId], speed_m_per_s: f64) -> GateTimes {
-    let gates: Vec<(GateId, PositionKm)> = systems
+/// Floyd–Warshall over the gates of `systems`: straight legs between gates of one system at
+/// cruise speed, and jump lanes between systems with their spool-up.
+fn gate_times(galaxy: &Galaxy, systems: &[SystemId], speeds: TripSpeeds) -> GateTimes {
+    let gates: Vec<(GateId, PositionMetres)> = systems
         .iter()
         .filter_map(|&id| galaxy.system(id))
         .flat_map(|s| s.gates.iter())
@@ -683,7 +742,8 @@ fn gate_times(galaxy: &Galaxy, systems: &[SystemId], speed_m_per_s: f64) -> Gate
             .collect();
         for &i in &local {
             for &j in &local {
-                time[i * n + j] = time[i * n + j].min(leg_s(gates[i].1, gates[j].1, speed_m_per_s));
+                let leg = leg_s(gates[i].1, gates[j].1, speeds.cruise_m_per_s);
+                time[i * n + j] = time[i * n + j].min(leg);
             }
         }
     }
@@ -694,7 +754,7 @@ fn gate_times(galaxy: &Galaxy, systems: &[SystemId], speed_m_per_s: f64) -> Gate
                 continue;
             }
             if let Some(&j) = lane.other_end(gate).and_then(|far| index.get(&far)) {
-                time[i * n + j] = time[i * n + j].min(secs(lane.transit));
+                time[i * n + j] = time[i * n + j].min(speeds.spool_up_s + secs(lane.transit));
             }
         }
     }
@@ -717,17 +777,18 @@ fn gate_times(galaxy: &Galaxy, systems: &[SystemId], speed_m_per_s: f64) -> Gate
 }
 
 /// The slowest of the fastest routes between any two sites of `systems`, travelling the
-/// sector's jump lanes and straight in-system legs at `speed_m_per_s` (invariant 3).
+/// sector's jump lanes and straight in-system legs (invariant 3).
 ///
 /// All-pairs shortest times between the sector's gates (Floyd–Warshall), then for each pair
 /// of sites the best combination of a leg to a gate, a gate-to-gate route and a leg from a
-/// gate. A direct leg is used for two sites of one system.
-fn worst_trip(galaxy: &Galaxy, systems: &[SystemId], speed_m_per_s: f64) -> Option<WorstTrip> {
-    let GateTimes { gates, index, time } = gate_times(galaxy, systems, speed_m_per_s);
+/// gate. A direct leg is used for two sites of one system. The legs that start and end at a
+/// site run at tactical speed inside its ops area (D-099 item 4).
+fn worst_trip(galaxy: &Galaxy, systems: &[SystemId], speeds: TripSpeeds) -> Option<WorstTrip> {
+    let GateTimes { gates, index, time } = gate_times(galaxy, systems, speeds);
     let n = gates.len();
 
     // (site, its system's gate indices, position)
-    let mut sites: Vec<(SiteId, SystemId, PositionKm)> = Vec::new();
+    let mut sites: Vec<(SiteId, SystemId, PositionMetres)> = Vec::new();
     let mut gates_of: BTreeMap<SystemId, Vec<usize>> = BTreeMap::new();
     for &id in systems {
         let Some(system) = galaxy.system(id) else {
@@ -753,14 +814,14 @@ fn worst_trip(galaxy: &Galaxy, systems: &[SystemId], speed_m_per_s: f64) -> Opti
     for (i, &(a, sys_a, pa)) in sites.iter().enumerate() {
         for &(b, sys_b, pb) in &sites[i + 1..] {
             let mut best = if sys_a == sys_b {
-                leg_s(pa, pb, speed_m_per_s)
+                speeds.site_site_s(pa, pb)
             } else {
                 f64::INFINITY
             };
             for &g in gates_of.get(&sys_a).into_iter().flatten() {
-                let out_s = leg_s(pa, gates[g].1, speed_m_per_s);
+                let out_s = speeds.site_gate_s(pa, gates[g].1);
                 for &h in gates_of.get(&sys_b).into_iter().flatten() {
-                    let total = out_s + time[g * n + h] + leg_s(gates[h].1, pb, speed_m_per_s);
+                    let total = out_s + time[g * n + h] + speeds.site_gate_s(pb, gates[h].1);
                     best = best.min(total);
                 }
             }
@@ -831,8 +892,8 @@ fn components(adjacency: &BTreeMap<SystemId, BTreeSet<SystemId>>) -> usize {
 }
 
 /// Travel time in seconds for a straight leg at `speed_m_per_s`.
-fn leg_s(a: PositionKm, b: PositionKm, speed_m_per_s: f64) -> f64 {
-    a.distance_km(b) * 1_000.0 / speed_m_per_s
+fn leg_s(a: PositionMetres, b: PositionMetres, speed_m_per_s: f64) -> f64 {
+    distance_m(a, b) / speed_m_per_s
 }
 
 /// A duration in seconds.
@@ -920,26 +981,44 @@ mod tests {
         // At least 4 transits of 40 min; at most the 6 h limit.
         assert!(trip.duration_s >= 4.0 * 40.0 * 60.0);
         assert!(trip.duration_s <= 6.0 * 3_600.0);
-        assert!(r.closest_sites_km.unwrap() >= 50.0);
+        assert!(r.closest_sites_m.unwrap() >= 50_000.0);
         assert!(r.longest_in_system_trip_s <= 15.0 * 60.0);
     }
 
     #[test]
     fn worst_trip_routes_through_the_shortest_path() {
-        // Two systems, one lane of 50 min, gates 100 km from each site: 2 × 200 s + 3,000 s.
+        // Two systems, one lane of 50 min, gates 100 km from each site. Each 100 km leg runs
+        // 20 km at 110 m/s inside the site's ops area and 80 km at 500 m/s; the jump adds a
+        // 5 s spool-up: 2 × (181.8 + 160) s + 5 s + 3,000 s.
         let mut ids = SimIdAllocator::default();
         let mut g = Galaxy::default();
         let sector = g.add_sector(&mut ids);
         let a = g.add_system(&mut ids, sector, SystemKind::Standard);
         let b = g.add_system(&mut ids, sector, SystemKind::Standard);
-        let sa = g.add_site(&mut ids, a, PositionKm::ORIGIN);
-        let sb = g.add_site(&mut ids, b, PositionKm::ORIGIN);
-        let ga = g.add_gate(&mut ids, a, PositionKm { x: 100.0, y: 0.0 });
-        let gb = g.add_gate(&mut ids, b, PositionKm { x: 0.0, y: 100.0 });
+        let sa = g.add_site(&mut ids, a, PositionMetres::ORIGIN);
+        let sb = g.add_site(&mut ids, b, PositionMetres::ORIGIN);
+        let ga = g.add_gate(&mut ids, a, PositionMetres::new(100_000.0, 0.0));
+        let gb = g.add_gate(&mut ids, b, PositionMetres::new(0.0, 100_000.0));
         g.add_lane(&mut ids, ga, gb, Ticks::from_minutes(50), LaneKind::Jump);
-        let trip = worst_trip(&g, &[a, b], 500.0).unwrap();
+        let speeds = TripSpeeds::new(&InvariantLimits::default());
+        let trip = worst_trip(&g, &[a, b], speeds).unwrap();
         assert_eq!((trip.from, trip.to), (sa, sb));
-        assert!((trip.duration_s - 3_400.0).abs() < 1e-9);
+        let leg = 20_000.0 / 110.0 + 80_000.0 / 500.0;
+        assert!((trip.duration_s - (2.0 * leg + 5.0 + 3_000.0)).abs() < 1e-9);
+        // Two sites of one system 50 km apart: 40 km at tactical speed, 10 km at cruise.
+        assert!(
+            (speeds.site_site_s(PositionMetres::ORIGIN, PositionMetres::new(50_000.0, 0.0))
+                - (40_000.0 / 110.0 + 10_000.0 / 500.0))
+                .abs()
+                < 1e-9
+        );
+        // Closer than two ops-area radii: tactical all the way.
+        assert!(
+            (speeds.site_site_s(PositionMetres::ORIGIN, PositionMetres::new(30_000.0, 0.0))
+                - 30_000.0 / 110.0)
+                .abs()
+                < 1e-9
+        );
     }
 
     #[test]
@@ -977,8 +1056,8 @@ mod tests {
     fn rejects_neighbouring_homes() {
         let (mut g, mut ids) = stage1(3);
         let s = systems(&g);
-        let ga = g.add_gate(&mut ids, s[0], PositionKm { x: 0.0, y: 190.0 });
-        let gb = g.add_gate(&mut ids, s[2], PositionKm { x: 0.0, y: -190.0 });
+        let ga = g.add_gate(&mut ids, s[0], PositionMetres::new(0.0, 190_000.0));
+        let gb = g.add_gate(&mut ids, s[2], PositionMetres::new(0.0, -190_000.0));
         g.add_lane(&mut ids, ga, gb, Ticks::from_minutes(50), LaneKind::Jump);
         let r = report(&g);
         assert_eq!(r.min_home_separation_jumps, Some(1));
@@ -1041,15 +1120,13 @@ mod tests {
         let s = systems(&g);
         let home = g.system(s[0]).unwrap().clone();
         let p = g.site(home.sites[0]).unwrap().position;
-        g.sites.get_mut(&home.sites[1]).unwrap().position = PositionKm {
-            x: p.x + 30.0,
-            y: p.y,
-        };
-        g.gates.get_mut(&home.gates[0]).unwrap().position = PositionKm { x: 500.0, y: 0.0 };
+        g.sites.get_mut(&home.sites[1]).unwrap().position =
+            PositionMetres::new(p.x + 30_000.0, p.y);
+        g.gates.get_mut(&home.gates[0]).unwrap().position = PositionMetres::new(500_000.0, 0.0);
         let r = report(&g);
         assert!(has(&r, |v| matches!(
             v,
-            Violation::SitesTooClose { distance_km, .. } if (distance_km - 30.0).abs() < 1e-9
+            Violation::SitesTooClose { distance_m, .. } if (distance_m - 30_000.0).abs() < 1e-6
         )));
         assert!(has(
             &r,
@@ -1061,9 +1138,9 @@ mod tests {
     fn rejects_wrong_counts_and_lane_kinds() {
         let (mut g, mut ids) = stage1(3);
         let s = systems(&g);
-        g.add_site(&mut ids, s[0], PositionKm { x: 0.0, y: 0.0 });
+        g.add_site(&mut ids, s[0], PositionMetres::ORIGIN);
         let extra: Vec<GateId> = (0..3)
-            .map(|_| g.add_gate(&mut ids, s[1], PositionKm { x: 190.0, y: 0.0 }))
+            .map(|_| g.add_gate(&mut ids, s[1], PositionMetres::new(190_000.0, 0.0)))
             .collect();
         let loop_lane = g.add_lane(
             &mut ids,

@@ -14,6 +14,8 @@ repository = "https://github.com/Zwaliebaba/Nomad"
 nomad-protocol = { path = "crates/nomad-protocol" }
 nomad-sim = { path = "crates/nomad-sim" }
 nomad-types = { path = "crates/nomad-types" }
+# The simulation's ECS (D-030). MIT or Apache-2.0. Storage only: identity and order are SimIds.
+hecs = { version = "0.11", default-features = false, features = ["std"] }
 # Pure-Rust maths for the simulation, identical on every platform (D-049, CODING_STANDARDS.md §8).
 libm = "0.2"
 postcard = { version = "1.1", default-features = false, features = ["use-std"] }
@@ -21,9 +23,20 @@ rand_chacha = { version = "0.10", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
 
+# Server shell (N2 plan; Design doc 20 §6, §12; D-088).
+# Per-user data directory (%LOCALAPPDATA% on Windows, XDG on Linux).
+directories = "6.0"
+# SQLite with the C library compiled in, so no system SQLite is needed on either OS. The
+# statement cache (`cache`) is the only default feature kept.
+rusqlite = { version = "0.41", default-features = false, features = ["bundled", "cache"] }
+# Signals for clean shutdown (Ctrl+C, SIGTERM). N3 runs the network on the same runtime.
+tokio = { version = "1.54", default-features = false, features = ["rt", "signal"] }
+
 # Client (phase-1 visual slice, Design D-004, phase-1 doc 05).
 bytemuck = { version = "1.25", features = ["derive"] }
 glam = "0.34"
+# Text for world labels and the HUD (phase-1 doc 05 "Text"); MIT OR Apache-2.0 OR Zlib.
+glyphon = "0.12"
 png = "0.18"
 pollster = "1.0"
 serde_json = "1.0"

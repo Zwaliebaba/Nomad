@@ -11,8 +11,9 @@
 //! that identity, and child lists are kept in increasing identity order, so iteration and
 //! the snapshot encoding are canonical (doc 11 §5, D-049).
 //!
-//! Positions are in the **system frame**: km, 2D, origin at the star, +y = system north
-//! (doc 10 §8). Lane travel is a timed transit, not a distance (D-042).
+//! Positions are in the **system frame**: metres, 2D, origin at the star, +y = system
+//! north (doc 10 §8; D-099 item 2: metres in the simulation, km only for documents and the
+//! UI). Lane travel is a timed transit, not a distance (D-042).
 //!
 //! Sites carry their deposits and deposit values (doc 14 §5, D-066), which feed the balance
 //! of home neighbourhoods (doc 10 §4.3 invariant 5).
@@ -21,14 +22,21 @@ mod deposit;
 mod generate;
 mod validate;
 
-pub use deposit::{Deposit, DepositKind, DepositValue, MAX_DEPOSITS_PER_SITE, Richness};
-pub use generate::{GenerationError, STAGE1_COMMANDERS, generate_stage1, stage1_sites};
+pub use deposit::{
+    Deposit, DepositKind, DepositValue, MAX_DEPOSITS_PER_SITE, Richness, base_value, deposit_value,
+    richness_per_mille,
+};
+pub use generate::{
+    GenerationError, STAGE1_COMMANDERS, generate_stage1, generate_stage1_with_rules, stage1_sites,
+};
 pub use validate::{
     GalaxyReport, InvariantLimits, SectorReport, Violation, WorstTrip, allowed_gates,
     allowed_sites, validate,
 };
-// Identities and kinds shared with the protocol and the client (D-086, doc 20 §3).
-pub use nomad_types::{GateId, LaneId, LaneKind, SectorId, SiteId, SystemId, SystemKind};
+// Identities, kinds and positions shared with the protocol and the client (D-086, doc 20 §3).
+pub use nomad_types::{
+    GateId, LaneId, LaneKind, PositionMetres, SectorId, SiteId, SystemId, SystemKind,
+};
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -37,35 +45,10 @@ use serde::{Deserialize, Serialize};
 use crate::id::SimIdAllocator;
 use crate::time::Ticks;
 
-/// A point in the system frame, in km (doc 10 §8).
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PositionKm {
-    /// Towards system east, km.
-    pub x: f64,
-    /// Towards system north, km.
-    pub y: f64,
-}
-
-impl PositionKm {
-    /// The star.
-    pub const ORIGIN: Self = Self { x: 0.0, y: 0.0 };
-
-    /// The point at `radius_km` from the star, `angle_rad` counter-clockwise from +x.
-    ///
-    /// Uses `libm` so the result is identical on every platform (doc 11 §5).
-    pub fn from_polar(radius_km: f64, angle_rad: f64) -> Self {
-        Self {
-            x: radius_km * libm::cos(angle_rad),
-            y: radius_km * libm::sin(angle_rad),
-        }
-    }
-
-    /// Straight-line distance to `other`, in km.
-    pub fn distance_km(self, other: Self) -> f64 {
-        let dx = self.x - other.x;
-        let dy = self.y - other.y;
-        libm::sqrt(dx * dx + dy * dy)
-    }
+/// Whether commanders can claim sites in a system of `kind` and the system counts for
+/// control (doc 10 §4.1, §6): every kind except raider havens.
+pub const fn is_claimable(kind: SystemKind) -> bool {
+    !matches!(kind, SystemKind::RaiderHaven)
 }
 
 /// A cluster of systems (doc 10 §2).
@@ -94,7 +77,7 @@ pub struct Site {
     /// The system it is in.
     pub system: SystemId,
     /// Where it is in the system frame.
-    pub position: PositionKm,
+    pub position: PositionMetres,
     /// Its 0–2 deposits (doc 14 §5, D-066).
     pub deposits: Vec<Deposit>,
 }
@@ -102,7 +85,7 @@ pub struct Site {
 impl Site {
     /// The total value of its deposits (D-066).
     pub fn value(&self) -> DepositValue {
-        self.deposits.iter().map(|d| d.value()).sum()
+        self.deposits.iter().copied().map(deposit_value).sum()
     }
 }
 
@@ -115,7 +98,7 @@ pub struct Gate {
     /// The system it is in.
     pub system: SystemId,
     /// Where it is in the system frame.
-    pub position: PositionKm,
+    pub position: PositionMetres,
     /// The lanes that leave from it, in identity order.
     pub lanes: Vec<LaneId>,
 }
@@ -374,7 +357,7 @@ impl Galaxy {
         &mut self,
         ids: &mut SimIdAllocator,
         system: SystemId,
-        position: PositionKm,
+        position: PositionMetres,
     ) -> SiteId {
         let id = SiteId(ids.allocate());
         self.systems
@@ -397,7 +380,7 @@ impl Galaxy {
         &mut self,
         ids: &mut SimIdAllocator,
         system: SystemId,
-        position: PositionKm,
+        position: PositionMetres,
     ) -> GateId {
         let id = GateId(ids.allocate());
         self.systems
@@ -460,16 +443,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn polar_and_distance() {
-        let p = PositionKm::from_polar(100.0, 0.0);
-        assert_eq!(p, PositionKm { x: 100.0, y: 0.0 });
-        let q = PositionKm { x: 100.0, y: 0.0 };
-        let r = PositionKm { x: 103.0, y: 4.0 };
-        assert!((q.distance_km(r) - 5.0).abs() < 1e-12);
-        assert!((PositionKm::ORIGIN.distance_km(p) - 100.0).abs() < 1e-12);
-    }
-
-    #[test]
     fn builder_links_both_directions_and_jumps_follow_lanes() {
         let mut ids = SimIdAllocator::default();
         let mut g = Galaxy::default();
@@ -477,11 +450,11 @@ mod tests {
         let a = g.add_system(&mut ids, sector, SystemKind::Home);
         let b = g.add_system(&mut ids, sector, SystemKind::Standard);
         let c = g.add_system(&mut ids, sector, SystemKind::Hub);
-        let site = g.add_site(&mut ids, a, PositionKm::ORIGIN);
-        let ga = g.add_gate(&mut ids, a, PositionKm::ORIGIN);
-        let gb1 = g.add_gate(&mut ids, b, PositionKm::ORIGIN);
-        let gb2 = g.add_gate(&mut ids, b, PositionKm::ORIGIN);
-        let gc = g.add_gate(&mut ids, c, PositionKm::ORIGIN);
+        let site = g.add_site(&mut ids, a, PositionMetres::ORIGIN);
+        let ga = g.add_gate(&mut ids, a, PositionMetres::ORIGIN);
+        let gb1 = g.add_gate(&mut ids, b, PositionMetres::ORIGIN);
+        let gb2 = g.add_gate(&mut ids, b, PositionMetres::ORIGIN);
+        let gc = g.add_gate(&mut ids, c, PositionMetres::ORIGIN);
         let ab = g.add_lane(&mut ids, ga, gb1, Ticks::from_minutes(50), LaneKind::Jump);
         g.add_lane(&mut ids, gb2, gc, Ticks::from_minutes(50), LaneKind::Jump);
 

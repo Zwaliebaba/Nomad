@@ -8,12 +8,14 @@ use nomad_protocol::{
     PROTOCOL_VERSION, RejectReason, ServerMessage, ViewChanges, ViewSnapshot,
 };
 use nomad_types::{
-    Command, CommanderId, ControlState, FleetId, FleetOrder, HoldingId, LaneKind, PositionMetres,
-    RulesOfEngagement, SeasonClock, SimId, SystemId, SystemKind, Tick, UniverseId,
+    Command, CommanderId, ControlState, FactionId, FleetId, FleetOrder, HoldingId, HoldingOrder,
+    LaneKind, Owner, PositionMetres, Queueing, RulesOfEngagement, SeasonClock, ShipId, SimId,
+    SystemId, SystemKind, Tick, UniverseId,
 };
 
 pub const YOU: CommanderId = CommanderId(1);
 pub const HOSTILE: CommanderId = CommanderId(2);
+pub const RAIDERS: FactionId = FactionId(1);
 
 pub fn id(raw: u64) -> SimId {
     SimId::from_raw(raw)
@@ -23,24 +25,40 @@ pub fn point(x: f64, y: f64) -> PositionMetres {
     PositionMetres::new(x, y)
 }
 
+/// A point in system `system`.
+pub fn at(system: u64, x: f64, y: f64) -> Location {
+    Location {
+        system: SystemId(id(system)),
+        position: point(x, y),
+    }
+}
+
 /// One of every fleet order (doc 15 §3.4).
 pub fn fleet_orders() -> Vec<FleetOrder> {
     vec![
         FleetOrder::Move {
-            to: point(12_500.0, -3_000.5),
+            to: at(2, 12_500.0, -3_000.5),
         },
         FleetOrder::Attack { target: id(77) },
         FleetOrder::AttackMove {
-            to: point(-190_000.0, 0.25),
+            to: at(3, -190_000.0, 0.25),
         },
         FleetOrder::Patrol {
-            route: vec![point(0.0, 0.0), point(1_000.0, 1_000.0), point(-5.0, 7.0)],
+            route: vec![at(2, 0.0, 0.0), at(2, 1_000.0, 1_000.0), at(2, -5.0, 7.0)],
         },
         FleetOrder::Guard { object: id(12) },
-        FleetOrder::StationKeep,
-        FleetOrder::Dock { at: id(12) },
+        FleetOrder::StationKeep { relative_to: None },
+        FleetOrder::StationKeep {
+            relative_to: Some(id(900)),
+        },
+        FleetOrder::Dock {
+            at: HoldingId(id(16)),
+        },
         FleetOrder::Launch,
-        FleetOrder::Retreat,
+        FleetOrder::Retreat { to: None },
+        FleetOrder::Retreat {
+            to: Some(HoldingId(id(16))),
+        },
         FleetOrder::Jump {
             system: SystemId(id(10)),
         },
@@ -56,7 +74,30 @@ pub fn fleet_orders() -> Vec<FleetOrder> {
     ]
 }
 
-/// One of every client message, and a command for every fleet order.
+/// One of every command, with every queueing mode.
+pub fn commands() -> Vec<Command> {
+    vec![
+        Command::Fleet {
+            fleet: FleetId(id(501)),
+            order: FleetOrder::Launch,
+            queue: Queueing::Append,
+        },
+        Command::Holding {
+            holding: HoldingId(id(16)),
+            order: HoldingOrder::LaunchReady,
+        },
+        Command::CreateFleet {
+            ships: vec![ShipId(id(601)), ShipId(id(602))],
+        },
+        Command::CreateFleet { ships: vec![] },
+        Command::MergeFleets {
+            fleet: FleetId(id(502)),
+            into: FleetId(id(501)),
+        },
+    ]
+}
+
+/// One of every client message, a command for every fleet order and every other command.
 pub fn client_messages() -> Vec<ClientMessage> {
     let mut messages = vec![
         ClientMessage::Hello {
@@ -74,22 +115,30 @@ pub fn client_messages() -> Vec<ClientMessage> {
             command: Command::Fleet {
                 fleet: FleetId(id(500 + seq)),
                 order,
+                queue: Queueing::Replace,
             },
+        });
+    }
+    for (seq, command) in (100_u64..).zip(commands()) {
+        messages.push(ClientMessage::Command {
+            client_seq: seq,
+            command,
         });
     }
     messages
 }
 
-fn entry(kind: EntityKind, owner: Option<CommanderId>, at: Option<(u64, f64, f64)>) -> EntityEntry {
+fn entry(kind: EntityKind, owner: Option<Owner>, place: Option<(u64, f64, f64)>) -> EntityEntry {
     EntityEntry {
         kind,
         owner,
-        location: at.map(|(system, x, y)| Location {
-            system: SystemId(id(system)),
-            position: point(x, y),
-        }),
+        location: place.map(|(system, x, y)| at(system, x, y)),
         last_seen: None,
     }
+}
+
+const fn commander(id: CommanderId) -> Owner {
+    Owner::Commander(id)
 }
 
 /// A view with one entity of every kind, spread over every collection.
@@ -124,7 +173,11 @@ pub fn view_snapshot() -> ViewSnapshot {
         (id(15), entry(EntityKind::Lane(LaneKind::Trunk), None, None)),
         (
             id(16),
-            entry(EntityKind::Holding, Some(YOU), Some((2, 60_000.0, 0.0))),
+            entry(
+                EntityKind::Holding,
+                Some(commander(YOU)),
+                Some((2, 60_000.0, 0.0)),
+            ),
         ),
     ]);
     let control = BTreeMap::from([
@@ -135,22 +188,48 @@ pub fn view_snapshot() -> ViewSnapshot {
     let own = BTreeMap::from([
         (
             id(16),
-            entry(EntityKind::Holding, Some(YOU), Some((2, 60_000.0, 0.0))),
+            entry(
+                EntityKind::Holding,
+                Some(commander(YOU)),
+                Some((2, 60_000.0, 0.0)),
+            ),
         ),
         (
             id(501),
-            entry(EntityKind::Fleet, Some(YOU), Some((2, 61_000.5, -20.0))),
+            entry(
+                EntityKind::Fleet,
+                Some(commander(YOU)),
+                Some((2, 61_000.5, -20.0)),
+            ),
         ),
     ]);
-    let sensed = BTreeMap::from([(
-        id(900),
-        entry(EntityKind::Fleet, Some(HOSTILE), Some((2, 70_000.0, 5.0))),
-    )]);
+    let sensed = BTreeMap::from([
+        (
+            id(900),
+            entry(
+                EntityKind::Fleet,
+                Some(commander(HOSTILE)),
+                Some((2, 70_000.0, 5.0)),
+            ),
+        ),
+        (
+            id(902),
+            entry(
+                EntityKind::Fleet,
+                Some(Owner::Npc(RAIDERS)),
+                Some((10, 1_500.0, -800.0)),
+            ),
+        ),
+    ]);
     let last_known = BTreeMap::from([(
         id(901),
         EntityEntry {
             last_seen: Some(Tick::new(35_999)),
-            ..entry(EntityKind::Fleet, Some(HOSTILE), Some((3, -1.0, 2.0)))
+            ..entry(
+                EntityKind::Fleet,
+                Some(commander(HOSTILE)),
+                Some((3, -1.0, 2.0)),
+            )
         },
     )]);
     ViewSnapshot {
@@ -165,12 +244,20 @@ pub fn view_snapshot() -> ViewSnapshot {
 
 /// A delta that touches every collection.
 pub fn view_changes() -> ViewChanges {
-    let moved = entry(EntityKind::Fleet, Some(YOU), Some((2, 61_100.0, -20.0)));
+    let moved = entry(
+        EntityKind::Fleet,
+        Some(commander(YOU)),
+        Some((2, 61_100.0, -20.0)),
+    );
     ViewChanges {
         public: EntityChanges {
             upserted: BTreeMap::from([(
                 id(17),
-                entry(EntityKind::Holding, Some(HOSTILE), Some((3, 1.0, 1.0))),
+                entry(
+                    EntityKind::Holding,
+                    Some(commander(HOSTILE)),
+                    Some((3, 1.0, 1.0)),
+                ),
             )]),
             removed: BTreeSet::new(),
         },
@@ -188,7 +275,11 @@ pub fn view_changes() -> ViewChanges {
                 id(900),
                 EntityEntry {
                     last_seen: Some(Tick::new(36_001)),
-                    ..entry(EntityKind::Fleet, Some(HOSTILE), Some((2, 70_010.0, 5.0)))
+                    ..entry(
+                        EntityKind::Fleet,
+                        Some(commander(HOSTILE)),
+                        Some((2, 70_010.0, 5.0)),
+                    )
                 },
             )]),
             removed: BTreeSet::from([id(901)]),
@@ -312,10 +403,10 @@ pub const fn order_variant(order: &FleetOrder) -> usize {
         FleetOrder::AttackMove { .. } => 2,
         FleetOrder::Patrol { .. } => 3,
         FleetOrder::Guard { .. } => 4,
-        FleetOrder::StationKeep => 5,
+        FleetOrder::StationKeep { .. } => 5,
         FleetOrder::Dock { .. } => 6,
         FleetOrder::Launch => 7,
-        FleetOrder::Retreat => 8,
+        FleetOrder::Retreat { .. } => 8,
         FleetOrder::Jump { .. } => 9,
         FleetOrder::SetRulesOfEngagement { .. } => 10,
     }
@@ -323,3 +414,16 @@ pub const fn order_variant(order: &FleetOrder) -> usize {
 
 /// Number of [`FleetOrder`] variants.
 pub const ORDER_VARIANTS: usize = 11;
+
+/// The variant index of a command (no wildcard, as above).
+pub const fn command_variant(command: &Command) -> usize {
+    match command {
+        Command::Fleet { .. } => 0,
+        Command::Holding { .. } => 1,
+        Command::CreateFleet { .. } => 2,
+        Command::MergeFleets { .. } => 3,
+    }
+}
+
+/// Number of [`Command`] variants.
+pub const COMMAND_VARIANTS: usize = 4;

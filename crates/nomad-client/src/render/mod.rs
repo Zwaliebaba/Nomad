@@ -1,10 +1,23 @@
-//! Renderer (phase-1 doc 05). M2 draws the background, the ops grid and the opaque station voxels
-//! in one multisampled pass with a depth buffer; the frame order of doc 05 continues with ships,
-//! overlays, shield, FX, bloom and HUD in later milestones.
+//! Renderer (phase-1 doc 05). The frame order of doc 05 so far:
+//!
+//! 1–3 and 5, in one multisampled **scene pass** with a depth buffer: the background, the ops
+//! grid, the opaque station voxels, and the elevation overlays (M3). Every pipeline in it writes
+//! two colour targets, the frame and the emissive image (`context`, "Emissive target").
+//!
+//! 8. **Bloom** (M3): the resolved emissive image is downsampled and blurred, then added to the
+//!    resolved frame.
+//!
+//! 9. **World labels** (M3: the hovered module's `ELEV +n` tag), screen space, on the resolved
+//!    frame after the bloom so text does not glow.
+//!
+//! Ships (4), the shield (6), FX (7) and the HUD (10) follow in later milestones.
 
 pub mod background;
+pub mod bloom;
 pub mod context;
 pub mod grid;
+pub mod labels;
+pub mod overlay;
 pub mod voxels;
 
 use std::num::NonZeroU64;
@@ -12,30 +25,56 @@ use std::sync::mpsc;
 
 use glam::Vec2;
 
-use crate::assets::voxel::StationScene;
+use crate::assets::SceneAssets;
 use crate::camera::ViewTransform;
-use crate::config::{OpsGridConfig, SceneConfig};
+use crate::config::OpsGridConfig;
 use background::BackgroundPass;
-use context::{FrameTargets, Gpu, GpuError, TargetFormat};
+use bloom::BloomPass;
+use context::{EMISSIVE_FORMAT, FrameTargets, Gpu, GpuError, TargetFormat};
 use grid::{GridPass, GridUniforms};
+use labels::LabelPass;
+use overlay::OverlayPass;
 use voxels::VoxelPass;
 
 pub const BACKGROUND_WGSL: &str = concat!(
     include_str!("shaders/fullscreen.wgsl"),
+    include_str!("shaders/scene_out.wgsl"),
     include_str!("shaders/background.wgsl")
 );
 pub const GRID_WGSL: &str = concat!(
     include_str!("shaders/fullscreen.wgsl"),
+    include_str!("shaders/scene_out.wgsl"),
     include_str!("shaders/grid.wgsl")
 );
-pub const VOXELS_WGSL: &str = include_str!("shaders/voxels.wgsl");
+pub const VOXELS_WGSL: &str = concat!(
+    include_str!("shaders/scene_out.wgsl"),
+    include_str!("shaders/voxels.wgsl")
+);
+pub const OVERLAY_WGSL: &str = concat!(
+    include_str!("shaders/scene_out.wgsl"),
+    include_str!("shaders/overlay.wgsl")
+);
+pub const BLOOM_WGSL: &str = concat!(
+    include_str!("shaders/fullscreen.wgsl"),
+    include_str!("shaders/bloom.wgsl")
+);
 
 /// Which layers to draw. Tests use it to isolate one layer from the others.
 #[derive(Clone, Copy, Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent on/off switches, one per layer of the doc 05 frame order"
+)]
 pub struct Layers {
     pub background: bool,
     pub grid: bool,
     pub voxels: bool,
+    /// Elevation footprints and stalks (doc 05 step 5).
+    pub overlays: bool,
+    /// Glow around emissive surfaces (doc 05 step 8).
+    pub bloom: bool,
+    /// World labels: the hover tag (doc 05 step 9).
+    pub labels: bool,
 }
 
 impl Default for Layers {
@@ -44,8 +83,19 @@ impl Default for Layers {
             background: true,
             grid: true,
             voxels: true,
+            overlays: true,
+            bloom: true,
+            labels: true,
         }
     }
+}
+
+/// Per-frame input other than the camera.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FrameInput {
+    /// The module under the cursor (an index into the station's modules): highlighted, and
+    /// tagged with its elevation when lifted (doc 06 M3).
+    pub hovered: Option<usize>,
 }
 
 /// An RGBA8 image, sRGB-encoded, rows top to bottom.
@@ -80,21 +130,32 @@ pub struct Renderer {
     grid: GridPass,
     grid_config: OpsGridConfig,
     voxels: VoxelPass,
+    overlay: OverlayPass,
+    bloom: BloomPass,
+    labels: LabelPass,
+    /// `scene_config.json` → `hover.brightness_lift`.
+    hover_lift: f32,
 }
 
 impl Renderer {
     /// `format` is the format of every target this renderer draws into.
-    pub fn new(
-        gpu: &Gpu,
-        format: wgpu::TextureFormat,
-        config: &SceneConfig,
-        station: &StationScene,
-    ) -> Self {
+    pub fn new(gpu: &Gpu, format: wgpu::TextureFormat, assets: &SceneAssets) -> Self {
+        let config = &assets.config;
         let target = TargetFormat {
             color: format,
             sample_count: gpu.sample_count(format),
         };
         tracing::info!(?format, samples = target.sample_count, "scene pass");
+        let elevated = overlay::elevated_modules(&assets.station);
+        tracing::info!(modules = elevated.len(), "elevation cues");
+        let labels = LabelPass::new(
+            &gpu.device,
+            &gpu.queue,
+            format,
+            &assets.hud,
+            &assets.fonts,
+            elevated.clone(),
+        );
         Self {
             device: gpu.device.clone(),
             queue: gpu.queue.clone(),
@@ -104,18 +165,28 @@ impl Renderer {
             background: BackgroundPass::new(&gpu.device, target, config),
             grid: GridPass::new(&gpu.device, target),
             grid_config: config.ops_grid.clone(),
-            voxels: VoxelPass::new(&gpu.device, &gpu.queue, target, station),
+            voxels: VoxelPass::new(&gpu.device, &gpu.queue, target, &assets.station),
+            overlay: OverlayPass::new(&gpu.device, target, elevated, config.elevation),
+            bloom: BloomPass::new(&gpu.device, format, config.bloom),
+            labels,
+            hover_lift: config.hover.brightness_lift,
         }
     }
 
     /// Draws one frame into `frame`, whose size must match `view.viewport_px`.
-    pub fn render(&mut self, frame: &wgpu::TextureView, view: &ViewTransform, layers: Layers) {
+    pub fn render(
+        &mut self,
+        frame: &wgpu::TextureView,
+        view: &ViewTransform,
+        layers: Layers,
+        input: FrameInput,
+    ) {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("frame"),
             });
-        self.encode(&mut encoder, frame, view, layers);
+        self.encode(&mut encoder, frame, view, layers, input);
         self.queue.submit([encoder.finish()]);
     }
 
@@ -125,11 +196,16 @@ impl Renderer {
         frame: &wgpu::TextureView,
         view: &ViewTransform,
         layers: Layers,
+        input: FrameInput,
     ) {
         let size = frame.texture().size();
         let size = (size.width, size.height);
         if self.frame_targets.as_ref().map(FrameTargets::size) != Some(size) {
-            self.frame_targets = Some(FrameTargets::new(&self.device, self.target, size));
+            let targets = FrameTargets::new(&self.device, self.target, size);
+            // The bloom reads the emissive image of exactly these targets.
+            self.bloom
+                .resize(&self.device, targets.emissive_view(), size);
+            self.frame_targets = Some(targets);
         }
         let targets = self
             .frame_targets
@@ -139,26 +215,71 @@ impl Renderer {
         self.background.prepare(&self.queue, view.viewport_px);
         self.grid
             .prepare(&self.queue, &GridUniforms::new(&self.grid_config, view));
-        self.voxels.prepare(&self.queue, view);
+        self.voxels
+            .prepare(&self.queue, view, input.hovered, self.hover_lift);
+        if layers.overlays {
+            self.overlay.prepare(&self.queue, view);
+        }
+        if layers.bloom {
+            self.bloom.prepare(&self.queue, view);
+        }
+        let tagged = input.hovered.filter(|_| layers.labels);
+        self.labels.prepare(&self.device, &self.queue, view, tagged);
 
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("scene"),
-            color_attachments: &[Some(targets.color_attachment(frame, self.clear_color))],
-            depth_stencil_attachment: Some(targets.depth_attachment()),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
-        // Doc 05 frame order: 1 background, 2 ops grid (no depth test or write, so it lies under
-        // everything), 3 opaque voxels with depth.
-        if layers.background {
-            self.background.draw(&mut pass);
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("scene"),
+                color_attachments: &targets.color_attachments(frame, self.clear_color),
+                depth_stencil_attachment: Some(targets.depth_attachment()),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            // Doc 05 frame order: 1 background, 2 ops grid (no depth test or write, so it lies
+            // under everything), 3 opaque voxels with depth, 5 elevation overlays (depth test, no
+            // depth write).
+            if layers.background {
+                self.background.draw(&mut pass);
+            }
+            if layers.grid {
+                self.grid.draw(&mut pass);
+            }
+            if layers.voxels {
+                self.voxels.draw(&mut pass);
+            }
+            if layers.overlays {
+                self.overlay.draw(&mut pass);
+            }
         }
-        if layers.grid {
-            self.grid.draw(&mut pass);
+
+        // 8 bloom, then 9 world labels, on the resolved frame.
+        if layers.bloom {
+            self.bloom.encode_blur(encoder);
         }
-        if layers.voxels {
-            self.voxels.draw(&mut pass);
+        let draw_labels = self.labels.has_text();
+        if layers.bloom || draw_labels {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("post"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: frame,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            if layers.bloom {
+                self.bloom.draw_composite(&mut pass);
+            }
+            if draw_labels {
+                self.labels.draw(&mut pass);
+            }
         }
     }
 
@@ -169,6 +290,7 @@ impl Renderer {
         height: u32,
         view: &ViewTransform,
         layers: Layers,
+        input: FrameInput,
     ) -> Result<RgbaImage, GpuError> {
         debug_assert_eq!(view.viewport_px, Vec2::new(width as f32, height as f32));
         let size = wgpu::Extent3d {
@@ -203,7 +325,7 @@ impl Renderer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("offscreen frame"),
             });
-        self.encode(&mut encoder, &frame, view, layers);
+        self.encode(&mut encoder, &frame, view, layers, input);
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
                 texture: &texture,
@@ -265,6 +387,30 @@ impl Renderer {
     fn set_clear_color(&mut self, color: wgpu::Color) {
         self.clear_color = color;
     }
+
+    /// Whether the hover tag's font is installed.
+    #[cfg(test)]
+    fn has_label_font(&self) -> bool {
+        self.labels.has_font()
+    }
+}
+
+/// The two colour targets of every scene-pass pipeline: the frame and the emissive image
+/// (`context`, "Emissive target"). Both share one blend state and write mask, because the GLES
+/// fallback cannot blend attachments independently (wgpu's `INDEPENDENT_BLEND`); shaders write
+/// zero into the emissive target where nothing glows (`shaders/scene_out.wgsl`).
+fn scene_targets(
+    target: TargetFormat,
+    blend: Option<wgpu::BlendState>,
+) -> [Option<wgpu::ColorTargetState>; 2] {
+    let state = |format| {
+        Some(wgpu::ColorTargetState {
+            format,
+            blend,
+            write_mask: wgpu::ColorWrites::ALL,
+        })
+    };
+    [state(target.color), state(EMISSIVE_FORMAT)]
 }
 
 /// A uniform buffer binding of `size` bytes at binding 0.
@@ -308,11 +454,7 @@ fn fullscreen_pipeline(
             module: shader,
             entry_point: Some(fragment_entry),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: target.color,
-                blend,
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
+            targets: &scene_targets(target, blend),
         }),
         multiview_mask: None,
         cache: None,
@@ -324,11 +466,9 @@ mod tests {
     use glam::Vec3;
 
     use super::*;
-    use crate::assets::voxel::load_station_scene;
+    use crate::assets::voxel::StationScene;
     use crate::camera::{Camera, Projection, Turn};
-    use crate::config::{
-        default_asset_root, load_scene_config, scene_config_path, station_scene_path,
-    };
+    use crate::config::{SceneConfig, default_asset_root};
 
     /// Shaders are validated without a GPU, so CI catches WGSL errors.
     #[test]
@@ -338,6 +478,8 @@ mod tests {
             ("background", BACKGROUND_WGSL),
             ("grid", GRID_WGSL),
             ("voxels", VOXELS_WGSL),
+            ("overlay", OVERLAY_WGSL),
+            ("bloom", BLOOM_WGSL),
         ] {
             let module = wgpu::naga::front::wgsl::parse_str(source)
                 .unwrap_or_else(|e| panic!("{name}.wgsl: {}", e.emit_to_string(source)));
@@ -347,19 +489,28 @@ mod tests {
         }
     }
 
-    fn scene() -> SceneConfig {
-        load_scene_config(&scene_config_path(&default_asset_root())).unwrap()
-    }
-
-    fn station() -> StationScene {
-        load_station_scene(&station_scene_path(&default_asset_root())).unwrap()
+    /// The shipped assets, with whatever fonts are installed locally.
+    fn assets() -> SceneAssets {
+        SceneAssets::load(&default_asset_root()).unwrap()
     }
 
     fn renderer(format: wgpu::TextureFormat) -> (Renderer, SceneConfig) {
-        let scene = scene();
+        let assets = assets();
         let gpu = Gpu::headless().expect("a GPU adapter");
-        (Renderer::new(&gpu, format, &scene, &station()), scene)
+        (Renderer::new(&gpu, format, &assets), assets.config)
     }
+
+    /// The layers up to the voxels, without the M3 additions.
+    const M2_LAYERS: Layers = Layers {
+        background: true,
+        grid: true,
+        voxels: true,
+        overlays: false,
+        bloom: false,
+        labels: false,
+    };
+
+    const NO_INPUT: FrameInput = FrameInput { hovered: None };
 
     fn differs(a: [u8; 4], b: [u8; 4], tolerance: u8) -> bool {
         (0..3).any(|c| a[c].abs_diff(b[c]) > tolerance)
@@ -399,7 +550,7 @@ mod tests {
         );
         let grid_only = Layers {
             voxels: false,
-            ..Layers::default()
+            ..M2_LAYERS
         };
         let neither = Layers {
             grid: false,
@@ -411,9 +562,11 @@ mod tests {
                 camera.set_zoom_index(zoom_index);
                 let transform = camera.transform();
                 let with = renderer
-                    .render_to_image(w, h, &transform, grid_only)
+                    .render_to_image(w, h, &transform, grid_only, NO_INPUT)
                     .unwrap();
-                let without = renderer.render_to_image(w, h, &transform, neither).unwrap();
+                let without = renderer
+                    .render_to_image(w, h, &transform, neither, NO_INPUT)
+                    .unwrap();
                 let counts = grid_pixels_per_edge(&with, &without);
                 for (edge, count) in ["top", "bottom", "left", "right"].iter().zip(counts) {
                     assert!(
@@ -433,10 +586,10 @@ mod tests {
         let layers = Layers {
             grid: false,
             voxels: false,
-            ..Layers::default()
+            ..M2_LAYERS
         };
         let image = renderer
-            .render_to_image(1920, 1080, &camera.transform(), layers)
+            .render_to_image(1920, 1080, &camera.transform(), layers, NO_INPUT)
             .unwrap();
         // Bottom-right corner lies beyond the gradient radius: the edge colour #060a12. The
         // nearest nebula adds well under one level there. (Checks the BGRA → RGBA swizzle too.)
@@ -451,11 +604,11 @@ mod tests {
         let layers = Layers {
             background: false,
             grid: false,
-            voxels: true,
+            ..M2_LAYERS
         };
         let [width, height] = view.viewport_px.to_array().map(whole_px);
         let image = renderer
-            .render_to_image(width, height, view, layers)
+            .render_to_image(width, height, view, layers, NO_INPUT)
             .unwrap();
         renderer.set_clear_color(wgpu::Color::BLACK);
         image
@@ -511,23 +664,23 @@ mod tests {
     #[test]
     #[ignore = "needs a GPU adapter"]
     fn station_has_no_holes() {
-        let scene = scene();
-        let station = station();
+        let assets = assets();
+        let scene = &assets.config;
         let gpu = Gpu::headless().expect("a GPU adapter");
         let format = wgpu::TextureFormat::Rgba8Unorm;
-        let mut greedy = Renderer::new(&gpu, format, &scene, &station);
-        let mut unmerged = Renderer::new(&gpu, format, &scene, &station);
-        let reference_mesh = voxels::build_unmerged_station_mesh(&station);
+        let mut greedy = Renderer::new(&gpu, format, &assets);
+        let mut unmerged = Renderer::new(&gpu, format, &assets);
+        let reference_mesh = voxels::build_unmerged_station_mesh(&assets.station);
         unmerged.voxels = VoxelPass::from_mesh(
             &gpu.device,
             &gpu.queue,
             unmerged.target,
-            &station,
+            &assets.station,
             &reference_mesh,
         );
         for (width, height) in [(1920_u32, 1080_u32), (1280, 720)] {
             let mut camera = Camera::new(
-                Projection::from_config(&scene),
+                Projection::from_config(scene),
                 Vec2::new(width as f32, height as f32),
             );
             for view in 0..4 {
@@ -590,13 +743,15 @@ mod tests {
                 &voxels_over(&mut renderer, &transform, wgpu::Color::WHITE),
             );
             let with_grid = renderer
-                .render_to_image(w, h, &transform, Layers::default())
+                .render_to_image(w, h, &transform, M2_LAYERS, NO_INPUT)
                 .unwrap();
             let no_grid = Layers {
                 grid: false,
-                ..Layers::default()
+                ..M2_LAYERS
             };
-            let without_grid = renderer.render_to_image(w, h, &transform, no_grid).unwrap();
+            let without_grid = renderer
+                .render_to_image(w, h, &transform, no_grid, NO_INPUT)
+                .unwrap();
             let mut grid_visible_elsewhere = false;
             for y in 0..h {
                 for x in 0..w {
@@ -621,7 +776,6 @@ mod tests {
     #[test]
     #[ignore = "needs a GPU adapter"]
     fn faces_are_shaded_relative_to_the_camera() {
-        let scene = scene();
         let gpu = Gpu::headless().expect("a GPU adapter");
         let text = serde_json::json!({
             "format": "voxel-rts/scene@1",
@@ -636,17 +790,21 @@ mod tests {
         })
         .to_string();
         let station = StationScene::from_json(&text, std::path::Path::new("test.json")).unwrap();
-        let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, &scene, &station);
+        let assets = SceneAssets {
+            station,
+            ..assets()
+        };
+        let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, &assets);
         let (width, height) = (960, 540);
         let mut camera = Camera::new(
-            Projection::from_config(&scene),
+            Projection::from_config(&assets.config),
             Vec2::new(width as f32, height as f32),
         );
         camera.set_zoom_index(4);
         let layers = Layers {
             background: false,
             grid: false,
-            voxels: true,
+            ..M2_LAYERS
         };
         let expect = |image: &RgbaImage, at: Vec2, factor: f32, what: &str| {
             let rgb = rgb_at(image, at);
@@ -664,7 +822,9 @@ mod tests {
         for view in 0..4 {
             camera.set_view(view);
             let t = camera.transform();
-            let image = renderer.render_to_image(width, height, &t, layers).unwrap();
+            let image = renderer
+                .render_to_image(width, height, &t, layers, NO_INPUT)
+                .unwrap();
             // Each 4×4×4 block shows its top and the two side faces that point against
             // up_ground; one of those faces screen-left, the other screen-right. Sample the
             // projected centre of each face.
@@ -700,5 +860,320 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Screen bounding box of the world box `[lo, hi]`.
+    fn screen_box(t: &ViewTransform, lo: Vec3, hi: Vec3) -> (Vec2, Vec2) {
+        let mut min = Vec2::splat(f32::INFINITY);
+        let mut max = Vec2::splat(f32::NEG_INFINITY);
+        for i in 0..8 {
+            let pick = |bit: u32, a: f32, b: f32| if i & bit == 0 { a } else { b };
+            let p = Vec3::new(
+                pick(1, lo.x, hi.x),
+                pick(2, lo.y, hi.y),
+                pick(4, lo.z, hi.z),
+            );
+            let s = t.world_to_screen(p);
+            min = min.min(s);
+            max = max.max(s);
+        }
+        (min, max)
+    }
+
+    /// A mask of the pixels within `margin` of any of `boxes`.
+    fn mask_around(boxes: &[(Vec2, Vec2)], margin: f32, width: u32, height: u32) -> Vec<bool> {
+        let mut mask = vec![false; (width * height) as usize];
+        for &(min, max) in boxes {
+            let x0 = whole_px(min.x - margin);
+            let y0 = whole_px(min.y - margin);
+            let x1 = whole_px(max.x + margin + 1.0).min(width);
+            let y1 = whole_px(max.y + margin + 1.0).min(height);
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    mask[(y * width + x) as usize] = true;
+                }
+            }
+        }
+        mask
+    }
+
+    /// The pixels that differ between two renders, as (x, y).
+    fn changed_pixels(a: &RgbaImage, b: &RgbaImage) -> Vec<(u32, u32)> {
+        (0..a.height)
+            .flat_map(|y| (0..a.width).map(move |x| (x, y)))
+            .filter(|&(x, y)| differs(a.pixel(x, y), b.pixel(x, y), 0))
+            .collect()
+    }
+
+    fn module_index(assets: &SceneAssets, id: &str) -> usize {
+        assets
+            .station
+            .modules
+            .iter()
+            .position(|m| m.id == id)
+            .unwrap()
+    }
+
+    /// Doc 01 §2 and doc 06 M3: emissive voxels glow, and everything farther from them than the
+    /// blur reaches keeps its M2 colour bit for bit. The glow only ever adds light. Checked in
+    /// all four views at 1080p and zoom 1, and at zoom 2.
+    #[test]
+    #[ignore = "needs a GPU adapter"]
+    fn bloom_brightens_only_around_emitters() {
+        let assets = assets();
+        let gpu = Gpu::headless().expect("a GPU adapter");
+        let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, &assets);
+        let (width, height) = (1920, 1080);
+        let mut camera = Camera::new(
+            Projection::from_config(&assets.config),
+            Vec2::new(width as f32, height as f32),
+        );
+        let station = &assets.station;
+        let emissive: Vec<Vec3> = station
+            .modules
+            .iter()
+            .flat_map(|m| m.chunk.voxels())
+            .filter(|&(_, p)| station.palette[usize::from(p)].emissive)
+            .map(|(p, _)| Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32))
+            .collect();
+        // The emitter column of pylon N: its top voxel.
+        let pylon_n = module_index(&assets, "pylon_n");
+        let emitter_top = station.modules[pylon_n]
+            .chunk
+            .voxels()
+            .filter(|&(_, p)| station.palette[usize::from(p)].emissive)
+            .max_by_key(|(p, _)| p[2])
+            .map(|(p, _)| Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32))
+            .unwrap();
+        let with_bloom = Layers {
+            bloom: true,
+            ..M2_LAYERS
+        };
+        for (view, zoom_index) in [(0, 2), (1, 2), (2, 2), (3, 2), (0, 4)] {
+            camera.set_view(view);
+            camera.set_zoom_index(zoom_index);
+            let t = camera.transform();
+            let plain = renderer
+                .render_to_image(width, height, &t, M2_LAYERS, NO_INPUT)
+                .unwrap();
+            let glow = renderer
+                .render_to_image(width, height, &t, with_bloom, NO_INPUT)
+                .unwrap();
+            let kernel = bloom::BlurKernel::new(assets.config.bloom, &t);
+            // Taps are half-resolution texels; add the half-resolution sampling footprint.
+            let reach = kernel.taps as f32 * 2.0 + 3.0;
+            let boxes: Vec<_> = emissive
+                .iter()
+                .map(|&p| screen_box(&t, p, p + Vec3::ONE))
+                .collect();
+            let near = mask_around(&boxes, reach, width, height);
+            let changed = changed_pixels(&plain, &glow);
+            for &(x, y) in &changed {
+                assert!(
+                    near[(y * width + x) as usize],
+                    "view {view} zoom index {zoom_index}: bloom changed ({x}, {y}), far from \
+                     every emitter"
+                );
+                let (before, after) = (plain.pixel(x, y), glow.pixel(x, y));
+                assert!(
+                    (0..3).all(|c| after[c] >= before[c]),
+                    "view {view}: bloom darkened ({x}, {y})"
+                );
+            }
+            // The glow is visible, and it stays within the reach mask (checked above), which
+            // covers a few percent of the screen at zoom 1.
+            assert!(
+                changed.len() > 2000,
+                "view {view} zoom index {zoom_index}: only {} pixels glow",
+                changed.len()
+            );
+            if zoom_index == 2 {
+                assert!(
+                    changed.len() < (width * height / 50) as usize,
+                    "view {view}: bloom spreads over {} pixels",
+                    changed.len()
+                );
+            }
+
+            // The emitter's top face is brighter, and so is the dark space just above it (the
+            // halo), where the frame shows background without bloom.
+            let top_face = t.world_to_screen(emitter_top + Vec3::new(0.5, 0.5, 1.0));
+            let (face_plain, face_glow) = (rgb_at(&plain, top_face), rgb_at(&glow, top_face));
+            assert!(
+                face_glow[0] >= face_plain[0].saturating_add(10),
+                "view {view}: emitter top {face_plain:?} → {face_glow:?}"
+            );
+            let (min, _) = screen_box(&t, emitter_top, emitter_top + Vec3::ONE);
+            let above = Vec2::new(top_face.x, min.y - 3.0 * t.zoom);
+            let (halo_plain, halo_glow) = (rgb_at(&plain, above), rgb_at(&glow, above));
+            assert!(
+                halo_glow[2] >= halo_plain[2].saturating_add(4),
+                "view {view}: no halo above the emitter: {halo_plain:?} → {halo_glow:?}"
+            );
+        }
+    }
+
+    /// Doc 01 §7: a footprint and stalks under FA-1 and FB-2, in every view and halfway through
+    /// a turn, cyan, and nothing outside the column under each lifted module.
+    #[test]
+    #[ignore = "needs a GPU adapter"]
+    fn elevation_cues_lie_under_the_lifted_modules() {
+        let assets = assets();
+        let gpu = Gpu::headless().expect("a GPU adapter");
+        let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, &assets);
+        let (width, height) = (1920, 1080);
+        let mut camera = Camera::new(
+            Projection::from_config(&assets.config),
+            Vec2::new(width as f32, height as f32),
+        );
+        let modules = overlay::elevated_modules(&assets.station);
+        assert_eq!(modules.len(), 2);
+        let with_cues = Layers {
+            overlays: true,
+            ..M2_LAYERS
+        };
+        for (view, mid_turn) in [(0, false), (1, false), (2, false), (3, false), (0, true)] {
+            camera.set_view(view);
+            if mid_turn {
+                camera.rotate(Turn::Plus90);
+                camera.update(0.125);
+            }
+            let t = camera.transform();
+            let plain = renderer
+                .render_to_image(width, height, &t, M2_LAYERS, NO_INPUT)
+                .unwrap();
+            let cues = renderer
+                .render_to_image(width, height, &t, with_cues, NO_INPUT)
+                .unwrap();
+            let columns: Vec<_> = modules
+                .iter()
+                .map(|m| {
+                    screen_box(
+                        &t,
+                        m.footprint_min.extend(0.0),
+                        m.footprint_max.extend(m.bottom_z),
+                    )
+                })
+                .collect();
+            let anywhere = mask_around(&columns, 2.0, width, height);
+            let changed = changed_pixels(&plain, &cues);
+            let mut tint = [0_i64; 3];
+            for &(x, y) in &changed {
+                assert!(
+                    anywhere[(y * width + x) as usize],
+                    "view {view} mid-turn {mid_turn}: overlay pixel ({x}, {y}) outside the columns"
+                );
+                let (before, after) = (plain.pixel(x, y), cues.pixel(x, y));
+                for c in 0..3 {
+                    tint[c] += i64::from(after[c]) - i64::from(before[c]);
+                }
+            }
+            // Cyan #38d6ff over the dark grid: blue and green rise, much more than red.
+            assert!(
+                tint[2] > 2 * tint[0].max(0) && tint[1] > tint[0],
+                "view {view}: overlay tint {tint:?} is not cyan"
+            );
+            for (module, column) in modules.iter().zip(&columns) {
+                let inside = mask_around(std::slice::from_ref(column), 0.0, width, height);
+                let count = changed
+                    .iter()
+                    .filter(|&&(x, y)| inside[(y * width + x) as usize])
+                    .count();
+                assert!(
+                    count > 300,
+                    "view {view} mid-turn {mid_turn}: only {count} cue pixels under module {}",
+                    module.index
+                );
+            }
+        }
+    }
+
+    /// Doc 06 M3: hovering FA-1 lifts its faces and shows `ELEV +8` below its footprint (when the
+    /// font is installed); hovering a module on the grid lifts it without a tag. Nothing else
+    /// changes.
+    #[test]
+    #[ignore = "needs a GPU adapter"]
+    fn hover_highlights_the_module_and_tags_lifted_ones() {
+        let assets = assets();
+        let gpu = Gpu::headless().expect("a GPU adapter");
+        let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, &assets);
+        let (width, height) = (1920, 1080);
+        let camera = Camera::new(
+            Projection::from_config(&assets.config),
+            Vec2::new(width as f32, height as f32),
+        );
+        let t = camera.transform();
+        let layers = Layers {
+            labels: true,
+            ..M2_LAYERS
+        };
+        let plain = renderer
+            .render_to_image(width, height, &t, layers, NO_INPUT)
+            .unwrap();
+        let module_box = |index: usize| {
+            let chunk = &assets.station.modules[index].chunk;
+            let lo = Vec3::from(chunk.origin().map(|v| v as f32));
+            screen_box(&t, lo, lo + Vec3::from(chunk.size().map(|s| s as f32)))
+        };
+
+        let fa1 = module_index(&assets, "factory_fa1");
+        let hovered = renderer
+            .render_to_image(width, height, &t, layers, FrameInput { hovered: Some(fa1) })
+            .unwrap();
+        let elevated = overlay::elevated_modules(&assets.station);
+        let anchor = elevated
+            .iter()
+            .find(|m| m.index == fa1)
+            .unwrap()
+            .tag_anchor(&t);
+        let tag_box = (
+            anchor + Vec2::new(-40.0, 0.0),
+            anchor + Vec2::new(40.0, 20.0),
+        );
+        let in_module = mask_around(&[module_box(fa1)], 1.0, width, height);
+        let in_tag = mask_around(&[tag_box], 0.0, width, height);
+        let (mut lifted, mut text) = (0, 0);
+        for (x, y) in changed_pixels(&plain, &hovered) {
+            let index = (y * width + x) as usize;
+            let (before, after) = (plain.pixel(x, y), hovered.pixel(x, y));
+            if in_module[index] {
+                assert!(
+                    (0..3).all(|c| after[c] >= before[c]),
+                    "hover darkened ({x}, {y})"
+                );
+                lifted += 1;
+            } else if in_tag[index] {
+                text += 1;
+            } else {
+                panic!("hovering FA-1 changed ({x}, {y}), outside FA-1 and its tag");
+            }
+        }
+        assert!(lifted > 1000, "only {lifted} FA-1 pixels lifted");
+        if renderer.has_label_font() {
+            assert!(text > 30, "only {text} tag pixels");
+        } else {
+            assert_eq!(text, 0);
+        }
+
+        let core = module_index(&assets, "core_spindle");
+        let hovered = renderer
+            .render_to_image(
+                width,
+                height,
+                &t,
+                layers,
+                FrameInput {
+                    hovered: Some(core),
+                },
+            )
+            .unwrap();
+        let in_core = mask_around(&[module_box(core)], 1.0, width, height);
+        let changed = changed_pixels(&plain, &hovered);
+        assert!(changed.len() > 1000);
+        assert!(
+            changed
+                .iter()
+                .all(|&(x, y)| in_core[(y * width + x) as usize])
+        );
     }
 }

@@ -178,7 +178,7 @@ Control already decides the season (D-020) and gives sensor coverage (D-041). Ad
 
 ## 12. Season start kit
 
-*Proposed.*
+*Agreed (D-112).*
 
 - **Mother station:** core, 4 pylons, 1 solar array, 1 harvester on its ore field, 1 refinery, 1 storage module, 1 dry dock. This matches the phase-1 station.
 - **Fleet:** 3 VX and 2 MULE.

@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** the MVP design is complete. All questions Q1–Q100 are answered (D-001 to D-110), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
+**Status:** the MVP design is complete. All questions Q1–Q108 are answered (D-001 to D-119), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
 
 ## Documents
 
@@ -33,8 +33,8 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 
 | Package | Plan | Status |
 |---|---|---|
-| S3 | [`plans/S3-movement-and-orders.md`](plans/S3-movement-and-orders.md) | Planned and decided (D-101 to D-105); starts after N1 |
-| N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Planned and decided (D-106, D-107); starts after N1 |
+| S3 | [`plans/S3-movement-and-orders.md`](plans/S3-movement-and-orders.md) | Built (D-101 to D-105; gaps decided as D-112 to D-115) |
+| N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Built except D-109 and D-110 (journal checkpoints, 48 h journal); open gaps Q105, Q106 |
 
 ## Conventions
 

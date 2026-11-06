@@ -9,6 +9,11 @@
   "mono": "JetBrains Mono 400/600/700 (OFL)",
   "display": "Rajdhani 500/600/700 (OFL)"
  },
+ "font_families": {
+  "mono": "JetBrains Mono",
+  "display": "Rajdhani",
+  "note": "Family names the client looks up in assets/fonts/ (OFL, not bundled: download them there)."
+ },
  "colors": {
   "panel_bg": "rgba(7,14,22,0.82)",
   "panel_border": "rgba(56,214,255,0.32)",
@@ -187,6 +192,15 @@
   "selection_brackets": "4 L-corners, 2px accent",
   "altitude_stalk": "dashed 1px vertical line to ops grid + 6x3 ellipse",
   "lock": "red reticle 20px + corner brackets",
-  "pylon_tag": "10px bold, accent or hostile colour when < 50%"
+  "pylon_tag": "10px bold, accent or hostile colour when < 50%",
+  "elevation_tag": {
+   "text": "ELEV +{tier}",
+   "font": "mono",
+   "size_px": 10,
+   "weight": 700,
+   "color": "#7fe6ff",
+   "baseline_below_footprint_px": 14,
+   "note": "Shown only on hover or selection (doc 01 §7). {tier} is the module's elevation_tier. Centred under the lowest screen point of the footprint; colour and offset from the mockup."
+  }
  }
 }

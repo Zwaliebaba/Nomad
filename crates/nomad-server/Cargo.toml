@@ -1,0 +1,25 @@
+[package]
+name = "nomad-server"
+description = "Headless authoritative Nomad server: creates, runs, persists, recovers and catches up one Universe (Design doc 20 §2, §4, §6, §7; N2 plan)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[lints]
+workspace = true
+
+# No networking yet: QUIC, sessions and nomad-protocol arrive with N3 (N2 plan §3).
+[dependencies]
+directories = { workspace = true }
+nomad-sim = { workspace = true }
+nomad-types = { workspace = true }
+postcard = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

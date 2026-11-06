@@ -1,0 +1,104 @@
+{
+  "format": "nomad-rules@1",
+  "ship_classes": {
+    "VX": {
+      "tactical_speed_m_per_s": 280,
+      "cruise_speed_m_per_s": 900,
+      "acceleration_m_per_s2": 60,
+      "turn_rate_deg_per_s": 90,
+      "weapon_range_m": 1500,
+      "frigate": false,
+      "npc": false
+    },
+    "LANCER": {
+      "tactical_speed_m_per_s": 220,
+      "cruise_speed_m_per_s": 800,
+      "acceleration_m_per_s2": 40,
+      "turn_rate_deg_per_s": 60,
+      "weapon_range_m": 3000,
+      "frigate": false,
+      "npc": false
+    },
+    "WARDEN": {
+      "tactical_speed_m_per_s": 110,
+      "cruise_speed_m_per_s": 500,
+      "acceleration_m_per_s2": 15,
+      "turn_rate_deg_per_s": 20,
+      "weapon_range_m": 3000,
+      "frigate": true,
+      "npc": false
+    },
+    "MULE": {
+      "tactical_speed_m_per_s": 120,
+      "cruise_speed_m_per_s": 600,
+      "acceleration_m_per_s2": 15,
+      "turn_rate_deg_per_s": 25,
+      "weapon_range_m": null,
+      "frigate": false,
+      "npc": false
+    },
+    "RAIDER_STRIKE_CRAFT": {
+      "tactical_speed_m_per_s": 240,
+      "cruise_speed_m_per_s": 850,
+      "acceleration_m_per_s2": 50,
+      "turn_rate_deg_per_s": 75,
+      "weapon_range_m": 2500,
+      "frigate": false,
+      "npc": true
+    },
+    "HEAVY_CRUISER": {
+      "tactical_speed_m_per_s": 70,
+      "cruise_speed_m_per_s": 450,
+      "acceleration_m_per_s2": 8,
+      "turn_rate_deg_per_s": 10,
+      "weapon_range_m": 3500,
+      "frigate": false,
+      "npc": true
+    }
+  },
+  "movement": {
+    "ops_area_radius_m": 20000,
+    "formation_spacing_m": 150,
+    "neighbour_cell_m": 2000,
+    "separation_m": 120,
+    "obstacle_margin_m": 60,
+    "look_ahead_s": 4,
+    "guard_radius_m": 3000,
+    "cruise_drop_hostile_range_m": 20000
+  },
+  "gates": {
+    "jump_range_m": 2000,
+    "spool_up_s": 5,
+    "arrival_scatter_m": 2000,
+    "shroud_s": 10
+  },
+  "docking": {
+    "mother_station_core_ships": 24,
+    "core_ships": 8,
+    "dry_dock_ships": 6
+  },
+  "start_kit": {
+    "fleet": {
+      "VX": 3,
+      "MULE": 2
+    },
+    "mother_station_dry_docks": 1
+  },
+  "mother_station": {
+    "voxel_m": 35,
+    "ship_plane_z_voxels": 16,
+    "grid_north_azimuth_deg": 225,
+    "launch_point_voxels": [-14.3, 20.7],
+    "modules": [
+      { "id": "core_spindle", "min_voxels": [-11, -11, 1], "max_voxels": [11, 11, 33] },
+      { "id": "deck", "min_voxels": [-26, -8, 0], "max_voxels": [9, 27, 6] },
+      { "id": "pylon_n", "min_voxels": [-31, -13, 0], "max_voxels": [-23, -5, 19] },
+      { "id": "pylon_e", "min_voxels": [6, -13, 0], "max_voxels": [14, -5, 20] },
+      { "id": "pylon_s", "min_voxels": [6, 24, 0], "max_voxels": [14, 32, 19] },
+      { "id": "pylon_w", "min_voxels": [-31, 24, 0], "max_voxels": [-23, 32, 19] },
+      { "id": "solar_array", "min_voxels": [-66, -46, 0], "max_voxels": [-23, -3, 6] },
+      { "id": "factory_fa1", "min_voxels": [-59, 13, 8], "max_voxels": [-40, 30, 19] },
+      { "id": "dry_dock", "min_voxels": [-20, 47, 0], "max_voxels": [13, 60, 11] }
+    ]
+  }
+}

@@ -7,18 +7,32 @@
 //!
 //! The palette lives in a small texture rather than the storage buffer doc 05 suggests: the device
 //! is created with WebGL2-level limits so the GLES fallback keeps working, and those allow no
-//! storage buffers (doc 05's module layout allows either; phase-1 doc 07 item 16).
+//! storage buffers (doc 05's module layout allows either; phase-1 doc 07 item 17).
 //!
-//! # No back-face culling
+//! # Emissive output and hover (M3)
+//!
+//! Emissive palette entries also write their albedo into the scene pass's emissive target, which
+//! feeds the bloom (`render::bloom`); every other face writes black there, so an occluded emitter
+//! does not glow through. Each vertex carries its module's index, so the hovered module can be
+//! drawn brighter (doc 06 M3) without a second draw.
+//!
+//! # No T-junctions
 //!
 //! Greedy merging leaves T-junctions, where one long quad edge meets the corners of several
 //! shorter quads. At the snap views the dimetric projection puts every corner on the rasteriser's
-//! sub-pixel grid, so these edges stay watertight; at the intermediate yaws of a turn they can
-//! open single-sample pinholes (about 200 per sweep of views and zooms in the
-//! `station_has_no_holes` measurement). Every module is a closed surface, so a ray through such a
-//! pinhole still meets the module's far side. Drawing back faces therefore fills every pinhole
-//! with the station's own colours instead of the background, for a few thousand extra triangles
-//! that the depth test mostly rejects.
+//! sub-pixel grid, so these edges stay watertight; at the intermediate yaws of a turn they open
+//! single-sample pinholes. Each quad is therefore split at every corner of its module's other
+//! quads that lies on its edges, and the resulting convex polygon is triangulated by ear clipping
+//! at strictly convex vertices. Every triangle has area, and neighbouring faces share their edges
+//! vertex for vertex, as in the unmerged reference mesh. A quad with no such corners keeps its two
+//! triangles.
+//!
+//! Back faces are still drawn (no culling). Before the split they filled most pinholes, because a
+//! ray through one still met the module's far side, but not where the far side is open, such as
+//! a container rack's slots (found when the D-111 layout moved FA-1). They cost a few thousand
+//! triangles that the depth test mostly rejects.
+
+use std::collections::HashSet;
 
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -38,11 +52,12 @@ pub const PALETTE_WIDTH: u32 = 256;
 /// docs), so this matters only if it is ever turned on.
 const FRONT_FACE: wgpu::FrontFace = wgpu::FrontFace::Cw;
 
-/// One mesh vertex: integer world position and (palette index, face id). 12 bytes.
+/// One mesh vertex: integer world position, module index and (palette index, face id). 12 bytes.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Pod, Zeroable)]
 pub struct VoxelVertex {
-    /// x, y, z and an unused fourth lane.
+    /// x, y, z and the index of the vertex's module in the scene (for the hover highlight; the
+    /// loader caps the module count far below `i16::MAX`).
     pub position: [i16; 4],
     pub palette_face: [u16; 2],
 }
@@ -51,6 +66,7 @@ pub struct VoxelVertex {
 pub struct StationMesh {
     pub vertices: Vec<VoxelVertex>,
     pub indices: Vec<u32>,
+    /// Greedy quads before the T-junction split (module docs); each became one polygon.
     pub quad_count: usize,
 }
 
@@ -71,7 +87,7 @@ fn build_mesh(scene: &StationScene, mesher: fn(&Chunk) -> Vec<Quad>) -> StationM
         indices: Vec::new(),
         quad_count: 0,
     };
-    for module in &scene.modules {
+    for (index, module) in scene.modules.iter().enumerate() {
         let quads = mesher(&module.chunk);
         tracing::debug!(
             module = %module.id,
@@ -79,27 +95,115 @@ fn build_mesh(scene: &StationScene, mesher: fn(&Chunk) -> Vec<Quad>) -> StationM
             quads = quads.len(),
             "meshed station module"
         );
+        let module_index = i16::try_from(index)
+            .expect("invariant: the loader caps the module count below i16::MAX");
+        let corners: HashSet<[i32; 3]> = quads.iter().flat_map(|q| q.corners).collect();
         for quad in &quads {
-            push_quad(&mut mesh, quad);
+            push_quad(&mut mesh, quad, &corners, module_index);
         }
         mesh.quad_count += quads.len();
     }
     mesh
 }
 
-fn push_quad(mesh: &mut StationMesh, quad: &Quad) {
+/// Pushes one quad as a polygon split at every module corner on its edges (module docs).
+fn push_quad(mesh: &mut StationMesh, quad: &Quad, corners: &HashSet<[i32; 3]>, module_index: i16) {
+    let boundary = quad_boundary(quad, corners);
     let base = u32::try_from(mesh.vertices.len())
         .expect("invariant: the validated scene has far fewer than 2^32 vertices");
     let coord =
         |v: i32| i16::try_from(v).expect("invariant: voxel coordinates are validated to fit i16");
-    for corner in quad.corners {
+    for point in &boundary {
         mesh.vertices.push(VoxelVertex {
-            position: [coord(corner[0]), coord(corner[1]), coord(corner[2]), 0],
+            position: [
+                coord(point[0]),
+                coord(point[1]),
+                coord(point[2]),
+                module_index,
+            ],
             palette_face: [quad.palette_index, quad.face.id()],
         });
     }
-    mesh.indices
-        .extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+    for triangle in triangulate_convex(&boundary) {
+        mesh.indices.extend(triangle.map(|i| {
+            base + u32::try_from(i).expect("invariant: a quad's boundary has few points")
+        }));
+    }
+}
+
+/// The quad's corners in order, each followed by the `corners` that lie strictly inside the edge
+/// to the next corner.
+fn quad_boundary(quad: &Quad, corners: &HashSet<[i32; 3]>) -> Vec<[i32; 3]> {
+    let mut boundary = Vec::with_capacity(4);
+    for k in 0..4 {
+        let (a, b) = (quad.corners[k], quad.corners[(k + 1) % 4]);
+        boundary.push(a);
+        let axis = (0..3)
+            .find(|&i| a[i] != b[i])
+            .expect("invariant: quad edges have positive length along one axis");
+        let step = (b[axis] - a[axis]).signum();
+        let mut point = a;
+        point[axis] += step;
+        while point[axis] != b[axis] {
+            if corners.contains(&point) {
+                boundary.push(point);
+            }
+            point[axis] += step;
+        }
+    }
+    boundary
+}
+
+/// Triangulates a convex planar polygon whose edges may hold collinear points, keeping its
+/// winding. An ear is clipped only at a strictly convex vertex whose removal leaves a polygon
+/// with area, so no triangle is degenerate, no point lies on a cut, and every boundary segment is
+/// an edge of exactly one triangle. (At most one strictly convex vertex can leave a degenerate
+/// remainder, and a convex polygon has at least three, so an ear always exists.) The search
+/// starts at the second point, so a plain quad gives the triangles (0, 1, 2) and (0, 2, 3).
+fn triangulate_convex(points: &[[i32; 3]]) -> Vec<[usize; 3]> {
+    let mut ring: Vec<usize> = (0..points.len()).collect();
+    let mut triangles = Vec::with_capacity(points.len().saturating_sub(2));
+    while ring.len() > 3 {
+        let m = ring.len();
+        let at = |i: usize| points[ring[i % m]];
+        let has_area = |skip: usize| {
+            let mut rest = (0..m).filter(|&i| i != skip).map(at);
+            let first = rest
+                .next()
+                .expect("invariant: the ring has more than three points");
+            let mut direction = None;
+            rest.any(|p| {
+                let d = minus(p, first);
+                match direction {
+                    None if d != [0; 3] => {
+                        direction = Some(d);
+                        false
+                    }
+                    Some(e) => !collinear(e, d),
+                    None => false,
+                }
+            })
+        };
+        let ear = (1..=m)
+            .map(|i| i % m)
+            .find(|&i| {
+                !collinear(minus(at(i), at(i + m - 1)), minus(at(i + 1), at(i))) && has_area(i)
+            })
+            .expect("invariant: a convex polygon with area has an ear that keeps area");
+        triangles.push([ring[(ear + m - 1) % m], ring[ear], ring[(ear + 1) % m]]);
+        ring.remove(ear);
+    }
+    triangles.push([ring[0], ring[1], ring[2]]);
+    triangles
+}
+
+/// Whether two vectors are parallel (their cross product is zero).
+fn collinear(a: [i32; 3], b: [i32; 3]) -> bool {
+    a[1] * b[2] == a[2] * b[1] && a[2] * b[0] == a[0] * b[2] && a[0] * b[1] == a[1] * b[0]
+}
+
+fn minus(a: [i32; 3], b: [i32; 3]) -> [i32; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
 
 /// RGBA8 texels for the palette texture: sRGB albedo and alpha 255 for emissive entries, padded to
@@ -126,14 +230,25 @@ pub struct VoxelUniforms {
     view_proj: [[f32; 4]; 4],
     view_right: [f32; 4],
     shading: [f32; 4],
+    hover: [f32; 4],
 }
 
 impl VoxelUniforms {
-    pub fn new(view: &ViewTransform, shading: [f32; 3]) -> Self {
+    /// `hovered` is the index of the module under the cursor; `brightness_lift` comes from
+    /// `scene_config.json` → `hover`.
+    pub fn new(
+        view: &ViewTransform,
+        shading: [f32; 3],
+        hovered: Option<usize>,
+        brightness_lift: f32,
+    ) -> Self {
+        // Module indices are below MAX_MODULES, so they are exact in f32; -1 matches no module.
+        let hovered = hovered.map_or(-1.0, |index| index as f32);
         Self {
             view_proj: view.view_proj().to_cols_array_2d(),
             view_right: [view.right.x, view.right.y, 0.0, 0.0],
             shading: [shading[0], shading[1], shading[2], 0.0],
+            hover: [hovered, brightness_lift, 0.0, 0.0],
         }
     }
 }
@@ -227,8 +342,16 @@ impl VoxelPass {
         }
     }
 
-    pub fn prepare(&self, queue: &wgpu::Queue, view: &ViewTransform) {
-        let uniforms = VoxelUniforms::new(view, self.shading);
+    /// Uploads the frame's uniforms. `hovered` (a module index) is drawn with its non-emissive
+    /// faces lifted by `1 + brightness_lift`.
+    pub fn prepare(
+        &self,
+        queue: &wgpu::Queue,
+        view: &ViewTransform,
+        hovered: Option<usize>,
+        brightness_lift: f32,
+    ) {
+        let uniforms = VoxelUniforms::new(view, self.shading, hovered, brightness_lift);
         queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
     }
 
@@ -305,6 +428,9 @@ fn voxel_pipeline(
         label: Some("voxels.wgsl"),
         source: wgpu::ShaderSource::Wgsl(super::VOXELS_WGSL.into()),
     });
+    // Opaque: both targets are overwritten, the emissive one with the albedo of emissive faces
+    // and black elsewhere.
+    let targets = super::scene_targets(target, None);
     let attributes = wgpu::vertex_attr_array![0 => Sint16x4, 1 => Uint16x2];
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("voxels"),
@@ -336,11 +462,7 @@ fn voxel_pipeline(
             module: &shader,
             entry_point: Some("fs_voxel"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: target.color,
-                blend: None,
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
+            targets: &targets,
         }),
         multiview_mask: None,
         cache: None,
@@ -349,6 +471,8 @@ fn voxel_pipeline(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use glam::{Vec2, Vec3};
 
     use super::*;
@@ -422,8 +546,12 @@ mod tests {
     fn station_mesh_is_compact_and_in_range() {
         let scene = load_station_scene(&station_scene_path(&default_asset_root())).unwrap();
         let mesh = build_station_mesh(&scene);
-        assert_eq!(mesh.vertices.len(), mesh.quad_count * 4);
-        assert_eq!(mesh.indices.len(), mesh.quad_count * 6);
+        // Each quad became a polygon of n ≥ 4 points and n − 2 triangles (module docs).
+        assert!(mesh.vertices.len() >= mesh.quad_count * 4);
+        assert_eq!(
+            mesh.indices.len(),
+            3 * (mesh.vertices.len() - 2 * mesh.quad_count)
+        );
         // Doc 05: about 17k voxels become about 20k faces after greedy meshing.
         assert!(
             mesh.quad_count > 10_000 && mesh.quad_count < 25_000,
@@ -441,6 +569,98 @@ mod tests {
                 .iter()
                 .all(|&i| (i as usize) < mesh.vertices.len())
         );
+        // The fourth lane names the vertex's module, for the hover highlight; every module that
+        // has faces appears, in scene order.
+        let mut modules: Vec<i16> = mesh.vertices.iter().map(|v| v.position[3]).collect();
+        assert!(modules.is_sorted());
+        modules.dedup();
+        let expected: Vec<i16> = (0..scene.modules.len())
+            .map(|i| i16::try_from(i).unwrap())
+            .collect();
+        assert_eq!(modules, expected);
+    }
+
+    /// Module docs: no T-junctions. No vertex of a module lies strictly inside an edge of one of
+    /// that module's triangles, and no triangle is degenerate, so neighbouring faces share their
+    /// edges vertex for vertex.
+    #[test]
+    fn station_mesh_has_no_t_junctions() {
+        let scene = load_station_scene(&station_scene_path(&default_asset_root())).unwrap();
+        let mesh = build_station_mesh(&scene);
+        let point = |i: u32| {
+            let p = mesh.vertices[i as usize].position;
+            [i32::from(p[0]), i32::from(p[1]), i32::from(p[2])]
+        };
+        let mut module_points: HashMap<i16, HashSet<[i32; 3]>> = HashMap::new();
+        for (i, v) in mesh.vertices.iter().enumerate() {
+            module_points
+                .entry(v.position[3])
+                .or_default()
+                .insert(point(u32::try_from(i).unwrap()));
+        }
+        let gcd = |mut a: i32, mut b: i32| {
+            while b != 0 {
+                (a, b) = (b, a % b);
+            }
+            a
+        };
+        for triangle in mesh.indices.chunks_exact(3) {
+            let module = mesh.vertices[triangle[0] as usize].position[3];
+            let p = [point(triangle[0]), point(triangle[1]), point(triangle[2])];
+            let (a, b) = (minus(p[1], p[0]), minus(p[2], p[1]));
+            let cross = [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0],
+            ];
+            assert_ne!(cross, [0; 3], "degenerate triangle {p:?}");
+            for k in 0..3 {
+                let (from, to) = (p[k], p[(k + 1) % 3]);
+                let d = minus(to, from);
+                let steps = gcd(gcd(d[0].abs(), d[1].abs()), d[2].abs());
+                for s in 1..steps {
+                    let inner = [0, 1, 2].map(|i| from[i] + d[i] / steps * s);
+                    assert!(
+                        !module_points[&module].contains(&inner),
+                        "module {module}: vertex {inner:?} lies inside edge {from:?}-{to:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn convex_polygons_triangulate_without_degenerate_triangles() {
+        // A plain quad keeps its two triangles.
+        let quad = [[0, 0, 0], [4, 0, 0], [4, 3, 0], [0, 3, 0]];
+        assert_eq!(triangulate_convex(&quad), [[0, 1, 2], [0, 2, 3]]);
+        // A 4 × 3 rectangle with points on every side.
+        let points = [
+            [0, 0, 0],
+            [1, 0, 0],
+            [3, 0, 0],
+            [4, 0, 0],
+            [4, 2, 0],
+            [4, 3, 0],
+            [2, 3, 0],
+            [0, 3, 0],
+            [0, 1, 0],
+        ];
+        let triangles = triangulate_convex(&points);
+        assert_eq!(triangles.len(), points.len() - 2);
+        // Twice the signed area (counter-clockwise is positive) adds up to the rectangle's.
+        let doubled: Vec<i32> = triangles
+            .iter()
+            .map(|t| {
+                let (a, b) = (
+                    minus(points[t[1]], points[t[0]]),
+                    minus(points[t[2]], points[t[0]]),
+                );
+                a[0] * b[1] - a[1] * b[0]
+            })
+            .collect();
+        assert!(doubled.iter().all(|&area| area > 0), "{doubled:?}");
+        assert_eq!(doubled.iter().sum::<i32>(), 2 * 4 * 3);
     }
 
     #[test]
@@ -460,6 +680,6 @@ mod tests {
     #[test]
     fn vertex_and_uniform_layouts_match_the_shader() {
         assert_eq!(size_of::<VoxelVertex>(), 12);
-        assert_eq!(size_of::<VoxelUniforms>(), 64 + 2 * 16);
+        assert_eq!(size_of::<VoxelUniforms>(), 64 + 3 * 16);
     }
 }

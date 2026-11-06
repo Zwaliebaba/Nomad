@@ -6,11 +6,12 @@ use std::collections::BTreeMap;
 use std::io::{self, Write};
 
 use nomad_sim::galaxy::{
-    GalaxyReport, InvariantLimits, STAGE1_COMMANDERS, generate_stage1, validate,
+    GalaxyReport, InvariantLimits, STAGE1_COMMANDERS, generate_stage1_with_rules, validate,
 };
 use nomad_sim::snapshot::state_hash;
 use nomad_sim::{
-    CommanderId, ControlState, SeasonConfig, SiteId, SystemId, SystemKind, Ticks, UniverseState,
+    CommanderId, ControlState, Rules, SeasonConfig, SiteId, SystemId, SystemKind, Ticks,
+    UniverseState,
 };
 
 /// Commanders of the generated Universe: 1 human and 3 AI (doc 10 §3).
@@ -21,17 +22,18 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
     CommanderId(4),
 ];
 
-/// Generates the stage-1 sector for `seed` and writes its summary to `out`.
-pub fn print(out: &mut impl Write, seed: u64) -> Result<(), String> {
-    let state = generate_stage1(
+/// Generates the stage-1 sector for `seed` with `rules` and writes its summary to `out`.
+pub fn print(out: &mut impl Write, seed: u64, rules: Rules) -> Result<(), String> {
+    let state = generate_stage1_with_rules(
         SeasonConfig {
             seed,
             season_start_unix_ms: 0,
         },
         COMMANDERS,
+        rules,
     )
     .map_err(|e| e.to_string())?;
-    let limits = InvariantLimits::default();
+    let limits = InvariantLimits::from_rules(state.rules());
     let report = validate(state.galaxy(), &limits);
     let hash = state_hash(&state).map_err(|e| e.to_string())?;
     Summary {
@@ -195,12 +197,15 @@ impl Summary<'_> {
             if let Some(trip) = sector.worst_trip {
                 writeln!(
                     out,
-                    "worst-case trip {:.2} h, {} to {} (limit {} h at {} m/s)",
+                    "worst-case trip {:.2} h, {} to {} (limit {} h; {} m/s cruise, {} m/s in \
+                     ops areas, {} s spool-up per jump)",
                     trip.duration_s / 3_600.0,
                     self.site(trip.from),
                     self.site(trip.to),
                     limits.max_sector_trip.get() / Ticks::from_hours(1).get(),
                     limits.slowest_warship_cruise_m_per_s,
+                    limits.slowest_warship_tactical_m_per_s,
+                    limits.gate_spool_up.get() / Ticks::from_secs(1).get(),
                 )?;
             }
         }
@@ -212,7 +217,7 @@ impl Summary<'_> {
                 .min_home_separation_jumps
                 .map_or_else(|| "-".to_owned(), |j| j.to_string()),
             report.longest_in_system_trip_s / 60.0,
-            report.closest_sites_km.unwrap_or(0.0),
+            report.closest_sites_m.unwrap_or(0.0) / 1_000.0,
         )?;
 
         let values: Vec<String> = report
@@ -247,7 +252,7 @@ mod tests {
     #[test]
     fn summary_lists_the_stage1_sector() {
         let mut out = Vec::new();
-        print(&mut out, 7).unwrap();
+        print(&mut out, 7, Rules::embedded()).unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(text.contains("10 systems (4 home, 4 standard, 1 hub, 1 raider haven)"));
         assert!(text.contains("60 sites | 26 gates | 13 jump lanes"));

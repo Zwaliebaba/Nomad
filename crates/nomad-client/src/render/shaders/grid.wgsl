@@ -52,7 +52,7 @@ fn line_distance_px(cell: vec2<f32>, cell_per_px: vec2<f32>) -> vec2<f32> {
 }
 
 @fragment
-fn fs_grid(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
+fn fs_grid(@builtin(position) frag: vec4<f32>) -> SceneOut {
     let p = ground_point(frag.xy);
 
     let minor_spacing = u.minor_params.z;
@@ -101,5 +101,5 @@ fn fs_grid(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
     // Major over minor, premultiplied.
     let alpha = major_a + minor_a * (1.0 - major_a);
     let rgb = u.major_color.rgb * major_a + u.minor_color.rgb * minor_a * (1.0 - major_a);
-    return vec4<f32>(rgb, alpha);
+    return no_glow(vec4<f32>(rgb, alpha));
 }

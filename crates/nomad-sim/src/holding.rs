@@ -4,18 +4,19 @@
 //! counts for control; until then the claim is an outpost (doc 10 §5, RK-09). Claiming,
 //! capture and the core module itself are doc 15 rules and are not modelled yet.
 //!
-//! Holding identities and control states are public (doc 16 §2), so [`HoldingId`],
-//! [`ControlState`] and [`majority_threshold`] live in `nomad-types` (D-086, doc 20 §3) and
-//! are re-exported here.
+//! Holding identities and control states are public (doc 16 §2), so [`HoldingId`] and
+//! [`ControlState`] live in `nomad-types` (D-086, doc 20 §3) and are re-exported here. The
+//! majority rule ([`majority_threshold`], [`control_from_counts`]) is a game rule and stays
+//! in the simulation, so the client links no rules.
 
-pub use nomad_types::{ControlState, HoldingId, majority_threshold};
+pub use nomad_types::{ControlState, HoldingId};
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::galaxy::{Galaxy, SiteId, SystemId};
+use crate::galaxy::{Galaxy, SiteId, SystemId, is_claimable};
 use crate::id::{CommanderId, SimIdAllocator};
 
 /// A site owned by a commander (doc 10 §5, D-041).
@@ -28,6 +29,37 @@ pub struct Holding {
     /// Whether the core module is complete. Until it is, the site is an outpost and does not
     /// count for control (D-041).
     pub core_complete: bool,
+    /// Whether its core is a mother-station core, with 24 docking places (D-102) and the
+    /// phase-1 station layout (S3 plan §4.3).
+    pub mother_station: bool,
+    /// Dry docks, each adding 6 docking places and letting frigates dock (D-102). Set from
+    /// the start kit until modules are simulated (S4).
+    pub dry_docks: u32,
+}
+
+/// The number of completed holdings needed to control a system with `site_count` sites: a
+/// strict majority, ⌊n/2⌋+1 (D-041). 4 of 7, 4 of 6, 5 of 8.
+pub const fn majority_threshold(site_count: usize) -> usize {
+    site_count / 2 + 1
+}
+
+/// The control state of a system with `site_count` sites, given how many **completed**
+/// holdings each commander owns there (D-041).
+pub fn control_from_counts(
+    site_count: usize,
+    completed: &BTreeMap<CommanderId, usize>,
+) -> ControlState {
+    let threshold = majority_threshold(site_count);
+    // At most one commander can hold a strict majority of a system's sites; iterating in
+    // commander order keeps the answer defined even for inconsistent counts.
+    if let Some((&owner, _)) = completed.iter().find(|&(_, &n)| n >= threshold) {
+        return ControlState::Controlled(owner);
+    }
+    if completed.values().filter(|&&n| n > 0).count() >= 2 {
+        ControlState::Contested
+    } else {
+        ControlState::Open
+    }
 }
 
 /// Why a holding could not be placed.
@@ -61,7 +93,7 @@ pub(crate) fn insert(
         .site(site)
         .and_then(|s| galaxy.system(s.system))
         .ok_or(HoldingError::UnknownSite(site))?;
-    if !system.kind.is_claimable() {
+    if !is_claimable(system.kind) {
         return Err(HoldingError::NotClaimable(site));
     }
     if let Some((&existing, _)) = holdings.iter().find(|(_, h)| h.site == site) {
@@ -94,10 +126,10 @@ pub(crate) fn control_states(
     let none = BTreeMap::new();
     galaxy
         .systems()
-        .filter(|(_, system)| system.kind.is_claimable())
+        .filter(|(_, system)| is_claimable(system.kind))
         .map(|(id, system)| {
             let counts = completed.get(&id).unwrap_or(&none);
-            (id, ControlState::from_counts(system.sites.len(), counts))
+            (id, control_from_counts(system.sites.len(), counts))
         })
         .collect()
 }
@@ -108,7 +140,7 @@ pub(crate) fn control_state(
     holdings: &BTreeMap<HoldingId, Holding>,
     system: SystemId,
 ) -> Option<ControlState> {
-    let sys = galaxy.system(system).filter(|s| s.kind.is_claimable())?;
+    let sys = galaxy.system(system).filter(|s| is_claimable(s.kind))?;
     let mut completed: BTreeMap<CommanderId, usize> = BTreeMap::new();
     for holding in holdings.values().filter(|h| h.core_complete) {
         if galaxy
@@ -118,13 +150,14 @@ pub(crate) fn control_state(
             *completed.entry(holding.owner).or_default() += 1;
         }
     }
-    Some(ControlState::from_counts(sys.sites.len(), &completed))
+    Some(control_from_counts(sys.sites.len(), &completed))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::galaxy::{PositionKm, SystemKind};
+    use crate::galaxy::SystemKind;
+    use crate::geometry::polar;
     use crate::{SeasonConfig, UniverseState};
 
     const YOU: CommanderId = CommanderId(1);
@@ -142,12 +175,50 @@ mod tests {
         let sector = galaxy.add_sector(ids);
         let system = galaxy.add_system(ids, sector, SystemKind::Standard);
         let haven = galaxy.add_system(ids, sector, SystemKind::RaiderHaven);
-        let mut place = |system, i: u32| {
-            galaxy.add_site(ids, system, PositionKm::from_polar(100.0, f64::from(i)))
-        };
+        let mut place =
+            |system, i: u32| galaxy.add_site(ids, system, polar(100_000.0, f64::from(i)));
         let sites = (0..7).map(|i| place(system, i)).collect();
         let haven_sites = (0..2).map(|i| place(haven, i)).collect();
         (state, sites, haven_sites)
+    }
+
+    fn counts(pairs: &[(CommanderId, usize)]) -> BTreeMap<CommanderId, usize> {
+        pairs.iter().copied().collect()
+    }
+
+    #[test]
+    fn majority_is_strict() {
+        assert_eq!(majority_threshold(7), 4);
+        assert_eq!(majority_threshold(6), 4);
+        assert_eq!(majority_threshold(8), 5);
+        assert_eq!(majority_threshold(9), 5);
+    }
+
+    #[test]
+    fn control_from_counts_covers_every_state() {
+        // Phase-1 Kestrel-7: "YOU 3 · HSTL 2 · FREE 2" is CONTESTED (doc 10 §6).
+        assert_eq!(
+            control_from_counts(7, &counts(&[(YOU, 3), (HOSTILE, 2)])),
+            ControlState::Contested
+        );
+        assert_eq!(
+            control_from_counts(7, &counts(&[(YOU, 4), (HOSTILE, 2)])),
+            ControlState::Controlled(YOU)
+        );
+        // Half is not a majority.
+        assert_eq!(
+            control_from_counts(6, &counts(&[(YOU, 3), (HOSTILE, 3)])),
+            ControlState::Contested
+        );
+        assert_eq!(
+            control_from_counts(6, &counts(&[(YOU, 3)])),
+            ControlState::Open
+        );
+        assert_eq!(control_from_counts(7, &counts(&[])), ControlState::Open);
+        assert_eq!(
+            control_from_counts(7, &counts(&[(YOU, 0), (HOSTILE, 1)])),
+            ControlState::Open
+        );
     }
 
     #[test]

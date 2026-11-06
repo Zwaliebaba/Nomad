@@ -1,5 +1,10 @@
 //! Advancing the Universe by one tick (Design doc 11 §4).
 
+use nomad_types::{Command, Owner};
+
+use crate::command::{CommandRejection, execute};
+use crate::fleet::FleetEvent;
+use crate::id::CommanderId;
 use crate::input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 use crate::rng::{StreamKey, purpose};
 use crate::state::{ScheduledEvent, UniverseState};
@@ -12,14 +17,30 @@ pub struct TickOutputs {
     pub tick: Tick,
     /// Timers that fired.
     pub timers_fired: u32,
-    /// Inputs that were invalid and had no effect.
+    /// Inputs that were invalid and had no effect, commands included.
     pub inputs_rejected: u32,
+    /// The outcome of every command, in the order they were applied (doc 20 §5).
+    pub commands: Vec<CommandResult>,
+    /// What happened to fleets (S3 plan §4.4).
+    pub fleet_events: Vec<FleetEvent>,
+}
+
+/// The outcome of one command input.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CommandResult {
+    /// Who sent it.
+    pub commander: CommanderId,
+    /// Its client sequence number.
+    pub client_seq: u64,
+    /// Applied on this tick, or rejected with the validator's reason (D-077).
+    pub outcome: Result<(), CommandRejection>,
 }
 
 /// Computes the next tick: applies `inputs`, fires due timers and advances the tick counter.
 ///
-/// Phase order follows Design doc 11 §4.1. Phases 3–9 (AI, Deputy, movement, sensors, combat,
-/// economy, derived state) arrive with Design docs 13–16; there are no game rules yet (D-051).
+/// Phase order follows Design doc 11 §4.1. Phase 5 (movement and transit) runs ships and
+/// fleets (S3); phases 3–4 and 6–9 (AI, Deputy, sensors, combat, economy, derived state)
+/// arrive with their work packages (D-051).
 pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     let now = state.tick.next();
     let mut out = TickOutputs {
@@ -30,12 +51,28 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // Phase 1: ingest inputs. Operator commands in journal order, then commander inputs in
     // (commander, client_seq) order, whatever order the network delivered them in.
     for op in &inputs.operator {
-        apply_operator(state, now, op);
+        if !apply_operator(state, now, op) {
+            out.inputs_rejected = out.inputs_rejected.saturating_add(1);
+        }
     }
     let mut commander_inputs: Vec<&CommanderInput> = inputs.commanders.iter().collect();
     commander_inputs.sort_by_key(|input| (input.commander, input.client_seq));
     for input in commander_inputs {
-        if !apply_commander(state, input) {
+        let applied = match &input.kind {
+            CommanderInputKind::Command(command) => {
+                let outcome = apply_command(state, input.commander, command, &mut out);
+                out.commands.push(CommandResult {
+                    commander: input.commander,
+                    client_seq: input.client_seq,
+                    outcome,
+                });
+                outcome.is_ok()
+            }
+            CommanderInputKind::Connected | CommanderInputKind::Disconnected => {
+                apply_commander(state, input)
+            }
+        };
+        if !applied {
             out.inputs_rejected = out.inputs_rejected.saturating_add(1);
         }
     }
@@ -46,11 +83,15 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
         out.timers_fired = out.timers_fired.saturating_add(1);
     }
 
+    // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4).
+    crate::fleet::movement::run(state, now, &mut out.fleet_events);
+
     state.tick = now;
     out
 }
 
-fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) {
+/// Returns `false` if the input was invalid.
+fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) -> bool {
     match *op {
         OperatorInput::SpawnDiagnostics {
             count,
@@ -59,7 +100,12 @@ fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) {
             for _ in 0..count {
                 schedule_diagnostic(state, now, mean_interval);
             }
+            true
         }
+        // Catch-up mode (doc 11 §7, D-047). A marker that does not change the mode is
+        // rejected, so a server bug shows up in the outputs instead of passing silently.
+        OperatorInput::CatchUpStart => !std::mem::replace(&mut state.catching_up, true),
+        OperatorInput::CatchUpEnd => std::mem::replace(&mut state.catching_up, false),
     }
 }
 
@@ -68,7 +114,23 @@ fn apply_commander(state: &mut UniverseState, input: &CommanderInput) -> bool {
     match input.kind {
         CommanderInputKind::Connected => state.connected.insert(input.commander),
         CommanderInputKind::Disconnected => state.connected.remove(&input.commander),
+        CommanderInputKind::Command(_) => false,
     }
+}
+
+/// Validates and carries out a commander's command (D-077).
+fn apply_command(
+    state: &mut UniverseState,
+    commander: CommanderId,
+    command: &Command,
+    out: &mut TickOutputs,
+) -> Result<(), CommandRejection> {
+    execute(
+        state,
+        Owner::Commander(commander),
+        command,
+        &mut out.fleet_events,
+    )
 }
 
 fn fire(state: &mut UniverseState, now: Tick, event: &ScheduledEvent) {
@@ -140,6 +202,28 @@ mod tests {
             },
         );
         assert!(state.connected().is_empty());
+    }
+
+    #[test]
+    fn catch_up_markers_set_and_clear_the_mode() {
+        let mut state = universe();
+        let operator = |ops: Vec<OperatorInput>| TickInputs {
+            operator: ops,
+            commanders: vec![],
+        };
+        let out = step(&mut state, &operator(vec![OperatorInput::CatchUpStart]));
+        assert_eq!(out.inputs_rejected, 0);
+        assert!(state.catching_up());
+        // Starting twice is rejected and changes nothing.
+        let out = step(&mut state, &operator(vec![OperatorInput::CatchUpStart]));
+        assert_eq!(out.inputs_rejected, 1);
+        assert!(state.catching_up());
+        let out = step(&mut state, &operator(vec![OperatorInput::CatchUpEnd]));
+        assert_eq!(out.inputs_rejected, 0);
+        assert!(!state.catching_up());
+        let out = step(&mut state, &operator(vec![OperatorInput::CatchUpEnd]));
+        assert_eq!(out.inputs_rejected, 1);
+        assert!(!state.catching_up());
     }
 
     #[test]

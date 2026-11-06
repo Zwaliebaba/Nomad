@@ -67,7 +67,7 @@ Other documents own the rest: costs, production, power supply and the command ca
 - Each class has a tactical top speed, an acceleration and a turn rate (2D kinematics).
 - **Cruise mode:**
   - Outside ops areas, and while not engaged, a fleet travels at **cruise speed**, the speed of its slowest member, and cannot fire.
-  - Detecting a hostile within 20 km, or taking fire, drops it to tactical speed.
+  - Detecting a hostile within 20 km, or taking fire, drops it to tactical speed. It may cruise again once it has detected no hostile within 20 km and taken no fire for 30 s (D-114).
   - Cruise speeds are chosen so that in-system trips take 2–15 min (doc 10 §4.1) and the 6 h trip limit within a sector holds for the slowest warship (doc 10, invariant 3).
 - **Docking:** docked ships sit inside the dome. They cannot be targeted, and they repair over time (the repair rate is set in doc 14). Capacity counts ships: mother-station core 24, other cores 8, +6 per dry dock. Frigates dock only where there is a dry dock (D-102).
 
@@ -86,6 +86,8 @@ Other documents own the rest: costs, production, power supply and the command ca
 - **Jump** (to a target system; the route over lanes is computed by the simulation)
 
 Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fire*. A fleet keeps its formation offsets and moves at the speed of its slowest ship. Every ship has a **command cost** (VX 6 and MULE 4, from the phase-1 fixture); the cap comes from doc 14. The same order set is what the Deputy and the AI issue (D-013, D-016).
+
+*Details agreed after S3 (D-113, D-115):* new fleets start on *weapons free*; every docked ship is ready to launch, and a fleet docks all-or-nothing; a mixed fleet's class weapon range is the shortest among its armed ships; order positions lie within the farthest site or gate of the system plus 20 km; a fleet sheds cruise speed inside an ops area at its acceleration; gate spool-up is per fleet, so one ship leaving the 2 km range cancels it for the whole fleet.
 
 ## 4. Weapons and damage
 

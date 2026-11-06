@@ -117,6 +117,11 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 - **Snapshots are not compressed in the MVP.** They are a few MB at stage-2 scale. Compression can be added if size becomes a problem.
 - **Retention follows doc 11 §8.** Upgrades always go through a clean-shutdown snapshot (D-048).
 - *Later:* PostgreSQL, with the same tables and model (D-030).
+- **As built in N2** (implementation details within D-088 and D-107):
+  - `meta` also holds the layout format, the Universe's display name, the creation parameters, a rules hash (filled once the server records the season's rules) and the journal floor; `snapshots` also holds each snapshot's state hash. `synchronous = FULL`, so a committed journal batch survives a power cut.
+  - The lock is `universe.lock` beside the database, an OS file lock. Acquiring it retries for up to 0.5 s before refusing, because a lock can stay held for a moment after its owner let go (a child process forked meanwhile holds a copy on Linux; Windows can release it just after the process exits).
+  - The Universe ID's 8 characters use Crockford's base-32 alphabet in lower case (no i, l, o or u), so IDs read back without confusion and directory names match on case-insensitive file systems.
+  - On Linux the data directory is `~/.local/share/Nomad` (what `directories` returns for the app name); Linux hosting is outside the MVP.
 
 ## 7. Server lifecycle
 
@@ -124,9 +129,10 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 
 1. **Start:** take a lock on the Universe file (a second server on the same Universe is refused), load the latest snapshot, replay the journal while checking state hashes (D-109), then catch up to the wall clock.
 2. **During catch-up**, clients may connect, but they receive only `CatchUp { progress }`, and their commands are rejected until the server is live.
-3. **Live** play.
+3. **Live** play. If the server falls more than 1 minute behind UTC, as after the PC slept, it catches up again as in step 2 (D-117).
 4. **Clean shutdown**, triggered by the client's "Shut down Universe" or an operator command, writes a final snapshot and exits.
 5. **Crash:** the next start recovers from the snapshot and journal (at most about 1 s of commands lost, D-048).
+6. **Season end:** after the season's final tick the Universe stops advancing. The server serves the final state read-only and refuses commands until it is shut down (D-116).
 
 ## 8. Client architecture
 

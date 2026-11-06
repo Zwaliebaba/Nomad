@@ -4,10 +4,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use crate::entities::Entities;
+use crate::fleet::FleetId;
 use crate::galaxy::{Galaxy, SiteId, SystemId};
 use crate::holding::{self, ControlState, Holding, HoldingError, HoldingId};
 use crate::id::{CommanderId, SimIdAllocator};
 use crate::rng::RngStreams;
+use crate::rules::{Rules, RulesError};
 use crate::time::{SeasonClock, Tick, Ticks};
 use crate::timers::TimerQueue;
 
@@ -38,6 +41,8 @@ pub enum ScheduledEvent {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UniverseState {
     pub(crate) season: SeasonConfig,
+    /// The season's rules, copied in at creation (D-104).
+    pub(crate) rules: Rules,
     pub(crate) clock: SeasonClock,
     /// The last completed tick.
     pub(crate) tick: Tick,
@@ -49,14 +54,34 @@ pub struct UniverseState {
     pub(crate) galaxy: Galaxy,
     /// Every holding and outpost, by identity (doc 10 §5, D-041).
     pub(crate) holdings: BTreeMap<HoldingId, Holding>,
+    /// Whether the server is catching up after downtime (doc 11 §7, D-047). Set and
+    /// cleared only by the journaled [`crate::OperatorInput::CatchUpStart`] and
+    /// [`crate::OperatorInput::CatchUpEnd`] inputs, so replay reproduces it.
+    pub(crate) catching_up: bool,
+    /// Ships and fleets (doc 15 §3; S3 plan §4.2).
+    pub(crate) entities: Entities,
+    /// The jump-transit queue: fleets in lane transit, by arrival tick (doc 11 §4.1 phase 5,
+    /// D-042).
+    pub(crate) transits: TimerQueue<FleetId>,
 }
 
 impl UniverseState {
-    /// A new Universe at tick 0 with an empty galaxy. Use
+    /// A new Universe at tick 0 with an empty galaxy and the embedded rules. Use
     /// [`crate::galaxy::generate_stage1`] for a Universe with a generated galaxy.
     pub fn new(season: SeasonConfig) -> Self {
+        Self::create(season, Rules::embedded())
+    }
+
+    /// Like [`UniverseState::new`], with other rules, for example a tuning run's (D-104).
+    pub fn with_rules(season: SeasonConfig, rules: Rules) -> Result<Self, RulesError> {
+        rules.check()?;
+        Ok(Self::create(season, rules))
+    }
+
+    fn create(season: SeasonConfig, rules: Rules) -> Self {
         Self {
             season,
+            rules,
             clock: SeasonClock::new(season.season_start_unix_ms),
             tick: Tick::ZERO,
             ids: SimIdAllocator::default(),
@@ -65,12 +90,20 @@ impl UniverseState {
             connected: BTreeSet::new(),
             galaxy: Galaxy::default(),
             holdings: BTreeMap::new(),
+            catching_up: false,
+            entities: Entities::default(),
+            transits: TimerQueue::default(),
         }
     }
 
     /// The season this Universe belongs to.
     pub const fn season(&self) -> SeasonConfig {
         self.season
+    }
+
+    /// The season's rules (D-104).
+    pub const fn rules(&self) -> &Rules {
+        &self.rules
     }
 
     /// The last completed tick.
@@ -86,6 +119,13 @@ impl UniverseState {
     /// Commanders whose client is currently connected.
     pub const fn connected(&self) -> &BTreeSet<CommanderId> {
         &self.connected
+    }
+
+    /// Whether this tick runs in catch-up mode: the server is fast-forwarding through
+    /// downtime and every commander is offline (doc 11 §7, D-047). Rules that must not act
+    /// during catch-up, such as NPC raiders starting raids, read this.
+    pub const fn catching_up(&self) -> bool {
+        self.catching_up
     }
 
     /// Number of pending timers.
@@ -141,6 +181,8 @@ impl UniverseState {
                 site,
                 owner,
                 core_complete,
+                mother_station: false,
+                dry_docks: 0,
             },
         )
     }

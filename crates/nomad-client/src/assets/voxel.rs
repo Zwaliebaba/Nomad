@@ -24,6 +24,11 @@ pub const STATION_SCENE_FORMAT: &str = "voxel-rts/scene@1";
 pub const MAX_ABS_COORD: i32 = 16_000;
 /// Most dense-chunk cells over all modules (two bytes each). The shipped scene needs about 240k.
 pub const MAX_TOTAL_CELLS: usize = 1 << 24;
+/// Most modules accepted. Mesh vertices carry their module index in an `i16` lane (for the hover
+/// highlight); the shipped scene has 17.
+pub const MAX_MODULES: usize = 4096;
+/// Highest elevation tier accepted (phase 1 uses 0, 4, 8 and 12; doc 03).
+pub const MAX_ELEVATION_TIER: u32 = 1024;
 
 /// The parsed and validated station scene.
 pub struct StationScene {
@@ -47,10 +52,28 @@ pub struct FaceShading {
     pub right: f32,
 }
 
-/// One module (a selectable entity in phase 2): its id and dense voxel chunk.
+/// One module (a selectable entity in phase 2): its id, elevation tier and dense voxel chunk.
 pub struct VoxelModule {
     pub id: String,
+    /// Height of a lifted module above the ops grid (doc 03). Its voxels are already stored at
+    /// that height; a tier above 0 asks for elevation cues (doc 01 §7). 0 when the file omits it.
+    pub elevation_tier: u32,
     pub chunk: Chunk,
+}
+
+impl StationScene {
+    /// Number of voxels whose palette entry is emissive (doc 06 M3 budget: about 100).
+    pub fn emissive_voxel_count(&self) -> usize {
+        self.modules
+            .iter()
+            .flat_map(|m| m.chunk.voxels())
+            .filter(|&(_, p)| {
+                self.palette
+                    .get(usize::from(p))
+                    .is_some_and(|entry| entry.emissive)
+            })
+            .count()
+    }
 }
 
 /// A dense box of voxels. Cell value 0 is empty; any other value is palette index + 1.
@@ -162,6 +185,8 @@ struct SceneFile {
 #[derive(Deserialize)]
 struct ModuleFile {
     id: String,
+    #[serde(default)]
+    elevation_tier: u32,
     bounds: BoundsFile,
     /// Optional cross-check of `voxels.len()`.
     voxel_count: Option<usize>,
@@ -211,6 +236,15 @@ impl StationScene {
             return Err(("shading", "factors must be in [0, 1]".into()));
         }
 
+        if module_files.len() > MAX_MODULES {
+            return Err((
+                "modules",
+                format!(
+                    "at most {MAX_MODULES} modules are supported, found {}",
+                    module_files.len()
+                ),
+            ));
+        }
         let mut modules: Vec<VoxelModule> = Vec::with_capacity(module_files.len());
         let mut ids = HashSet::new();
         // Which module owns each voxel, to reject overlaps between modules.
@@ -219,6 +253,15 @@ impl StationScene {
         for module in module_files {
             if !ids.insert(module.id.clone()) {
                 return Err(("modules[].id", format!("duplicate id {:?}", module.id)));
+            }
+            if module.elevation_tier > MAX_ELEVATION_TIER {
+                return Err((
+                    "modules[].elevation_tier",
+                    format!(
+                        "module {:?}: tier {} is above {MAX_ELEVATION_TIER}",
+                        module.id, module.elevation_tier
+                    ),
+                ));
             }
             let (origin, size, cell_count) = chunk_shape(&module)?;
             total_cells = total_cells.saturating_add(cell_count);
@@ -272,6 +315,7 @@ impl StationScene {
             }
             modules.push(VoxelModule {
                 id: module.id,
+                elevation_tier: module.elevation_tier,
                 chunk,
             });
         }
@@ -373,15 +417,20 @@ mod tests {
         assert!((scene.shading.left - 0.77).abs() < 1e-6);
         assert!((scene.shading.right - 0.48).abs() < 1e-6);
         let voxels: usize = scene.modules.iter().map(|m| m.chunk.voxels().count()).sum();
-        assert_eq!(voxels, 17_348);
-        // Phase-1 doc 06, M3: the data has 98 emissive voxels.
-        let emissive = scene
+        // The spread layout (D-111) stretches the piers, struts and bus spine: 17,348 voxels in
+        // the original package, 62 more now.
+        assert_eq!(voxels, 17_410);
+        // Phase-1 doc 06, M3: the original data has 98 emissive voxels; the stretched FA-1 pier
+        // and bus spine each repeat one light (D-111).
+        assert_eq!(scene.emissive_voxel_count(), 100);
+        // Doc 01 §5: FA-1 is lifted to tier +8 and FB-2 to +4; nothing else is lifted.
+        let tiers: Vec<(&str, u32)> = scene
             .modules
             .iter()
-            .flat_map(|m| m.chunk.voxels())
-            .filter(|&(_, p)| scene.palette[usize::from(p)].emissive)
-            .count();
-        assert_eq!(emissive, 98);
+            .filter(|m| m.elevation_tier > 0)
+            .map(|m| (m.id.as_str(), m.elevation_tier))
+            .collect();
+        assert_eq!(tiers, [("factory_fa1", 8), ("factory_fb2", 4)]);
         let core = scene
             .modules
             .iter()
@@ -389,6 +438,43 @@ mod tests {
             .expect("core_spindle exists");
         assert_eq!(core.chunk.origin(), [-11, -11, 1]);
         assert_eq!(core.chunk.size(), [23, 23, 33]);
+    }
+
+    /// Doc 06 M3 acceptance: "the station has no more than about 100 emissive voxels" (doc 00:
+    /// earlier versions with light rows along the edges were unreadable). The emissive count is
+    /// counted per voxel over every module, so this also guards future data exports.
+    #[test]
+    fn station_stays_within_the_emissive_budget() {
+        const EMISSIVE_VOXEL_BUDGET: usize = 100;
+        let emissive = real_scene().emissive_voxel_count();
+        assert!(
+            emissive <= EMISSIVE_VOXEL_BUDGET,
+            "{emissive} emissive voxels exceed the M3 budget of about {EMISSIVE_VOXEL_BUDGET}"
+        );
+    }
+
+    #[test]
+    fn elevation_tier_is_optional_and_bounded() {
+        let mut lifted = module("a", [0, 0, 4], [0, 0, 4], serde_json::json!([[0, 0, 4, 0]]));
+        lifted["elevation_tier"] = 4.into();
+        let plain = module("b", [5, 0, 0], [5, 0, 0], serde_json::json!([[5, 0, 0, 1]]));
+        let scene = parse(&scene_json(serde_json::json!([lifted, plain]))).unwrap();
+        assert_eq!(scene.modules[0].elevation_tier, 4);
+        assert_eq!(scene.modules[1].elevation_tier, 0);
+        assert_eq!(scene.emissive_voxel_count(), 1);
+
+        let mut absurd = module("a", [0, 0, 0], [0, 0, 0], serde_json::json!([]));
+        absurd["elevation_tier"] = (MAX_ELEVATION_TIER + 1).into();
+        assert!(matches!(
+            parse(&scene_json(serde_json::json!([absurd]))),
+            Err(ConfigError::Invalid { .. })
+        ));
+        let mut negative = module("a", [0, 0, 0], [0, 0, 0], serde_json::json!([]));
+        negative["elevation_tier"] = (-4).into();
+        assert!(matches!(
+            parse(&scene_json(serde_json::json!([negative]))),
+            Err(ConfigError::Parse { .. })
+        ));
     }
 
     #[test]

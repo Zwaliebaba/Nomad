@@ -35,7 +35,8 @@ pub use message::{
     Announcement, AuthToken, ByeReason, CatchUpProgress, ClientMessage, CommandOutcome,
     Notification, NotificationKind, RejectReason, ServerMessage,
 };
+/// A place in a system, used by the view and by orders; shared with the simulation, so it
+/// lives in `nomad-types`.
+pub use nomad_types::Location;
 pub use version::{PROTOCOL_VERSION, check_version, hello_protocol};
-pub use view::{
-    Entities, EntityChanges, EntityEntry, EntityKind, Location, ViewChanges, ViewSnapshot,
-};
+pub use view::{Entities, EntityChanges, EntityEntry, EntityKind, ViewChanges, ViewSnapshot};

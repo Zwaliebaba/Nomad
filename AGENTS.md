@@ -16,7 +16,7 @@ Nomad (working title) is a persistent multiplayer space RTS in Rust:
 
 - `Design/` is the source of truth. Read `Design/README.md` first, then `Design/00-glossary.md`.
 - Implement only what an agreed design document or decision covers. Every MVP document is agreed. Pick work packages from `Design/30-mvp-scope-and-milestones.md` §2, in the order of §4.
-- The `nomad-sim` core (doc 11: tick, deadline timers, `SimId`, random streams, snapshots, headless harness) is being built now (D-051). **Game rules** come only from agreed design documents: Universe structure (doc 10), offline rules and the Deputy (doc 12), economy (doc 14), combat and defence (doc 15), information model and fog of war (doc 16), AI commanders, the Deputy and raiders (doc 13). Do not invent rules.
+- The `nomad-sim` core (doc 11: tick, deadline timers, `SimId`, random streams, snapshots, headless harness) is built (S1), and rules are added package by package (S2 and S3 so far). **Game rules** come only from agreed design documents: Universe structure (doc 10), offline rules and the Deputy (doc 12), economy (doc 14), combat and defence (doc 15), information model and fog of war (doc 16), AI commanders, the Deputy and raiders (doc 13). Do not invent rules.
 - Do not invent gameplay rules in code. If a task needs a design decision that does not exist yet, stop and say so. Then propose the decision, or add a question to `Design/02-open-questions.md`.
 - `Design/03-decision-log.md` holds every decision:
   - **Agreed** decisions are binding. Do not reopen them silently.
@@ -69,9 +69,10 @@ After changing render code, also run the GPU tests, which CI cannot run: `cargo 
 ```
 Design/          Design documents; phase1-visual-slice/ holds the owner's phase-1 package and assets
 crates/          nomad-client (phase 1), nomad-sim (deterministic core, doc 11), nomad-harness (headless runner),
-                 nomad-types (shared primitives, doc 20 §3), nomad-protocol (wire messages and framing, doc 20 §5);
-                 further crates follow doc 20 §3
+                 nomad-types (shared primitives, doc 20 §3), nomad-protocol (wire messages and framing, doc 20 §5),
+                 nomad-server (server shell: persistence, recovery, catch-up; N2 plan); further crates follow doc 20 §3
 tools/preview/   WebGL preview of the phase-1 scene for design review (not the game client)
+tools/station-spread/  Rebuilds the phase-1 station layout with the buildings spread out (D-111)
 .github/         CI, Dependabot, PR template
 ```
 
