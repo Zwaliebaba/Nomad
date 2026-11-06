@@ -80,7 +80,7 @@ When the single human closes the client, does the Universe continue, with a head
 
 ## D. Technical and terminology
 
-**Q16 — Scope of "no World".** Does the rule cover documents and player-facing text only, or also our code identifiers? I have assumed it includes code, with third-party `World` types wrapped. Please confirm.
+**Q16 — Scope of the World/Universe rule.** ✅ *Answered 2026-11-06 (D-008):* *World* is fine as a word. The only rule is that the total game space is called the Universe.
 
 **Q17 — Rust stack constraints.** Do you have preferences or constraints for any of these?
 - ECS: `bevy_ecs` standalone, `hecs`, or our own

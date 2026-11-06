@@ -4,7 +4,7 @@ All pixel values at 1920×1080, zoom 1.0. Machine-readable values live in `asset
 
 ## 1. Coordinate system and projection
 
-- Grid axes: `x`, `y` horizontal, `z` up. One voxel = 1 unit. Origin = command-core centre at the ops-grid plane (`z = 0`; the deck occupies `z ∈ [0,1)`).
+- World axes: `x`, `y` horizontal, `z` up. One voxel = 1 unit. Origin = command-core centre at the ops-grid plane (`z = 0`; the deck occupies `z ∈ [0,1)`).
 - Projection: orthographic **2:1 dimetric**. In view 0 (yaw 45°):
 
 ```
@@ -12,7 +12,7 @@ sx = 1060 + 5   * (x - y)
 sy =  490 + 2.5 * (x + y) - 5 * z        (z is the bottom of a voxel; a voxel spans z..z+1)
 ```
 
-- As a 3D camera: orthographic, yaw 45° + n·90°, pitch 30° below horizontal, with the grid **z axis scaled by 0.8165** (the mockup's voxels are slightly squat). Implement the z scale in the model matrix so true cubes remain an option behind a config flag.
+- As a 3D camera: orthographic, yaw 45° + n·90°, pitch 30° below horizontal, with the world **z axis scaled by 0.8165** (the mockup's voxels are slightly squat). Implement the z scale in the model matrix so true cubes remain an option behind a config flag.
 - Screen-space size: one voxel edge along x or y projects to (5, 2.5) px; along z to 5 px.
 - Camera pivot: deck centre `(-8.5, 9.5, 0)`; rotation is about the vertical axis through the pivot.
 
@@ -64,7 +64,7 @@ Data note: the station was reconstructed from the 2D mockup. Hidden back sides w
 
 - Ellipsoid cap centred `(-8.6, 9.4, 0)`, horizontal radius 36, vertical radius 40 (before the 0.8165 z scale).
 - At rest: fill alpha ≈ 0.05 with a fresnel rim (`#7fe6ff`, alpha 0.75). Rendered in a transparent pass after opaque voxels, back faces first (dashed rim on the far half of the base ring), then front faces.
-- Four **sectors** by azimuth around the dome centre (N 225–315°, E 315–45°, S 45–135°, W 135–225°, measured in grid xy). Each sector's base-ring arc is drawn 2 px; a sector below 50% strength is tinted `#ff9a4a`, dashed, and its rim is also orange.
+- Four **sectors** by azimuth around the dome centre (N 225–315°, E 315–45°, S 45–135°, W 135–225°, measured in world xy). Each sector's base-ring arc is drawn 2 px; a sector below 50% strength is tinted `#ff9a4a`, dashed, and its rim is also orange.
 - Hits: hex-pattern ripple at the impact point (radius 4–6 voxels, 600 ms, additive), plus a hot flash (`#fff6e0` → `#ffb15a`). Projectiles stop at the dome surface.
 
 ## 7. Elevation cues
@@ -79,6 +79,6 @@ For every structure with tier > 0: dashed footprint outline on the grid (`#38d6f
 - Engine trails: 3.5 px lines with linear alpha gradient 0.75 → 0, length ~45 px, cyan (friendly) / orange (hostile).
 - Construction sparks at the dry dock: small white star bursts.
 
-## 9. Scene labels and markers
+## 9. World labels and markers
 
-See `hud_layout.json → scene_labels / markers`. Labels: dark translucent box with a 3 px accent left border, 22×24 icon, title in accent bold 11 px, value lines 11 px; a 1 px leader polyline ends in a 2 px dot on the object. Hostile labels use the orange border and title colour. Never more than ~8 labels at once; declutter by priority.
+See `hud_layout.json → world_labels / markers`. Labels: dark translucent box with a 3 px accent left border, 22×24 icon, title in accent bold 11 px, value lines 11 px; a 1 px leader polyline ends in a 2 px dot on the object. Hostile labels use the orange border and title colour. Never more than ~8 labels at once; declutter by priority.

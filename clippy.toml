@@ -1,0 +1,5 @@
+# Lint levels live in Cargo.toml under [workspace.lints]. This file only configures lint behaviour.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-dbg-in-tests = true
+allow-print-in-tests = true

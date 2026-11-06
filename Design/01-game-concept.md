@@ -11,7 +11,7 @@ Status: **Draft, round 1.** This document separates what the owner has *stated*,
 | R-03 | When a player is not connected, a **Deputy** takes over. It keeps the standard actions running and defends the player's assets. | Owner |
 | R-04 | The Universe is sized for **up to 100 players**, as a target for now. | Owner |
 | R-05 | **MVP:** limited scope, playable by **one human player with up to 9 AI players**. | Owner |
-| R-06 | Terminology: *Universe*, never *World*. | Owner |
+| R-06 | Terminology: the total game space is called the **Universe**. *World* stays fine as a technical term. | Owner |
 | R-07 | Look and interaction follow the phase-1 package: an isometric voxel diorama with a fixed-pitch camera, 4-way snap rotation and a military HUD. The premise is that the player starts with a mother station and grows an empire of factories and shipyards. | Owner, `phase1-visual-slice/` |
 
 ## 2. What the requirements force (derived)
@@ -31,8 +31,6 @@ These follow from R-01 to R-07 and leave no real design choice. Only the way eac
 **C-06: Durable Universe state.** A persistent Universe has to survive server restarts, crashes and deployments without losing more than a bounded window of play.
 
 **C-07: Every rate and timer must be designed against a 24-hour human cycle.** See W-08 below. Income per minute, build times and travel ETAs all run while the player sleeps.
-
-**C-08: The Universe/World rule touches library choices.** Mainstream Rust ECS crates expose a `World` type. The rule can be kept in our domain model and APIs by wrapping that type (Q16).
 
 ## 3. Stress test: where the concept is weakest
 

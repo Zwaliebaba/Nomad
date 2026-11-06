@@ -2,19 +2,15 @@
 
 Status: **Draft.** Terms marked *(phase 1)* come from the owner's phase-1 package. Terms marked *(proposed)* are new and still need confirmation.
 
-## Rule: Universe, never World
+## Rule: the total game space is the Universe
 
-The persistent game space is the **Universe**. The word *World* is not used: not in documents, not in player-facing text, and not in our own code identifiers. This replaces the common uses as follows.
+The whole persistent game space is the **Universe** (D-008). It is never "the world", "the game world" or "the map". Domain types follow suit: `Universe`, `UniverseState`, `UniverseId`.
 
-| Usual term | Our term |
-|---|---|
-| world (the game) | **Universe** |
-| world coordinates, world space (renderer) | **grid coordinates** / **grid space** (the frame local to one holding) |
-| world labels, world layer (HUD) | **scene labels** / **scene layer** |
-| world state (server) | **Universe state** |
-| world map | **galaxy map** (or system map / sector map, depending on the zoom level) |
+*World* is **not** banned as a word. Technical terms keep their usual meaning:
 
-Third-party Rust crates sometimes expose a type with this name (`bevy_ecs::world::World`, `hecs::World`). If we use one, we hide it behind our own type (for example a `Universe` or `Simulation` facade), so the name never appears in our APIs. See Q16 for the scope of this rule.
+- **World coordinates / world space** (renderer): the frame of the scene being drawn. In the TACTICAL view that is one holding's ops grid, *not* the whole Universe. Do not confuse it with Universe-level coordinates.
+- **World labels / world layer** (phase-1 HUD): labels anchored to objects in the scene.
+- An ECS `World` type from a library, if we use one.
 
 ## Spatial hierarchy
 
@@ -37,7 +33,7 @@ Taken from the phase-1 breadcrumb `ORION ARM › VEIL SECTOR › KESTREL-7 › O
 
 | Frame | Units | Use |
 |---|---|---|
-| **Grid coordinates** *(phase 1, renamed)* | voxels; `x`, `y` horizontal, `z` up; origin at the command-core centre on the ops grid | Everything inside one holding: modules, ships, effects, rendering |
+| **World (grid) coordinates** *(phase 1)* | voxels; `x`, `y` horizontal, `z` up; origin at the command-core centre on the ops grid | Everything inside one holding: modules, ships, effects, rendering |
 | **System coordinates** *(proposed)* | to be defined (km or AU) | Positions of holdings, gates and fleets in transit inside a system |
 | **Galaxy coordinates** *(proposed)* | to be defined | Positions of systems; lanes between systems |
 

@@ -15,7 +15,7 @@ src/
   config/              serde structs for scene_config, hud_layout, fixtures; hot reload
   assets/voxel.rs      load station_scene / ships, dense chunks per module
   mesh/greedy.rs       greedy mesher -> vertex buffers (pos, normal-id, palette idx)
-  camera.rs            ortho dimetric, snap yaw with tween, zoom steps, pan, screen<->grid
+  camera.rs            ortho dimetric, snap yaw with tween, zoom steps, pan, screen<->world
   render/
     context.rs         device, queue, surface, depth, MSAA (4x)
     background.rs      gradient + nebula + stars (screen space)
@@ -24,10 +24,10 @@ src/
     ships.rs           instanced ship meshes with model matrices
     shield.rs          transparent dome, sectors, hit ripples (hex pattern in shader)
     fx.rs              bolts, trails, flashes, lasers (instanced quads, additive)
-    overlay.rs         grid-space lines: footprints, stalks, zone ellipses, brackets
+    overlay.rs         world-space lines: footprints, stalks, zone ellipses, brackets
     bloom.rs           emissive bright-pass + small blur + composite
     hud/               panels, text, bars, buttons, minimap (screen-space quads + glyphon)
-  fixtures/            phase-1 data feed for HUD/scene labels
+  fixtures/            phase-1 data feed for HUD/world labels
 tests/
   golden.rs            renders view 0..3 at 1920x1080 and compares against reference images
 ```
@@ -42,7 +42,7 @@ tests/
 6. Shield dome: back faces, then front faces (alpha blend, depth test on, write off)
 7. FX (additive)
 8. Bloom on emissive + FX
-9. Scene labels and markers (screen space, after projecting anchors)
+9. World labels and markers (screen space, after projecting anchors)
 10. HUD panels + minimap
 11. Present; optional F12 screenshot
 
@@ -50,9 +50,9 @@ tests/
 
 - **Palette**: upload the 339-colour palette as a storage buffer; vertices carry a `u16` palette index and a face-direction id. The fragment shader applies the top/left/right factor by *view-space* normal so lighting rotates with the camera.
 - **Pixel crispness**: at integer zoom, snap the camera translation to whole pixels; use MSAA, not FXAA, on voxels.
-- **z scale 0.8165**: put it in the grid → view matrix so meshes stay integer.
-- **Grid**: reconstruct the grid-space position on `z = 0` per pixel from the inverse view-projection; line intensity via `fwidth` for anti-aliasing; alpha = mix(near, far, smoothstep(r_near, r_far, distance_to_pivot)) with `far > 0`.
-- **Shield**: generate an ellipsoid-cap mesh (64×24 segments). Sector by `atan2` of the fragment's grid xy relative to the centre. Fresnel from the view-space normal. Hits are a small uniform array (position, start time) driving a hex-cell ripple.
+- **z scale 0.8165**: put it in the world → view matrix so meshes stay integer.
+- **Grid**: reconstruct world position on `z = 0` per pixel from the inverse view-projection; line intensity via `fwidth` for anti-aliasing; alpha = mix(near, far, smoothstep(r_near, r_far, distance_to_pivot)) with `far > 0`.
+- **Shield**: generate an ellipsoid-cap mesh (64×24 segments). Sector by `atan2` of the fragment's world xy relative to the centre. Fresnel from the view-space normal. Hits are a small uniform array (position, start time) driving a hex-cell ripple.
 - **Text**: glyphon with JetBrains Mono and Rajdhani; cache layout per string; HUD at 1920×1080 logical units scaled by `min(w/1920, h/1080)`.
 - Performance budget: under 2 ms GPU at 1080p on integrated graphics for the voxel pass (about 17k voxels → about 20k faces after greedy meshing).
 

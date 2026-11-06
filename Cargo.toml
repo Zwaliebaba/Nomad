@@ -1,0 +1,36 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+repository = "https://github.com/Zwaliebaba/Nomad"
+
+# Shared dependency versions. Crates opt in with `name = { workspace = true }`.
+[workspace.dependencies]
+
+# Every crate opts in with `[lints] workspace = true`. CI runs clippy with `-D warnings`,
+# so every `warn` below is an error in CI. Rationale: CODING_STANDARDS.md, section "Lints".
+[workspace.lints.rust]
+unsafe_code = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Pedantic lints that are mostly noise in rendering and simulation code.
+cast_precision_loss = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+similar_names = "allow"
+# Restriction lints we opt into.
+dbg_macro = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+todo = "warn"
+undocumented_unsafe_blocks = "warn"
+unwrap_used = "warn"

@@ -2,8 +2,6 @@
 
 This package is the hand-off from the design canvas ("Ops grid — proposal: core spindle + lifted modules") to the Rust implementation. It is written for Claude Code working inside the Rust project. It lives in the repository at `Design/phase1-visual-slice/`; point Claude Code at this README.
 
-> **Terminology note (Design decision D-001).** The project uses *Universe*, never *World*. When this package was imported, holding-local coordinates were renamed to **grid coordinates** and the label layer to the **scene layer** (`world_labels` became `scene_labels`, `pivot_world` became `pivot_grid`, `screen_*_per_world_*` became `screen_*_per_grid_*`, `world_axes` became `grid_axes`). Format versions stay at `@1` because nothing consumes them yet. See `../00-glossary.md`.
-
 ## What phase 1 is
 
 A **visual slice**: render the mother-station scene from voxel data with a custom `wgpu` + `winit` renderer, with 4-way snap camera rotation, the infinite ops grid, the sectored power shield, placeholder ships, and the full HUD layout as a static (data-driven, non-simulated) overlay including the animated iso-pulse minimap. No game simulation, no networking, no picking logic beyond what the acceptance criteria list.

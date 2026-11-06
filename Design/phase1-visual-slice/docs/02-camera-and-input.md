@@ -18,7 +18,7 @@
 | Mouse wheel | Zoom step |
 | WASD, arrows, edge, MMB drag | Pan |
 | Home | Reset to view 0, zoom 1, pivot on deck centre |
-| H | Toggle HUD (scene labels + panels) — matches the mockup's `showHud` switch |
+| H | Toggle HUD (world labels + panels) — matches the mockup's `showHud` switch |
 | F1–F4 | Zoom-scale tabs (only TACTICAL active in phase 1; others highlight but do nothing) |
 | F10 | Menu button highlight (no menu yet) |
 | F11 | Toggle fullscreen |
@@ -30,4 +30,4 @@ Command-card hotkeys (R, L, Y, Z, F, V, M, B, Q, W, P, S) only flash the matchin
 
 - Camera widget shows the view index and compass; its N needle rotates with the yaw.
 - Minimap stays north-up; its camera-frame rectangle rotates and moves with the view.
-- Scene labels keep their screen offsets; leader lines re-anchor to the object's projected position each frame.
+- World labels keep their screen offsets; leader lines re-anchor to the object's projected position each frame.

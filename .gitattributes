@@ -1,0 +1,14 @@
+# Normalise text to LF in the repository and working tree on every OS (matches rustfmt newline_style).
+* text=auto eol=lf
+
+*.rs   text diff=rust
+*.md   text diff=markdown
+*.toml text
+*.json text
+*.wgsl text
+
+*.png  binary
+*.jpg  binary
+*.vox  binary
+*.ttf  binary
+*.otf  binary

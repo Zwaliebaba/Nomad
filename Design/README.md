@@ -24,12 +24,13 @@ Planned once the round-1 questions are answered (numbers reserved):
 | 13 | AI commanders | Q12, Q15 |
 | 14 | Economy | Q1, Q12 |
 | 15 | Combat and defence | Q5, Q7 |
-| 20 | Technical architecture: server, client, persistence, networking | Q11, Q13, Q16, Q17 |
+| 20 | Technical architecture: server, client, persistence, networking | Q11, Q13, Q17 |
 | 30 | MVP scope, milestones and acceptance criteria | Q11–Q15 |
 
 ## Conventions
 
-- **Universe, never World.** See D-001 in the decision log and the glossary. This applies to documents, player-facing text and our own code identifiers. The only exceptions are proper nouns (the title of another game) and third-party library types we cannot rename, which we wrap.
+- **The total game space is the Universe** (D-008). Use *Universe* for the whole persistent game space in documents, player-facing text and domain types. *World* remains fine as a technical term, for example renderer world space or an ECS `World`.
+- Engineering conventions are not design documents. They live at the repository root: `AGENTS.md`, `CONTRIBUTING.md`, `CODING_STANDARDS.md`.
 - Every requirement, decision and question has a stable ID (`R-nn`, `D-nnn`, `Qnn`). Refer to the ID, not the wording.
 - Each statement in a document is one of three things. **Stated** means the owner said it. **Derived** means it follows from stated requirements and leaves no real choice. **Proposed** means it is a recommendation that needs the owner's approval. Nothing proposed counts as decided until it is in `03-decision-log.md`.
 - Phase-1 decisions in `phase1-visual-slice/docs/00-brief.md` stay in force unless a later decision overrides them.

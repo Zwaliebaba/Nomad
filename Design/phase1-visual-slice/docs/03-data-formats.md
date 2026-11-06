@@ -18,13 +18,13 @@ All files are UTF-8 JSON. Parse with `serde`; reject unknown `format` versions.
       "elevation_tier": 0,
       "bounds": { "min": [x,y,z], "max": [x,y,z] },
       "voxel_count": 2433,
-      "voxels": [[x, y, z, paletteIndex], ...]      // GRID coordinates, already at their tier height
+      "voxels": [[x, y, z, paletteIndex], ...]      // WORLD coordinates, already at their tier height
     }, ...
   ]
 }
 ```
 
-- Voxels are in grid coordinates (integers). Lifted modules are already stored at their elevated position; `elevation_tier` tells the renderer to draw footprint and stalks from `bounds.min.z` down to `z = 0`.
+- Voxels are in world coordinates (integers). Lifted modules are already stored at their elevated position; `elevation_tier` tells the renderer to draw footprint and stalks from `bounds.min.z` down to `z = 0`.
 - Modules do not overlap. Mesh each module separately (it becomes a selectable entity in phase 2).
 - Recommended in-memory form: per module a dense `Vec<u16>` chunk over its bounds (0 = empty, palette index + 1 otherwise), then greedy meshing per face direction and palette index.
 
@@ -40,7 +40,7 @@ All files are UTF-8 JSON. Parse with `serde`; reject unknown `format` versions.
 }
 ```
 
-Ships are **free-rotating** (any heading, not grid-aligned), so render them as meshes with a model matrix (translation + yaw), not snapped to the voxel grid. Scale: same voxel size as the station.
+Ships are **free-rotating** (any heading, not grid-aligned), so render them as meshes with a model matrix (translation + yaw), not snapped into the world grid. Scale: same voxel size as the station.
 
 ## `assets/layout/ships_placement.json`
 
@@ -49,7 +49,7 @@ Ships are **free-rotating** (any heading, not grid-aligned), so render them as m
   "placements": [ { "model": "hostile_strike", "group": "HOSTILE", "pos": [x,y,z], "heading_deg": 172 }, ... ] }
 ```
 
-`heading_deg` is measured in grid xy from +x toward +y. The WARDEN frigate in the dry dock is "under construction 74%": reveal its voxels bottom-up to 74% and draw the rest as a faint wireframe.
+`heading_deg` is measured in world xy from +x toward +y. The WARDEN frigate in the dry dock is "under construction 74%": reveal its voxels bottom-up to 74% and draw the rest as a faint wireframe.
 
 ## `assets/layout/scene_config.json`
 
@@ -57,4 +57,4 @@ Projection, camera, grid, shield, pylons, elevation, background and lights polic
 
 ## `assets/layout/hud_layout.json`
 
-Panel rectangles (`[x, y, w, h]` at 1920×1080), anchors, colours, fonts, label and marker styles. Panel **content** for phase 1 comes from the fixture `assets/fixtures/siege_kr114.json` (resources, roster, objectives, commanders, lane traffic, selection stats, build queue, command card entries, scene labels, pylon tags, lock). The renderer reads only from the fixture.
+Panel rectangles (`[x, y, w, h]` at 1920×1080), anchors, colours, fonts, label and marker styles. Panel **content** for phase 1 comes from the fixture `assets/fixtures/siege_kr114.json` (resources, roster, objectives, commanders, lane traffic, selection stats, build queue, command card entries, world labels, pylon tags, lock). The renderer reads only from the fixture.

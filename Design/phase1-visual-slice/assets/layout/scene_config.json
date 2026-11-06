@@ -15,9 +15,9 @@
   "pitch_deg": 30.0,
   "z_scale": 0.8165,
   "pixels_per_voxel_at_zoom_1": {
-   "screen_x_per_grid_x": 5.0,
-   "screen_y_per_grid_x": 2.5,
-   "screen_y_per_grid_z": -5.0
+   "screen_x_per_world_x": 5.0,
+   "screen_y_per_world_x": 2.5,
+   "screen_y_per_world_z": -5.0
   },
   "formula_view0": "sx = cx + 5*(x - y);  sy = cy + 2.5*(x + y) - 5*z   (1920x1080 reference, zoom 1)",
   "origin_screen_view0": [
@@ -26,7 +26,7 @@
   ]
  },
  "camera": {
-  "pivot_grid": [
+  "pivot_world": [
    -8.5,
    9.5,
    0

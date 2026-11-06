@@ -178,7 +178,7 @@
    ]
   }
  ],
- "scene_labels": {
+ "world_labels": {
   "style": "semi-transparent box, 3px left border accent, icon 22x24, title 11px bold accent, lines 11px",
   "leader": "1px polyline with 2px dot at anchor",
   "rule": "max ~8 visible; declutter by priority"

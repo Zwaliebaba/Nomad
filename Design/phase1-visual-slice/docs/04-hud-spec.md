@@ -37,6 +37,6 @@ Drawn in a 300×300 box centred at (150,150) inside the panel.
 - Optional: contacts brighten for 300 ms when a pulse ring passes them.
 - Hostile alert ping: two concentric orange 2:1 ellipses on the cruiser.
 
-## Scene layer (part of the HUD toggle)
+## World layer (part of the HUD toggle)
 
 Labels for SOL-1, FA-1, MS-01, SY-2, FB-2, AST-1, HSTL-C1; pylon tags (`PYL-N 100%` etc., orange when < 50%); selection brackets around the selected station; lock reticle on HSTL-K7 with text; station-keeping zone ellipse around the hostile group (orange dashed, 5% fill, "STN-KEEP ZONE"); ship stalks; friendly/hostile ship markers (small brackets / diamonds) above each ship.
