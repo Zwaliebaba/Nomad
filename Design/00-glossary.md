@@ -134,7 +134,7 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Deadline tick** | How every timer is stored: an absolute tick, never a countdown. |
 | **Rate group** | Systems that run below 10 Hz (2 Hz, 1 Hz, every 10 s, every 60 s), staggered across ticks. |
 | **SimId** | The stable, never-reused identity of a simulated object. Used for persistence, the protocol and ordering. |
-| **Snapshot / journal** | A full saved state every 5 min, plus an append-only log of external inputs flushed at least every second. |
+| **Snapshot / journal** | A full saved state every 5 min, plus an append-only log of external inputs and state-hash checkpoints, flushed at least every second. |
 | **Catch-up** | Fast-forwarding the Universe after the server was down, until it reaches the wall clock again. |
 | **Freeze** | An operator tool for exceptional outages: shifts all deadlines by the outage instead of catching up. |
 

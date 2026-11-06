@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q98) on 2026-11-06.**
+Status: **All questions answered (Q1–Q100) on 2026-11-06.**
 
 ## Answer summary
 
@@ -104,6 +104,8 @@ Status: **All questions answered (Q1–Q98) on 2026-11-06.**
 | Q96 | Ships steer around structures | D-105 |
 | Q97 | Default season 8 weeks | D-106 |
 | Q98 | Random Universe ID plus name | D-107 |
+| Q99 | State-hash checkpoints in the journal, checked on replay | D-109 |
+| Q100 | Journal kept for 48 h | D-110 |
 
 ## A. Universe and time
 
@@ -500,3 +502,11 @@ All three read only `CommanderView` and run inside the deterministic step.
 
 **✅ Q98 — Universe ID (N2 §5).** A random 8-character base-32 ID plus an optional display name.
 *Recommendation:* adopt.
+
+## Q. Round 12, from the determinism review (answered)
+
+**✅ Q99 — Detecting divergence on replay (doc 11 §5, §8).** A state hash is produced at a configurable interval, but nothing stores it or compares it during recovery. A determinism bug would change up to 5 minutes of replayed play without anyone noticing. Proposed: every 600 ticks (60 s), append the state hash to the journal; replay compares it, logs any mismatch as an error and carries on.
+*Recommendation:* adopt.
+
+**✅ Q100 — Journal retention (doc 11 §8).** The journal was kept only for the last 2 snapshots, about 10 minutes, so an incident from the night before could not be replayed even though hourly snapshots exist. Proposed: keep the journal for 48 h, matching the hourly snapshots. Entries written before an upgrade still need the old build, and a tool for replaying to a chosen tick is not yet specified.
+*Recommendation:* adopt, with the 48 h value provisional until the journal volume is measured.

@@ -1,6 +1,6 @@
 # Work package N2 — Server shell
 
-Status: **Planned and decided** (Q97–Q98 → D-106, D-107). Starts when N1 is merged, in parallel with S3. This plan is also the brief for whoever builds N2.
+Status: **Planned and decided** (Q97–Q100 → D-106, D-107, D-109, D-110). Starts when N1 is merged, in parallel with S3. This plan is also the brief for whoever builds N2.
 
 ## 1. Goal
 
@@ -88,19 +88,19 @@ Write-ahead-log mode. The journal is written in one transaction per batch.
   - Owns `UniverseState`.
   - Paces one tick per 100 ms against a monotonic clock. Overruns run back-to-back, and a warning is logged when it falls more than 10 ticks behind.
   - Takes the inputs submitted for the tick and runs `step`.
-  - Sends to the persistence thread: the inputs for the journal, and every 3,000 ticks (and on shutdown) the encoded snapshot.
+  - Sends to the persistence thread: the inputs for the journal, every 600 ticks a `StateHash` journal entry after that tick's inputs (D-109), and every 3,000 ticks (and on shutdown) the encoded snapshot.
   - Publishes `TickOutputs` to subscribers.
 - **Persistence thread:**
   - Commits journal batches at least once per second.
   - Writes snapshots.
-  - Applies retention as in doc 11 §8: the last 2 snapshots plus their journal, hourly snapshots for 48 h, daily for the season; older journal entries are removed.
+  - Applies retention as in doc 11 §8: the last 2 snapshots, hourly snapshots for 48 h, daily for the season; journal entries older than 48 h are removed (D-110).
 - **Clock injection:** a `Clock` trait gives the wall clock in production and a fake clock in tests. That makes pacing and catch-up testable without waiting.
 
 ### 4.5 Recovery and catch-up
 
 *Derived* from doc 11 §7–8.
 
-1. **Load and replay:** open the database, load the latest snapshot, and replay the journal entries after its tick. Entries from a **different build** abort startup with a clear error (D-048).
+1. **Load and replay:** open the database, load the latest snapshot, and replay the journal entries after its tick. Entries from a **different build** abort startup with a clear error (D-048). At each `StateHash` entry, replay compares the hash. A mismatch is logged as an error with the tick and both hashes, and recovery continues (D-109).
 2. **Catch-up:**
    - The target tick is the current UTC time mapped through the `SeasonClock`.
    - The server fast-forwards to it with empty inputs.
@@ -115,10 +115,12 @@ A `build.rs` embeds the git commit, with "unknown" as the fallback. It is writte
 
 ## 5. Decisions (formerly open questions)
 
-*Agreed: D-106 (Q97), D-107 (Q98).*
+*Agreed: D-106 (Q97), D-107 (Q98), D-109 (Q99), D-110 (Q100).*
 
 - **Q97 — Default season length** for new Universes: **8 weeks**, matching the MVP acceptance run (D-097). `create` can set anything from 8 to 12 weeks (D-020).
 - **Q98 — Universe ID:** a random 8-character base-32 ID plus an optional display name.
+- **Q99 — State-hash checkpoints:** every 600 ticks in the journal, checked on replay.
+- **Q100 — Journal retention:** 48 h; the value is provisional until the volume is measured.
 
 ## 6. Tasks, in order
 
@@ -126,7 +128,7 @@ A `build.rs` embeds the git commit, with "unknown" as the fallback. It is writte
 2. SQLite schema and the persistence thread: journal batches, snapshots, retention.
 3. `create`: generate the stage-1 Universe and write meta plus the tick-0 snapshot.
 4. Simulation thread with the `Clock` trait and pacing; `ServerHandle` (submit inputs, subscribe to outputs, shutdown).
-5. Recovery: load, replay, refuse other builds.
+5. Recovery: load, replay, check state hashes, refuse other builds.
 6. Catch-up, with journaled mode markers and progress reporting.
 7. Clean shutdown on Ctrl+C, on Windows and Linux.
 8. `status`; tick statistics in the log (mean and p99 per minute).
@@ -135,8 +137,9 @@ A `build.rs` embeds the git commit, with "unknown" as the fallback. It is writte
 
 - **CI** is green on both operating systems, with `--locked`.
 - **Crash recovery:** an integration test runs a Universe with scripted inputs, "crashes" by dropping the server without a clean shutdown, restarts, and ends at the same state hash as an uninterrupted reference run. At most the last journal batch (≤ 1 s) may be lost, and the test accounts for that by flushing first.
+- **Divergence check:** with a wrong `StateHash` entry planted in the journal, recovery logs the mismatch and still completes.
 - **Catch-up:** with a fake clock, a Universe whose season started 6 h ago, or that was stopped 6 h ago, ends exactly at the target tick, and its hash equals a continuous run of the same length.
 - **Lock:** a second `run` on the same Universe is refused.
-- **Retention:** after simulated days, only the snapshots described in doc 11 §8 remain, and the journal is compacted.
+- **Retention:** after simulated days, only the snapshots described in doc 11 §8 remain, and journal entries older than 48 h are gone.
 - **No panics:** a corrupt database, a missing snapshot or an unknown format each give a clear error.
 - **Speed:** catch-up speed for stage 1 is reported. The doc 11 target is ≥ 500×; with no game rules yet, it should be far above that.
