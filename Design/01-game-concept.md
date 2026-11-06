@@ -132,13 +132,15 @@ The phase-1 fixture shows ALLOY 21,860 at +312/m. A player offline for 8 hours a
   - fleets and combat, including the shield and siege lifecycle (D-015);
   - travel between systems through gates and lanes (D-022).
   - Diplomacy is out (D-026).
+- **Staging:** the first MVP acceptance is 3 AI commanders plus NPC raiders in one sector. The AI stack is built for up to 9. Vacation and derelict states are left out (D-038).
 - **Opponents:** up to 9 fair AI commanders in a free-for-all, with simulated online and offline schedules, so the human meets Deputy-run empires and their own empire runs under its Deputy (D-027). NPC raiders are part of the Universe (D-014).
 - **Winning:** a season is won by system control (D-020). Commanders are never eliminated (D-017).
-- **Sequencing:** phase 1 first; the simulation, Deputy and server are designed in parallel (D-028).
+- **Sequencing:** phase 1 first, with a headless `nomad-sim` track built in parallel (D-028, D-037).
+- **Information:** sensor-based fog of war (D-039).
 
 **Derived:**
 
 - An MVP Universe big enough for 10 commanders plus NPC raiders, with several systems per commander so that capture and system control mean something. Sizing goes in doc 10.
-- All timings need a per-Universe time-compression setting, because a 4 h window and 12 h notice cannot be tested in real time with one human (doc 12 §7).
+- There is no time compression (D-036). Human playtests of the siege cycle take at least 13 h. Fast iteration on pacing therefore happens in the headless simulation (D-037), which runs AI-against-AI faster than real time.
 
 **Relationship to phase 1:** phase 1 is a client-only visual slice, and its fixture-driven HUD is the contract the simulation will later feed. The fixture schema should grow into the server-to-client view-model, not be replaced by one.

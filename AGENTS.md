@@ -16,6 +16,7 @@ Nomad (working title) is a persistent multiplayer space RTS in Rust:
 
 - `Design/` is the source of truth. Read `Design/README.md` first, then `Design/00-glossary.md`.
 - Implement only what an agreed design document or decision covers. The phase-1 visual slice (`Design/phase1-visual-slice/`) is fully specified and may be implemented.
+- A headless simulation crate, `nomad-sim`, is agreed as a parallel track (D-037), but its rules come from design docs 11, 14 and 15, which are not written yet. Do not start it before they exist.
 - Do not invent gameplay rules in code. If a task needs a design decision that does not exist yet, stop and say so. Then propose the decision, or add a question to `Design/02-open-questions.md`.
 - `Design/03-decision-log.md` holds every decision:
   - **Agreed** decisions are binding. Do not reopen them silently.

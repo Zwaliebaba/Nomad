@@ -1,16 +1,16 @@
 # 04 — Design review (round 3)
 
-Status: **Open.** This is a critical review of the design as agreed so far: D-001 to D-031, doc 12 and the phase-1 package. Concerns are ranked by impact. Each one carries a recommendation. Where the owner needs to decide something, the question is in `02-open-questions.md` (Q28–Q34). Concerns that only need a rule written down go to the design document named.
+Status: **Decided (2026-11-06).** Every concern has a decision (D-032 to D-040) or a home in the named design document. Residual risks are noted per item. This is a critical review of the design as agreed so far: D-001 to D-031, doc 12 and the phase-1 package. Concerns are ranked by impact. Each one carries a recommendation. Where the owner needs to decide something, the question is in `02-open-questions.md` (Q28–Q34). Concerns that only need a rule written down go to the design document named.
 
-| ID | Concern | Impact | Recommendation | Decision |
+| ID | Concern | Impact | Recommendation | Outcome |
 |---|---|---|---|---|
-| RK-01 | Players can choose an exposure window when their enemies are asleep ("time-zone tanking") | High | Derive the window from the commander's actual play hours | Q28 |
-| RK-02 | Conquest pacing is unmodelled; one full attack loop takes at least 13 h at 1× | High | A strategic time scale (combat stays 1:1) plus a headless pacing simulation | Q29, Q30 |
-| RK-03 | The MVP is not "limited": 9 competent AI commanders and strategic map views are each major projects | High | Stage the MVP, starting with fewer AI commanders; cut features that do nothing with one human | Q31 |
-| RK-04 | Building phase 1 first tests the part we are most confident in and defers the real risks | Medium–high | A headless simulation prototype in parallel with phase 1 (refines D-028) | Q30 |
-| RK-05 | There is no information model (fog of war, sensors), yet PvP, AI fairness (D-027) and networking all depend on one | High | Sensor-based fog of war per commander | Q32 |
-| RK-06 | "Never eliminated" can turn into "permanently crippled"; D-017 is ambiguous about the lost modules | Medium | Modules are destroyed, not captured; 72 h of protection after a jump; a defined jump destination | Q33 |
-| RK-07 | Season resets erase the station a builder spent weeks on | Medium | Carry over blueprints, doctrine and cosmetics, not assets | Q34 |
+| RK-01 | Players can choose an exposure window when their enemies are asleep ("time-zone tanking") | High | Derive the window from the commander's actual play hours | Q28 → D-032 (activity-derived window) |
+| RK-02 | Conquest pacing is unmodelled; one full attack loop takes at least 13 h at 1× | High | A strategic time scale (combat stays 1:1) plus a headless pacing simulation | Q29 → D-036 (no compression; rejected), Q30 → D-037 (pacing simulation). *Residual:* human playtests of a siege cycle take at least 13 h |
+| RK-03 | The MVP is not "limited": 9 competent AI commanders and strategic map views are each major projects | High | Stage the MVP, starting with fewer AI commanders; cut features that do nothing with one human | Q31 → D-038 (staged MVP) |
+| RK-04 | Building phase 1 first tests the part we are most confident in and defers the real risks | Medium–high | A headless simulation prototype in parallel with phase 1 (refines D-028) | Q30 → D-037 (parallel sim track) |
+| RK-05 | There is no information model (fog of war, sensors), yet PvP, AI fairness (D-027) and networking all depend on one | High | Sensor-based fog of war per commander | Q32 → D-039 (sensor-based fog of war) |
+| RK-06 | "Never eliminated" can turn into "permanently crippled"; D-017 is ambiguous about the lost modules | Medium | Modules are destroyed, not captured; 72 h of protection after a jump; a defined jump destination | Q33 → D-034 |
+| RK-07 | Season resets erase the station a builder spent weeks on | Medium | Carry over blueprints, doctrine and cosmetics, not assets | Q34 → D-035 |
 | RK-08 | Travel time and the 12 h notice depend on each other; relief only works if fleets can arrive in time | Medium | Rule: any trip within a sector takes less than half the notice | Doc 10 |
 | RK-09 | The stakes rule assumes every holding has a dome; new claims are undefined | Medium | Every holding has a core module with a minimal dome; anything without one is an outpost and follows the peripheral rules | Doc 15 |
 | RK-10 | With an always-on Deputy, direct orders and doctrine can conflict | Medium | A direct order wins until the unit is released; doctrine safety triggers are opt-in per order | Doc 12 addendum |
@@ -37,8 +37,8 @@ Both stagnation (turtles never fall) and runaway (one bad evening flips a system
 
 **Recommendation:**
 
-1. Add a **strategic time scale** per Universe. It scales the strategic timers: notice, immunity, travel, builds, storage fill and season length. The simulation tick and combat stay at 1:1, so D-019 still holds for everything a player sees in a fight. The exposure window itself stays tied to the real clock.
-2. Build a **headless pacing simulation**: AI commanders playing each other at high speed with no renderer. Use it to tune the timers before the content is built.
+1. *(Rejected by the owner: D-036.)* Add a **strategic time scale** per Universe. It scales the strategic timers: notice, immunity, travel, builds, storage fill and season length. The simulation tick and combat stay at 1:1, so D-019 still holds for everything a player sees in a fight. The exposure window itself stays tied to the real clock.
+2. *(Accepted: D-037.)* Build a **headless pacing simulation**: AI commanders playing each other at high speed with no renderer. Use it to tune the timers before the content is built.
 
 ## RK-03: MVP scope
 

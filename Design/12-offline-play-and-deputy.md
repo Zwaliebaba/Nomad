@@ -1,6 +1,6 @@
 # 12 — Offline play and the Deputy
 
-Status: **Agreed (round 2).** The principles, stakes rule, shield lifecycle, Deputy authority, absence states, and the window and timing values are agreed (D-013, D-015, D-016, D-017, D-023, D-024). Other values in §8 are proposed defaults to be tuned. This document addresses W-01 (offline asymmetry) and W-02 (Deputy competence paradox) from `01-game-concept.md`. Conflict is PvP plus NPC raiders (D-014), and the rules apply to both.
+Status: **Agreed (round 2).** The principles, stakes rule, shield lifecycle, Deputy authority, absence states, and the window and timing values are agreed (D-013, D-015, D-016, D-017, D-023, D-024, D-032, D-033, D-034). Other values in §8 are proposed defaults to be tuned. This document addresses W-01 (offline asymmetry) and W-02 (Deputy competence paradox) from `01-game-concept.md`. Conflict is PvP plus NPC raiders (D-014), and the rules apply to both.
 
 ## 1. The problem in one paragraph
 
@@ -57,13 +57,15 @@ stateDiagram-v2
     Siege --> Held: no attacking commander online at siege start
     Siege --> Fallen: core destroyed before the clock runs out
     Held --> Nominal: shield restored, then 48 h immunity from a new Reinforced state
-    Fallen --> [*]: holding captured; a mother station emergency-jumps instead (D-017)
+    Fallen --> [*]: holding captured; a mother station emergency-jumps instead (D-017, D-034)
 ```
 
 **Reinforced**
 - The dome hardens and is immune to hostile fire.
 - The commander's own ships can still launch and dock, and production continues.
-- The exit time is the start of the owner's first exposure window that begins **at least 12 h after the breach**. It is announced at once to the owner, their allies and the attackers.
+- The exit time is the start of the owner's first exposure window that begins **at least 12 h after the breach**. It is announced at once to the owner, their allies and the attackers (as far as fog of war allows, D-039).
+- The exposure window is **activity-derived** (D-032): the commander's most active 4 h over a rolling 14 days, shifting by at most 1 h per day.
+- When several of one commander's holdings are breached, their exits are spaced **60 min apart** in breach order. At most 4 fit in one window; any further sieges roll over to the next window (D-033).
 - A breach that happens inside the window still leads to Reinforced. Every decisive battle is scheduled; none is ever impromptu.
 
 **Siege**
@@ -71,6 +73,11 @@ stateDiagram-v2
 - The attackers must destroy the core within the **siege clock** (60 min).
 - The defender and any allies, who have had at least 12 h to prepare and send relief, must hold.
 - If no attacking commander is online when the siege starts, the siege fails at once (PR-3).
+
+**Fallen: mother station** (D-034)
+- The site's other modules are destroyed, not captured, and the attacker gains the cleared site.
+- The station jumps to the commander's nearest owned holding, or else to a free site in a low-density sector.
+- 72 h of protection follows (no Reinforced), plus a comeback grant scaled to how far behind the commander is.
 
 **Held**
 - The shield restores.
@@ -130,6 +137,8 @@ The Deputy should be **competent and readable, not optimal**. It works as a util
 
 ### 5.5 Absence states
 
+Neither state is in the MVP (D-038). Both stay in the full-game design.
+
 | State | How it starts | Effect | How it ends |
 |---|---|---|---|
 | **Vacation** (D-024) | The commander requests it; it activates 72 h later | Holdings cannot enter Reinforced. The commander cannot take offensive actions. The Deputy runs as normal. | The commander logs in and ends it, or 7 days per season are used up |
@@ -151,18 +160,18 @@ The Deputy's quality only affects peripheral skirmishes. Peripheral losses are b
 1. **Defender advantage and stagnation.** A well-organised defender with a good window and online allies may be nearly impossible to take. *Mitigation:* windows long enough to plan against; constant economic pressure; seasons (Q2) so the board resets. Watch this in playtests.
 2. **Time zones.** For some attackers, some targets fall in the middle of their night. That is accepted: the attacker chose the target. Expect time-zone clustering among allies.
 3. **Timer bureaucracy.** Games with scheduled vulnerability can turn into calendar management. At 100 players with a few holdings each, the timer load stays small. The away report and HUD must make timers obvious without becoming an event log, which phase 1 removed from the HUD.
-4. **Dogpiling.** Several holdings of one commander can come out of Reinforced at the start of the same window. *Open:* Q26 proposes spreading their exit times across the window.
+4. **Dogpiling.** Several holdings of one commander can come out of Reinforced at the start of the same window. *Decided:* exits are staggered 60 min apart (D-033).
 5. **Doctrine UX is new UI work.** Nothing in the phase-1 HUD covers writing doctrine except the PWR ROUTE toggle. Good presets matter more than a powerful editor.
 6. **Predictable Deputy behaviour can be learned and exploited.** That is accepted, because only peripheral, bounded assets are exposed.
-7. **The MVP has one human with irregular sessions.** A 4 h daily window and 12 h of notice are impractical to test in real time. All timings must be configuration values, with a time-compression setting per Universe for test runs.
+7. **The MVP has one human with irregular sessions.** A 4 h daily window and 12 h of notice are slow to test in real time. *Decided:* there is no time compression (D-036). Human playtests run at 1×, and the headless simulation (D-037) runs AI-against-AI pacing tests fast-forwarded. Timings stay configuration values so they can be tuned.
 8. **Vacation.** A player who is away for days is defended only by the Deputy, including during their sieges. *Decided:* a limited vacation mode (D-024, §5.5).
 
 ## 8. Proposed defaults (all configurable, to be tuned)
 
 | Parameter | Value | Reason |
 |---|---|---|
-| Exposure window | 4 h per day, contiguous, chosen per commander (agreed, D-015) | Attendable by the defender; plannable for attackers |
-| Window change delay | 48 h (agreed, D-015) | Prevents dodging an attack that is already known |
+| Exposure window | 4 h per day, contiguous, activity-derived per commander (agreed, D-015, D-032) | Attendable by the defender; plannable for attackers; prevents time-zone tanking |
+| Window drift | At most 1 h per day (agreed, D-032; replaces the 48 h change delay) | Prevents dodging an attack that is already known |
 | Minimum notice from breach to siege | 12 h (agreed, D-015) | Covers a night or a working day |
 | Siege clock | 60 min (agreed, D-015) | One play session; enough time for relief to arrive |
 | Immunity after Held | 48 h (agreed, D-015) | No permanent lockdown |

@@ -52,7 +52,7 @@ Taken from the phase-1 breadcrumb `ORION ARM › VEIL SECTOR › KESTREL-7 › O
 
 | Term | Meaning |
 |---|---|
-| **Mother station** *(phase 1)* | The commander's core station, for example MS-01 "Aegis". It is never destroyed: if it falls in a siege it makes an **emergency jump** to a safe system and loses that site's other modules (D-017). Otherwise stations stay where they are built (D-018). |
+| **Mother station** *(phase 1)* | The commander's core station, for example MS-01 "Aegis". It is never destroyed: if it falls in a siege it makes an **emergency jump** and its site's other modules are destroyed (D-017, D-034). Otherwise stations stay where they are built (D-018). |
 | **Station** | A structure assembled from modules on an ops grid. |
 | **Module** *(phase 1)* | A selectable station component: core spindle, shield pylon, factory, dry dock, solar array, truss. |
 | **Core spindle** *(phase 1)* | The centre module of a mother station: habitat ring, docking arms, sensor mast. |
@@ -89,13 +89,24 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | Term | Meaning |
 |---|---|
 | **Doctrine** | The standing orders a commander writes for holdings, fleets and the economy. The Deputy executes it at all times (D-013). |
-| **Exposure window** | The one daily 4 h window, chosen per commander, in which their holdings' cores can be besieged (D-015). |
+| **Exposure window** | The one daily 4 h window in which a commander's holdings' cores can be besieged (D-015). It is derived from the commander's most active 4 h over a rolling 14 days and shifts by at most 1 h per day (D-032). |
 | **Breach** | A shield sector reaching 0%. It triggers Reinforced. |
 | **Reinforced** | A hardened dome, immune to hostile fire, from the breach until the owner's next exposure window that starts at least 12 h later (D-015). |
 | **Siege** | The 60 min decisive phase after Reinforced (D-015). The phase-1 "Hold MS-01 for relief" objective is the siege clock. |
 | **Held / Fallen** | Siege outcomes. *Held* means the shield is restored, with 48 h immunity. *Fallen* means the holding is captured, or a mother station emergency-jumps (D-017). |
 | **Disabled** | A peripheral structure knocked offline outside the exposure window. It restores itself; it is never destroyed (doc 12 §3). |
-| **Vacation** | A limited absence mode: up to 7 days per season, activating 72 h after the request, with no offence and no Reinforced allowed (D-024). |
-| **Derelict** | The state of a commander's holdings after 14 days without a login. They have no exposure window, and the Deputy rebuilds nothing (D-023). |
+| **Vacation** | A limited absence mode: up to 7 days per season, activating 72 h after the request, with no offence and no Reinforced allowed (D-024). Not in the MVP (D-038). |
+| **Derelict** | The state of a commander's holdings after 14 days without a login. They have no exposure window, and the Deputy rebuilds nothing (D-023). Not in the MVP (D-038). |
 | **Season** | One 8–12 week run of the Universe, won by system control (D-020). |
 | **Storage cap** | The limit on stored resources, set so storage fills in about 8–12 h (D-025). |
+| **Emergency jump** | How a fallen mother station escapes. Its site's other modules are destroyed; it jumps to the nearest owned holding or a free low-density site; 72 h of protection and a **comeback grant** follow (D-017, D-034). |
+| **Blueprint** | A saved station layout. Blueprints carry over between seasons, together with doctrine presets and cosmetics (D-035). |
+
+## Information and diplomacy
+
+| Term | Meaning |
+|---|---|
+| **Fog of war** | Each commander sees only what their sensors cover (D-039). |
+| **Sensor coverage** | The sensor ranges of a commander's holdings, ships and gates. It defines what that commander sees live. |
+| **Last-known** | Information outside current sensor coverage, shown with its age in strategic views. |
+| **Alliance** | A formal, size-capped group of commanders with shared vision and the right to defend each other's holdings (D-040). Not in the MVP, which has no diplomacy (D-026). |

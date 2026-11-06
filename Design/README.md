@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** design phase, round 3. All round-1 and round-2 questions are answered (D-013 to D-031). Doc 12, offline play and the Deputy, is agreed. The next step is writing the planned documents below. Open: Q26–Q27, plus Q28–Q34 from the design review (doc 04).
+**Status:** design phase, round 4. All questions Q1–Q34 are answered (D-001 to D-040). Doc 12 is agreed, and every concern in the design review (doc 04) is decided. Next: the planned documents below, starting with 10 and 11.
 
 ## Documents
 
@@ -10,9 +10,9 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 |---|------|------------|--------|
 | 00 | [`00-glossary.md`](00-glossary.md) | Vocabulary and the Universe hierarchy. Read this first. | Draft (decisions applied) |
 | 01 | [`01-game-concept.md`](01-game-concept.md) | Stated requirements, what they force, stress test, MVP framing | Draft (decisions applied) |
-| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | Q26–Q34 open |
+| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | All answered |
 | 03 | [`03-decision-log.md`](03-decision-log.md) | Decisions taken, with date and reason | Living |
-| 04 | [`04-design-review.md`](04-design-review.md) | Ranked risk register for the agreed design (RK-01 to RK-11) | Open |
+| 04 | [`04-design-review.md`](04-design-review.md) | Ranked risk register for the agreed design (RK-01 to RK-11) | Decided |
 | 12 | [`12-offline-play-and-deputy.md`](12-offline-play-and-deputy.md) | Offline protection (stakes rule, shield lifecycle, absence states) and the Deputy (authority, doctrine, competence cap) | Agreed |
 | — | [`phase1-visual-slice/`](phase1-visual-slice/README.md) | Owner's phase-1 package: client look, camera, HUD, renderer architecture, voxel assets | Agreed (owner) |
 
@@ -20,13 +20,15 @@ Planned documents (numbers reserved). Their inputs are now decided:
 
 | # | Planned document | Inputs |
 |---|------------------|--------|
-| 10 | Universe structure: galaxy layout, sectors, systems, holdings, gates and lanes, MVP Universe size, definition of system control | D-020, D-021, D-022 |
-| 11 | Time and simulation: tick, timer layers, time compression, persistence model | D-019, D-015, D-026 |
+| 10 | Universe structure: galaxy layout, sectors, systems, holdings, gates and lanes, MVP sector size, definition of system control, travel times versus notice (RK-08), late joiners (RK-11) | D-020, D-021, D-022, D-038 |
+| 11 | Time and simulation: tick, timer layers, fast-forward in headless runs, persistence model | D-019, D-015, D-026, D-036, D-037 |
 | 13 | AI commanders: Strategist on top of the Deputy (P-02), schedules, difficulty | D-013, D-016, D-027 |
 | 14 | Economy: resource chain, storage caps, production, upkeep | D-019, D-025 |
-| 15 | Combat and defence: ships, shields, the siege lifecycle in detail, capture, emergency jump | D-014, D-015, D-017 |
+| 15 | Combat and defence: ships, shields, the siege lifecycle in detail, capture, emergency jump, holdings without a dome (RK-09) | D-014, D-015, D-017, D-033, D-034 |
+| 16 | Information model: sensors, fog of war, last-known data, interest management | D-039 |
+| 17 | Strategic map views: SYSTEM and SECTOR views, fleet travel commands (phase-1 doc 07, item 7) | D-022, D-026 |
 | 20 | Technical architecture: server, client, protocol, persistence, crates | D-026, D-029, D-030 |
-| 30 | MVP scope, milestones and acceptance criteria | D-026 to D-028 |
+| 30 | MVP scope, milestones and acceptance criteria, including the `nomad-sim` track | D-026 to D-028, D-037, D-038 |
 
 ## Conventions
 
