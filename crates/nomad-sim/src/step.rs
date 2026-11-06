@@ -30,7 +30,9 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // Phase 1: ingest inputs. Operator commands in journal order, then commander inputs in
     // (commander, client_seq) order, whatever order the network delivered them in.
     for op in &inputs.operator {
-        apply_operator(state, now, op);
+        if !apply_operator(state, now, op) {
+            out.inputs_rejected = out.inputs_rejected.saturating_add(1);
+        }
     }
     let mut commander_inputs: Vec<&CommanderInput> = inputs.commanders.iter().collect();
     commander_inputs.sort_by_key(|input| (input.commander, input.client_seq));
@@ -50,7 +52,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     out
 }
 
-fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) {
+/// Returns `false` if the input was invalid.
+fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) -> bool {
     match *op {
         OperatorInput::SpawnDiagnostics {
             count,
@@ -59,7 +62,12 @@ fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) {
             for _ in 0..count {
                 schedule_diagnostic(state, now, mean_interval);
             }
+            true
         }
+        // Catch-up mode (doc 11 §7, D-047). A marker that does not change the mode is
+        // rejected, so a server bug shows up in the outputs instead of passing silently.
+        OperatorInput::CatchUpStart => !std::mem::replace(&mut state.catching_up, true),
+        OperatorInput::CatchUpEnd => std::mem::replace(&mut state.catching_up, false),
     }
 }
 
@@ -140,6 +148,28 @@ mod tests {
             },
         );
         assert!(state.connected().is_empty());
+    }
+
+    #[test]
+    fn catch_up_markers_set_and_clear_the_mode() {
+        let mut state = universe();
+        let operator = |ops: Vec<OperatorInput>| TickInputs {
+            operator: ops,
+            commanders: vec![],
+        };
+        let out = step(&mut state, &operator(vec![OperatorInput::CatchUpStart]));
+        assert_eq!(out.inputs_rejected, 0);
+        assert!(state.catching_up());
+        // Starting twice is rejected and changes nothing.
+        let out = step(&mut state, &operator(vec![OperatorInput::CatchUpStart]));
+        assert_eq!(out.inputs_rejected, 1);
+        assert!(state.catching_up());
+        let out = step(&mut state, &operator(vec![OperatorInput::CatchUpEnd]));
+        assert_eq!(out.inputs_rejected, 0);
+        assert!(!state.catching_up());
+        let out = step(&mut state, &operator(vec![OperatorInput::CatchUpEnd]));
+        assert_eq!(out.inputs_rejected, 1);
+        assert!(!state.catching_up());
     }
 
     #[test]

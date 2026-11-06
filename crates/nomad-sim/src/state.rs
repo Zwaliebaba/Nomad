@@ -49,6 +49,10 @@ pub struct UniverseState {
     pub(crate) galaxy: Galaxy,
     /// Every holding and outpost, by identity (doc 10 §5, D-041).
     pub(crate) holdings: BTreeMap<HoldingId, Holding>,
+    /// Whether the server is catching up after downtime (doc 11 §7, D-047). Set and
+    /// cleared only by the journaled [`crate::OperatorInput::CatchUpStart`] and
+    /// [`crate::OperatorInput::CatchUpEnd`] inputs, so replay reproduces it.
+    pub(crate) catching_up: bool,
 }
 
 impl UniverseState {
@@ -65,6 +69,7 @@ impl UniverseState {
             connected: BTreeSet::new(),
             galaxy: Galaxy::default(),
             holdings: BTreeMap::new(),
+            catching_up: false,
         }
     }
 
@@ -86,6 +91,13 @@ impl UniverseState {
     /// Commanders whose client is currently connected.
     pub const fn connected(&self) -> &BTreeSet<CommanderId> {
         &self.connected
+    }
+
+    /// Whether this tick runs in catch-up mode: the server is fast-forwarding through
+    /// downtime and every commander is offline (doc 11 §7, D-047). Rules that must not act
+    /// during catch-up, such as NPC raiders starting raids, read this.
+    pub const fn catching_up(&self) -> bool {
+        self.catching_up
     }
 
     /// Number of pending timers.

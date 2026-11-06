@@ -10,7 +10,9 @@
 //! - the [`step`] function that advances the Universe by one tick;
 //! - the season galaxy ([`galaxy`], Design doc 10): topology, site deposits (doc 14 §5),
 //!   the MVP stage-1 generator and its invariant validator;
-//! - holdings and the system control rule ([`ControlState`], D-041).
+//! - holdings and the system control rule ([`ControlState`], D-041);
+//! - the catch-up mode ([`UniverseState::catching_up`]), set and cleared by journaled
+//!   operator inputs while the server fast-forwards through downtime (doc 11 §7, D-047).
 //!
 //! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and

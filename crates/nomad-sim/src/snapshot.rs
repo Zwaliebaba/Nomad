@@ -14,9 +14,10 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// The snapshot schema version this build writes and reads. Newer builds migrate older
 /// versions forward (Design doc 11 §8).
 ///
-/// Version 2 adds the season galaxy and holdings (Design doc 10). Version 1 was never
-/// persisted outside tests, so there is nothing to migrate from.
-pub const FORMAT: u32 = 2;
+/// Version 2 adds the season galaxy and holdings (Design doc 10). Version 3 adds the
+/// catch-up mode (doc 11 §7, D-047; N2 plan §4.5). Until the first real Universe (β),
+/// older versions are rejected, not migrated (D-099 item 9).
+pub const FORMAT: u32 = 3;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]
@@ -119,6 +120,21 @@ mod tests {
         assert_eq!(encode(&decoded).unwrap(), bytes);
         assert_eq!(decoded.galaxy().sites().count(), 60);
         assert_eq!(decoded.holdings().count(), 4);
+    }
+
+    #[test]
+    fn catch_up_mode_survives_a_round_trip() {
+        let mut state = universe();
+        step(
+            &mut state,
+            &TickInputs {
+                operator: vec![crate::OperatorInput::CatchUpStart],
+                commanders: vec![],
+            },
+        );
+        let decoded = decode(&encode(&state).unwrap()).unwrap();
+        assert!(decoded.catching_up());
+        assert_eq!(decoded, state);
     }
 
     #[test]

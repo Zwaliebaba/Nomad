@@ -52,4 +52,13 @@ pub enum OperatorInput {
         /// Average delay between firings.
         mean_interval: Ticks,
     },
+    /// The server starts catching up after downtime (doc 11 §7, D-047): from this tick on,
+    /// the tick runs in catch-up mode until [`OperatorInput::CatchUpEnd`]. Rules read the
+    /// mode through [`crate::UniverseState::catching_up`]; NPC raiders, for example, start no
+    /// new raids during catch-up (D-047). Journaled like every input, so replay sees the
+    /// same mode (N2 plan §4.5). Rejected if the Universe is already catching up.
+    CatchUpStart,
+    /// The server has caught up with the wall clock: this tick and the following ones run
+    /// live again. Rejected if the Universe is not catching up.
+    CatchUpEnd,
 }
