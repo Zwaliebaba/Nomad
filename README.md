@@ -15,7 +15,7 @@ Design and build run in parallel (Design D-051). Being built: the phase-1 visual
 ```
 Design/                 Design documents (source of truth), including the phase-1 visual slice package
 crates/
-  nomad-client/         Game client (phase 1: the visual slice; not started yet)
+  nomad-client/         Game client (phase 1: the visual slice; milestone M1 so far)
   nomad-sim/            Deterministic simulation core (Design doc 11): tick, timers, SimId, random streams, snapshots
   nomad-harness/        Headless fast-forward runner: pacing runs and determinism checks
 .github/                CI workflow, Dependabot, pull request template
@@ -35,6 +35,25 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
 ```
+
+Run the phase-1 client (milestone M1: window, background, infinite ops grid and camera):
+
+```bash
+cargo run -p nomad-client                      # 1920x1080 window
+cargo run -p nomad-client -- --size 1280x720   # other window size
+cargo run -p nomad-client -- --screenshot out.png --view 1 --zoom 0.5   # one frame offscreen, no window
+```
+
+| Key | Action |
+|---|---|
+| Q / E | Rotate the view −90° / +90° (250 ms; presses during a turn are queued) |
+| Mouse wheel | Zoom step toward the cursor (0.5, 0.75, 1, 1.5, 2) |
+| WASD, arrows, screen edge, middle-mouse drag | Pan (±200 voxels around the deck centre) |
+| Home | View 0, zoom 1, deck centre |
+| F11 | Toggle fullscreen |
+| F12 | Screenshot to `screenshots/` in the working directory |
+
+Assets load from `Design/phase1-visual-slice/assets`; set `NOMAD_ASSETS` to use another folder. `RUST_LOG` sets the log filter. On Linux the client needs a Vulkan or OpenGL ES driver and, under X11, `libxkbcommon-x11` at run time; building needs no system packages. GPU tests are ignored by default; run them with `cargo test -p nomad-client -- --ignored` on a machine with a GPU or a software Vulkan driver such as Mesa lavapipe.
 
 Run the headless simulation harness (fast-forward, reports the state hash and speed):
 
