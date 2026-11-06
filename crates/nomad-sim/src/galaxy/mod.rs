@@ -14,8 +14,13 @@
 //! (doc 10 §8). Lane travel is a timed transit, not a distance (D-042).
 
 mod generate;
+mod validate;
 
 pub use generate::{GenerationError, STAGE1_COMMANDERS, generate_stage1, stage1_sites};
+pub use validate::{
+    GalaxyReport, InvariantLimits, SectorReport, Violation, WorstTrip, allowed_gates,
+    allowed_sites, validate,
+};
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 

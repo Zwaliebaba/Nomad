@@ -14,7 +14,9 @@ use std::f64::consts::TAU;
 
 use thiserror::Error;
 
-use crate::galaxy::{GateId, LaneKind, PositionKm, SystemId, SystemKind};
+use crate::galaxy::{
+    GateId, InvariantLimits, LaneKind, PositionKm, SystemId, SystemKind, Violation, validate,
+};
 use crate::holding::HoldingError;
 use crate::id::CommanderId;
 use crate::rng::{RngStreams, StreamKey, purpose};
@@ -69,6 +71,10 @@ pub enum GenerationError {
     /// A mother-station holding could not be placed.
     #[error("could not place a mother-station holding: {0}")]
     Holding(#[from] HoldingError),
+    /// The generated galaxy breaks an invariant. The layout is built to satisfy every
+    /// checked invariant, so this means a generator bug; the galaxy is not used.
+    #[error("generated galaxy breaks {} invariant checks: {:?}", .0.len(), .0)]
+    Invalid(Vec<Violation>),
 }
 
 /// Number of sites the stage-1 generator gives a system of `kind` (doc 10 §4.4, D-043).
@@ -160,7 +166,13 @@ pub fn generate_stage1(
     for (site, commander) in mother_sites.into_iter().zip(commanders) {
         state.insert_holding(site, commander, true)?;
     }
-    Ok(state)
+
+    let report = validate(state.galaxy(), &InvariantLimits::default());
+    if report.is_valid() {
+        Ok(state)
+    } else {
+        Err(GenerationError::Invalid(report.violations))
+    }
 }
 
 /// System kinds in creation order: H1, N1, …, H4, N4, C, R.
