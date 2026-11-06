@@ -6,11 +6,12 @@ use std::collections::BTreeMap;
 use std::io::{self, Write};
 
 use nomad_sim::galaxy::{
-    GalaxyReport, InvariantLimits, STAGE1_COMMANDERS, generate_stage1, validate,
+    GalaxyReport, InvariantLimits, STAGE1_COMMANDERS, generate_stage1_with_rules, validate,
 };
 use nomad_sim::snapshot::state_hash;
 use nomad_sim::{
-    CommanderId, ControlState, SeasonConfig, SiteId, SystemId, SystemKind, Ticks, UniverseState,
+    CommanderId, ControlState, Rules, SeasonConfig, SiteId, SystemId, SystemKind, Ticks,
+    UniverseState,
 };
 
 /// Commanders of the generated Universe: 1 human and 3 AI (doc 10 §3).
@@ -21,14 +22,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
     CommanderId(4),
 ];
 
-/// Generates the stage-1 sector for `seed` and writes its summary to `out`.
-pub fn print(out: &mut impl Write, seed: u64) -> Result<(), String> {
-    let state = generate_stage1(
+/// Generates the stage-1 sector for `seed` with `rules` and writes its summary to `out`.
+pub fn print(out: &mut impl Write, seed: u64, rules: Rules) -> Result<(), String> {
+    let state = generate_stage1_with_rules(
         SeasonConfig {
             seed,
             season_start_unix_ms: 0,
         },
         COMMANDERS,
+        rules,
     )
     .map_err(|e| e.to_string())?;
     let limits = InvariantLimits::default();
@@ -247,7 +249,7 @@ mod tests {
     #[test]
     fn summary_lists_the_stage1_sector() {
         let mut out = Vec::new();
-        print(&mut out, 7).unwrap();
+        print(&mut out, 7, Rules::embedded()).unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(text.contains("10 systems (4 home, 4 standard, 1 hub, 1 raider haven)"));
         assert!(text.contains("60 sites | 26 gates | 13 jump lanes"));

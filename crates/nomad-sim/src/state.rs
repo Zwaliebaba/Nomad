@@ -8,6 +8,7 @@ use crate::galaxy::{Galaxy, SiteId, SystemId};
 use crate::holding::{self, ControlState, Holding, HoldingError, HoldingId};
 use crate::id::{CommanderId, SimIdAllocator};
 use crate::rng::RngStreams;
+use crate::rules::{Rules, RulesError};
 use crate::time::{SeasonClock, Tick, Ticks};
 use crate::timers::TimerQueue;
 
@@ -38,6 +39,8 @@ pub enum ScheduledEvent {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UniverseState {
     pub(crate) season: SeasonConfig,
+    /// The season's rules, copied in at creation (D-104).
+    pub(crate) rules: Rules,
     pub(crate) clock: SeasonClock,
     /// The last completed tick.
     pub(crate) tick: Tick,
@@ -56,11 +59,22 @@ pub struct UniverseState {
 }
 
 impl UniverseState {
-    /// A new Universe at tick 0 with an empty galaxy. Use
+    /// A new Universe at tick 0 with an empty galaxy and the embedded rules. Use
     /// [`crate::galaxy::generate_stage1`] for a Universe with a generated galaxy.
     pub fn new(season: SeasonConfig) -> Self {
+        Self::create(season, Rules::embedded())
+    }
+
+    /// Like [`UniverseState::new`], with other rules, for example a tuning run's (D-104).
+    pub fn with_rules(season: SeasonConfig, rules: Rules) -> Result<Self, RulesError> {
+        rules.check()?;
+        Ok(Self::create(season, rules))
+    }
+
+    fn create(season: SeasonConfig, rules: Rules) -> Self {
         Self {
             season,
+            rules,
             clock: SeasonClock::new(season.season_start_unix_ms),
             tick: Tick::ZERO,
             ids: SimIdAllocator::default(),
@@ -76,6 +90,11 @@ impl UniverseState {
     /// The season this Universe belongs to.
     pub const fn season(&self) -> SeasonConfig {
         self.season
+    }
+
+    /// The season's rules (D-104).
+    pub const fn rules(&self) -> &Rules {
+        &self.rules
     }
 
     /// The last completed tick.

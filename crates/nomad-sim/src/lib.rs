@@ -12,7 +12,9 @@
 //!   the MVP stage-1 generator and its invariant validator;
 //! - holdings and the system control rule ([`ControlState`], D-041);
 //! - the catch-up mode ([`UniverseState::catching_up`]), set and cleared by journaled
-//!   operator inputs while the server fast-forwards through downtime (doc 11 §7, D-047).
+//!   operator inputs while the server fast-forwards through downtime (doc 11 §7, D-047);
+//! - the season's [`Rules`]: unit and movement numbers from a rules file embedded in the
+//!   build, copied into the Universe at creation (D-104).
 //!
 //! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
@@ -36,6 +38,7 @@ mod holding;
 mod id;
 mod input;
 mod rng;
+pub mod rules;
 pub mod snapshot;
 mod state;
 mod step;
@@ -53,6 +56,7 @@ pub use holding::{
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 pub use rng::{RngStreams, StreamKey, purpose};
+pub use rules::{Rules, RulesError};
 pub use state::{ScheduledEvent, SeasonConfig, UniverseState};
 pub use step::{TickOutputs, step};
 pub use time::{SeasonClock, TICK_MILLIS, TICKS_PER_SECOND, Tick, Ticks, runs_on};

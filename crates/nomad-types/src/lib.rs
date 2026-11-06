@@ -10,7 +10,7 @@
 //! - simulation time: [`Tick`], [`Ticks`], [`TICK_MILLIS`], [`TICKS_PER_SECOND`] and
 //!   Universe time ([`SeasonClock`], doc 11 §2);
 //! - units and places: [`PositionMetres`] and [`Location`] (D-099);
-//! - small public enums: [`SystemKind`], [`LaneKind`], deposits ([`Deposit`],
+//! - small public enums: [`SystemKind`], [`LaneKind`], [`ShipClass`], deposits ([`Deposit`],
 //!   [`DepositKind`], [`Richness`], [`DepositValue`]) and [`ControlState`];
 //! - the shape of [`Command`]s (doc 15 §3.4), shared by the protocol and the simulation's
 //!   validator.
@@ -28,6 +28,7 @@ mod deposit;
 mod galaxy;
 mod id;
 mod position;
+mod ship;
 mod time;
 
 pub use command::{Command, FleetOrder, HoldingOrder, Queueing, RulesOfEngagement};
@@ -39,4 +40,5 @@ pub use id::{
     SiteId, SystemId, UniverseId,
 };
 pub use position::{Location, PositionMetres};
+pub use ship::ShipClass;
 pub use time::{SeasonClock, TICK_MILLIS, TICKS_PER_SECOND, Tick, Ticks};

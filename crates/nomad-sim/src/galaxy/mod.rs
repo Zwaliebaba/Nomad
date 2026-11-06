@@ -25,7 +25,9 @@ pub use deposit::{
     Deposit, DepositKind, DepositValue, MAX_DEPOSITS_PER_SITE, Richness, base_value, deposit_value,
     richness_per_mille,
 };
-pub use generate::{GenerationError, STAGE1_COMMANDERS, generate_stage1, stage1_sites};
+pub use generate::{
+    GenerationError, STAGE1_COMMANDERS, generate_stage1, generate_stage1_with_rules, stage1_sites,
+};
 pub use validate::{
     GalaxyReport, InvariantLimits, SectorReport, Violation, WorstTrip, allowed_gates,
     allowed_sites, validate,

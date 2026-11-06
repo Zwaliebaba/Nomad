@@ -23,6 +23,7 @@ use crate::galaxy::{
 use crate::holding::HoldingError;
 use crate::id::CommanderId;
 use crate::rng::{RngStreams, StreamKey, purpose};
+use crate::rules::{Rules, RulesError};
 use crate::state::{SeasonConfig, UniverseState};
 use crate::time::Ticks;
 
@@ -105,10 +106,19 @@ pub enum GenerationError {
     /// A mother-station holding could not be placed.
     #[error("could not place a mother-station holding: {0}")]
     Holding(#[from] HoldingError),
+    /// The rules are invalid.
+    #[error("invalid rules: {0}")]
+    Rules(String),
     /// The generated galaxy breaks an invariant. The layout is built to satisfy every
     /// checked invariant, so this means a generator bug; the galaxy is not used.
     #[error("generated galaxy breaks {} invariant checks: {:?}", .0.len(), .0)]
     Invalid(Vec<Violation>),
+}
+
+impl From<RulesError> for GenerationError {
+    fn from(error: RulesError) -> Self {
+        Self::Rules(error.to_string())
+    }
 }
 
 /// Number of sites the stage-1 generator gives a system of `kind` (doc 10 §4.4, D-043).
@@ -124,7 +134,7 @@ pub const fn stage1_sites(kind: SystemKind) -> usize {
     }
 }
 
-/// Generates a new MVP stage-1 Universe for `season` (doc 10 §4.4).
+/// Generates a new MVP stage-1 Universe for `season` (doc 10 §4.4) with the embedded rules.
 ///
 /// `commanders[i]` gets a mother-station holding, with its core complete, on the first site
 /// of home system H(i+1).
@@ -132,13 +142,23 @@ pub fn generate_stage1(
     season: SeasonConfig,
     commanders: [CommanderId; STAGE1_COMMANDERS],
 ) -> Result<UniverseState, GenerationError> {
+    generate_stage1_with_rules(season, commanders, Rules::embedded())
+}
+
+/// Like [`generate_stage1`], with other rules, for example a tuning run's (D-104). The
+/// rules are copied into the Universe.
+pub fn generate_stage1_with_rules(
+    season: SeasonConfig,
+    commanders: [CommanderId; STAGE1_COMMANDERS],
+    rules: Rules,
+) -> Result<UniverseState, GenerationError> {
     for (i, commander) in commanders.iter().enumerate() {
         if commanders[..i].contains(commander) {
             return Err(GenerationError::DuplicateCommander(*commander));
         }
     }
 
-    let mut state = UniverseState::new(season);
+    let mut state = UniverseState::with_rules(season, rules)?;
     let UniverseState {
         ids, rng, galaxy, ..
     } = &mut state;

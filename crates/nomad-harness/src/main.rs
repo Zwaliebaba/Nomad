@@ -6,20 +6,25 @@
 //! With `--galaxy` it instead generates the MVP stage-1 sector for the seed and prints a
 //! summary of it (Design doc 10 §4.4).
 //!
+//! `--rules PATH` replaces the rules embedded in the build with another rules file, for
+//! tuning runs (D-104). The Universe keeps the rules it was created with.
+//!
 //! ```text
 //! nomad-harness [--seed N] [--ticks N] [--diagnostics N] [--mean-interval-secs N] [--restore-at N]
-//! nomad-harness --galaxy [--seed N]
+//!               [--rules PATH]
+//! nomad-harness --galaxy [--seed N] [--rules PATH]
 //! ```
 
 mod galaxy;
 
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
 
 use nomad_sim::snapshot::{decode, encode, state_hash};
 use nomad_sim::{
-    OperatorInput, SeasonConfig, TICKS_PER_SECOND, TickInputs, Ticks, UniverseState, step,
+    OperatorInput, Rules, SeasonConfig, TICKS_PER_SECOND, TickInputs, Ticks, UniverseState, step,
 };
 
 struct Args {
@@ -29,6 +34,7 @@ struct Args {
     mean_interval_secs: u64,
     restore_at: Option<u64>,
     galaxy: bool,
+    rules: Option<PathBuf>,
 }
 
 impl Default for Args {
@@ -40,6 +46,7 @@ impl Default for Args {
             mean_interval_secs: 10,
             restore_at: None,
             galaxy: false,
+            rules: None,
         }
     }
 }
@@ -56,11 +63,12 @@ fn parse_args() -> Result<Args, String> {
             "--mean-interval-secs" => args.mean_interval_secs = parse(&value()?)?,
             "--restore-at" => args.restore_at = Some(parse(&value()?)?),
             "--galaxy" => args.galaxy = true,
+            "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--help" | "-h" => {
                 return Err(
                     "usage: nomad-harness [--seed N] [--ticks N] [--diagnostics N] \
-                            [--mean-interval-secs N] [--restore-at N]\n       \
-                     nomad-harness --galaxy [--seed N]"
+                            [--mean-interval-secs N] [--restore-at N] [--rules PATH]\n       \
+                     nomad-harness --galaxy [--seed N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -75,15 +83,30 @@ fn parse<T: std::str::FromStr>(text: &str) -> Result<T, String> {
         .map_err(|_| format!("not a valid number: {text}"))
 }
 
+/// The embedded rules, or the rules file given with `--rules` (D-104).
+fn load_rules(path: Option<&PathBuf>) -> Result<Rules, String> {
+    let Some(path) = path else {
+        return Ok(Rules::embedded());
+    };
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read rules file {}: {e}", path.display()))?;
+    Rules::from_json(&text).map_err(|e| format!("{}: {e}", path.display()))
+}
+
 fn run() -> Result<(), String> {
     let args = parse_args()?;
+    let rules = load_rules(args.rules.as_ref())?;
     if args.galaxy {
-        return galaxy::print(&mut io::stdout().lock(), args.seed);
+        return galaxy::print(&mut io::stdout().lock(), args.seed, rules);
     }
-    let mut state = UniverseState::new(SeasonConfig {
-        seed: args.seed,
-        season_start_unix_ms: 0,
-    });
+    let mut state = UniverseState::with_rules(
+        SeasonConfig {
+            seed: args.seed,
+            season_start_unix_ms: 0,
+        },
+        rules,
+    )
+    .map_err(|e| e.to_string())?;
     let spawn = TickInputs {
         operator: vec![OperatorInput::SpawnDiagnostics {
             count: args.diagnostics,

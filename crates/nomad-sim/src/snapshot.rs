@@ -14,10 +14,13 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// The snapshot schema version this build writes and reads. Newer builds migrate older
 /// versions forward (Design doc 11 §8).
 ///
-/// Version 2 adds the season galaxy and holdings (Design doc 10). Version 3 adds the
-/// catch-up mode (doc 11 §7, D-047; N2 plan §4.5). Until the first real Universe (β),
-/// older versions are rejected, not migrated (D-099 item 9).
-pub const FORMAT: u32 = 3;
+/// Version history. None of these was persisted outside tests, so there is nothing to migrate
+/// from; until milestone β a new version simply rejects older snapshots (D-099 item 9):
+///
+/// - 2: the season galaxy and holdings (Design doc 10);
+/// - 3: the catch-up mode (doc 11 §7, D-047; N2 plan §4.5);
+/// - 4: the season's rules, copied into the Universe at creation (D-104).
+pub const FORMAT: u32 = 4;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]
@@ -157,6 +160,23 @@ mod tests {
             decode(&bytes),
             Err(SnapshotError::TrailingBytes(1))
         ));
+    }
+
+    #[test]
+    fn a_universe_keeps_its_rules() {
+        let mut rules = crate::Rules::embedded();
+        rules.movement.formation_spacing_m = 200.0;
+        let state = UniverseState::with_rules(universe().season(), rules.clone()).unwrap();
+        let decoded = decode(&encode(&state).unwrap()).unwrap();
+        assert_eq!(decoded.rules(), &rules);
+        assert_ne!(decoded.rules(), universe().rules());
+        assert!(
+            UniverseState::with_rules(universe().season(), {
+                rules.gates.jump_range_m = 0.0;
+                rules
+            })
+            .is_err()
+        );
     }
 
     #[test]
