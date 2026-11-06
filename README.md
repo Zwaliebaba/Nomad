@@ -15,7 +15,9 @@ Design and build run in parallel (Design D-051). Being built: the phase-1 visual
 ```
 Design/                 Design documents (source of truth), including the phase-1 visual slice package
 crates/
-  nomad-client/         Game client (placeholder; phase 1 is the visual slice)
+  nomad-client/         Game client (phase 1: the visual slice; not started yet)
+  nomad-sim/            Deterministic simulation core (Design doc 11): tick, timers, SimId, random streams, snapshots
+  nomad-harness/        Headless fast-forward runner: pacing runs and determinism checks
 .github/                CI workflow, Dependabot, pull request template
 AGENTS.md               Instructions for AI coding agents
 CONTRIBUTING.md         How to propose and land changes
@@ -31,6 +33,12 @@ cargo build --workspace
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
+```
+
+Run the headless simulation harness (fast-forward, reports the state hash and speed):
+
+```bash
+cargo run -p nomad-harness -- --ticks 36000 --diagnostics 10000
 ```
 
 ## Continuous integration

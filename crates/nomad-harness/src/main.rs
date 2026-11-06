@@ -1,0 +1,123 @@
+//! Headless fast-forward harness for `nomad-sim` (Design D-037, doc 11 §7).
+//!
+//! Runs a season with no graphics and no pacing, then reports the final state hash and the
+//! speed relative to real time. This is the seed of the pacing tool and of server catch-up.
+//!
+//! ```text
+//! nomad-harness [--seed N] [--ticks N] [--diagnostics N] [--mean-interval-secs N] [--restore-at N]
+//! ```
+
+use std::io::{self, Write};
+use std::process::ExitCode;
+use std::time::Instant;
+
+use nomad_sim::snapshot::{decode, encode, state_hash};
+use nomad_sim::{
+    OperatorInput, SeasonConfig, TICKS_PER_SECOND, TickInputs, Ticks, UniverseState, step,
+};
+
+struct Args {
+    seed: u64,
+    ticks: u64,
+    diagnostics: u32,
+    mean_interval_secs: u64,
+    restore_at: Option<u64>,
+}
+
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            seed: 1,
+            ticks: 36_000, // one hour of Universe time
+            diagnostics: 10_000,
+            mean_interval_secs: 10,
+            restore_at: None,
+        }
+    }
+}
+
+fn parse_args() -> Result<Args, String> {
+    let mut args = Args::default();
+    let mut it = std::env::args().skip(1);
+    while let Some(flag) = it.next() {
+        let mut value = || it.next().ok_or_else(|| format!("{flag} needs a value"));
+        match flag.as_str() {
+            "--seed" => args.seed = parse(&value()?)?,
+            "--ticks" => args.ticks = parse(&value()?)?,
+            "--diagnostics" => args.diagnostics = parse(&value()?)?,
+            "--mean-interval-secs" => args.mean_interval_secs = parse(&value()?)?,
+            "--restore-at" => args.restore_at = Some(parse(&value()?)?),
+            "--help" | "-h" => {
+                return Err(
+                    "usage: nomad-harness [--seed N] [--ticks N] [--diagnostics N] \
+                            [--mean-interval-secs N] [--restore-at N]"
+                        .to_owned(),
+                );
+            }
+            other => return Err(format!("unknown argument {other}")),
+        }
+    }
+    Ok(args)
+}
+
+fn parse<T: std::str::FromStr>(text: &str) -> Result<T, String> {
+    text.parse()
+        .map_err(|_| format!("not a valid number: {text}"))
+}
+
+fn run() -> Result<(), String> {
+    let args = parse_args()?;
+    let mut state = UniverseState::new(SeasonConfig {
+        seed: args.seed,
+        season_start_unix_ms: 0,
+    });
+    let spawn = TickInputs {
+        operator: vec![OperatorInput::SpawnDiagnostics {
+            count: args.diagnostics,
+            mean_interval: Ticks::from_secs(args.mean_interval_secs),
+        }],
+        commanders: vec![],
+    };
+
+    let started = Instant::now();
+    let mut fired: u64 = 0;
+    for t in 0..args.ticks {
+        if Some(t) == args.restore_at {
+            let bytes = encode(&state).map_err(|e| e.to_string())?;
+            state = decode(&bytes).map_err(|e| e.to_string())?;
+        }
+        let inputs = if t == 0 {
+            &spawn
+        } else {
+            &TickInputs::default()
+        };
+        fired += u64::from(step(&mut state, inputs).timers_fired);
+    }
+    let elapsed = started.elapsed().as_secs_f64();
+
+    let hash = state_hash(&state).map_err(|e| e.to_string())?;
+    let universe_secs = args.ticks as f64 / TICKS_PER_SECOND as f64;
+    let speed = if elapsed > 0.0 {
+        universe_secs / elapsed
+    } else {
+        f64::INFINITY
+    };
+    writeln!(
+        io::stdout(),
+        "ticks {} | universe time {:.1} h | timers fired {fired} | hash {hash:016x} | \
+         elapsed {elapsed:.3} s | speed {speed:.0}x real time",
+        args.ticks,
+        universe_secs / 3_600.0,
+    )
+    .map_err(|e| e.to_string())
+}
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(message) => {
+            let _ = writeln!(io::stderr(), "nomad-harness: {message}");
+            ExitCode::FAILURE
+        }
+    }
+}

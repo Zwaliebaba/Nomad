@@ -11,6 +11,11 @@ repository = "https://github.com/Zwaliebaba/Nomad"
 
 # Shared dependency versions. Crates opt in with `name = { workspace = true }`.
 [workspace.dependencies]
+nomad-sim = { path = "crates/nomad-sim" }
+postcard = { version = "1.1", default-features = false, features = ["use-std"] }
+rand_chacha = { version = "0.10", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
 
 # Every crate opts in with `[lints] workspace = true`. CI runs clippy with `-D warnings`,
 # so every `warn` below is an error in CI. Rationale: CODING_STANDARDS.md, section "Lints".
