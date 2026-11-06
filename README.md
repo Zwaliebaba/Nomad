@@ -23,6 +23,7 @@ crates/
   nomad-server/         Server shell (N2 plan): runs one Universe in real time, saves it to SQLite, recovers and catches up
 .github/                CI workflow, Dependabot, pull request template
 tools/preview/          Single-file WebGL preview of the phase-1 scene (design-review aid, not the client)
+tools/station-spread/   Rebuilds the phase-1 station layout with the outer buildings spread out (Design D-111)
 AGENTS.md               Instructions for AI coding agents
 CONTRIBUTING.md         How to propose and land changes
 CODING_STANDARDS.md     Rust coding standards

@@ -417,9 +417,12 @@ mod tests {
         assert!((scene.shading.left - 0.77).abs() < 1e-6);
         assert!((scene.shading.right - 0.48).abs() < 1e-6);
         let voxels: usize = scene.modules.iter().map(|m| m.chunk.voxels().count()).sum();
-        assert_eq!(voxels, 17_348);
-        // Phase-1 doc 06, M3: the data has 98 emissive voxels.
-        assert_eq!(scene.emissive_voxel_count(), 98);
+        // The spread layout (D-111) stretches the piers, struts and bus spine: 17,348 voxels in
+        // the original package, 62 more now.
+        assert_eq!(voxels, 17_410);
+        // Phase-1 doc 06, M3: the original data has 98 emissive voxels; the stretched FA-1 pier
+        // and bus spine each repeat one light (D-111).
+        assert_eq!(scene.emissive_voxel_count(), 100);
         // Doc 01 §5: FA-1 is lifted to tier +8 and FB-2 to +4; nothing else is lifted.
         let tiers: Vec<(&str, u32)> = scene
             .modules

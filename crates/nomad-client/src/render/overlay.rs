@@ -410,20 +410,21 @@ mod tests {
     }
 
     /// Doc 01 §5 and doc 03: FA-1 at +8 and FB-2 at +4, footprints from their bounds (inclusive
-    /// voxel coordinates, so the far edge is max + 1) and stalks from bounds.min.z.
+    /// voxel coordinates, so the far edge is max + 1) and stalks from bounds.min.z. The bounds
+    /// are those of the spread layout (D-111).
     #[test]
     fn footprints_come_from_the_bounds() {
         let modules = modules();
         assert_eq!(modules.len(), 2);
         let fa1 = modules[0];
         assert_eq!(fa1.tier, 8);
-        assert_eq!(fa1.footprint_min, Vec2::new(-55.0, 13.0));
-        assert_eq!(fa1.footprint_max, Vec2::new(-35.0, 31.0));
+        assert_eq!(fa1.footprint_min, Vec2::new(-59.0, 13.0));
+        assert_eq!(fa1.footprint_max, Vec2::new(-39.0, 31.0));
         assert!((fa1.bottom_z - 8.0).abs() < 1e-6);
         let fb2 = modules[1];
         assert_eq!(fb2.tier, 4);
-        assert_eq!(fb2.footprint_min, Vec2::new(23.0, 31.0));
-        assert_eq!(fb2.footprint_max, Vec2::new(41.0, 49.0));
+        assert_eq!(fb2.footprint_min, Vec2::new(27.0, 31.0));
+        assert_eq!(fb2.footprint_max, Vec2::new(45.0, 49.0));
         assert!((fb2.bottom_z - 4.0).abs() < 1e-6);
     }
 

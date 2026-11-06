@@ -72,6 +72,7 @@ crates/          nomad-client (phase 1), nomad-sim (deterministic core, doc 11),
                  nomad-types (shared primitives, doc 20 §3), nomad-protocol (wire messages and framing, doc 20 §5),
                  nomad-server (server shell: persistence, recovery, catch-up; N2 plan); further crates follow doc 20 §3
 tools/preview/   WebGL preview of the phase-1 scene for design review (not the game client)
+tools/station-spread/  Rebuilds the phase-1 station layout with the buildings spread out (D-111)
 .github/         CI, Dependabot, PR template
 ```
 

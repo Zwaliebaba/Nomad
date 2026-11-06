@@ -33,3 +33,6 @@ rustc-ice-*.txt
 
 # Claude Code agent worktrees (isolated checkouts, never committed)
 /.claude/worktrees/
+
+# Python bytecode from tools/
+__pycache__/
