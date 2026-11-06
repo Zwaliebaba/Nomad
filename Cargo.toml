@@ -1,0 +1,59 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+repository = "https://github.com/Zwaliebaba/Nomad"
+
+# Shared dependency versions. Crates opt in with `name = { workspace = true }`.
+[workspace.dependencies]
+nomad-protocol = { path = "crates/nomad-protocol" }
+nomad-sim = { path = "crates/nomad-sim" }
+nomad-types = { path = "crates/nomad-types" }
+# Pure-Rust maths for the simulation, identical on every platform (D-049, CODING_STANDARDS.md §8).
+libm = "0.2"
+postcard = { version = "1.1", default-features = false, features = ["use-std"] }
+rand_chacha = { version = "0.10", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+# Client (phase-1 visual slice, Design D-004, phase-1 doc 05).
+bytemuck = { version = "1.25", features = ["derive"] }
+glam = "0.34"
+png = "0.18"
+pollster = "1.0"
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Backends: DX12 and Vulkan on Windows, Vulkan on Linux, GLES as the fallback on both.
+# All are loaded at run time, so building needs no system packages.
+wgpu = { version = "30.0", default-features = false, features = ["std", "parking_lot", "wgsl", "dx12", "vulkan", "gles"] }
+# X11 and Wayland on Linux, both loaded at run time; no client-side decoration theme.
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+
+# Every crate opts in with `[lints] workspace = true`. CI runs clippy with `-D warnings`,
+# so every `warn` below is an error in CI. Rationale: CODING_STANDARDS.md, section "Lints".
+[workspace.lints.rust]
+unsafe_code = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Pedantic lints that are mostly noise in rendering and simulation code.
+cast_precision_loss = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+similar_names = "allow"
+# Restriction lints we opt into.
+dbg_macro = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+todo = "warn"
+undocumented_unsafe_blocks = "warn"
+unwrap_used = "warn"

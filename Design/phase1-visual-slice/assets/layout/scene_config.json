@@ -1,0 +1,244 @@
+{
+ "format": "voxel-rts/scene-config@1",
+ "reference_resolution": [
+  1920,
+  1080
+ ],
+ "projection": {
+  "type": "orthographic dimetric 2:1",
+  "yaw_deg": [
+   45,
+   135,
+   225,
+   315
+  ],
+  "pitch_deg": 30.0,
+  "z_scale": 0.8165,
+  "pixels_per_voxel_at_zoom_1": {
+   "screen_x_per_world_x": 5.0,
+   "screen_y_per_world_x": 2.5,
+   "screen_y_per_world_z": -5.0
+  },
+  "formula_view0": "sx = cx + 5*(x - y);  sy = cy + 2.5*(x + y) - 5*z   (1920x1080 reference, zoom 1)",
+  "origin_screen_view0": [
+   1060,
+   490
+  ]
+ },
+ "camera": {
+  "pivot_world": [
+   -8.5,
+   9.5,
+   0
+  ],
+  "rotation": "4 snaps, Q = -90deg, E = +90deg, 250 ms ease-in-out",
+  "zoom_levels": [
+   0.5,
+   0.75,
+   1.0,
+   1.5,
+   2.0
+  ],
+  "pan": "WASD / edge scroll / middle-drag, clamped to ops-area bounds",
+  "pan_speed_ref_px_per_s": 800,
+  "ops_area_half_extent_voxels": 200,
+  "light": "camera-relative (rotates with view)"
+ },
+ "ops_grid": {
+  "plane_z": 0,
+  "minor_spacing": 6,
+  "major_spacing": 24,
+  "minor_offset_xy": [
+   4,
+   0
+  ],
+  "major_offset_xy": [
+   22,
+   18
+  ],
+  "minor": {
+   "color": "#6fd6ff",
+   "width_px": 0.9,
+   "alpha_far": 0.05,
+   "alpha_near": 0.26
+  },
+  "major": {
+   "color": "#8fe2ff",
+   "width_px": 1.2,
+   "alpha_far": 0.09,
+   "alpha_near": 0.45
+  },
+  "near_radius_voxels": 75,
+  "far_radius_voxels": 114,
+  "far": "infinite — never ends at screen edge; linear fade from alpha_near at near_radius_voxels to alpha_far at far_radius_voxels around the camera pivot, never to zero (D-059)"
+ },
+ "shield": {
+  "center": [
+   -8.6,
+   9.4,
+   0
+  ],
+  "radius_xy": 36,
+  "radius_z": 40,
+  "rest_alpha_fill": 0.05,
+  "rim_color": "#7fe6ff",
+  "rim_alpha": 0.75,
+  "sectors": [
+   {
+    "pylon": "pylon_n",
+    "az_deg": [
+     180,
+     270
+    ],
+    "strength": 1.0
+   },
+   {
+    "pylon": "pylon_e",
+    "az_deg": [
+     270,
+     360
+    ],
+    "strength": 0.38
+   },
+   {
+    "pylon": "pylon_s",
+    "az_deg": [
+     0,
+     90
+    ],
+    "strength": 0.88
+   },
+   {
+    "pylon": "pylon_w",
+    "az_deg": [
+     90,
+     180
+    ],
+    "strength": 0.92
+   }
+  ],
+  "weak_threshold": 0.5,
+  "weak_color": "#ff9a4a",
+  "hit": "hex pattern ripple at impact point, 600 ms, radius 4-6 voxels",
+  "grid_north_az_deg": 225
+ },
+ "pylons": {
+  "pylon_n": [
+   -27,
+   -9
+  ],
+  "pylon_w": [
+   -27,
+   28
+  ],
+  "pylon_e": [
+   10,
+   -9
+  ],
+  "pylon_s": [
+   10,
+   28
+  ],
+  "emitter_top_z": 20
+ },
+ "elevation": {
+  "tiers": [
+   0,
+   4,
+   8,
+   12
+  ],
+  "structures": {
+   "factory_fa1": 8,
+   "factory_fb2": 4
+  },
+  "ship_plane_z": 16,
+  "cues": "footprint outline on ops grid (dashed, #38d6ff 70%) + dashed corner stalks + ELEV tag on hover/selection only"
+ },
+ "background": {
+  "color_center": "#18243a",
+  "color_mid": "#0c1322",
+  "color_edge": "#060a12",
+  "gradient_center": [
+   0.35,
+   0.25
+  ],
+  "gradient_radius": 0.95,
+  "gradient_mid_stop": 0.55,
+  "nebulae": {
+   "opacity": 0.35,
+   "rotation_deg": -15,
+   "blur_sigma_ref_px": 80,
+   "ellipses": [
+    {
+     "center_ref_px": [
+      1350,
+      240
+     ],
+     "radii_ref_px": [
+      480,
+      150
+     ],
+     "color": "#2a4a5a"
+    },
+    {
+     "center_ref_px": [
+      420,
+      180
+     ],
+     "radii_ref_px": [
+      420,
+      130
+     ],
+     "color": "#283a55"
+    },
+    {
+     "center_ref_px": [
+      1500,
+      900
+     ],
+     "radii_ref_px": [
+      380,
+      140
+     ],
+     "color": "#1e2f45"
+    }
+   ]
+  },
+  "sun": {
+   "center_ref_px": [
+    40,
+    20
+   ],
+   "radius_ref_px": 380,
+   "opacity": 0.6,
+   "mid_stop": 0.25,
+   "inner": {
+    "color": "#fff1d6",
+    "alpha": 0.55
+   },
+   "mid": {
+    "color": "#ffd9a0",
+    "alpha": 0.16
+   },
+   "outer": {
+    "color": "#ffd9a0",
+    "alpha": 0.0
+   }
+  },
+  "stars": {
+   "count": 200,
+   "radius_ref_px": [
+    0.5,
+    1.1
+   ],
+   "alpha": [
+    0.15,
+    0.6
+   ],
+   "color": "#dfe9ff",
+   "seed": 5642813800833045569
+  }
+ },
+ "lights_policy": "At most about 100 emissive voxels on the station (data has 98): pylon emitters, docking collars, power-bus markers, sparse running lights. No light rows along edges."
+}

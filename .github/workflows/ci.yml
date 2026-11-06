@@ -1,0 +1,51 @@
+name: CI
+
+# Pushes to any branch run CI. Pull requests run it only when they come from a fork:
+# for same-repository PRs the push run already reports its checks on the PR's head commit.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  format:
+    name: Format
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - name: cargo fmt
+        run: cargo fmt --all --check
+
+  build:
+    # Debug (dev profile) only, by design (Design/03-decision-log.md D-010). Do not add Release builds.
+    name: Build and test (Debug, ${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: cargo build
+        run: cargo build --workspace --all-targets --locked
+      - name: cargo test
+        run: cargo test --workspace --locked

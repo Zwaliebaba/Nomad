@@ -1,0 +1,188 @@
+{
+ "ship_plane_z": 16,
+ "note": "All ships fly on one plane (z = ship_plane_z). Structures use elevation tiers.",
+ "placements": [
+  {
+   "model": "vx_interceptor",
+   "group": "CAP WING (1)",
+   "pos": [
+    -14.8,
+    17.2,
+    16
+   ],
+   "heading_deg": 45
+  },
+  {
+   "model": "vx_interceptor",
+   "group": "CAP WING (1)",
+   "pos": [
+    -10.8,
+    21.2,
+    16
+   ],
+   "heading_deg": 45
+  },
+  {
+   "model": "vx_interceptor",
+   "group": "CAP WING (1)",
+   "pos": [
+    -17.3,
+    23.7,
+    16
+   ],
+   "heading_deg": 45
+  },
+  {
+   "model": "vx_interceptor",
+   "group": "INTERCEPT (2)",
+   "pos": [
+    43.0,
+    17.0,
+    16
+   ],
+   "heading_deg": 0
+  },
+  {
+   "model": "vx_interceptor",
+   "group": "INTERCEPT (2)",
+   "pos": [
+    41.0,
+    3.0,
+    16
+   ],
+   "heading_deg": 0
+  },
+  {
+   "model": "vx_interceptor",
+   "group": "INTERCEPT (2)",
+   "pos": [
+    59.9,
+    20.9,
+    16
+   ],
+   "heading_deg": 0
+  },
+  {
+   "model": "vx_interceptor",
+   "group": "INTERCEPT (2)",
+   "pos": [
+    62.0,
+    14.0,
+    16
+   ],
+   "heading_deg": 0
+  },
+  {
+   "model": "hostile_strike",
+   "group": "HOSTILE",
+   "pos": [
+    24.0,
+    -24.0,
+    16
+   ],
+   "heading_deg": 134.0
+  },
+  {
+   "model": "hostile_strike",
+   "group": "HOSTILE",
+   "pos": [
+    34.0,
+    -36.0,
+    16
+   ],
+   "heading_deg": 133.0
+  },
+  {
+   "model": "hostile_strike",
+   "group": "HOSTILE",
+   "pos": [
+    58.0,
+    -40.0,
+    16
+   ],
+   "heading_deg": 143.0
+  },
+  {
+   "model": "hostile_strike",
+   "group": "HOSTILE",
+   "pos": [
+    38.0,
+    -12.0,
+    16
+   ],
+   "heading_deg": 155.0
+  },
+  {
+   "model": "hostile_strike",
+   "group": "HOSTILE",
+   "pos": [
+    46.0,
+    -24.0,
+    16
+   ],
+   "heading_deg": 149.0
+  },
+  {
+   "model": "hostile_strike",
+   "group": "HOSTILE",
+   "pos": [
+    70.0,
+    -16.0,
+    16
+   ],
+   "heading_deg": 162.0
+  },
+  {
+   "model": "hostile_strike",
+   "group": "HOSTILE",
+   "pos": [
+    34.0,
+    10.0,
+    16
+   ],
+   "heading_deg": -179.0
+  },
+  {
+   "model": "hostile_strike",
+   "group": "HOSTILE",
+   "pos": [
+    43.0,
+    9.0,
+    16
+   ],
+   "heading_deg": 180.0
+  },
+  {
+   "model": "hostile_heavy_cruiser",
+   "group": "HSTL-C1",
+   "pos": [
+    72.0,
+    -28.0,
+    16
+   ],
+   "heading_deg": 155.0,
+   "state": "station-keeping"
+  },
+  {
+   "model": "warden_frigate",
+   "group": "SY-2 build",
+   "pos": [
+    -4,
+    52,
+    3
+   ],
+   "heading_deg": 90,
+   "state": "under construction 74% (render with partial voxel reveal)"
+  },
+  {
+   "model": "mule",
+   "group": "LOGISTICS (3)",
+   "pos": [
+    58.0,
+    34.0,
+    16
+   ],
+   "heading_deg": -30
+  }
+ ]
+}

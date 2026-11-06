@@ -1,0 +1,14 @@
+[package]
+name = "nomad-harness"
+description = "Headless fast-forward harness for nomad-sim: pacing runs and determinism checks (Design D-037, doc 11 §7)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+nomad-sim = { workspace = true }

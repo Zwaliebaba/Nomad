@@ -1,0 +1,24 @@
+[package]
+name = "nomad-client"
+description = "Game client: renderer, input and HUD. Phase 1 is the visual slice in Design/phase1-visual-slice."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bytemuck = { workspace = true }
+glam = { workspace = true }
+png = { workspace = true }
+pollster = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+wgpu = { workspace = true }
+winit = { workspace = true }
