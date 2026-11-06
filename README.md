@@ -69,6 +69,8 @@ Run the headless simulation harness (fast-forward, reports the state hash and sp
 
 ```bash
 cargo run -p nomad-harness -- --ticks 36000 --diagnostics 10000
+cargo run -p nomad-harness -- --fleets --seed 7          # fleet demo: random orders, consistency checks
+cargo run -p nomad-harness -- --combat skirmish          # time-to-kill scenarios (also: battle, stress)
 ```
 
 ### Run the server

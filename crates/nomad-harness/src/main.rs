@@ -10,6 +10,10 @@
 //! start kits under scripted and seeded random orders, by default for 6 simulated hours,
 //! reporting commands, jumps, docking, a consistency check and the tick time.
 //!
+//! With `--combat skirmish|battle|stress` it runs the time-to-kill scenarios of D-058 (S5
+//! plan §7 task 7): two fleets attack each other, and it reports the time to kill against
+//! the target and the tick time.
+//!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
 //!
@@ -19,8 +23,10 @@
 //! nomad-harness --galaxy [--seed N] [--rules PATH]
 //! nomad-harness --fleets [--seed N] [--hours N | --ticks N] [--order-interval-secs N]
 //!               [--restore-at N] [--rules PATH]
+//! nomad-harness --combat skirmish|battle|stress [--seed N] [--rules PATH]
 //! ```
 
+mod combat;
 mod fleets;
 mod galaxy;
 
@@ -44,6 +50,7 @@ struct Args {
     mean_interval_secs: u64,
     restore_at: Option<u64>,
     galaxy: bool,
+    combat: Option<combat::Set>,
     rules: Option<PathBuf>,
 }
 
@@ -59,6 +66,7 @@ impl Default for Args {
             mean_interval_secs: 10,
             restore_at: None,
             galaxy: false,
+            combat: None,
             rules: None,
         }
     }
@@ -79,6 +87,7 @@ fn parse_args() -> Result<Args, String> {
             "--mean-interval-secs" => args.mean_interval_secs = parse(&value()?)?,
             "--restore-at" => args.restore_at = Some(parse(&value()?)?),
             "--galaxy" => args.galaxy = true,
+            "--combat" => args.combat = Some(combat::Set::parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--help" | "-h" => {
                 return Err(
@@ -86,7 +95,8 @@ fn parse_args() -> Result<Args, String> {
                             [--mean-interval-secs N] [--restore-at N] [--rules PATH]\n       \
                      nomad-harness --galaxy [--seed N] [--rules PATH]\n       \
                      nomad-harness --fleets [--seed N] [--hours N | --ticks N] \
-                            [--order-interval-secs N] [--restore-at N] [--rules PATH]"
+                            [--order-interval-secs N] [--restore-at N] [--rules PATH]\n       \
+                     nomad-harness --combat skirmish|battle|stress [--seed N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -116,6 +126,9 @@ fn run() -> Result<(), String> {
     let rules = load_rules(args.rules.as_ref())?;
     if args.galaxy {
         return galaxy::print(&mut io::stdout().lock(), args.seed, rules);
+    }
+    if let Some(set) = args.combat {
+        return combat::run(&mut io::stdout().lock(), set, args.seed, &rules);
     }
     if args.fleets {
         let hours = Ticks::from_hours(args.hours).get();

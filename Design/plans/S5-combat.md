@@ -1,6 +1,6 @@
 # Work package S5 — Combat
 
-Status: **Planned and decided** (Q128–Q138 → D-139 to D-149). S5a (ship combat) is built in parallel with S4; S5b follows S4 (D-139). Written together with `S4-economy.md`, because power, modules and module damage are shared between the two. Builds on S3 (ships, fleets, orders, the cruise-drop hook) and, for its second half, on S4 (modules and power). This plan is also the brief for whoever builds S5.
+Status: **S5a built; S5b planned** (Q128–Q138 → D-139 to D-149). S5a (ship combat, tasks 1–7) is built in `crates/nomad-sim/src/combat/` and `nomad-harness --combat`; S5b follows S4 (D-139). Written together with `S4-economy.md`, because power, modules and module damage are shared between the two. Builds on S3 (ships, fleets, orders, the cruise-drop hook) and, for its second half, on S4 (modules and power). This plan is also the brief for whoever builds S5.
 
 ## 1. Goal
 
