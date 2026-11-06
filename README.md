@@ -19,6 +19,7 @@ crates/
   nomad-sim/            Deterministic simulation core (Design doc 11): tick, timers, SimId, random streams, snapshots
   nomad-harness/        Headless fast-forward runner: pacing runs and determinism checks
 .github/                CI workflow, Dependabot, pull request template
+tools/preview/          Single-file WebGL preview of the phase-1 scene (design-review aid, not the client)
 AGENTS.md               Instructions for AI coding agents
 CONTRIBUTING.md         How to propose and land changes
 CODING_STANDARDS.md     Rust coding standards

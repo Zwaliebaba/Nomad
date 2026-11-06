@@ -1,0 +1,527 @@
+<title>KR-114 Voxel Preview</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Rajdhani:wght@600;700&display=swap">
+<style>
+  /* Layout: a full-bleed WebGL scene; phase-1 HUD chips docked top-left (identity, view) and bottom (controls). */
+  :root {
+    color-scheme: dark;
+    --space: #060a12;
+    --panel: rgba(7, 14, 22, 0.82);
+    --edge: rgba(56, 214, 255, 0.32);
+    --accent: #38d6ff;
+    --text: #cfe3ee;
+    --label: #86a3b6;
+    --warn: #ff9a4a;
+    --display: "Rajdhani", "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  html, body { height: 100%; }
+  body { background: var(--space); color: var(--text); font-family: var(--mono); font-size: 12px; overflow: hidden; }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #scene.dragging { cursor: grabbing; }
+
+  .panel {
+    position: fixed; background: var(--panel); border: 1px solid var(--edge);
+    padding: 10px 12px; display: grid; gap: 4px; max-width: calc(100% - 32px);
+  }
+  .panel::before, .panel::after { content: ""; position: absolute; width: 10px; height: 10px; border: 0 solid var(--accent); }
+  .panel::before { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
+  .panel::after { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+
+  #ident { top: calc(16px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); }
+  #ident h1 {
+    margin: 0; font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: 3px;
+    text-transform: uppercase; color: #e8f6ff; text-wrap: balance;
+  }
+  .label { color: var(--label); font-size: 11px; letter-spacing: 1px; }
+  .view-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  #compass { width: 28px; height: 28px; flex: none; }
+  #viewLabel { font-family: var(--display); font-weight: 700; font-size: 13px; letter-spacing: 2.5px; color: var(--accent); }
+
+  #controls {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    left: max(16px, env(safe-area-inset-left, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px));
+    max-width: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  }
+  .group { display: flex; gap: 6px; align-items: center; }
+  .spacer { flex: 1 1 auto; }
+  button {
+    font: 600 12px/1 var(--display); letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--text); background: rgba(56, 214, 255, 0.06); border: 1px solid rgba(56, 214, 255, 0.42);
+    padding: 8px 10px; min-width: 40px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+  }
+  button:hover { background: rgba(56, 214, 255, 0.12); border-color: var(--accent); }
+  button:active { background: rgba(56, 214, 255, 0.2); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button[aria-pressed="false"] { color: var(--label); border-color: rgba(134, 163, 182, 0.35); background: transparent; }
+  kbd { font: 400 10px var(--mono); color: var(--accent); border: 1px solid rgba(56, 214, 255, 0.45); padding: 1px 4px; }
+  #zoomLabel { font-variant-numeric: tabular-nums; min-width: 72px; text-align: center; }
+  #hint { color: var(--label); font-size: 11px; }
+  @media (max-width: 720px) { #hint { display: none; } kbd { display: none; } }
+
+  #error { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--warn); }
+</style>
+
+<canvas id="scene" aria-label="Voxel preview of holding KR-114 with mother station MS-01 Aegis"></canvas>
+
+<div class="panel" id="ident">
+  <h1>KR-114 · MS-01 Aegis</h1>
+  <div class="label" id="stats">Phase-1 voxel data</div>
+  <div class="label">Browser preview of the phase-1 look, not the game client</div>
+  <div class="view-row">
+    <svg id="compass" viewBox="-14 -14 28 28" aria-hidden="true">
+      <path d="M0 -12 L12 0 L0 12 L-12 0 Z" fill="none" stroke="#38d6ff" stroke-opacity="0.6"/>
+      <g id="needle"><path d="M0 -10 L2.4 0 L-2.4 0 Z" fill="#ffc247"/><text x="0" y="-11.5" font-size="6" fill="#ffc247" text-anchor="middle" font-family="JetBrains Mono, monospace">N</text></g>
+    </svg>
+    <span id="viewLabel">VIEW 1/4</span>
+  </div>
+</div>
+
+<div class="panel" id="controls" role="toolbar" aria-label="Camera controls">
+  <div class="group">
+    <button id="rotL" title="Rotate view −90°">↺ <kbd>Q</kbd></button>
+    <button id="rotR" title="Rotate view +90°"><kbd>E</kbd> ↻</button>
+  </div>
+  <div class="group">
+    <button id="zoomOut" title="Zoom out">−</button>
+    <span id="zoomLabel" class="label">ZOOM 1.0</span>
+    <button id="zoomIn" title="Zoom in">+</button>
+    <button id="home" title="Reset view">Home</button>
+  </div>
+  <div class="group">
+    <button id="tGrid" aria-pressed="true">Grid</button>
+    <button id="tShield" aria-pressed="true">Shield</button>
+    <button id="tShips" aria-pressed="true">Ships</button>
+  </div>
+  <span class="spacer"></span>
+  <span id="hint">Drag to pan · wheel to zoom</span>
+</div>
+
+<div id="error" hidden></div>
+
+<script>
+"use strict";
+const DATA = /*__DATA__*/null;
+
+// ---- Projection (phase-1 doc 01 §1) -------------------------------------------------
+// View 0 at zoom 1 (1920×1080): sx = cx + 5(x − y), sy = cy + 2.5(x + y) − 5z.
+// Other views rotate the scene about the pivot. Depth toward the viewer in the z-scaled
+// space is 0.612(x' + y') + 0.408 z, the same linear form for every object.
+const TAU = Math.PI * 2;
+const canvas = document.getElementById("scene");
+const gl = canvas.getContext("webgl2", { antialias: true, alpha: false });
+const errorBox = document.getElementById("error");
+function fail(msg) { errorBox.textContent = msg; errorBox.hidden = false; throw new Error(msg); }
+if (!gl) fail("This preview needs WebGL 2, which this browser or device does not provide.");
+
+const hex = h => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255];
+
+// ---- Shaders ------------------------------------------------------------------------
+const COMMON = `
+uniform vec2 uPivot; uniform float uAngle; uniform float uScale; uniform vec2 uViewport; uniform vec2 uCenter;
+vec2 toView(vec2 p) { float c = cos(uAngle), s = sin(uAngle); vec2 d = p - uPivot; return vec2(c*d.x + s*d.y, -s*d.x + c*d.y); }
+vec4 project(vec3 w) {
+  vec2 r = toView(w.xy);
+  float sx = uCenter.x + uScale * 5.0 * (r.x - r.y);
+  float sy = uCenter.y + uScale * (2.5 * (r.x + r.y) - 5.0 * w.z);
+  float depth = 0.6124 * (r.x + r.y) + 0.4082 * w.z;
+  return vec4(2.0 * sx / uViewport.x - 1.0, 1.0 - 2.0 * sy / uViewport.y, -depth / 2000.0, 1.0);
+}`;
+
+const VOXEL_VS = `#version 300 es
+in vec3 aPos; in vec3 aNormal; in vec4 iCenterYaw; in vec4 iColor;
+${COMMON}
+out vec3 vColor;
+void main() {
+  float c = cos(iCenterYaw.w), s = sin(iCenterYaw.w);
+  vec3 w = vec3(iCenterYaw.x + c*aPos.x - s*aPos.y, iCenterYaw.y + s*aPos.x + c*aPos.y, iCenterYaw.z + aPos.z);
+  vec3 n = vec3(c*aNormal.x - s*aNormal.y, s*aNormal.x + c*aNormal.y, aNormal.z);
+  gl_Position = project(w);
+  // Camera-relative face shading (doc 01 §2): top 1.00, left-facing 0.77, right-facing 0.48.
+  vec2 rn = toView(n.xy + uPivot);
+  float f = n.z > 0.5 ? 1.0 : (n.z < -0.5 ? 0.35 : ((rn.x - rn.y) < 0.0 ? 0.77 : 0.48));
+  vColor = iColor.a > 0.5 ? iColor.rgb : iColor.rgb * f;
+}`;
+const VOXEL_FS = `#version 300 es
+precision mediump float; in vec3 vColor; out vec4 o; void main() { o = vec4(vColor, 1.0); }`;
+
+const FULL_VS = `#version 300 es
+const vec2 P[3] = vec2[3](vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0));
+void main() { gl_Position = vec4(P[gl_VertexID], 0.0, 1.0); }`;
+// Background (doc 01 §3) and the infinite ops grid (doc 01 §4) in one full-screen pass.
+const GRID_FS = `#version 300 es
+precision highp float;
+${COMMON}
+uniform float uGridOn; uniform vec3 uMinorCol; uniform vec3 uMajorCol;
+uniform vec2 uMinorAlpha; uniform vec2 uMajorAlpha; uniform vec2 uWidths; uniform float uNear; uniform float uDpr;
+out vec4 o;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float lines(vec2 w, vec2 offset, float spacing, float widthPx) {
+  vec2 q = (w - offset) / spacing;
+  vec2 g = abs(fract(q - 0.5) - 0.5) / fwidth(q);
+  return 1.0 - clamp(min(g.x, g.y) - 0.5 * widthPx + 0.5, 0.0, 1.0);
+}
+void main() {
+  vec2 px = vec2(gl_FragCoord.x, uViewport.y - gl_FragCoord.y);
+  vec2 uv = px / uViewport;
+  float d = distance(uv * vec2(uViewport.x / uViewport.y, 1.0), vec2(0.35 * uViewport.x / uViewport.y, 0.25));
+  vec3 bg = mix(vec3(0.094, 0.141, 0.227), vec3(0.047, 0.075, 0.133), smoothstep(0.0, 0.55, d));
+  bg = mix(bg, vec3(0.024, 0.039, 0.071), smoothstep(0.55, 1.25, d));
+  bg += vec3(0.16, 0.29, 0.35) * 0.12 * exp(-pow(distance(uv, vec2(0.72, 0.30)) / 0.22, 2.0));
+  bg += vec3(0.16, 0.23, 0.33) * 0.10 * exp(-pow(distance(uv, vec2(0.22, 0.70)) / 0.26, 2.0));
+  bg += vec3(1.0, 0.92, 0.75) * 0.06 * exp(-pow(distance(uv, vec2(0.04, 0.03)) / 0.18, 2.0));
+  vec2 cell = floor(px / (40.0 * uDpr));
+  float h = hash(cell);
+  if (h > 0.84) {
+    vec2 star = (cell + vec2(hash(cell + 1.7), hash(cell + 3.1))) * 40.0 * uDpr;
+    float r = mix(0.5, 1.1, hash(cell + 5.3)) * uDpr;
+    bg += vec3(0.85, 0.92, 1.0) * mix(0.15, 0.6, hash(cell + 7.9)) * (1.0 - smoothstep(r - 0.5, r + 0.5, distance(px, star)));
+  }
+  vec3 col = bg;
+  if (uGridOn > 0.5) {
+    float a = (px.x - uCenter.x) / (uScale * 5.0);
+    float b = (px.y - uCenter.y) / (uScale * 2.5);
+    vec2 r = vec2(0.5 * (a + b), 0.5 * (b - a));
+    float c = cos(uAngle), s = sin(uAngle);
+    vec2 w = vec2(c*r.x - s*r.y, s*r.x + c*r.y) + uPivot;
+    float dist = length(w - uPivot);
+    float farR = uNear + 0.6 * max(uViewport.x, uViewport.y) / (uScale * 5.0);
+    float t = smoothstep(uNear, farR, dist);
+    float minor = lines(w, vec2(4.0, 0.0), 6.0, uWidths.x * uDpr) * mix(uMinorAlpha.y, uMinorAlpha.x, t);
+    float major = lines(w, vec2(22.0, 18.0), 24.0, uWidths.y * uDpr) * mix(uMajorAlpha.y, uMajorAlpha.x, t);
+    col = mix(col, uMinorCol, minor);
+    col = mix(col, uMajorCol, major);
+  }
+  o = vec4(col, 1.0);
+}`;
+
+// Sectored shield dome (doc 01 §6, arcs centred on pylons per Design D-046).
+const DOME_VS = `#version 300 es
+in vec3 aPos; in vec3 aNormal;
+${COMMON}
+out vec3 vWorld; out float vFacing;
+void main() {
+  vWorld = aPos;
+  gl_Position = project(aPos);
+  vec2 rn = toView(aNormal.xy + uPivot);
+  vFacing = dot(normalize(vec3(rn, aNormal.z / 0.8165)), normalize(vec3(0.612, 0.612, 0.5)));
+}`;
+const DOME_FS = `#version 300 es
+precision highp float;
+uniform vec2 uDomeCenter; uniform vec4 uStrength; uniform vec3 uRim; uniform vec3 uWeak; uniform float uBack;
+in vec3 vWorld; in float vFacing; out vec4 o;
+void main() {
+  bool back = vFacing < 0.0;
+  if (back != (uBack > 0.5)) discard;
+  vec2 d = vWorld.xy - uDomeCenter;
+  float az = degrees(atan(d.y, d.x)); if (az < 0.0) az += 360.0;
+  int i = int(clamp(floor(az / 90.0), 0.0, 3.0));
+  float strength = uStrength[i];
+  vec3 tint = strength < 0.5 ? uWeak : uRim;
+  float rim = pow(1.0 - abs(vFacing), 3.0) * 0.75;
+  float ring = (1.0 - smoothstep(0.0, 0.9, vWorld.z)) * 0.8;
+  float a = (0.05 + rim + ring) * (uBack > 0.5 ? 0.45 : 1.0);
+  o = vec4(tint, clamp(a, 0.0, 0.9));
+}`;
+
+// Soft additive glow on emissive voxels (cheap stand-in for the bloom pass, doc 01 §2).
+const GLOW_VS = `#version 300 es
+in vec3 aPos; in vec3 aColor;
+${COMMON}
+uniform float uGlowPx; out vec3 vColor;
+void main() { gl_Position = project(aPos); gl_PointSize = uGlowPx; vColor = aColor; }`;
+const GLOW_FS = `#version 300 es
+precision mediump float; in vec3 vColor; out vec4 o;
+void main() { float r = length(gl_PointCoord - 0.5) * 2.0; float a = exp(-r * r * 4.0) * 0.55; o = vec4(vColor * a, a); }`;
+
+function program(vsSrc, fsSrc) {
+  const make = (type, src) => {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) fail("Shader error: " + gl.getShaderInfoLog(s));
+    return s;
+  };
+  const p = gl.createProgram();
+  gl.attachShader(p, make(gl.VERTEX_SHADER, vsSrc)); gl.attachShader(p, make(gl.FRAGMENT_SHADER, fsSrc));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) fail("Program error: " + gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let k = 0; k < n; k++) { const info = gl.getActiveUniform(p, k); u[info.name.replace("[0]", "")] = gl.getUniformLocation(p, info.name); }
+  return { p, u, a: name => gl.getAttribLocation(p, name) };
+}
+const voxelProg = program(VOXEL_VS, VOXEL_FS);
+const gridProg = program(FULL_VS, GRID_FS);
+const domeProg = program(DOME_VS, DOME_FS);
+const glowProg = program(GLOW_VS, GLOW_FS);
+
+// ---- Geometry -----------------------------------------------------------------------
+const cube = (() => {
+  const faces = [
+    [[1,0,0], [[.5,-.5,-.5],[.5,.5,-.5],[.5,.5,.5],[.5,-.5,.5]]],
+    [[-1,0,0], [[-.5,.5,-.5],[-.5,-.5,-.5],[-.5,-.5,.5],[-.5,.5,.5]]],
+    [[0,1,0], [[.5,.5,-.5],[-.5,.5,-.5],[-.5,.5,.5],[.5,.5,.5]]],
+    [[0,-1,0], [[-.5,-.5,-.5],[.5,-.5,-.5],[.5,-.5,.5],[-.5,-.5,.5]]],
+    [[0,0,1], [[-.5,-.5,.5],[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5]]],
+    [[0,0,-1], [[-.5,.5,-.5],[.5,.5,-.5],[.5,-.5,-.5],[-.5,-.5,-.5]]],
+  ];
+  const v = [], idx = [];
+  faces.forEach(([n, quad], f) => { quad.forEach(p => v.push(...p, ...n)); idx.push(f*4, f*4+1, f*4+2, f*4, f*4+2, f*4+3); });
+  return { v: new Float32Array(v), i: new Uint16Array(idx) };
+})();
+
+// Station voxels: decode, drop voxels hidden on all six sides.
+const raw = Uint8Array.from(atob(DATA.voxels), c => c.charCodeAt(0));
+const dv = new DataView(raw.buffer);
+const count = raw.length / 6;
+const key = (x, y, z) => ((x + 128) | ((y + 128) << 8) | ((z + 128) << 16));
+const solid = new Set();
+for (let k = 0; k < count; k++) solid.add(key(dv.getInt8(k*6), dv.getInt8(k*6+1), dv.getInt8(k*6+2)));
+const palette = DATA.palette.map(([h, e]) => [...hex(h), e ? 1 : 0]);
+const stationInst = [], glowPts = [];
+for (let k = 0; k < count; k++) {
+  const x = dv.getInt8(k*6), y = dv.getInt8(k*6+1), z = dv.getInt8(k*6+2), p = dv.getUint16(k*6+4, true);
+  const c = palette[p];
+  if (c[3]) glowPts.push(x + .5, y + .5, z + .5, c[0], c[1], c[2]);
+  if (solid.has(key(x+1,y,z)) && solid.has(key(x-1,y,z)) && solid.has(key(x,y+1,z)) && solid.has(key(x,y-1,z)) && solid.has(key(x,y,z+1)) && solid.has(key(x,y,z-1))) continue;
+  stationInst.push(x + .5, y + .5, z + .5, 0, c[0], c[1], c[2], c[3]);
+}
+
+// Placeholder ships: free headings, ship plane z = 16 (doc 03); the frigate in SY-2 is revealed to 74 %.
+const shipCol = Object.fromEntries(Object.entries(DATA.shipPalette).map(([k, h]) => [k, hex(h)]));
+const shipEmissive = new Set(DATA.shipEmissive);
+const shipInst = [], shipGlow = [];
+for (const pl of DATA.placements) {
+  let vox = DATA.shipModels[pl.model] || [];
+  if (pl.state && pl.state.includes("under construction")) {
+    const zs = vox.map(v => v[2]); const lo = Math.min(...zs), hi = Math.max(...zs);
+    vox = vox.filter(v => v[2] < lo + 0.74 * (hi - lo + 1));
+  }
+  const h = pl.heading_deg * Math.PI / 180, ch = Math.cos(h), sh = Math.sin(h);
+  for (const [vx, vy, vz, name] of vox) {
+    const lx = vx + .5, ly = vy + .5;
+    const wx = pl.pos[0] + ch*lx - sh*ly, wy = pl.pos[1] + sh*lx + ch*ly, wz = pl.pos[2] + vz + .5;
+    const c = shipCol[name] || [1, 0, 1], e = shipEmissive.has(name) ? 1 : 0;
+    shipInst.push(wx, wy, wz, h, c[0], c[1], c[2], e);
+    if (e) shipGlow.push(wx, wy, wz, c[0], c[1], c[2]);
+  }
+}
+
+function instancedVao(inst) {
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, cube.v, gl.STATIC_DRAW);
+  const aPos = voxelProg.a("aPos"), aN = voxelProg.a("aNormal");
+  gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(aN); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 24, 12);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.i, gl.STATIC_DRAW);
+  const instB = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, instB); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inst), gl.STATIC_DRAW);
+  const aC = voxelProg.a("iCenterYaw"), aCol = voxelProg.a("iColor");
+  gl.enableVertexAttribArray(aC); gl.vertexAttribPointer(aC, 4, gl.FLOAT, false, 32, 0); gl.vertexAttribDivisor(aC, 1);
+  gl.enableVertexAttribArray(aCol); gl.vertexAttribPointer(aCol, 4, gl.FLOAT, false, 32, 16); gl.vertexAttribDivisor(aCol, 1);
+  gl.bindVertexArray(null);
+  return { vao, n: inst.length / 8 };
+}
+const stationVao = instancedVao(stationInst);
+const shipVao = instancedVao(shipInst);
+
+function pointVao(pts) {
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pts), gl.STATIC_DRAW);
+  const aP = glowProg.a("aPos"), aC = glowProg.a("aColor");
+  gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(aC); gl.vertexAttribPointer(aC, 3, gl.FLOAT, false, 24, 12);
+  gl.bindVertexArray(null);
+  return { vao, n: pts.length / 6 };
+}
+const stationGlowVao = pointVao(glowPts);
+const shipGlowVao = pointVao(shipGlow);
+
+const shield = DATA.shield;
+const dome = (() => {
+  const [cx, cy] = shield.center, rxy = shield.radius_xy, rz = shield.radius_z, LON = 64, LAT = 24;
+  const v = [], idx = [];
+  for (let j = 0; j <= LAT; j++) {
+    const phi = (j / LAT) * Math.PI / 2;
+    for (let i = 0; i <= LON; i++) {
+      const th = (i / LON) * TAU, cp = Math.cos(phi);
+      v.push(cx + rxy*cp*Math.cos(th), cy + rxy*cp*Math.sin(th), rz*Math.sin(phi), cp*Math.cos(th)/rxy, cp*Math.sin(th)/rxy, Math.sin(phi)/rz);
+    }
+  }
+  for (let j = 0; j < LAT; j++) for (let i = 0; i < LON; i++) {
+    const a = j*(LON+1) + i, b = a + LON + 1;
+    idx.push(a, b, a+1, a+1, b, b+1);
+  }
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+  const aP = domeProg.a("aPos"), aN = domeProg.a("aNormal");
+  gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(aN); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 24, 12);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+  return { vao, n: idx.length };
+})();
+// Sector strengths by 90° azimuth bin: [0,90) [90,180) [180,270) [270,360).
+const strengths = [1, 1, 1, 1];
+for (const s of shield.sectors) strengths[Math.floor((((s.az_deg[0] % 360) + 360) % 360) / 90) % 4] = s.strength;
+
+// ---- Camera (phase-1 doc 02) --------------------------------------------------------
+const HOME = { x: DATA.pivot[0], y: DATA.pivot[1] };
+const ZOOMS = [...DATA.zoomLevels, 3, 4];
+const cam = { x: HOME.x, y: HOME.y, view: 0, angle: 0, from: 0, to: 0, t0: 0, zi: ZOOMS.indexOf(1), zoom: 1, zFrom: 1, zTo: 1, zt0: 0 };
+const show = { grid: true, shield: true, ships: true };
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+let W = 1, H = 1, dpr = 1;
+const baseScale = () => Math.min(W / 1200, H / 760);
+const scale = () => baseScale() * cam.zoom;
+if (window.innerWidth < 720) { cam.zi = ZOOMS.indexOf(1.5); cam.zoom = cam.zFrom = cam.zTo = 1.5; }
+
+function screenToWorld(sx, sy) { // device px, z = 0
+  const s = scale(), a = (sx - W/2) / (s*5), b = (sy - H/2) / (s*2.5);
+  const rx = 0.5*(a + b), ry = 0.5*(b - a), c = Math.cos(cam.angle), sn = Math.sin(cam.angle);
+  return { x: c*rx - sn*ry + cam.x, y: sn*rx + c*ry + cam.y };
+}
+function clampPivot() {
+  cam.x = Math.max(HOME.x - 200, Math.min(HOME.x + 200, cam.x));
+  cam.y = Math.max(HOME.y - 200, Math.min(HOME.y + 200, cam.y));
+}
+function rotate(dir) {
+  cam.view = (cam.view + dir + 4) % 4;
+  // Views 0–3 are yaw 45°, 135°, 225°, 315° (doc 02); +90° yaw turns the scene by −90° on screen,
+  // matching reference/renders/station-view-1..3.png.
+  cam.from = cam.angle; cam.to -= dir * Math.PI / 2; cam.t0 = performance.now();
+  if (reduceMotion) cam.angle = cam.from = cam.to;
+  updateUi(); kick();
+}
+function zoomTo(i, sx, sy) {
+  i = Math.max(0, Math.min(ZOOMS.length - 1, i)); if (i === cam.zi) return;
+  const anchor = sx === undefined ? null : screenToWorld(sx, sy);
+  cam.zi = i; cam.zFrom = cam.zoom; cam.zTo = ZOOMS[i]; cam.zt0 = performance.now();
+  if (reduceMotion) cam.zoom = cam.zTo;
+  cam.anchor = anchor ? { w: anchor, sx, sy } : null;
+  updateUi(); kick();
+}
+function home() {
+  cam.x = HOME.x; cam.y = HOME.y; cam.view = 0; cam.angle = cam.from = cam.to = 0;
+  cam.zi = ZOOMS.indexOf(window.innerWidth < 720 ? 1.5 : 1); cam.zoom = cam.zFrom = cam.zTo = ZOOMS[cam.zi]; cam.anchor = null;
+  updateUi(); kick();
+}
+
+// ---- UI -----------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+$("stats").textContent = `${DATA.modules.length} modules · ${count.toLocaleString("en")} voxels · ${DATA.placements.length} placeholder ships`;
+function updateUi() {
+  $("viewLabel").textContent = `VIEW ${cam.view + 1}/4`;
+  const z = ZOOMS[cam.zi];
+  $("zoomLabel").textContent = `ZOOM ${Number.isInteger(z) ? z.toFixed(1) : String(z)}`;
+}
+function updateCompass() {
+  // Grid north is azimuth 225° (Design D-046). Find its on-screen direction for the current angle.
+  const a = 225 * Math.PI / 180, c = Math.cos(cam.angle), s = Math.sin(cam.angle);
+  const dx = Math.cos(a), dy = Math.sin(a), rx = c*dx + s*dy, ry = -s*dx + c*dy;
+  const deg = Math.atan2(2.5*(rx + ry), 5*(rx - ry)) * 180 / Math.PI + 90;
+  $("needle").setAttribute("transform", `rotate(${deg.toFixed(1)})`);
+}
+$("rotL").onclick = () => rotate(-1);
+$("rotR").onclick = () => rotate(1);
+$("zoomIn").onclick = () => zoomTo(cam.zi + 1);
+$("zoomOut").onclick = () => zoomTo(cam.zi - 1);
+$("home").onclick = home;
+for (const [id, k] of [["tGrid", "grid"], ["tShield", "shield"], ["tShips", "ships"]]) {
+  $(id).onclick = e => { show[k] = !show[k]; e.currentTarget.setAttribute("aria-pressed", String(show[k])); kick(); };
+}
+window.addEventListener("keydown", e => {
+  if (e.target.closest && e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;
+  const k = e.key.toLowerCase();
+  if (k === "q") rotate(-1); else if (k === "e") rotate(1);
+  else if (e.key === "Home") home();
+  else if (k === "+" || k === "=") zoomTo(cam.zi + 1); else if (k === "-") zoomTo(cam.zi - 1);
+  else {
+    const step = 8 / cam.zoom, c = Math.cos(cam.angle), s = Math.sin(cam.angle);
+    const pan = { w: [-1, -1], arrowup: [-1, -1], s: [1, 1], arrowdown: [1, 1], a: [-1, 1], arrowleft: [-1, 1], d: [1, -1], arrowright: [1, -1] }[k];
+    if (!pan) return;
+    cam.x += (c*pan[0] - s*pan[1]) * step; cam.y += (s*pan[0] + c*pan[1]) * step; clampPivot(); kick();
+  }
+});
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  zoomTo(cam.zi + (e.deltaY < 0 ? 1 : -1), e.offsetX * dpr, e.offsetY * dpr);
+}, { passive: false });
+let drag = null;
+canvas.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); canvas.classList.add("dragging"); });
+canvas.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const a = screenToWorld(drag.x * dpr, drag.y * dpr), b = screenToWorld(e.clientX * dpr, e.clientY * dpr);
+  cam.x -= b.x - a.x; cam.y -= b.y - a.y; clampPivot();
+  drag = { x: e.clientX, y: e.clientY }; kick();
+});
+const endDrag = () => { drag = null; canvas.classList.remove("dragging"); };
+canvas.addEventListener("pointerup", endDrag); canvas.addEventListener("pointercancel", endDrag);
+
+// ---- Render -------------------------------------------------------------------------
+function setCommon(prog) {
+  gl.uniform2f(prog.u.uPivot, cam.x, cam.y); gl.uniform1f(prog.u.uAngle, cam.angle);
+  gl.uniform1f(prog.u.uScale, scale()); gl.uniform2f(prog.u.uViewport, W, H); gl.uniform2f(prog.u.uCenter, W/2, H/2);
+}
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(1, Math.round(canvas.clientWidth * dpr)); H = Math.max(1, Math.round(canvas.clientHeight * dpr));
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+}
+const g = DATA.grid;
+const minorCol = hex(g.minor.color), majorCol = hex(g.major.color);
+let raf = 0;
+function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+function frame(now) {
+  raf = 0; resize();
+  let animating = false;
+  if (cam.angle !== cam.to) {
+    const t = Math.min(1, (now - cam.t0) / 250);
+    cam.angle = t >= 1 ? cam.to : cam.from + (cam.to - cam.from) * ease(t); animating = t < 1;
+  }
+  if (cam.zoom !== cam.zTo) {
+    const t = Math.min(1, (now - cam.zt0) / 150);
+    cam.zoom = t >= 1 ? cam.zTo : cam.zFrom + (cam.zTo - cam.zFrom) * ease(t); animating = animating || t < 1;
+    if (cam.anchor) { const w = screenToWorld(cam.anchor.sx, cam.anchor.sy); cam.x += cam.anchor.w.x - w.x; cam.y += cam.anchor.w.y - w.y; clampPivot(); }
+  }
+  updateCompass();
+  gl.viewport(0, 0, W, H);
+  gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.depthMask(true);
+  gl.clearColor(0.024, 0.039, 0.071, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  gl.useProgram(gridProg.p); setCommon(gridProg);
+  gl.uniform1f(gridProg.u.uGridOn, show.grid ? 1 : 0);
+  gl.uniform3f(gridProg.u.uMinorCol, ...minorCol); gl.uniform3f(gridProg.u.uMajorCol, ...majorCol);
+  gl.uniform2f(gridProg.u.uMinorAlpha, g.minor.alpha_far, g.minor.alpha_near);
+  gl.uniform2f(gridProg.u.uMajorAlpha, g.major.alpha_far, g.major.alpha_near);
+  gl.uniform2f(gridProg.u.uWidths, g.minor.width_px, g.major.width_px);
+  gl.uniform1f(gridProg.u.uNear, g.near_radius_voxels); gl.uniform1f(gridProg.u.uDpr, dpr);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.disable(gl.CULL_FACE);
+  gl.useProgram(voxelProg.p); setCommon(voxelProg);
+  gl.bindVertexArray(stationVao.vao); gl.drawElementsInstanced(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0, stationVao.n);
+  if (show.ships) { gl.bindVertexArray(shipVao.vao); gl.drawElementsInstanced(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0, shipVao.n); }
+
+  gl.enable(gl.BLEND); gl.depthMask(false);
+  if (show.shield) {
+    gl.useProgram(domeProg.p); setCommon(domeProg);
+    gl.uniform2f(domeProg.u.uDomeCenter, shield.center[0], shield.center[1]);
+    gl.uniform4f(domeProg.u.uStrength, ...strengths);
+    gl.uniform3f(domeProg.u.uRim, ...hex(shield.rim_color)); gl.uniform3f(domeProg.u.uWeak, ...hex(shield.weak_color));
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindVertexArray(dome.vao);
+    gl.uniform1f(domeProg.u.uBack, 1); gl.drawElements(gl.TRIANGLES, dome.n, gl.UNSIGNED_SHORT, 0);
+    gl.uniform1f(domeProg.u.uBack, 0); gl.drawElements(gl.TRIANGLES, dome.n, gl.UNSIGNED_SHORT, 0);
+  }
+  gl.useProgram(glowProg.p); setCommon(glowProg); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.uniform1f(glowProg.u.uGlowPx, Math.max(4, 6 * 2 * scale()));
+  gl.bindVertexArray(stationGlowVao.vao); gl.drawArrays(gl.POINTS, 0, stationGlowVao.n);
+  if (show.ships) { gl.bindVertexArray(shipGlowVao.vao); gl.drawArrays(gl.POINTS, 0, shipGlowVao.n); }
+  gl.bindVertexArray(null); gl.depthMask(true);
+  if (animating) kick();
+}
+window.addEventListener("resize", kick);
+updateUi(); kick();
+</script>
