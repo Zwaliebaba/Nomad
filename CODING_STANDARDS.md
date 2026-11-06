@@ -56,7 +56,7 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
 
 ## 8. Simulation code
 
-*Provisional until design docs 11 and 20 are agreed.*
+*Agreed in doc 11 (D-049, D-050).*
 
 - Authoritative Universe state lives only in the server-side simulation. Clients send commands and render the state they receive (design C-02, C-03).
 - Given the same state, commands and seed, the simulation must produce the same result:
@@ -64,6 +64,11 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
   - Do not iterate a `HashMap` or `HashSet` where the order affects the outcome. Use `BTreeMap`, `IndexMap` or sorted vectors.
   - Randomness comes from a seeded RNG that is passed in explicitly. There is no global or thread-local RNG.
   - Logic runs on a fixed tick, never on frame time.
+- Every simulated object has a `SimId(u64)`, assigned in increasing order and never reused. A `hecs` `Entity` is a storage handle only and never leaves the simulation.
+- Positions and headings are `f64`. Transcendental functions come from the `libm` crate, never from `std`'s platform maths. No fast-math.
+- Resources are integer milli-units, never floats.
+- Timers are absolute deadline ticks, fired in `(deadline_tick, SimId)` order.
+- `nomad-sim` does no I/O, reads no clock, starts no threads and uses no `tokio`.
 - Offline and online commanders are simulated by the same code paths and at the same fidelity (design W-05).
 
 ## 9. Client and rendering code

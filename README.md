@@ -8,7 +8,7 @@ Targets: one Universe of up to 100 commanders, played in seasons. The MVP is one
 
 ## Status
 
-The project is in the **design phase**. There is no gameplay code yet. The Cargo workspace contains one placeholder crate, so that tooling, lints and CI are already in place. Start at [`Design/README.md`](Design/README.md).
+Design and build run in parallel (Design D-051). Being built: the phase-1 visual slice (`nomad-client`) and the deterministic simulation core (`nomad-sim`), still without game rules. Start at [`Design/README.md`](Design/README.md).
 
 ## Repository layout
 

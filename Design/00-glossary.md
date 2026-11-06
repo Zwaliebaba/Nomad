@@ -125,7 +125,7 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Controlled / Contested / Open** | System control states. *Controlled:* one commander holds a strict majority of the sites. *Contested:* no majority, and two or more owners. *Open:* no majority, and at most one owner. |
 | **Ops area** | The region (proposed radius 20 km) around a site where the tactical ops-grid view applies. |
 
-## Time and simulation (doc 11, proposed)
+## Time and simulation (doc 11, agreed)
 
 | Term | Meaning |
 |---|---|

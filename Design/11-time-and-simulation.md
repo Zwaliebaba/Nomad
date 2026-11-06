@@ -1,6 +1,6 @@
 # 11 — Time and simulation
 
-Status: **Proposed (round 5).** Built on D-019, D-026, D-029, D-030, D-036, D-037 and P-04, on C-02, C-03, C-05 and C-06 from doc 01, and on `CODING_STANDARDS.md` §8. Decisions needed: Q41–Q44. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 5).** Q41–Q44 were decided as D-047 to D-050. Built on D-019, D-026, D-029, D-030, D-036, D-037 and P-04, on C-02, C-03, C-05 and C-06 from doc 01, and on `CODING_STANDARDS.md` §8. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -80,7 +80,7 @@ Network replication and interest management belong to docs 16 and 20.
 
 ## 5. Determinism
 
-*Proposed (Q43).* **Guarantee:** the same build, the same snapshot and the same journal produce bit-identical state. There is no guarantee across builds; the journal records the build ID, which is the git commit embedded at compile time.
+*Agreed (D-049).* **Guarantee:** the same build, the same snapshot and the same journal produce bit-identical state. There is no guarantee across builds; the journal records the build ID, which is the git commit embedded at compile time.
 
 | Rule | Why |
 |---|---|
@@ -95,7 +95,7 @@ Network replication and interest management belong to docs 16 and 20.
 
 ## 6. Inputs and the journal
 
-*Proposed (Q42).* Anything that enters the simulation from outside is journaled with the tick it applies on:
+*Agreed (D-048).* Anything that enters the simulation from outside is journaled with the tick it applies on:
 
 - **Player commands.** A command received during tick *t* applies on tick *t + 1*, so command latency is at most 100 ms plus the network round trip.
 - **Connect and disconnect events.** These are real inputs: they drive the 120 s grace period (doc 12 §5.3), the rule that a siege fails without an online attacker (doc 12 §4), and the activity-derived window (D-032).
@@ -121,7 +121,7 @@ stateDiagram-v2
   - If a tick overruns, the following ticks run back-to-back until the simulation is level again.
   - Running behind for a sustained period raises an overload alarm.
 - **Fast-forward:** the same loop without sleeping. It serves two purposes: the headless pacing runs (D-037), and catching up after the server was not running.
-- **Catching up after downtime** *(Proposed, Q41)*:
+- **Catching up after downtime** *(Agreed, D-047)*:
   - When the server starts after an outage, it simulates the missed time at fast-forward speed until the tick reaches the wall clock again. The Universe ends up exactly where it would have been. Every timer scales equally, so this is not compression (D-036).
   - Nobody can connect during catch-up, so every commander is offline. The offline rules already cover that case. Sieges that fall due during the outage fail because no attacker is online, offensive orders have lapsed, and Deputies defend.
   - **NPC raiders do not start new raids during catch-up**, so an outage cannot hand them free targets.
@@ -133,7 +133,7 @@ stateDiagram-v2
 
 ## 8. Persistence and recovery
 
-*Proposed (Q42).* Snapshots plus a journal, stored in SQLite with write-ahead logging (D-030). The same model moves to PostgreSQL once the server is hosted.
+*Agreed (D-048).* Snapshots plus a journal, stored in SQLite with write-ahead logging (D-030). The same model moves to PostgreSQL once the server is hosted.
 
 | Item | Proposal |
 |---|---|
@@ -149,7 +149,7 @@ stateDiagram-v2
 
 ## 9. Crate boundary
 
-*Proposed (Q44); input for doc 20.*
+*Agreed (D-050); input for doc 20.*
 
 | Crate | Owns | Must not |
 |---|---|---|
