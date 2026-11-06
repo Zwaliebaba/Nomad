@@ -433,6 +433,16 @@ pub enum EconomyEvent {
         /// The holding.
         holding: HoldingId,
     },
+    /// A MULE was destroyed with cargo aboard; the cargo, and a core kit if it carried one,
+    /// are lost (D-064).
+    CargoLost {
+        /// The ship that is gone.
+        ship: ShipId,
+        /// What it carried.
+        amount: Stock,
+        /// Whether it carried a core kit.
+        core_kit: bool,
+    },
 }
 
 /// The richness multiplier in per mille (D-066).

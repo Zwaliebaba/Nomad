@@ -1192,3 +1192,61 @@ fn convoy_reasons(seen: &mut Seen, s: &mut UniverseState, mother: HoldingId, kit
     );
     seen.expect(s, build(remote, BuildItem::CoreKit), R::Outpost);
 }
+
+#[test]
+fn destroyed_carriers_lose_their_cargo_and_end_their_routes() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let remote = remote_ore_holding(&mut state);
+    let kit = kit_fleet(&state, 1);
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Convoy {
+            fleet: kit,
+            route: vec![remote, mother],
+        }),
+    );
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::SetRally {
+            holding: mother,
+            fleet: Some(kit),
+        }),
+    );
+    let ships = state.fleet(kit).unwrap().ships.clone();
+    let mule = ships
+        .iter()
+        .copied()
+        .find(|s| state.ship(*s).is_some_and(|v| v.class == ShipClass::Mule))
+        .unwrap();
+    state.economy.cargo.insert(
+        mule,
+        Cargo {
+            stock: Stock::units(500, 20),
+            core_kit: true,
+        },
+    );
+    // Remove the whole fleet the way combat does when it destroys every ship (S5a).
+    for ship in &ships {
+        state.entities.despawn(ship.sim_id());
+    }
+    state.entities.despawn(kit.sim_id());
+    let out = idle(&mut state, 1);
+    let ev = events(&out);
+    assert!(ev.contains(&EconomyEvent::CargoLost {
+        ship: mule,
+        amount: Stock::units(500, 20),
+        core_kit: true
+    }));
+    assert!(ev.contains(&EconomyEvent::ConvoyEnded { fleet: kit }));
+    assert!(state.economy.cargo.is_empty());
+    assert!(state.economy.convoys.is_empty());
+    assert_eq!(state.economy.holdings[&mother].rally, None);
+    assert!(
+        state.economy_problems().is_empty(),
+        "{:?}",
+        state.economy_problems()
+    );
+}

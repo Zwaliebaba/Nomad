@@ -25,6 +25,7 @@ pub(crate) fn run(
     events: &mut Vec<EconomyEvent>,
     fleet_events: &mut Vec<FleetEvent>,
 ) {
+    prune_gone(state, events);
     let slot = now.get() % TICKS_PER_SECOND;
     let due: Vec<HoldingId> = state
         .holdings
@@ -36,6 +37,47 @@ pub(crate) fn run(
         holding_second(state, holding, now, events, fleet_events);
     }
     logistics::run(state, now, slot, events, fleet_events);
+}
+
+/// Drops what refers to ships and fleets that are gone, most often destroyed in combat
+/// earlier in the tick (phase 7): their cargo is lost, their convoy routes end, and rally
+/// points that name them are cleared.
+fn prune_gone(state: &mut UniverseState, events: &mut Vec<EconomyEvent>) {
+    let lost: Vec<_> = state
+        .economy
+        .cargo
+        .keys()
+        .copied()
+        .filter(|ship| !state.entities.has::<crate::fleet::Ship>(ship.sim_id()))
+        .collect();
+    for ship in lost {
+        if let Some(cargo) = state.economy.cargo.remove(&ship) {
+            events.push(EconomyEvent::CargoLost {
+                ship,
+                amount: cargo.stock,
+                core_kit: cargo.core_kit,
+            });
+        }
+    }
+    let gone: Vec<_> = state
+        .economy
+        .convoys
+        .keys()
+        .copied()
+        .filter(|fleet| !state.entities.has::<crate::fleet::Fleet>(fleet.sim_id()))
+        .collect();
+    for fleet in gone {
+        state.economy.convoys.remove(&fleet);
+        events.push(EconomyEvent::ConvoyEnded { fleet });
+    }
+    for economy in state.economy.holdings.values_mut() {
+        if economy
+            .rally
+            .is_some_and(|f| !state.entities.has::<crate::fleet::Fleet>(f.sim_id()))
+        {
+            economy.rally = None;
+        }
+    }
 }
 
 fn holding_second(
