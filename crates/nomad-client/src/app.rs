@@ -24,9 +24,6 @@ use crate::screenshot;
 
 /// Window title: the working title (D-018).
 const WINDOW_TITLE: &str = "Nomad";
-/// Keyboard and edge-scroll pan speed in reference pixels per second. A tuning value; the spec
-/// gives none.
-const PAN_SPEED_REF_PX_PER_S: f32 = 800.0;
 /// Edge-scroll margin in reference pixels (doc 02).
 const EDGE_SCROLL_MARGIN_REF_PX: f32 = 16.0;
 /// Touchpad scroll distance per zoom step.
@@ -75,6 +72,8 @@ struct Running {
     renderer: Renderer,
     camera: Camera,
     input: Input,
+    /// Keyboard and edge-scroll pan speed, from `scene_config.json` (D-063).
+    pan_speed_ref_px_per_s: f32,
     last_frame: Instant,
 }
 
@@ -97,6 +96,7 @@ impl App {
             renderer,
             camera,
             input: Input::default(),
+            pan_speed_ref_px_per_s: self.scene.camera.pan_speed_ref_px_per_s,
             last_frame: Instant::now(),
         })
     }
@@ -245,7 +245,7 @@ impl Running {
             .pan_direction(viewport, EDGE_SCROLL_MARGIN_REF_PX * layout);
         if direction != Vec2::ZERO {
             self.camera
-                .pan_screen_px(direction * PAN_SPEED_REF_PX_PER_S * layout * dt_s);
+                .pan_screen_px(direction * self.pan_speed_ref_px_per_s * layout * dt_s);
         }
         self.camera.update(dt_s);
 

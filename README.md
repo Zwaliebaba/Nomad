@@ -55,7 +55,7 @@ cargo run -p nomad-client -- --screenshot out.png --view 1 --zoom 0.5   # one fr
 | F11 | Toggle fullscreen |
 | F12 | Screenshot to `screenshots/` in the working directory |
 
-Assets load from `Design/phase1-visual-slice/assets`; set `NOMAD_ASSETS` to use another folder. `RUST_LOG` sets the log filter. On Linux the client needs a Vulkan or OpenGL ES driver and, under X11, `libxkbcommon-x11` at run time; building needs no system packages. GPU tests are ignored by default; run them with `cargo test -p nomad-client -- --ignored` on a machine with a GPU or a software Vulkan driver such as Mesa lavapipe.
+Assets load from `Design/phase1-visual-slice/assets`; set `NOMAD_ASSETS` to use another folder. Tuning values (pan speed, pan limit, background and stars) live in `layout/scene_config.json` there (Design D-063). `RUST_LOG` sets the log filter. On Linux the client needs a Vulkan or OpenGL ES driver and, under X11, `libxkbcommon-x11` at run time; building needs no system packages. GPU tests are ignored by default; run them with `cargo test -p nomad-client -- --ignored` on a machine with a GPU or a software Vulkan driver such as Mesa lavapipe.
 
 Run the headless simulation harness (fast-forward, reports the state hash and speed):
 

@@ -9,7 +9,10 @@ mod scene;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-pub use scene::{GridLineStyle, OpsGridConfig, SceneConfig};
+pub use scene::{
+    BackgroundConfig, ColorStop, GridLineStyle, MAX_NEBULAE, OpsGridConfig, SceneConfig,
+    StarsConfig,
+};
 
 /// Environment variable that overrides the asset root.
 pub const ASSETS_ENV_VAR: &str = "NOMAD_ASSETS";

@@ -1,70 +1,16 @@
 //! Background pass (phase-1 doc 01 §3): radial gradient, three blurred nebula ellipses, a soft sun
 //! glow and about 200 stars, all in screen space.
 //!
-//! `scene_config.json` only has the gradient's centre and edge colours as numbers; the rest of
-//! doc 01 §3 is prose there. Those values are constants below, citing doc 01 §3 or, where the doc
-//! gives no number, the mockup (`reference/mockup/ops-grid-proposal.html`) that produced the
-//! reference renders.
+//! Every value comes from `scene_config.json` → `background` (D-063). Where doc 01 §3 gives no
+//! number (nebula positions and blur, the sun glow, the star colour), the shipped values are the
+//! mockup's (`reference/mockup/ops-grid-proposal.html`), which produced the reference renders.
 
 use bytemuck::{Pod, Zeroable};
 use glam::Vec2;
 use wgpu::util::DeviceExt;
 
 use super::context::TargetFormat;
-use crate::config::{Rgb, SceneConfig};
-
-/// Gradient centre (35%, 25%) and middle stop 55% `#0c1322` (doc 01 §3). Radius 0.95 in canvas
-/// units from the mockup's `#dbg` gradient.
-const GRADIENT_CENTER: [f32; 2] = [0.35, 0.25];
-const GRADIENT_RADIUS: f32 = 0.95;
-const GRADIENT_MID_STOP: f32 = 0.55;
-const GRADIENT_MID_COLOR: Rgb = Rgb::new(0x0c, 0x13, 0x22);
-
-struct Nebula {
-    center_ref_px: [f32; 2],
-    radii_ref_px: [f32; 2],
-    color: Rgb,
-}
-
-/// Colours, opacity and rotation from doc 01 §3; positions, radii and blur from the mockup.
-const NEBULAE: [Nebula; 3] = [
-    Nebula {
-        center_ref_px: [1350.0, 240.0],
-        radii_ref_px: [480.0, 150.0],
-        color: Rgb::new(0x2a, 0x4a, 0x5a),
-    },
-    Nebula {
-        center_ref_px: [420.0, 180.0],
-        radii_ref_px: [420.0, 130.0],
-        color: Rgb::new(0x28, 0x3a, 0x55),
-    },
-    Nebula {
-        center_ref_px: [1500.0, 900.0],
-        radii_ref_px: [380.0, 140.0],
-        color: Rgb::new(0x1e, 0x2f, 0x45),
-    },
-];
-const NEBULA_OPACITY: f32 = 0.35;
-const NEBULA_ROTATION_DEG: f32 = -15.0;
-const NEBULA_BLUR_SIGMA_REF_PX: f32 = 80.0;
-
-/// Sun glow, top-left (doc 01 §3); geometry and stops from the mockup's `#dsun`.
-const SUN_CENTER_REF_PX: [f32; 2] = [40.0, 20.0];
-const SUN_RADIUS_REF_PX: f32 = 380.0;
-const SUN_OPACITY: f32 = 0.6;
-const SUN_INNER: (Rgb, f32) = (Rgb::new(0xff, 0xf1, 0xd6), 0.55);
-const SUN_MID: (Rgb, f32) = (Rgb::new(0xff, 0xd9, 0xa0), 0.16);
-const SUN_MID_STOP: f32 = 0.25;
-const SUN_OUTER: (Rgb, f32) = (Rgb::new(0xff, 0xd9, 0xa0), 0.0);
-
-/// About 200 stars, radius 0.5–1.1 px, alpha 0.15–0.6 (doc 01 §3, `scene_config.json`).
-/// Colour from the mockup.
-pub const STAR_COUNT: usize = 200;
-const STAR_RADIUS_REF_PX: (f32, f32) = (0.5, 1.1);
-const STAR_ALPHA: (f32, f32) = (0.15, 0.6);
-const STAR_COLOR: Rgb = Rgb::new(0xdf, 0xe9, 0xff);
-/// Fixed seed so the star field is the same on every run and in screenshots.
-const STAR_SEED: u64 = 0x4e4f_4d41_4453_5441;
+use crate::config::{BackgroundConfig, ColorStop, MAX_NEBULAE, SceneConfig, StarsConfig};
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -75,8 +21,8 @@ struct BackgroundUniforms {
     color_center: [f32; 4],
     color_mid: [f32; 4],
     color_edge: [f32; 4],
-    nebula_shape: [[f32; 4]; 3],
-    nebula_color: [[f32; 4]; 3],
+    nebula_shape: [[f32; 4]; MAX_NEBULAE],
+    nebula_color: [[f32; 4]; MAX_NEBULAE],
     nebula_params: [f32; 4],
     sun_shape: [f32; 4],
     sun_inner: [f32; 4],
@@ -114,18 +60,18 @@ impl SplitMix64 {
     }
 }
 
-/// The star field on the reference canvas.
-pub fn generate_stars(reference_size: Vec2) -> Vec<Star> {
-    let mut rng = SplitMix64(STAR_SEED);
-    let lerp = |(lo, hi): (f32, f32), t: f32| lo + (hi - lo) * t;
-    (0..STAR_COUNT)
+/// The star field on the reference canvas: `stars.count` stars from the seeded scatter.
+pub fn generate_stars(stars: &StarsConfig, reference_size: Vec2) -> Vec<Star> {
+    let mut rng = SplitMix64(stars.seed);
+    let lerp = |[lo, hi]: [f32; 2], t: f32| lo + (hi - lo) * t;
+    (0..stars.count)
         .map(|_| Star {
             center_ref_px: [
                 rng.next_unit() * reference_size.x,
                 rng.next_unit() * reference_size.y,
             ],
-            radius_ref_px: lerp(STAR_RADIUS_REF_PX, rng.next_unit()),
-            alpha: lerp(STAR_ALPHA, rng.next_unit()),
+            radius_ref_px: lerp(stars.radius_ref_px, rng.next_unit()),
+            alpha: lerp(stars.alpha, rng.next_unit()),
         })
         .collect()
 }
@@ -143,49 +89,54 @@ pub struct BackgroundPass {
     bind_group: wgpu::BindGroup,
     gradient_pipeline: wgpu::RenderPipeline,
     star_pipeline: wgpu::RenderPipeline,
-    star_buffer: wgpu::Buffer,
-    star_count: u32,
+    /// `None` without stars; wgpu cannot bind an empty buffer.
+    stars: Option<(wgpu::Buffer, u32)>,
     reference_size: Vec2,
 }
 
 impl BackgroundUniforms {
     /// Everything but the viewport, which [`BackgroundPass::prepare`] fills in per frame.
-    fn new(config: &SceneConfig, reference_size: Vec2) -> Self {
-        let (sin_rot, cos_rot) = NEBULA_ROTATION_DEG.to_radians().sin_cos();
-        let stop = |(color, alpha): (Rgb, f32)| color.to_vec4(alpha);
+    fn new(background: &BackgroundConfig, reference_size: Vec2) -> Self {
+        let nebulae = &background.nebulae;
+        let (sin_rot, cos_rot) = nebulae.rotation_deg.to_radians().sin_cos();
+        let mut nebula_shape = [[0.0; 4]; MAX_NEBULAE];
+        let mut nebula_color = [[0.0; 4]; MAX_NEBULAE];
+        // SceneConfig::validate caps the list at MAX_NEBULAE.
+        for (i, ellipse) in nebulae.ellipses.iter().take(MAX_NEBULAE).enumerate() {
+            let ([cx, cy], [rx, ry]) = (ellipse.center_ref_px, ellipse.radii_ref_px);
+            nebula_shape[i] = [cx, cy, rx, ry];
+            nebula_color[i] = ellipse.color.to_vec4(nebulae.opacity);
+        }
+        let nebula_count = nebulae.ellipses.len().min(MAX_NEBULAE) as f32;
+        let sun = &background.sun;
+        let stop = |s: ColorStop| s.color.to_vec4(s.alpha);
+        let [gx, gy] = background.gradient_center;
         Self {
             viewport_offset: [reference_size.x, reference_size.y, 0.0, 0.0],
             canvas: [1.0, reference_size.x, reference_size.y, 0.0],
             gradient: [
-                GRADIENT_CENTER[0],
-                GRADIENT_CENTER[1],
-                GRADIENT_RADIUS,
-                GRADIENT_MID_STOP,
+                gx,
+                gy,
+                background.gradient_radius,
+                background.gradient_mid_stop,
             ],
-            color_center: config.background.color_center.to_vec4(1.0),
-            color_mid: GRADIENT_MID_COLOR.to_vec4(1.0),
-            color_edge: config.background.color_edge.to_vec4(1.0),
-            nebula_shape: NEBULAE.map(|n| {
-                [
-                    n.center_ref_px[0],
-                    n.center_ref_px[1],
-                    n.radii_ref_px[0],
-                    n.radii_ref_px[1],
-                ]
-            }),
-            nebula_color: NEBULAE.map(|n| n.color.to_vec4(NEBULA_OPACITY)),
-            nebula_params: [cos_rot, sin_rot, NEBULA_BLUR_SIGMA_REF_PX, 0.0],
+            color_center: background.color_center.to_vec4(1.0),
+            color_mid: background.color_mid.to_vec4(1.0),
+            color_edge: background.color_edge.to_vec4(1.0),
+            nebula_shape,
+            nebula_color,
+            nebula_params: [cos_rot, sin_rot, nebulae.blur_sigma_ref_px, nebula_count],
             sun_shape: [
-                SUN_CENTER_REF_PX[0],
-                SUN_CENTER_REF_PX[1],
-                SUN_RADIUS_REF_PX,
-                SUN_OPACITY,
+                sun.center_ref_px[0],
+                sun.center_ref_px[1],
+                sun.radius_ref_px,
+                sun.opacity,
             ],
-            sun_inner: stop(SUN_INNER),
-            sun_mid: stop(SUN_MID),
-            sun_outer: stop(SUN_OUTER),
-            sun_mid_stop: [SUN_MID_STOP, 0.0, 0.0, 0.0],
-            star_color: STAR_COLOR.to_vec4(1.0),
+            sun_inner: stop(sun.inner),
+            sun_mid: stop(sun.mid),
+            sun_outer: stop(sun.outer),
+            sun_mid_stop: [sun.mid_stop, 0.0, 0.0, 0.0],
+            star_color: background.stars.color.to_vec4(1.0),
         }
     }
 }
@@ -194,7 +145,7 @@ impl BackgroundPass {
     pub fn new(device: &wgpu::Device, target: TargetFormat, config: &SceneConfig) -> Self {
         let [ref_w, ref_h] = config.reference_resolution;
         let reference_size = Vec2::new(ref_w as f32, ref_h as f32);
-        let uniforms = BackgroundUniforms::new(config, reference_size);
+        let uniforms = BackgroundUniforms::new(&config.background, reference_size);
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("background uniforms"),
             contents: bytemuck::bytes_of(&uniforms),
@@ -236,12 +187,18 @@ impl BackgroundPass {
         );
 
         let star_pipeline = star_pipeline(device, &pipeline_layout, &shader, target);
-        let stars = generate_stars(reference_size);
-        let star_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("stars"),
-            contents: bytemuck::cast_slice(&stars),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let stars = generate_stars(&config.background.stars, reference_size);
+        let stars = u32::try_from(stars.len())
+            .ok()
+            .filter(|&count| count > 0)
+            .map(|count| {
+                let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("stars"),
+                    contents: bytemuck::cast_slice(&stars),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+                (buffer, count)
+            });
 
         Self {
             uniforms,
@@ -249,8 +206,7 @@ impl BackgroundPass {
             bind_group,
             gradient_pipeline,
             star_pipeline,
-            star_buffer,
-            star_count: u32::try_from(stars.len()).unwrap_or(0),
+            stars,
             reference_size,
         }
     }
@@ -269,9 +225,11 @@ impl BackgroundPass {
         pass.draw(0..3, 0..1);
         // Stars come after the sun glow here, the mockup draws them before it. The glow is at
         // most 33% opaque and covers only a corner, so the difference is not visible.
-        pass.set_pipeline(&self.star_pipeline);
-        pass.set_vertex_buffer(0, self.star_buffer.slice(..));
-        pass.draw(0..6, 0..self.star_count);
+        if let Some((buffer, count)) = &self.stars {
+            pass.set_pipeline(&self.star_pipeline);
+            pass.set_vertex_buffer(0, buffer.slice(..));
+            pass.draw(0..6, 0..*count);
+        }
     }
 }
 
@@ -317,20 +275,30 @@ fn star_pipeline(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{default_asset_root, load_scene_config, scene_config_path};
 
     const REFERENCE: Vec2 = Vec2::new(1920.0, 1080.0);
 
+    fn stars_config() -> StarsConfig {
+        load_scene_config(&scene_config_path(&default_asset_root()))
+            .unwrap()
+            .background
+            .stars
+    }
+
     #[test]
-    fn stars_follow_the_spec_and_are_deterministic() {
-        let stars = generate_stars(REFERENCE);
-        assert_eq!(stars.len(), STAR_COUNT);
+    fn stars_follow_the_config_and_are_deterministic() {
+        let config = stars_config();
+        let stars = generate_stars(&config, REFERENCE);
+        // D-061: about 200, as specified.
+        assert_eq!(stars.len(), 200);
         for star in &stars {
             let [x, y] = star.center_ref_px;
             assert!((0.0..1920.0).contains(&x) && (0.0..1080.0).contains(&y));
             assert!((0.5..=1.1).contains(&star.radius_ref_px));
             assert!((0.15..=0.6).contains(&star.alpha));
         }
-        assert_eq!(stars, generate_stars(REFERENCE));
+        assert_eq!(stars, generate_stars(&config, REFERENCE));
         // Not all piled up: every quarter of the canvas gets some.
         for (qx, qy) in [(0.0, 0.0), (960.0, 0.0), (0.0, 540.0), (960.0, 540.0)] {
             let count = stars
@@ -342,6 +310,12 @@ mod tests {
                 .count();
             assert!(count > 25, "quarter ({qx}, {qy}) has {count} stars");
         }
+        // Another seed scatters differently.
+        let reseeded = StarsConfig {
+            seed: config.seed ^ 1,
+            ..config
+        };
+        assert_ne!(stars, generate_stars(&reseeded, REFERENCE));
     }
 
     #[test]
@@ -357,6 +331,6 @@ mod tests {
     #[test]
     fn uniform_layout_is_a_whole_number_of_vec4s() {
         assert_eq!(size_of::<BackgroundUniforms>() % 16, 0);
-        assert_eq!(size_of::<BackgroundUniforms>(), 19 * 16);
+        assert_eq!(size_of::<BackgroundUniforms>(), (13 + 2 * MAX_NEBULAE) * 16);
     }
 }

@@ -35,9 +35,6 @@ use crate::config::SceneConfig;
 pub const TURN_DURATION_S: f32 = 0.25;
 /// Duration of a zoom step (doc 02).
 pub const ZOOM_DURATION_S: f32 = 0.15;
-/// Pan clamp: ±200 voxels around the Home pivot, the phase-1 ops-area bounds (doc 02, D-046).
-/// `scene_config.json` names the clamp but has no number for it.
-pub const OPS_AREA_HALF_EXTENT_VOXELS: f32 = 200.0;
 /// Half the depth range of the orthographic volume, in world units along the view direction.
 /// Generous: the station is about 35 voxels tall and the visible ground spans a few hundred.
 const DEPTH_HALF_RANGE_VOXELS: f32 = 2048.0;
@@ -71,6 +68,8 @@ pub struct Projection {
     /// Screen position of the pivot relative to the screen centre, in reference pixels.
     anchor_offset_ref_px: Vec2,
     home_pivot: Vec2,
+    /// Pan clamp around the Home pivot, the ops-area bounds (doc 02, D-046, D-063).
+    ops_area_half_extent: f32,
     zoom_levels: Vec<f32>,
     home_zoom_index: usize,
 }
@@ -105,6 +104,7 @@ impl Projection {
             reference_size,
             anchor_offset_ref_px: Vec2::ZERO,
             home_pivot,
+            ops_area_half_extent: config.camera.ops_area_half_extent_voxels,
             zoom_levels: config.camera.zoom_levels.clone(),
             home_zoom_index,
         };
@@ -388,7 +388,7 @@ impl Camera {
 
     fn clamp_pivot(&mut self) {
         let home = self.projection.home_pivot;
-        let extent = Vec2::splat(OPS_AREA_HALF_EXTENT_VOXELS);
+        let extent = Vec2::splat(self.projection.ops_area_half_extent);
         self.pivot = self.pivot.clamp(home - extent, home + extent);
     }
 
@@ -822,6 +822,8 @@ mod tests {
     #[test]
     fn pan_clamps_to_the_ops_area_bounds() {
         let home = Vec2::new(-8.5, 9.5);
+        let extent = config().camera.ops_area_half_extent_voxels;
+        assert!((extent - 200.0).abs() < 1e-6, "D-063: ±200 voxels");
         for delta in [
             Vec2::new(1e7, 0.0),
             Vec2::new(-1e7, 0.0),
@@ -832,15 +834,15 @@ mod tests {
             let mut cam = camera();
             cam.pan_screen_px(delta);
             let offset = (cam.pivot() - home).abs();
-            assert!(offset.max_element() <= OPS_AREA_HALF_EXTENT_VOXELS + 1e-3);
-            assert!((offset.max_element() - OPS_AREA_HALF_EXTENT_VOXELS).abs() < 1e-3);
+            assert!(offset.max_element() <= extent + 1e-3);
+            assert!((offset.max_element() - extent).abs() < 1e-3);
         }
         // Zooming toward a far cursor cannot escape the bounds either.
         let mut cam = camera();
         cam.pan_screen_px(Vec2::new(1e7, 0.0));
         cam.zoom_step(ZoomStep::In, Some(Vec2::new(1919.0, 540.0)));
         cam.update(ZOOM_DURATION_S);
-        assert!((cam.pivot() - home).abs().max_element() <= OPS_AREA_HALF_EXTENT_VOXELS + 1e-3);
+        assert!((cam.pivot() - home).abs().max_element() <= extent + 1e-3);
     }
 
     #[test]

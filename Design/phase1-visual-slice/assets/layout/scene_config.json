@@ -40,6 +40,8 @@
    2.0
   ],
   "pan": "WASD / edge scroll / middle-drag, clamped to ops-area bounds",
+  "pan_speed_ref_px_per_s": 800,
+  "ops_area_half_extent_voxels": 200,
   "light": "camera-relative (rotates with view)"
  },
  "ops_grid": {
@@ -154,9 +156,88 @@
  },
  "background": {
   "color_center": "#18243a",
+  "color_mid": "#0c1322",
   "color_edge": "#060a12",
-  "nebula": "3 large blurred ellipses, 35% alpha",
-  "stars": "~200 points, r 0.5-1.1 px, alpha 0.15-0.6"
+  "gradient_center": [
+   0.35,
+   0.25
+  ],
+  "gradient_radius": 0.95,
+  "gradient_mid_stop": 0.55,
+  "nebulae": {
+   "opacity": 0.35,
+   "rotation_deg": -15,
+   "blur_sigma_ref_px": 80,
+   "ellipses": [
+    {
+     "center_ref_px": [
+      1350,
+      240
+     ],
+     "radii_ref_px": [
+      480,
+      150
+     ],
+     "color": "#2a4a5a"
+    },
+    {
+     "center_ref_px": [
+      420,
+      180
+     ],
+     "radii_ref_px": [
+      420,
+      130
+     ],
+     "color": "#283a55"
+    },
+    {
+     "center_ref_px": [
+      1500,
+      900
+     ],
+     "radii_ref_px": [
+      380,
+      140
+     ],
+     "color": "#1e2f45"
+    }
+   ]
+  },
+  "sun": {
+   "center_ref_px": [
+    40,
+    20
+   ],
+   "radius_ref_px": 380,
+   "opacity": 0.6,
+   "mid_stop": 0.25,
+   "inner": {
+    "color": "#fff1d6",
+    "alpha": 0.55
+   },
+   "mid": {
+    "color": "#ffd9a0",
+    "alpha": 0.16
+   },
+   "outer": {
+    "color": "#ffd9a0",
+    "alpha": 0.0
+   }
+  },
+  "stars": {
+   "count": 200,
+   "radius_ref_px": [
+    0.5,
+    1.1
+   ],
+   "alpha": [
+    0.15,
+    0.6
+   ],
+   "color": "#dfe9ff",
+   "seed": 5642813800833045569
+  }
  },
  "lights_policy": "At most about 100 emissive voxels on the station (data has 98): pylon emitters, docking collars, power-bus markers, sparse running lights. No light rows along edges."
 }

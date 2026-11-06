@@ -1,5 +1,5 @@
-// Background, phase-1 doc 01 §3: radial gradient, three blurred nebula ellipses, a soft sun glow
-// and about 200 stars. Screen space; it does not rotate with the camera.
+// Background, phase-1 doc 01 §3: radial gradient, up to four blurred nebula ellipses (the config
+// has three), a soft sun glow and about 200 stars. Screen space; it does not rotate with the camera.
 //
 // The background is a 1920×1080 reference canvas scaled to cover the window ("cover" fit), so a
 // 16:9 window shows exactly the mockup layout. All colours are sRGB-encoded and blended as such,
@@ -16,10 +16,10 @@ struct Background {
     color_mid: vec4<f32>,
     color_edge: vec4<f32>,
     // Per nebula: centre xy and radii zw in reference pixels.
-    nebula_shape: array<vec4<f32>, 3>,
+    nebula_shape: array<vec4<f32>, 4>,
     // Per nebula: rgb and opacity.
-    nebula_color: array<vec4<f32>, 3>,
-    // x: cos(rotation); y: sin(rotation); z: blur sigma in reference pixels.
+    nebula_color: array<vec4<f32>, 4>,
+    // x: cos(rotation); y: sin(rotation); z: blur sigma in reference pixels; w: nebula count (0-4).
     nebula_params: vec4<f32>,
     // xy: sun centre and z: radius in reference pixels; w: group opacity.
     sun_shape: vec4<f32>,
@@ -81,7 +81,8 @@ fn fs_background(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
         t < mid,
     );
 
-    for (var i = 0; i < 3; i++) {
+    let nebula_count = min(u32(u.nebula_params.w), 4u);
+    for (var i = 0u; i < nebula_count; i++) {
         let coverage = nebula_coverage(p, u.nebula_shape[i]);
         color = mix(color, u.nebula_color[i].rgb, u.nebula_color[i].a * coverage);
     }
