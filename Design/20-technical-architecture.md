@@ -154,7 +154,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 *Derived* from `CODING_STANDARDS.md` §5. The details are proposed.
 
 - **Bound everything that arrives:** malformed frames, oversized messages and unknown versions are rejected and logged, never turned into a panic. Each message type has a maximum size; each session has a command rate limit.
-- **MVP authentication:** on first start the server creates the local commander and a random token, stored in the per-user data directory with user-only permissions. The client reads the token from there. *Amended by D-121 and D-122:* the token is new at every server start and lives in `server.json`, protected by mode 0600 on Linux and the profile's per-user ACL on Windows. Accounts and external identity are hosting work, outside the MVP.
+- **MVP authentication:** on first start the server creates the local commander and a random token, stored in the per-user data directory with user-only permissions. The client reads the token from there. *Amended by D-151 and D-122:* the token is created once, kept in the Universe's data directory and published in `server.json`, protected by mode 0600 on Linux and the profile's per-user ACL on Windows; `connect-info` prints it for a client that cannot read those files, and `rotate-token` replaces it. Accounts and external identity are hosting work, outside the MVP.
 - Clients never receive entities they have not detected (doc 16 §6), so a modified client learns nothing extra.
 
 ## 10. Observability
