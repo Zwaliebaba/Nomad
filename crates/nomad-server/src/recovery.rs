@@ -2,14 +2,20 @@
 //! doc 20 §7; D-048, D-049; N2 plan §4.5 step 1).
 //!
 //! Recovery may start from any snapshot at or after the journal floor, because the journal
-//! after it is complete. Retention keeps two such snapshots, so a damaged latest snapshot
-//! falls back to the one before it. A snapshot in a format this build cannot read is never
-//! skipped: that is a version problem, not damage, and it stops startup (D-099). Journal
-//! entries written by another build stop startup too (D-048).
+//! after it is complete. The journal is kept for 48 h (D-110), so a damaged latest snapshot
+//! falls back to the one before it, and further, to any snapshot of the last 48 h. A
+//! snapshot in a format this build cannot read is never skipped: that is a version problem,
+//! not damage, and it stops startup (D-099). Journal entries written by another build stop
+//! startup too (D-048).
+//!
+//! Replay checks the state-hash checkpoints in the journal (doc 11 §5, D-109). A mismatch
+//! means replay diverged from the run that wrote the journal: a determinism bug. It is
+//! logged as an error with the tick and both hashes and reported in [`ReplayCheck`], and
+//! recovery carries on, because the replayed state is still a valid Universe.
 
 use nomad_sim::snapshot::{self, decode, state_hash};
 use nomad_sim::{Tick, TickInputs, UniverseState, step};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::error::ServerError;
 use crate::journal;
@@ -23,8 +29,30 @@ pub(crate) struct Recovered {
     pub state: UniverseState,
     /// The snapshot recovery started from.
     pub snapshot_tick: Tick,
-    /// Journal entries replayed.
+    /// Journal input entries replayed, not counting checkpoints.
     pub replayed_entries: usize,
+    /// What the checkpoints in the replayed journal showed (D-109).
+    pub check: ReplayCheck,
+}
+
+/// The outcome of the state-hash checkpoints met during replay (doc 11 §5, D-109).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ReplayCheck {
+    /// Checkpoints compared.
+    pub checked: usize,
+    /// Checkpoints whose hash differed from the replayed state, in tick order.
+    pub mismatches: Vec<CheckpointMismatch>,
+}
+
+/// A checkpoint the replay did not reproduce.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CheckpointMismatch {
+    /// The tick of the checkpoint.
+    pub tick: Tick,
+    /// The hash in the journal, from the run that wrote it.
+    pub journaled: u64,
+    /// The hash of the replayed state at that tick.
+    pub replayed: u64,
 }
 
 /// Loads and replays the Universe in `store` as build `build`.
@@ -74,19 +102,25 @@ pub(crate) fn recover(store: &Store, meta: &Meta, build: &str) -> Result<Recover
     let snapshot_tick = state.tick();
 
     let entries = store.journal_after(snapshot_tick)?;
-    let by_tick = journal::decode(&entries, build)?;
+    let replay = journal::decode(&entries, build)?;
     let mut rejected = 0_u64;
-    if let Some(&last) = by_tick.keys().next_back() {
+    let mut check = ReplayCheck::default();
+    if let Some(last) = replay.last_tick() {
         let empty = TickInputs::default();
         while state.tick() < last {
             let next = state.tick().next();
-            let outputs = step(&mut state, by_tick.get(&next).unwrap_or(&empty));
+            let outputs = step(&mut state, replay.inputs.get(&next).unwrap_or(&empty));
             rejected += u64::from(outputs.inputs_rejected);
+            if let Some(&journaled) = replay.checkpoints.get(&next) {
+                compare(&state, journaled, &mut check)?;
+            }
         }
     }
     info!(
         snapshot_tick = snapshot_tick.get(),
-        replayed_entries = entries.len(),
+        replayed_entries = replay.input_entries,
+        checkpoints = check.checked,
+        mismatches = check.mismatches.len(),
         tick = state.tick().get(),
         rejected_inputs = rejected,
         "Universe loaded"
@@ -94,8 +128,34 @@ pub(crate) fn recover(store: &Store, meta: &Meta, build: &str) -> Result<Recover
     Ok(Recovered {
         state,
         snapshot_tick,
-        replayed_entries: entries.len(),
+        replayed_entries: replay.input_entries,
+        check,
     })
+}
+
+/// Compares the replayed `state` with a checkpoint's `journaled` hash (D-109).
+fn compare(
+    state: &UniverseState,
+    journaled: u64,
+    check: &mut ReplayCheck,
+) -> Result<(), ServerError> {
+    let replayed = state_hash(state)?;
+    check.checked += 1;
+    if replayed != journaled {
+        error!(
+            tick = state.tick().get(),
+            journaled = format_args!("{journaled:016x}"),
+            replayed = format_args!("{replayed:016x}"),
+            "replay diverged from the journal: the state hash differs at a checkpoint \
+             (a determinism bug, D-109); recovery continues with the replayed state"
+        );
+        check.mismatches.push(CheckpointMismatch {
+            tick: state.tick(),
+            journaled,
+            replayed,
+        });
+    }
+    Ok(())
 }
 
 /// Decodes and checks one snapshot. The error text says what is wrong with it.

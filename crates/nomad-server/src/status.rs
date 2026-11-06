@@ -7,11 +7,12 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use nomad_sim::{SeasonClock, Tick, Ticks};
+use nomad_sim::{SeasonClock, Tick};
 
 use crate::clock::Clock;
 use crate::error::ServerError;
 use crate::paths::{DATABASE_FILE, UniverseLock};
+use crate::server::season_end_tick;
 use crate::short_build;
 use crate::sim::wall_tick;
 use crate::store::{JournalStats, Meta, SnapshotInfo, Store};
@@ -50,6 +51,16 @@ impl UniverseReport {
     pub fn last_saved_tick(&self) -> Tick {
         let snapshot = self.snapshots.last().map_or(Tick::ZERO, |s| s.tick);
         self.journal.last_tick.map_or(snapshot, |j| j.max(snapshot))
+    }
+
+    /// The season's final tick (D-020): the Universe never advances past it (D-116).
+    pub fn season_end(&self) -> Tick {
+        season_end_tick(self.meta.season_weeks)
+    }
+
+    /// Whether the season has ended: the saved Universe has reached its final tick.
+    pub fn season_over(&self) -> bool {
+        self.last_saved_tick() >= self.season_end()
     }
 }
 
@@ -90,8 +101,7 @@ impl UniverseReport {
     fn fmt_meta(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let meta = &self.meta;
         let clock = SeasonClock::new(meta.season_start_unix_ms);
-        let season_end = clock
-            .universe_time_ms(Tick::ZERO.after(Ticks::from_days(7 * u64::from(meta.season_weeks))));
+        let season_end = clock.universe_time_ms(self.season_end());
         match &meta.name {
             Some(name) => writeln!(f, "Universe     {} \"{name}\"", meta.universe_id)?,
             None => writeln!(f, "Universe     {}", meta.universe_id)?,
@@ -116,10 +126,15 @@ impl UniverseReport {
         writeln!(f, "Seed         {}", meta.seed)?;
         writeln!(
             f,
-            "Season       {} weeks, {} to {}",
+            "Season       {} weeks, {} to {}{}",
             meta.season_weeks,
             utc_text(meta.season_start_unix_ms),
-            utc_text(season_end)
+            utc_text(season_end),
+            if self.season_over() {
+                " (ended: the Universe no longer advances, D-116)"
+            } else {
+                ""
+            }
         )?;
         writeln!(
             f,
@@ -143,15 +158,29 @@ impl UniverseReport {
             utc_text(clock.universe_time_ms(last)),
             ticks_text(last.since(Tick::ZERO))
         )?;
-        let behind = self.wall_tick.since(last);
-        if self.running {
+        // A run catches up to the wall clock, but never past the season end (D-116).
+        let target = self.wall_tick.min(self.season_end());
+        let behind = target.since(last);
+        if self.season_over() {
+            writeln!(
+                f,
+                "Wall clock   tick {}; the season ended at tick {}",
+                self.wall_tick.get(),
+                self.season_end().get()
+            )?;
+        } else if self.running {
             writeln!(f, "Wall clock   tick {}", self.wall_tick.get())?;
         } else if behind.get() > 0 {
             writeln!(
                 f,
-                "Wall clock   tick {}: the next run catches up {}",
+                "Wall clock   tick {}: the next run catches up {}{}",
                 self.wall_tick.get(),
-                ticks_text(behind)
+                ticks_text(behind),
+                if target < self.wall_tick {
+                    ", to the season end"
+                } else {
+                    ""
+                }
             )?;
         } else {
             writeln!(f, "Wall clock   tick {} (up to date)", self.wall_tick.get())?;
@@ -206,11 +235,91 @@ impl UniverseReport {
                 self.meta.journal_floor.get()
             )?,
         }
+        match journal.last_checkpoint {
+            Some(last) => writeln!(
+                f,
+                "Checkpoints  {} state hashes in the journal, the newest at tick {} (D-109)",
+                journal.checkpoints,
+                last.get()
+            )?,
+            None => writeln!(f, "Checkpoints  none in the journal (D-109)")?,
+        }
         write!(
             f,
             "Database     {}, write-ahead log {}",
             bytes_text(self.database_bytes),
             bytes_text(self.wal_bytes)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nomad_sim::Ticks;
+
+    use super::*;
+    use crate::ids::Difficulty;
+
+    fn report(last_snapshot: Tick, wall: Tick) -> UniverseReport {
+        UniverseReport {
+            dir: PathBuf::from("universes/abcdefgh"),
+            meta: Meta {
+                universe_id: "abcdefgh".to_owned(),
+                name: None,
+                build: "test-build".to_owned(),
+                seed: 1,
+                season_start_unix_ms: 0,
+                season_weeks: 8,
+                ai_commanders: 3,
+                difficulty: Difficulty::Normal,
+                created_at_unix_ms: 0,
+                rules_hash: None,
+                journal_floor: Tick::ZERO,
+            },
+            running: false,
+            snapshots: vec![SnapshotInfo {
+                tick: last_snapshot,
+                build: "test-build".to_owned(),
+                format: 1,
+                state_hash: 0,
+                size: 10,
+            }],
+            journal: JournalStats::default(),
+            database_bytes: 0,
+            wal_bytes: 0,
+            wall_tick: wall,
+            this_build: "test-build".to_owned(),
+        }
+    }
+
+    #[test]
+    fn an_ended_season_is_reported() {
+        let end = season_end_tick(8);
+        let day = Ticks::from_days(1).get();
+        let after = end.after(Ticks::from_days(3));
+
+        let ended = report(end, after);
+        assert!(ended.season_over());
+        let text = ended.to_string();
+        assert!(
+            text.contains("(ended: the Universe no longer advances, D-116)"),
+            "{text}"
+        );
+        assert!(
+            text.contains(&format!("the season ended at tick {}", end.get())),
+            "{text}"
+        );
+        assert!(!text.contains("catches up"), "{text}");
+
+        // A day before the end, with the wall clock past it: the next run catches up only to
+        // the season end.
+        let behind = report(Tick::new(end.get() - day), after);
+        assert!(!behind.season_over());
+        let text = behind.to_string();
+        assert!(
+            text.contains("the next run catches up 1 d, to the season end"),
+            "{text}"
+        );
+        assert!(text.contains("Checkpoints  none in the journal"), "{text}");
     }
 }

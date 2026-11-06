@@ -4,9 +4,11 @@
 //! under a second.
 
 mod catch_up;
+mod checkpoints;
 mod cli;
 mod common;
 mod corrupt;
 mod lock;
 mod recovery;
 mod retention;
+mod season_end;

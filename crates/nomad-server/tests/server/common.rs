@@ -13,7 +13,7 @@ use nomad_sim::galaxy::generate_stage1;
 use nomad_sim::snapshot::state_hash;
 use nomad_sim::{
     CommanderId, CommanderInput, CommanderInputKind, OperatorInput, SeasonConfig, Tick, TickInputs,
-    Ticks, step,
+    Ticks, UniverseState, step,
 };
 
 /// 2026-11-06T00:00:00Z.
@@ -231,6 +231,34 @@ pub fn journaled_operator_inputs(universe_dir: &Path) -> Vec<(u64, OperatorInput
             )
         })
         .collect()
+}
+
+/// The commander inputs in the journal, with their ticks.
+pub fn journaled_commander_inputs(universe_dir: &Path) -> Vec<(u64, CommanderInput)> {
+    journal_rows(universe_dir)
+        .into_iter()
+        .filter(|(_, kind, _)| kind == "commander")
+        .map(|(tick, _, payload)| {
+            (
+                tick,
+                postcard::from_bytes(&payload).expect("commander input decodes"),
+            )
+        })
+        .collect()
+}
+
+/// The Universe state saved in the snapshot of `tick`.
+pub fn snapshot_state(universe_dir: &Path, tick: u64) -> UniverseState {
+    let conn = rusqlite::Connection::open(universe_dir.join(nomad_server::DATABASE_FILE))
+        .expect("open database");
+    let bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT bytes FROM snapshots WHERE tick = ?1",
+            [tick.cast_signed()],
+            |row| row.get(0),
+        )
+        .expect("the snapshot exists");
+    nomad_sim::snapshot::decode(&bytes).expect("the snapshot decodes")
 }
 
 /// Runs SQL against a Universe's database, to damage it on purpose.

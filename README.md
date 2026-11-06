@@ -83,6 +83,8 @@ cargo run -p nomad-server -- status                  # meta, last tick, snapshot
 
 - `--universe <id>` picks a Universe when the data directory holds more than one. A second `run` on the same Universe is refused.
 - After the server has been stopped, `run` first catches up the missed time at fast-forward speed, then runs live at 10 Hz.
+- When the season's final tick has run, the Universe stops advancing: the server saves it and keeps serving that final state until Ctrl+C, and refuses inputs. `run` on an ended season catches up only to the season end, and `status` says the season has ended (Design D-116). A new season is a new Universe.
+- Every 60 s of Universe time the journal records a state hash, and a restart checks the replay against it. A mismatch is logged as an error, and the Universe still starts (D-109). The journal is kept for 48 h (D-110).
 - `create --backdate-hours N` starts the season N hours in the past, so the first `run` catches up. Use it to test catch-up.
 - `RUST_LOG` sets the log filter (default `info` for `run`). Logs go to stderr.
 

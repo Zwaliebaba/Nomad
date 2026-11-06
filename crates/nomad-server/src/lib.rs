@@ -10,13 +10,15 @@
 //! - [`create()`] generates the MVP stage-1 Universe and writes its `meta` row and tick-0
 //!   snapshot (doc 10 §4.4; D-106, D-107).
 //! - [`ServerHandle::start`] takes the Universe's lock, loads the latest snapshot and
-//!   replays the journal (refusing a journal from another build, D-048), then starts two
-//!   threads (doc 20 §4):
+//!   replays the journal (refusing a journal from another build, D-048, and checking its
+//!   state-hash checkpoints, D-109), then starts two threads (doc 20 §4):
 //!   - the **simulation** thread catches up to the wall clock with journaled catch-up
 //!     markers (D-047) and then paces one tick per 100 ms, publishing [`ServerEvent`]s and
-//!     tick-time statistics;
+//!     tick-time statistics. It journals a state-hash checkpoint every 600 ticks (D-109),
+//!     and at the season's final tick it stops advancing (D-116);
 //!   - the **persistence** thread commits journal batches at least once per second and
-//!     writes a snapshot every 3,000 ticks, applying retention (doc 11 §8).
+//!     writes a snapshot every 3,000 ticks, applying retention (doc 11 §8; the journal is
+//!     kept for 48 h, D-110).
 //! - [`ServerHandle::shutdown`], or [`ShutdownTrigger::shutdown`] from a Ctrl+C handler,
 //!   stops cleanly with a final snapshot. Dropping the handle stops like a crash.
 //! - [`status::inspect`] reports what is on disk without running anything.
@@ -52,10 +54,14 @@ pub use ids::{
     random_universe_id, universe_id_text,
 };
 pub use paths::{DATA_DIR_ENV, DATABASE_FILE, DataDir, LOCK_FILE, UniverseLock};
-pub use retention::{HOURLY_WINDOW, KEEP_LATEST, RetentionPlan, plan as retention_plan};
+pub use recovery::{CheckpointMismatch, ReplayCheck};
+pub use retention::{
+    HOURLY_WINDOW, JOURNAL_WINDOW, KEEP_LATEST, RetentionPlan, plan as retention_plan,
+};
 pub use server::{
-    CatchUpProgress, Input, Phase, SNAPSHOT_INTERVAL, ServerConfig, ServerEvent, ServerHandle,
-    ServerStatus, ShutdownReport, ShutdownTrigger, StartReport, SubmitError,
+    CHECKPOINT_INTERVAL, CatchUpProgress, Input, Phase, SNAPSHOT_INTERVAL, ServerConfig,
+    ServerEvent, ServerHandle, ServerStatus, ShutdownReport, ShutdownTrigger, StartReport,
+    SubmitError, season_end_tick,
 };
 pub use store::{JournalStats, Meta, SCHEMA_FORMAT, SnapshotInfo};
 pub use timefmt::{duration_text, ticks_text, utc_text};

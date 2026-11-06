@@ -15,12 +15,15 @@ use crate::clock::{Alarm, Clock};
 use crate::error::ServerError;
 use crate::paths::{DATABASE_FILE, UniverseLock};
 use crate::persist::{self, CHANNEL_BOUND};
-use crate::recovery;
+use crate::recovery::{self, ReplayCheck};
 use crate::sim::{Control, Sim, Stop};
 use crate::store::{Meta, Store};
 
 /// Snapshot interval: 5 min of Universe time, 3,000 ticks (doc 11 §8, D-048).
 pub const SNAPSHOT_INTERVAL: Ticks = Ticks::from_minutes(5);
+
+/// State-hash checkpoint interval: 60 s of Universe time, 600 ticks (doc 11 §5, D-109).
+pub const CHECKPOINT_INTERVAL: Ticks = Ticks::from_secs(60);
 
 /// Events a subscriber can fall behind by before newer events are dropped for it.
 const SUBSCRIBER_BOUND: usize = 4_096;
@@ -35,6 +38,12 @@ pub struct ServerConfig {
     pub build: String,
     /// Ticks between periodic snapshots. [`SNAPSHOT_INTERVAL`] outside tests.
     pub snapshot_interval: Ticks,
+    /// Ticks between state-hash checkpoints in the journal (D-109). [`CHECKPOINT_INTERVAL`]
+    /// outside tests.
+    pub checkpoint_interval: Ticks,
+    /// The season's final tick, after which the Universe stops advancing (D-116). `None`
+    /// takes it from the Universe's season length (D-020, D-106); tests set a short season.
+    pub season_end: Option<Tick>,
 }
 
 impl ServerConfig {
@@ -44,8 +53,16 @@ impl ServerConfig {
             universe_dir: universe_dir.into(),
             build: BUILD_ID.to_owned(),
             snapshot_interval: SNAPSHOT_INTERVAL,
+            checkpoint_interval: CHECKPOINT_INTERVAL,
+            season_end: None,
         }
     }
+}
+
+/// The season's final tick for a season of `weeks` (D-020): the Universe stops advancing
+/// after it (D-116).
+pub fn season_end_tick(weeks: u32) -> Tick {
+    Tick::ZERO.after(Ticks::from_days(7 * u64::from(weeks)))
 }
 
 /// An external input for the simulation (doc 11 §6). It applies on the tick after the one
@@ -67,6 +84,9 @@ pub enum SubmitError {
     /// The catch-up markers are written by the server only.
     #[error("this input is reserved for the server")]
     Reserved,
+    /// The season has ended and the Universe no longer advances (D-116).
+    #[error("the season has ended")]
+    SeasonOver,
     /// The server has stopped.
     #[error("the server has stopped")]
     Stopped,
@@ -81,6 +101,9 @@ pub enum Phase {
     CatchingUp,
     /// One tick every 100 ms.
     Live,
+    /// The season's final tick has been computed: the Universe no longer advances, and the
+    /// server serves its final state until it is shut down (D-116).
+    SeasonOver,
     /// The simulation thread has ended.
     Stopped,
 }
@@ -160,6 +183,12 @@ pub enum ServerEvent {
         /// The last tick computed before live play.
         tick: Tick,
     },
+    /// The season ended: this is the final tick, and the Universe no longer advances
+    /// (D-116).
+    SeasonOver {
+        /// The season's final tick.
+        tick: Tick,
+    },
     /// The simulation thread ended.
     Stopped,
 }
@@ -178,10 +207,14 @@ pub struct StartReport {
     pub meta: Meta,
     /// The snapshot recovery started from.
     pub snapshot_tick: Tick,
-    /// Journal entries replayed after it.
+    /// Journal input entries replayed after it, not counting checkpoints.
     pub replayed_entries: usize,
+    /// What the state-hash checkpoints met during replay showed (D-109).
+    pub replay_check: ReplayCheck,
     /// The tick after replay, where catch-up or live play starts.
     pub tick: Tick,
+    /// The season's final tick (D-116).
+    pub season_end: Tick,
 }
 
 /// Requests a clean shutdown from another thread, for example a Ctrl+C handler.
@@ -219,8 +252,10 @@ pub struct ServerHandle {
 
 impl ServerHandle {
     /// Starts the Universe in `config.universe_dir`: takes its lock, loads the latest
-    /// snapshot and replays the journal, then starts the threads. The simulation thread
-    /// catches up to `clock`'s wall-clock time and then runs live.
+    /// snapshot and replays the journal, checking its state-hash checkpoints (D-109;
+    /// [`StartReport::replay_check`]), then starts the threads. The simulation thread
+    /// catches up to `clock`'s wall-clock time and then runs live, until the season's final
+    /// tick, after which it serves the final state until shutdown (D-116).
     ///
     /// Fails without starting anything if the Universe is locked, damaged, in a format this
     /// build cannot read, or has a journal written by another build.
@@ -247,11 +282,16 @@ impl ServerHandle {
             "opening Universe"
         );
         let recovered = recovery::recover(&store, &meta, &config.build)?;
+        let season_end = config
+            .season_end
+            .unwrap_or_else(|| season_end_tick(meta.season_weeks));
         let report = StartReport {
             meta,
             snapshot_tick: recovered.snapshot_tick,
             replayed_entries: recovered.replayed_entries,
+            replay_check: recovered.check,
             tick: recovered.state.tick(),
+            season_end,
         };
 
         let shared = Arc::new(Shared::new(recovered.state.tick()));
@@ -272,7 +312,8 @@ impl ServerHandle {
             shared: Arc::clone(&shared),
             build: config.build,
             snapshot_interval: config.snapshot_interval,
-            season_end: Tick::ZERO.after(Ticks::from_days(7 * u64::from(report.meta.season_weeks))),
+            checkpoint_interval: config.checkpoint_interval,
+            season_end,
         };
         let sim = match thread::Builder::new()
             .name("nomad-sim".to_owned())
@@ -311,6 +352,7 @@ impl ServerHandle {
         }
         match self.status().phase {
             Phase::Live => {}
+            Phase::SeasonOver => return Err(SubmitError::SeasonOver),
             Phase::Stopped => return Err(SubmitError::Stopped),
             Phase::Starting | Phase::CatchingUp => return Err(SubmitError::NotLive),
         }

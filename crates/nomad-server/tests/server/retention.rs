@@ -1,5 +1,5 @@
 //! Snapshot retention and journal compaction over simulated days (N2 plan §7
-//! "Retention"; doc 11 §8).
+//! "Retention"; doc 11 §8; the 48 h journal, D-110).
 
 use std::collections::BTreeSet;
 use std::time::Duration;
@@ -50,13 +50,35 @@ fn after_three_days_only_the_doc_11_snapshots_remain() {
     let kept: BTreeSet<u64> = report.snapshots.iter().map(|s| s.tick.get()).collect();
     assert_eq!(kept, expected);
 
-    // The journal is compacted to what follows the older of the latest two snapshots: the
-    // input of tick 6 and the catch-up start marker are gone, and only the end marker on the
-    // final tick is left.
-    assert_eq!(report.meta.journal_floor, Tick::new(end - 20));
+    // The journal is kept for 48 h (D-110), from the kept snapshot that opens that window:
+    // the hourly snapshot at 864,000, in whose hour the point 48 h before the latest
+    // snapshot (864,020) falls. Everything older is gone: the input of tick 6 and the
+    // catch-up start marker of tick 21.
+    let floor = 24 * hour;
+    assert_eq!(report.meta.journal_floor, Tick::new(floor));
+    assert!(end - floor >= Ticks::from_hours(48).get());
+    let rows = journal_rows(&created.dir);
+    assert!(
+        rows.iter()
+            .all(|(tick, _, _)| *tick > floor && *tick <= end)
+    );
     assert_eq!(
         journaled_operator_inputs(&created.dir),
         [(end, OperatorInput::CatchUpEnd)]
     );
-    assert_eq!(report.journal.entries, 1);
+    // What is left besides the end marker: a state-hash checkpoint every 600 ticks after
+    // the floor (D-109), through 2,592,000.
+    let checkpoints: Vec<u64> = rows
+        .iter()
+        .filter(|(_, kind, _)| kind == "state_hash")
+        .map(|(tick, _, _)| *tick)
+        .collect();
+    let expected: Vec<u64> = (floor / 600 + 1..=(end - 20) / 600)
+        .map(|i| i * 600)
+        .collect();
+    assert_eq!(checkpoints, expected);
+    assert_eq!(rows.len(), checkpoints.len() + 1);
+    assert_eq!(report.journal.entries, rows.len() as u64);
+    assert_eq!(report.journal.checkpoints, checkpoints.len() as u64);
+    assert_eq!(report.journal.last_checkpoint, Some(Tick::new(end - 20)));
 }

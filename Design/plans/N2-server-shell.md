@@ -1,6 +1,6 @@
 # Work package N2 — Server shell
 
-Status: **Built, except D-109 and D-110** (journal state-hash checkpoints and 48 h journal retention, decided after the build). Merged on the working branch, PR Zwaliebaba/Nomad#2. Planned and decided as Q97–Q100 → D-106, D-107, D-109, D-110. The gaps found while building it are Q105 and Q106. This plan is also the brief for whoever builds N2.
+Status: **Built.** The first build merged with PR Zwaliebaba/Nomad#2; D-109 (journal state-hash checkpoints), D-110 (48 h journal) and D-116 (season-end freeze), decided after it, followed on the working branch. Planned and decided as Q97–Q100 → D-106, D-107, D-109, D-110. The gaps found while building it, Q105 and Q106, became D-116 (season end, also built) and D-117 (catching up after the PC sleeps). This plan is also the brief for whoever builds N2.
 
 ## 1. Goal
 

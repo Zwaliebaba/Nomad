@@ -2,11 +2,15 @@
 //!
 //! Kept after every snapshot write:
 //!
-//! - the latest 2 snapshots, plus the journal after the older of them, so that recovery can
-//!   fall back to it if the latest one is damaged;
+//! - the latest 2 snapshots, so that recovery can fall back to the older if the latest one
+//!   is damaged;
 //! - for the 48 h of Universe time before the latest snapshot, the first snapshot of each
 //!   hour;
-//! - before that, the first snapshot of each day, for the rest of the season.
+//! - before that, the first snapshot of each day, for the rest of the season;
+//! - the journal for the 48 h before the latest snapshot (D-110), from the kept snapshot
+//!   that opens that window, so any moment in it can be replayed from the hourly snapshot
+//!   before it. The window therefore reaches back to the start of that snapshot's hour,
+//!   48 h to 49 h in all.
 //!
 //! Older journal entries are deleted. Hours and days count from the season start (tick 0),
 //! so the periodic snapshots every 3,000 ticks (5 min) fall on their boundaries.
@@ -15,10 +19,13 @@ use std::collections::BTreeSet;
 
 use nomad_sim::{Tick, Ticks};
 
-/// How many of the latest snapshots are always kept, with their journal.
+/// How many of the latest snapshots are always kept.
 pub const KEEP_LATEST: usize = 2;
 /// How far back from the latest snapshot hourly snapshots are kept.
 pub const HOURLY_WINDOW: Ticks = Ticks::from_hours(48);
+/// How far back from the latest snapshot the journal is kept (D-110; provisional until the
+/// journal volume is measured).
+pub const JOURNAL_WINDOW: Ticks = Ticks::from_hours(48);
 const HOUR: u64 = Ticks::from_hours(1).get();
 const DAY: u64 = Ticks::from_days(1).get();
 
@@ -48,7 +55,6 @@ pub fn plan(ticks: &[Tick]) -> RetentionPlan {
     };
 
     let mut keep: BTreeSet<Tick> = sorted.iter().rev().take(KEEP_LATEST).copied().collect();
-    let journal_floor = keep.first().copied().unwrap_or(latest);
     // The hourly window starts at the hour that contains the point 48 h before the latest
     // snapshot. Aligning it to whole hours makes retention give the same result whether it
     // runs after every snapshot or once at the end: a snapshot deleted once would never be
@@ -69,6 +75,17 @@ pub fn plan(ticks: &[Tick]) -> RetentionPlan {
             keep.insert(tick);
         }
     }
+
+    // The journal starts at the newest kept snapshot at or before the start of its window
+    // (D-110), or at the oldest kept snapshot if every one is newer. Either way it is at or
+    // before the older of the latest two, so that fallback stays possible.
+    let window_start = Tick::new(latest.get().saturating_sub(JOURNAL_WINDOW.get()));
+    let journal_floor = keep
+        .range(..=window_start)
+        .next_back()
+        .or_else(|| keep.first())
+        .copied()
+        .unwrap_or(latest);
 
     let delete = sorted
         .into_iter()
@@ -108,7 +125,8 @@ mod tests {
         let all = ticks((0..12).map(|i| i * 3_000));
         let plan = plan(&all);
         assert_eq!(plan.keep, ticks([0, 30_000, 33_000]).into_iter().collect());
-        assert_eq!(plan.journal_floor, Tick::new(30_000));
+        // Younger than 48 h: the whole journal is kept (D-110).
+        assert_eq!(plan.journal_floor, Tick::ZERO);
         assert_eq!(plan.delete.len(), 9);
     }
 
@@ -133,8 +151,50 @@ mod tests {
         expected.insert(Tick::new(latest));
         expected.insert(Tick::new(latest - 3_000));
         assert_eq!(plan.keep, expected);
-        assert_eq!(plan.journal_floor, Tick::new(latest - 3_000));
+        // The journal starts at the hourly snapshot that opens the 48 h window (D-110).
+        assert_eq!(plan.journal_floor, Tick::new(DAY));
         assert_eq!(plan.keep.len() + plan.delete.len(), all.len());
+    }
+
+    #[test]
+    fn the_journal_covers_48_hours_from_a_kept_snapshot() {
+        // D-110 at every step of five days of snapshots every 5 min: the journal starts at
+        // a kept snapshot, covers at least 48 h (or everything, early on), at most one hour
+        // more, and never starts after the older of the latest two snapshots.
+        let mut kept: Vec<Tick> = Vec::new();
+        for i in 0..=(5 * DAY) / 3_000 {
+            let latest = Tick::new(i * 3_000);
+            kept.push(latest);
+            let plan = plan(&kept);
+            let floor = plan.journal_floor;
+            assert!(
+                plan.keep.contains(&floor),
+                "floor {floor:?} is not a kept snapshot"
+            );
+            let covered = latest.since(floor).get();
+            if latest.get() >= JOURNAL_WINDOW.get() {
+                assert!(
+                    covered >= JOURNAL_WINDOW.get(),
+                    "at {latest:?}: {covered} ticks"
+                );
+                assert!(
+                    covered < JOURNAL_WINDOW.get() + HOUR,
+                    "at {latest:?}: {covered} ticks"
+                );
+            } else {
+                assert_eq!(floor, Tick::ZERO);
+            }
+            let older_of_two = plan.keep.iter().rev().nth(1).copied().unwrap_or(latest);
+            assert!(floor <= older_of_two);
+            kept = plan.keep.into_iter().collect();
+        }
+    }
+
+    #[test]
+    fn sparse_snapshots_keep_the_journal_from_the_last_one_before_the_window() {
+        // Snapshots a day apart: the journal starts at the newest one at least 48 h old.
+        let all = ticks([0, DAY, 2 * DAY, 3 * DAY + 5]);
+        assert_eq!(plan(&all).journal_floor, Tick::new(DAY));
     }
 
     #[test]

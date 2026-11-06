@@ -34,7 +34,7 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 | Package | Plan | Status |
 |---|---|---|
 | S3 | [`plans/S3-movement-and-orders.md`](plans/S3-movement-and-orders.md) | Built (D-101 to D-105; gaps decided as D-112 to D-115) |
-| N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Built except D-109 and D-110 (journal checkpoints, 48 h journal) and the D-116 season-end freeze, in progress; gaps decided as D-116, D-117 |
+| N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Built (D-106, D-107, D-109, D-110; season end D-116, sleep catch-up D-117) |
 | N3 | [`plans/N3-transport-and-sessions.md`](plans/N3-transport-and-sessions.md) | Planned and decided (D-120 to D-125) |
 | S4 | [`plans/S4-economy.md`](plans/S4-economy.md) | Planned and decided (D-126 to D-138); being built |
 | S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Planned and decided (D-139 to D-149); S5a being built, S5b after S4 |

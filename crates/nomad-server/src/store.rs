@@ -5,7 +5,7 @@
 //! |---|---|
 //! | `meta` | One row: layout format, Universe ID and name, creating build, seed, season start and length, creation parameters, rules hash, journal floor |
 //! | `snapshots` | One row per snapshot: tick, build, snapshot format, state hash, bytes |
-//! | `journal` | One row per input: tick, seq, kind, payload, build |
+//! | `journal` | One row per input, and every 600 ticks a state-hash checkpoint (D-109): tick, seq, kind, payload, build. Kept for 48 h (D-110) |
 //!
 //! Snapshots are opaque bytes plus the format number `nomad_sim::snapshot` reported when
 //! they were written; this module never looks inside them. Every write is one transaction.
@@ -132,6 +132,10 @@ pub struct JournalStats {
     pub first_tick: Option<Tick>,
     /// Tick of the newest entry.
     pub last_tick: Option<Tick>,
+    /// State-hash checkpoints among the entries (D-109).
+    pub checkpoints: u64,
+    /// Tick of the newest checkpoint.
+    pub last_checkpoint: Option<Tick>,
 }
 
 /// An open Universe database.
@@ -455,11 +459,21 @@ impl Store {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .map_err(|e| self.error("measure journal", e))?;
+        let (checkpoints, last_checkpoint): (i64, Option<i64>) = self
+            .conn
+            .query_row(
+                "SELECT count(*), max(tick) FROM journal WHERE kind = ?1",
+                [EntryKind::StateHash.as_str()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|e| self.error("count checkpoints", e))?;
         Ok(JournalStats {
             entries: u64::try_from(entries).unwrap_or(0),
             payload_bytes: u64::try_from(bytes).unwrap_or(0),
             first_tick: first.and_then(tick_from_sql),
             last_tick: last.and_then(tick_from_sql),
+            checkpoints: u64::try_from(checkpoints).unwrap_or(0),
+            last_checkpoint: last_checkpoint.and_then(tick_from_sql),
         })
     }
 
