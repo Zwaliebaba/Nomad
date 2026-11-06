@@ -45,6 +45,36 @@ impl SimIdAllocator {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CommanderId(pub u32);
 
+/// Declares a typed identity that wraps a [`SimId`] (`CODING_STANDARDS.md` §4: identifiers
+/// are newtypes). Only the module that declares it, and its descendants, can create one, so
+/// every value comes from the Universe's [`SimIdAllocator`].
+macro_rules! sim_id_newtype {
+    ($(#[$meta:meta])* $name:ident) => {
+        $(#[$meta])*
+        #[derive(
+            Clone,
+            Copy,
+            Debug,
+            PartialEq,
+            Eq,
+            PartialOrd,
+            Ord,
+            Hash,
+            serde::Serialize,
+            serde::Deserialize,
+        )]
+        pub struct $name($crate::id::SimId);
+
+        impl $name {
+            /// The underlying simulation identity.
+            pub const fn sim_id(self) -> $crate::id::SimId {
+                self.0
+            }
+        }
+    };
+}
+pub(crate) use sim_id_newtype;
+
 #[cfg(test)]
 mod tests {
     use super::*;

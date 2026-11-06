@@ -7,7 +7,9 @@
 //! - stable identities ([`SimId`]);
 //! - seeded random streams per scope and purpose ([`RngStreams`]);
 //! - canonical snapshots and a state hash ([`snapshot`]);
-//! - the [`step`] function that advances the Universe by one tick.
+//! - the [`step`] function that advances the Universe by one tick;
+//! - the season galaxy's topology ([`galaxy`], Design doc 10) and holdings with the system
+//!   control rule ([`ControlState`], D-041).
 //!
 //! **Determinism contract (D-049):** the same build, the same snapshot and the same inputs
 //! produce bit-identical state. This crate reads no clock, does no I/O and starts no threads
@@ -17,6 +19,8 @@
 //! and 15. Until then the only scheduled work is a diagnostic workload that exercises the
 //! timers and random streams for pacing and determinism tests.
 
+pub mod galaxy;
+mod holding;
 mod id;
 mod input;
 mod rng;
@@ -27,6 +31,11 @@ mod time;
 mod timers;
 mod util;
 
+pub use galaxy::{
+    Galaxy, GateId, Lane, LaneId, LaneKind, PositionKm, SectorId, Site, SiteId, System, SystemId,
+    SystemKind,
+};
+pub use holding::{ControlState, Holding, HoldingError, HoldingId, majority_threshold};
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 pub use rng::{RngStreams, StreamKey, purpose};

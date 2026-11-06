@@ -12,6 +12,8 @@ repository = "https://github.com/Zwaliebaba/Nomad"
 # Shared dependency versions. Crates opt in with `name = { workspace = true }`.
 [workspace.dependencies]
 nomad-sim = { path = "crates/nomad-sim" }
+# Pure-Rust maths for the simulation, identical on every platform (D-049, CODING_STANDARDS.md §8).
+libm = "0.2"
 postcard = { version = "1.1", default-features = false, features = ["use-std"] }
 rand_chacha = { version = "0.10", default-features = false }
 serde = { version = "1.0", features = ["derive"] }

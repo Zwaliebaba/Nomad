@@ -13,7 +13,10 @@ use crate::util::fnv1a64;
 pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// The snapshot schema version this build writes and reads. Newer builds migrate older
 /// versions forward (Design doc 11 §8).
-pub const FORMAT: u32 = 1;
+///
+/// Version 2 adds the season galaxy and holdings (Design doc 10). Version 1 was never
+/// persisted outside tests, so there is nothing to migrate from.
+pub const FORMAT: u32 = 2;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]
@@ -81,7 +84,8 @@ pub fn state_hash(state: &UniverseState) -> Result<u64, SnapshotError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{SeasonConfig, TickInputs, step};
+    use crate::galaxy::generate_stage1;
+    use crate::{CommanderId, SeasonConfig, TickInputs, step};
 
     fn universe() -> UniverseState {
         UniverseState::new(SeasonConfig {
@@ -99,6 +103,25 @@ mod tests {
     }
 
     #[test]
+    fn round_trip_with_galaxy_and_holdings_is_exact() {
+        let commanders = [
+            CommanderId(1),
+            CommanderId(2),
+            CommanderId(3),
+            CommanderId(4),
+        ];
+        let mut state = generate_stage1(universe().season(), commanders).unwrap();
+        step(&mut state, &TickInputs::default());
+        let bytes = encode(&state).unwrap();
+        let decoded = decode(&bytes).unwrap();
+        assert_eq!(decoded, state);
+        // Canonical: re-encoding gives the same bytes.
+        assert_eq!(encode(&decoded).unwrap(), bytes);
+        assert_eq!(decoded.galaxy().sites().count(), 60);
+        assert_eq!(decoded.holdings().count(), 4);
+    }
+
+    #[test]
     fn rejects_foreign_and_future_snapshots() {
         assert!(matches!(decode(b"garbage"), Err(SnapshotError::BadMagic)));
         let mut bytes = encode(&universe()).unwrap();
@@ -106,6 +129,11 @@ mod tests {
         assert!(matches!(
             decode(&bytes),
             Err(SnapshotError::UnsupportedFormat { .. })
+        ));
+        bytes[8..12].copy_from_slice(&1_u32.to_le_bytes());
+        assert!(matches!(
+            decode(&bytes),
+            Err(SnapshotError::UnsupportedFormat { found: 1, .. })
         ));
         let mut bytes = encode(&universe()).unwrap();
         bytes.push(0);

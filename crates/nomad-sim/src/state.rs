@@ -1,9 +1,11 @@
 //! The authoritative Universe state (Design doc 11; D-048, D-049).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use crate::galaxy::{Galaxy, SiteId, SystemId};
+use crate::holding::{self, ControlState, Holding, HoldingError, HoldingId};
 use crate::id::{CommanderId, SimIdAllocator};
 use crate::rng::RngStreams;
 use crate::time::{SeasonClock, Tick, Ticks};
@@ -43,10 +45,15 @@ pub struct UniverseState {
     pub(crate) timers: TimerQueue<ScheduledEvent>,
     pub(crate) rng: RngStreams,
     pub(crate) connected: BTreeSet<CommanderId>,
+    /// The season galaxy's topology, fixed for the season (doc 10, D-044).
+    pub(crate) galaxy: Galaxy,
+    /// Every holding and outpost, by identity (doc 10 §5, D-041).
+    pub(crate) holdings: BTreeMap<HoldingId, Holding>,
 }
 
 impl UniverseState {
-    /// A new Universe at tick 0.
+    /// A new Universe at tick 0 with an empty galaxy. Use
+    /// [`crate::galaxy::generate_stage1`] for a Universe with a generated galaxy.
     pub fn new(season: SeasonConfig) -> Self {
         Self {
             season,
@@ -56,6 +63,8 @@ impl UniverseState {
             timers: TimerQueue::default(),
             rng: RngStreams::new(season.seed),
             connected: BTreeSet::new(),
+            galaxy: Galaxy::default(),
+            holdings: BTreeMap::new(),
         }
     }
 
@@ -82,5 +91,57 @@ impl UniverseState {
     /// Number of pending timers.
     pub fn pending_timers(&self) -> usize {
         self.timers.len()
+    }
+
+    /// The season galaxy (doc 10).
+    pub const fn galaxy(&self) -> &Galaxy {
+        &self.galaxy
+    }
+
+    /// Every holding and outpost, in identity order.
+    pub fn holdings(&self) -> impl Iterator<Item = (HoldingId, &Holding)> {
+        self.holdings.iter().map(|(&id, holding)| (id, holding))
+    }
+
+    /// A holding by identity.
+    pub fn holding(&self, id: HoldingId) -> Option<&Holding> {
+        self.holdings.get(&id)
+    }
+
+    /// The holding or outpost on `site`, if any.
+    pub fn holding_at(&self, site: SiteId) -> Option<(HoldingId, &Holding)> {
+        self.holdings().find(|(_, holding)| holding.site == site)
+    }
+
+    /// The control state of `system`, or `None` if it does not exist or cannot be claimed,
+    /// such as a raider haven (doc 10 §6, D-041).
+    pub fn control_state(&self, system: SystemId) -> Option<ControlState> {
+        self.control_states().remove(&system)
+    }
+
+    /// The control state of every claimable system, in system order (doc 10 §6, D-041).
+    pub fn control_states(&self) -> BTreeMap<SystemId, ControlState> {
+        holding::control_states(&self.galaxy, &self.holdings)
+    }
+
+    /// Places a holding, or an outpost if `core_complete` is false, on a free, claimable
+    /// site. Claim costs and timing are doc 15 rules; callers here are the generator and
+    /// tests.
+    pub(crate) fn insert_holding(
+        &mut self,
+        site: SiteId,
+        owner: CommanderId,
+        core_complete: bool,
+    ) -> Result<HoldingId, HoldingError> {
+        holding::insert(
+            &self.galaxy,
+            &mut self.ids,
+            &mut self.holdings,
+            Holding {
+                site,
+                owner,
+                core_complete,
+            },
+        )
     }
 }

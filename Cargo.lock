@@ -930,6 +930,7 @@ dependencies = [
 name = "nomad-sim"
 version = "0.1.0"
 dependencies = [
+ "libm",
  "postcard",
  "rand_chacha",
  "serde",

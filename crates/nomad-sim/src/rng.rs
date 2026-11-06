@@ -15,6 +15,9 @@ use serde::{Deserialize, Serialize};
 pub mod purpose {
     /// The diagnostic workload used by pacing and determinism tests.
     pub const DIAGNOSTICS: u32 = 1;
+    /// Season galaxy layout at season start: site and gate positions (per-system scope) and
+    /// lane transit times (global scope). Design doc 10 §4, D-044.
+    pub const GALAXY_LAYOUT: u32 = 2;
 }
 
 /// Identifies one random stream.
@@ -79,6 +82,22 @@ impl RngStreams {
                 return x % bound;
             }
         }
+    }
+
+    /// A uniform index in `0..len`. Returns 0 when `len` is 0.
+    pub fn index(&mut self, key: StreamKey, len: usize) -> usize {
+        let bound = u64::try_from(len).unwrap_or(u64::MAX);
+        usize::try_from(self.below(key, bound))
+            .expect("invariant: a value below a usize bound fits in usize")
+    }
+
+    /// A uniform value in `[0, 1)` with 53 random bits.
+    ///
+    /// Built from the raw stream with exact operations only (a shift and a division by a
+    /// power of two), so the result is the same on every platform (doc 11 §5).
+    pub fn unit_f64(&mut self, key: StreamKey) -> f64 {
+        const SCALE: f64 = 9_007_199_254_740_992.0; // 2^53
+        (self.next_u64(key) >> 11) as f64 / SCALE
     }
 
     fn stream(&mut self, key: StreamKey) -> &mut ChaCha8Rng {
@@ -167,6 +186,14 @@ mod tests {
         let mut s = RngStreams::new(1);
         assert_eq!(s.below(A, 0), 0);
         assert!((0..1_000).all(|_| s.below(A, 7) < 7));
+    }
+
+    #[test]
+    fn index_and_unit_stay_in_range() {
+        let mut s = RngStreams::new(3);
+        assert_eq!(s.index(A, 0), 0);
+        assert!((0..1_000).all(|_| s.index(A, 5) < 5));
+        assert!((0..1_000).all(|_| (0.0..1.0).contains(&s.unit_f64(A))));
     }
 
     #[test]
