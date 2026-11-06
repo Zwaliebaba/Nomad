@@ -33,6 +33,13 @@ impl SimId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CommanderId(pub u32);
 
+/// Identity of a Universe, one per server data directory (Design doc 20 §6; D-021, D-026).
+///
+/// *Proposed:* a `u64` chosen by the server when it creates the Universe. Doc 20 fixes only
+/// that each Universe has an identity, not its form.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct UniverseId(pub u64);
+
 /// Declares a typed identity that wraps a [`SimId`] (`CODING_STANDARDS.md` §4: identifiers
 /// are newtypes). The simulation builds one only from an identity its allocator handed out;
 /// elsewhere they are decoded, like [`SimId`] itself.
@@ -86,6 +93,12 @@ sim_id_newtype!(
 sim_id_newtype!(
     /// Identity of a holding. A holding keeps its identity when captured.
     HoldingId
+);
+sim_id_newtype!(
+    /// Identity of a fleet, the unit that receives orders and has rules of engagement
+    /// (doc 15 §3.4). Fleets are not simulated yet; the identity exists so that commands
+    /// can name one.
+    FleetId
 );
 
 #[cfg(test)]
