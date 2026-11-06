@@ -1,6 +1,6 @@
 # 13 — AI commanders, the Deputy and raiders
 
-Status: **Proposed (round 9).** Built on R-05, P-02, D-013, D-016, D-020, D-027, D-032, D-038, D-047, D-049, D-057 and D-075/D-076, and docs 11, 12, 14, 15 and 16. Decisions needed: Q71–Q77. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 9).** Q71–Q77 were decided as D-077 to D-083. Built on R-05, P-02, D-013, D-016, D-020, D-027, D-032, D-038, D-047, D-049, D-057 and D-075/D-076, and docs 11, 12, 14, 15 and 16. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -30,7 +30,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 3. Architecture
 
-*Proposed (Q71); this adopts P-02.*
+*Agreed (D-077); this adopts P-02.*
 
 ```text
            ┌──────────────── CommanderView (doc 16 §7) ─────────────────┐
@@ -74,7 +74,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 5. The Strategist
 
-*Proposed (Q72).*
+*Agreed (D-078).*
 
 **Utility-scored goals.** Every 10 s, the Strategist scores a fixed set of goals from features of its `CommanderView`. It keeps a plan for each of the best few, as long as resources and fleets allow.
 
@@ -96,7 +96,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 6. AI online and offline schedules
 
-*Proposed (Q74), detailing D-027.*
+*Agreed (D-080), detailing D-027.*
 
 - Each AI commander gets a seeded weekly schedule: **2–3 sessions a day, 1.5–4 h in total, at consistent times**, with some variation at weekends.
 - The connect and disconnect events come from the seed and are not journaled (doc 11 §6). They feed the activity-derived exposure window (D-032), so an AI's window reflects its schedule, just as a human's does.
@@ -106,7 +106,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 7. Difficulty
 
-*Proposed (Q73).* Difficulty changes **competence only**, never resources or information (D-027).
+*Agreed (D-079).* Difficulty changes **competence only**, never resources or information (D-027).
 
 | Setting | Easy | Normal | Hard |
 |---|---|---|---|
@@ -121,7 +121,7 @@ The difficulty is set per AI commander when the Universe is created. The MVP def
 
 ## 8. NPC raider director
 
-*Proposed (Q75); this is the behaviour behind doc 15 §10.*
+*Agreed (D-081); this is the behaviour behind doc 15 §10.*
 
 - **Timing:** each raider haven launches a raid every **2–4 h**, the interval drawn from its seeded stream. No new raids start during catch-up (D-047).
 - **Target choice:**
@@ -134,7 +134,7 @@ The difficulty is set per AI commander when the Universe is created. The MVP def
 
 ## 9. Doctrine presets
 
-*Proposed (Q76).* These are the presets from doc 12 §5.2. *Balanced* is the default for new human commanders, and the Strategist's starting point before it adapts its doctrine.
+*Agreed (D-082).* These are the presets from doc 12 §5.2. *Balanced* is the default for new human commanders, and the Strategist's starting point before it adapts its doctrine.
 
 | Parameter | Fortress | Balanced | Trader |
 |---|---|---|---|
@@ -151,7 +151,7 @@ The difficulty is set per AI commander when the Universe is created. The MVP def
 
 ## 10. AI acceptance criteria
 
-*Proposed (Q77); input for doc 30.* These are measured in headless AI-against-AI runs (D-037), then confirmed by human playtests.
+*Agreed (D-083); input for doc 30.* These are measured in headless AI-against-AI runs (D-037), then confirmed by human playtests.
 
 1. **Determinism:** the same seed gives the same state hash with AI commanders active (D-049).
 2. **No idle income:** over any 24 h, each AI spends at least 90% of its income, or is at the cap with nothing left to build.

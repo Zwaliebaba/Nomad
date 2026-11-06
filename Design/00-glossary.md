@@ -175,7 +175,7 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **`CommanderView`** | The read-only projection of what one commander knows. It is the only input AI commanders and Deputies get. |
 | **Announcement** | Siege information addressed to the owner and the commanders with breach credit. |
 
-## AI (doc 13, proposed)
+## AI (doc 13, agreed)
 
 | Term | Meaning |
 |---|---|
