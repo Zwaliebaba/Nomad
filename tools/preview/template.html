@@ -95,6 +95,7 @@
     <button id="tGrid" aria-pressed="true">Grid</button>
     <button id="tShield" aria-pressed="true">Shield</button>
     <button id="tShips" aria-pressed="true">Ships</button>
+    <button id="tGlobe" aria-pressed="true" title="Shield shape: full globe centred on the ship plane, or the phase-1 dome on the ops grid">Globe</button>
   </div>
   <span class="spacer"></span>
   <span id="hint">Drag to pan · wheel to zoom</span>
@@ -211,7 +212,7 @@ void main() {
 }`;
 const DOME_FS = `#version 300 es
 precision highp float;
-uniform vec2 uDomeCenter; uniform vec4 uStrength; uniform vec3 uRim; uniform vec3 uWeak; uniform float uBack;
+uniform vec2 uDomeCenter; uniform vec4 uStrength; uniform vec3 uRim; uniform vec3 uWeak; uniform float uBack; uniform float uCenterZ;
 in vec3 vWorld; in float vFacing; out vec4 o;
 void main() {
   bool back = vFacing < 0.0;
@@ -222,8 +223,9 @@ void main() {
   float strength = uStrength[i];
   vec3 tint = strength < 0.5 ? uWeak : uRim;
   float rim = pow(1.0 - abs(vFacing), 3.0) * 0.75;
-  float ring = (1.0 - smoothstep(0.0, 0.9, vWorld.z)) * 0.8;
-  float a = (0.05 + rim + ring) * (uBack > 0.5 ? 0.45 : 1.0);
+  // Sector ring at the equator (globe) or the base (dome); the part below the ops grid is drawn fainter.
+  float ring = (1.0 - smoothstep(0.0, 0.9, abs(vWorld.z - uCenterZ))) * 0.8;
+  float a = (0.05 + rim + ring) * (uBack > 0.5 ? 0.45 : 1.0) * (vWorld.z < 0.0 ? 0.35 : 1.0);
   o = vec4(tint, clamp(a, 0.0, 0.9));
 }`;
 
@@ -338,14 +340,16 @@ const stationGlowVao = pointVao(glowPts);
 const shipGlowVao = pointVao(shipGlow);
 
 const shield = DATA.shield;
-const dome = (() => {
-  const [cx, cy] = shield.center, rxy = shield.radius_xy, rz = shield.radius_z, LON = 64, LAT = 24;
+// Two shield shapes to compare: the phase-1 dome (an ellipsoid cap on the ops grid, doc 01 §6) and a
+// full globe centred on the ship plane, whose equator is the 2D shield circle used for hits (doc 15 §5.1).
+function makeShield(phiMin, phiMax, cz, LAT) {
+  const [cx, cy] = shield.center, rxy = shield.radius_xy, rz = shield.radius_z, LON = 64;
   const v = [], idx = [];
   for (let j = 0; j <= LAT; j++) {
-    const phi = (j / LAT) * Math.PI / 2;
+    const phi = phiMin + (j / LAT) * (phiMax - phiMin);
     for (let i = 0; i <= LON; i++) {
       const th = (i / LON) * TAU, cp = Math.cos(phi);
-      v.push(cx + rxy*cp*Math.cos(th), cy + rxy*cp*Math.sin(th), rz*Math.sin(phi), cp*Math.cos(th)/rxy, cp*Math.sin(th)/rxy, Math.sin(phi)/rz);
+      v.push(cx + rxy*cp*Math.cos(th), cy + rxy*cp*Math.sin(th), cz + rz*Math.sin(phi), cp*Math.cos(th)/rxy, cp*Math.sin(th)/rxy, Math.sin(phi)/rz);
     }
   }
   for (let j = 0; j < LAT; j++) for (let i = 0; i < LON; i++) {
@@ -359,8 +363,12 @@ const dome = (() => {
   gl.enableVertexAttribArray(aN); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 24, 12);
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
   gl.bindVertexArray(null);
-  return { vao, n: idx.length };
-})();
+  return { vao, n: idx.length, cz };
+}
+const shieldShapes = {
+  dome: makeShield(0, Math.PI / 2, 0, 24),
+  globe: makeShield(-Math.PI / 2, Math.PI / 2, DATA.shipPlaneZ, 48),
+};
 // Sector strengths by 90° azimuth bin: [0,90) [90,180) [180,270) [270,360).
 const strengths = [1, 1, 1, 1];
 for (const s of shield.sectors) strengths[Math.floor((((s.az_deg[0] % 360) + 360) % 360) / 90) % 4] = s.strength;
@@ -369,7 +377,7 @@ for (const s of shield.sectors) strengths[Math.floor((((s.az_deg[0] % 360) + 360
 const HOME = { x: DATA.pivot[0], y: DATA.pivot[1] };
 const ZOOMS = [...DATA.zoomLevels, 3, 4];
 const cam = { x: HOME.x, y: HOME.y, view: 0, angle: 0, from: 0, to: 0, t0: 0, zi: ZOOMS.indexOf(1), zoom: 1, zFrom: 1, zTo: 1, zt0: 0 };
-const show = { grid: true, shield: true, ships: true };
+const show = { grid: true, shield: true, ships: true, globe: true };
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
 let W = 1, H = 1, dpr = 1;
@@ -428,7 +436,7 @@ $("rotR").onclick = () => rotate(1);
 $("zoomIn").onclick = () => zoomTo(cam.zi + 1);
 $("zoomOut").onclick = () => zoomTo(cam.zi - 1);
 $("home").onclick = home;
-for (const [id, k] of [["tGrid", "grid"], ["tShield", "shield"], ["tShips", "ships"]]) {
+for (const [id, k] of [["tGrid", "grid"], ["tShield", "shield"], ["tShips", "ships"], ["tGlobe", "globe"]]) {
   $(id).onclick = e => { show[k] = !show[k]; e.currentTarget.setAttribute("aria-pressed", String(show[k])); kick(); };
 }
 window.addEventListener("keydown", e => {
@@ -511,6 +519,8 @@ function frame(now) {
     gl.uniform4f(domeProg.u.uStrength, ...strengths);
     gl.uniform3f(domeProg.u.uRim, ...hex(shield.rim_color)); gl.uniform3f(domeProg.u.uWeak, ...hex(shield.weak_color));
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    const dome = show.globe ? shieldShapes.globe : shieldShapes.dome;
+    gl.uniform1f(domeProg.u.uCenterZ, dome.cz);
     gl.bindVertexArray(dome.vao);
     gl.uniform1f(domeProg.u.uBack, 1); gl.drawElements(gl.TRIANGLES, dome.n, gl.UNSIGNED_SHORT, 0);
     gl.uniform1f(domeProg.u.uBack, 0); gl.drawElements(gl.TRIANGLES, dome.n, gl.UNSIGNED_SHORT, 0);

@@ -31,6 +31,7 @@ def main() -> None:
         "shipEmissive": ships["emissive"],
         "shipModels": {k: m["voxels"] for k, m in ships["models"].items()},
         "placements": placement["placements"],
+        "shipPlaneZ": placement["ship_plane_z"],
         "grid": config["ops_grid"],
         "shield": config["shield"],
         "pivot": config["camera"]["pivot_world"],
