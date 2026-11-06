@@ -1,0 +1,18 @@
+[package]
+name = "nomad-protocol"
+description = "Nomad wire protocol: versioned client and server messages and length-prefixed postcard framing (Design doc 20 §5, D-087)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+# No networking here: QUIC (quinn, rustls) belongs to the server and the client (doc 20 §5).
+[dependencies]
+nomad-types = { workspace = true }
+postcard = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

@@ -927,6 +927,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nomad-protocol"
+version = "0.1.0"
+dependencies = [
+ "nomad-types",
+ "postcard",
+ "serde",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "nomad-sim"
 version = "0.1.0"
 dependencies = [

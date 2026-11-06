@@ -18,6 +18,7 @@ crates/
   nomad-client/         Game client (phase 1: the visual slice; milestone M1 so far)
   nomad-sim/            Deterministic simulation core (Design doc 11): tick, timers, SimId, random streams, snapshots
   nomad-types/          Shared primitives (Design doc 20 §3): SimId and typed ids, ticks, Universe time, small enums, command shapes
+  nomad-protocol/       Wire protocol (Design doc 20 §5): versioned client and server messages, length-prefixed postcard framing
   nomad-harness/        Headless fast-forward runner: pacing runs and determinism checks
 .github/                CI workflow, Dependabot, pull request template
 tools/preview/          Single-file WebGL preview of the phase-1 scene (design-review aid, not the client)

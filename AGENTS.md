@@ -67,7 +67,8 @@ cargo test --workspace
 ```
 Design/          Design documents; phase1-visual-slice/ holds the owner's phase-1 package and assets
 crates/          nomad-client (phase 1), nomad-sim (deterministic core, doc 11), nomad-harness (headless runner),
-                 nomad-types (shared primitives, doc 20 §3); further crates follow doc 20 §3
+                 nomad-types (shared primitives, doc 20 §3), nomad-protocol (wire messages and framing, doc 20 §5);
+                 further crates follow doc 20 §3
 tools/preview/   WebGL preview of the phase-1 scene for design review (not the game client)
 .github/         CI, Dependabot, PR template
 ```
