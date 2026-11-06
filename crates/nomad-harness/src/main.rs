@@ -3,9 +3,15 @@
 //! Runs a season with no graphics and no pacing, then reports the final state hash and the
 //! speed relative to real time. This is the seed of the pacing tool and of server catch-up.
 //!
+//! With `--galaxy` it instead generates the MVP stage-1 sector for the seed and prints a
+//! summary of it (Design doc 10 §4.4).
+//!
 //! ```text
 //! nomad-harness [--seed N] [--ticks N] [--diagnostics N] [--mean-interval-secs N] [--restore-at N]
+//! nomad-harness --galaxy [--seed N]
 //! ```
+
+mod galaxy;
 
 use std::io::{self, Write};
 use std::process::ExitCode;
@@ -22,6 +28,7 @@ struct Args {
     diagnostics: u32,
     mean_interval_secs: u64,
     restore_at: Option<u64>,
+    galaxy: bool,
 }
 
 impl Default for Args {
@@ -32,6 +39,7 @@ impl Default for Args {
             diagnostics: 10_000,
             mean_interval_secs: 10,
             restore_at: None,
+            galaxy: false,
         }
     }
 }
@@ -47,10 +55,12 @@ fn parse_args() -> Result<Args, String> {
             "--diagnostics" => args.diagnostics = parse(&value()?)?,
             "--mean-interval-secs" => args.mean_interval_secs = parse(&value()?)?,
             "--restore-at" => args.restore_at = Some(parse(&value()?)?),
+            "--galaxy" => args.galaxy = true,
             "--help" | "-h" => {
                 return Err(
                     "usage: nomad-harness [--seed N] [--ticks N] [--diagnostics N] \
-                            [--mean-interval-secs N] [--restore-at N]"
+                            [--mean-interval-secs N] [--restore-at N]\n       \
+                     nomad-harness --galaxy [--seed N]"
                         .to_owned(),
                 );
             }
@@ -67,6 +77,9 @@ fn parse<T: std::str::FromStr>(text: &str) -> Result<T, String> {
 
 fn run() -> Result<(), String> {
     let args = parse_args()?;
+    if args.galaxy {
+        return galaxy::print(&mut io::stdout().lock(), args.seed);
+    }
     let mut state = UniverseState::new(SeasonConfig {
         seed: args.seed,
         season_start_unix_ms: 0,
