@@ -739,3 +739,6 @@ fn validate_merge(
     };
     together(place(fleet)?, place(into)?)
 }
+
+#[cfg(test)]
+mod tests;
