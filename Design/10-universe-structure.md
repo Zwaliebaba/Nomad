@@ -155,7 +155,7 @@ This matches the phase-1 system panel: in Kestrel-7, "YOU 3 · HSTL 2 · FREE 2"
 
 - **1 voxel ≈ 35 m.** *Derived* from the phase-1 fixture: HSTL-C1 is reported at 3.1 km and sits 88.9 voxels from the dome centre. The shield dome's radius of 36 voxels is therefore about 1.26 km.
 - **Movement and combat are 2D in the system frame.** *Derived* from the single ship plane (D-003). Height exists only for presentation: the ship plane at z = 16 and the structure elevation tiers. This is a major simplification for the simulation and the AI.
-- **Ops area:** the region around a site where the tactical ops-grid view applies. Proposed radius 20 km (≈ 570 voxels). Sites sit at least 50 km apart, so ops areas never overlap. The phase-1 camera clamp of ±200 voxels (7 km) fits well inside. The baseline holding sensor range is 40 km (the phase-1 minimap "PULSE · 40 KM"), detailed in doc 16.
+- **Ops area:** the region around a site where the tactical ops-grid view applies. Radius 20 km, ≈ 570 voxels (agreed, D-103). Sites sit at least 50 km apart, so ops areas never overlap. The phase-1 camera clamp of ±200 voxels (7 km) fits well inside. The baseline holding sensor range is 40 km (the phase-1 minimap "PULSE · 40 KM"), detailed in doc 16.
 - **Grid north equals system north.** Grid north is azimuth 225° in grid xy: screen-up in view 0, consistent with the north-up minimap drawn in the view-0 projection.
 - **Phase-1 finding (resolved, D-046):**
   - The four pylons sit at azimuths 225° (N), 315° (E), 45° (S) and 135° (W) around the dome centre. These are exactly the **boundaries** of the shield sectors in phase-1 doc 01 §6 (N 225–315° and so on), not their centres.

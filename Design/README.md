@@ -10,7 +10,7 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 |---|------|------------|--------|
 | 00 | [`00-glossary.md`](00-glossary.md) | Vocabulary and the Universe hierarchy. Read this first. | Draft (decisions applied) |
 | 01 | [`01-game-concept.md`](01-game-concept.md) | Stated requirements, what they force, stress test, MVP framing | Draft (decisions applied) |
-| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | Q92–Q98 open |
+| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | All answered |
 | 03 | [`03-decision-log.md`](03-decision-log.md) | Decisions taken, with date and reason | Living |
 | 04 | [`04-design-review.md`](04-design-review.md) | Ranked risk register for the agreed design (RK-01 to RK-11) | Decided |
 | 10 | [`10-universe-structure.md`](10-universe-structure.md) | Hierarchy, scale, topology and travel, sites and holdings, system control, season start and late joiners, coordinate frames | Agreed |
@@ -33,8 +33,8 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 
 | Package | Plan | Status |
 |---|---|---|
-| S3 | [`plans/S3-movement-and-orders.md`](plans/S3-movement-and-orders.md) | Planned (Q92–Q96); starts after N1 |
-| N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Planned (Q97–Q98); starts after N1 |
+| S3 | [`plans/S3-movement-and-orders.md`](plans/S3-movement-and-orders.md) | Planned and decided (D-101 to D-105); starts after N1 |
+| N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Planned and decided (D-106, D-107); starts after N1 |
 
 ## Conventions
 

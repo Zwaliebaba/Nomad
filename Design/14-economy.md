@@ -138,8 +138,8 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
 
 | Module | Slot | Cost | Build time | Power | Hull | Effect |
 |---|---|---|---|---|---|---|
-| Core, mother station | — | — (start kit) | — | +520 MW | 600,000 | Dome, base storage 4,000 A / 600 C, 120 command |
-| Core, other holdings | — | Core kit: 6,000 A + 500 C | 15 min to build the kit, plus 2 h deployment (D-054) | +120 MW | 300,000 | Minimal dome (D-053), base storage for a buffer, +10 command |
+| Core, mother station | — | — (start kit) | — | +520 MW | 600,000 | Dome, base storage 4,000 A / 600 C, 120 command, docking for 24 ships (D-102) |
+| Core, other holdings | — | Core kit: 6,000 A + 500 C | 15 min to build the kit, plus 2 h deployment (D-054) | +120 MW | 300,000 | Minimal dome (D-053), base storage for a buffer, +10 command, docking for 8 ships (D-102) |
 | Shield pylon | Pylon | 2,500 A + 300 C | 30 min | 40 MW | 40,000 | +25% strength in its sector (D-053) |
 | Solar array | Peripheral | 3,000 A | 30 min | +620 MW | 20,000 | Disabled, never destroyed, outside the window (doc 12) |
 | Harvester | Peripheral | 2,000 A | 20 min | 60 MW | 15,000 | 600 ore/h × richness |
@@ -147,7 +147,7 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
 | Crystal extractor | Peripheral | 2,500 A | 30 min | 60 MW | 15,000 | 60 C/h × richness |
 | Storage (container rack) | Inner | 1,500 A | 15 min | 0 | 20,000 | +4,000 A / +400 C to the pool cap; makes the holding a depot |
 | Turret | Inner | 2,000 A + 200 C | 20 min | 40 MW | 30,000 | Doc 15 §12 turret |
-| Dry dock | Inner | 5,000 A + 300 C | 60 min | 150 MW while building | 50,000 | One parallel ship lane; frigates |
+| Dry dock | Inner | 5,000 A + 300 C | 60 min | 150 MW while building | 50,000 | One parallel ship lane; frigates; +6 docking (D-102) |
 
 ### 9.4 Ship costs (starting values)
 

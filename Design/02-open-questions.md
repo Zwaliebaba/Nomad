@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **Q1–Q91 answered on 2026-11-06. Open: Q92–Q98 from the S3 and N2 work-package plans (section P).**
+Status: **All questions answered (Q1–Q98) on 2026-11-06.**
 
 ## Answer summary
 
@@ -97,6 +97,13 @@ Status: **Q1–Q91 answered on 2026-11-06. Open: Q92–Q98 from the S3 and N2 wo
 | Q89 | Three parallel work streams | D-095 |
 | Q90 | Out-of-scope list, no audio | D-096 |
 | Q91 | MVP acceptance criteria | D-097 |
+| Q92 | Acceleration and turn rates | D-101 |
+| Q93 | Docking capacity counts ships | D-102 |
+| Q94 | Ops-area radius 20 km | D-103 |
+| Q95 | Rules file copied into each Universe | D-104 |
+| Q96 | Ships steer around structures | D-105 |
+| Q97 | Default season 8 weeks | D-106 |
+| Q98 | Random Universe ID plus name | D-107 |
 
 ## A. Universe and time
 
@@ -471,25 +478,25 @@ All three read only `CommanderView` and run inside the deterministic step.
 
 *Recommendation:* adopt.
 
-## P. Open (round 11, from `plans/S3-movement-and-orders.md` and `plans/N2-server-shell.md`)
+## P. Round 11, from `plans/S3-movement-and-orders.md` and `plans/N2-server-shell.md` (answered)
 
-**Q92 — Acceleration and turn rates (S3 §5).** Starting values, since doc 15 gives only speeds: VX 60 m/s² and 90°/s; LANCER 40 and 60; WARDEN 15 and 20; MULE 15 and 25; raider strike craft 50 and 75; HSTL heavy cruiser 8 and 10.
+**✅ Q92 — Acceleration and turn rates (S3 §5).** Starting values, since doc 15 gives only speeds: VX 60 m/s² and 90°/s; LANCER 40 and 60; WARDEN 15 and 20; MULE 15 and 25; raider strike craft 50 and 75; HSTL heavy cruiser 8 and 10.
 *Recommendation:* adopt as starting values.
 
-**Q93 — Docking capacity (S3 §5).** The phase-1 fixture shows "DOCKED 14 / 24", but nothing designs it. Proposed: mother-station core 24 ships; other cores 8; each dry dock +6; frigates dock only where there is a dry dock.
+**✅ Q93 — Docking capacity (S3 §5).** The phase-1 fixture shows "DOCKED 14 / 24", but nothing designs it. Proposed: mother-station core 24 ships; other cores 8; each dry dock +6; frigates dock only where there is a dry dock.
 *Recommendation:* adopt.
 
-**Q94 — Ops-area radius (S3 §5).** Confirm the 20 km working value from doc 10 §8. It drives cruise mode and the tactical view.
+**✅ Q94 — Ops-area radius (S3 §5).** Confirm the 20 km working value from doc 10 §8. It drives cruise mode and the tactical view.
 *Recommendation:* confirm.
 
-**Q95 — Rules data (S3 §4.1).** Unit and movement numbers live in a rules file embedded in the build, which a harness option can override, and are copied into the Universe at creation. A season keeps its rules (D-020); replay stays exact.
+**✅ Q95 — Rules data (S3 §4.1).** Unit and movement numbers live in a rules file embedded in the build, which a harness option can override, and are copied into the Universe at creation. A season keeps its rules (D-020); replay stays exact.
 *Recommendation:* adopt.
 
-**Q96 — Structures on the ship plane (S3 §5).** The plane at z = 16 cuts through the core spindle, the pylons and FA-1.
+**✅ Q96 — Structures on the ship plane (S3 §5).** The plane at z = 16 cuts through the core spindle, the pylons and FA-1.
 *Recommendation:* modules that cross the plane are obstacles ships steer around, and ships keep a soft separation from each other.
 
-**Q97 — Default season length (N2 §5).** 8 weeks, matching the MVP acceptance run; `create` can set 8–12 weeks.
+**✅ Q97 — Default season length (N2 §5).** 8 weeks, matching the MVP acceptance run; `create` can set 8–12 weeks.
 *Recommendation:* adopt.
 
-**Q98 — Universe ID (N2 §5).** A random 8-character base-32 ID plus an optional display name.
+**✅ Q98 — Universe ID (N2 §5).** A random 8-character base-32 ID plus an optional display name.
 *Recommendation:* adopt.

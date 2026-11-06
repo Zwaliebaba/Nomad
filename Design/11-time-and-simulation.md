@@ -84,6 +84,7 @@ Network replication and interest management belong to docs 16 and 20.
 
 | Rule | Why |
 |---|---|
+| Unit and movement numbers come from a **rules file** copied into the Universe at creation (D-104). | A season keeps its rules, and replay stays exact. |
 | Every simulated object has a **`SimId(u64)`**, assigned in increasing order and never reused. The `hecs` `Entity` is only a storage handle. | `hecs` reuses entity IDs. `SimId` is the identity used in persistence, the protocol and ordering. |
 | Where order affects the outcome, sort by `SimId`. Never depend on ECS or `HashMap` iteration order. | The order in which damage, captures and so on are applied must be stable. |
 | Positions and headings are `f64`, in metres and radians, in the system frame. Transcendental functions (`sin`, `cos`, `atan2`, `sqrt`) come from the pure-Rust `libm` crate. No fast-math. | Basic IEEE operations are reproducible; platform maths libraries differ between Linux and Windows (D-029). |

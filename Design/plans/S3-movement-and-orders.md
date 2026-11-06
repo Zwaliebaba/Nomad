@@ -1,6 +1,6 @@
 # Work package S3 — Movement, fleets and orders
 
-Status: **Planned.** Starts when N1 (`nomad-types`, `nomad-protocol`) is merged. Open questions: Q92–Q96. This plan is also the brief for whoever builds S3.
+Status: **Planned and decided** (Q92–Q96 → D-101 to D-105). Starts when N1 (`nomad-types`, `nomad-protocol`) is merged. This plan is also the brief for whoever builds S3.
 
 ## 1. Goal
 
@@ -114,9 +114,9 @@ Rejections return a reason (doc 20 §5). The visibility check is added at S7.
 
   Expected margin: the worst case rises by about 6 min, from 4.87 h toward 5 h, still well under the 6 h limit.
 
-## 5. Open questions
+## 5. Decisions (formerly open questions)
 
-*Proposed.*
+*Agreed: D-101 (Q92), D-102 (Q93), D-103 (Q94), D-104 (Q95), D-105 (Q96).*
 
 - **Q92 — Acceleration and turn rates** (starting values; doc 15 gives only speeds):
 

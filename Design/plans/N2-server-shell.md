@@ -1,6 +1,6 @@
 # Work package N2 — Server shell
 
-Status: **Planned.** Starts when N1 is merged, in parallel with S3. Open questions: Q97–Q98. This plan is also the brief for whoever builds N2.
+Status: **Planned and decided** (Q97–Q98 → D-106, D-107). Starts when N1 is merged, in parallel with S3. This plan is also the brief for whoever builds N2.
 
 ## 1. Goal
 
@@ -113,9 +113,9 @@ Write-ahead-log mode. The journal is written in one transaction per batch.
 
 A `build.rs` embeds the git commit, with "unknown" as the fallback. It is written with every snapshot and journal entry.
 
-## 5. Open questions
+## 5. Decisions (formerly open questions)
 
-*Proposed.*
+*Agreed: D-106 (Q97), D-107 (Q98).*
 
 - **Q97 — Default season length** for new Universes: **8 weeks**, matching the MVP acceptance run (D-097). `create` can set anything from 8 to 12 weeks (D-020).
 - **Q98 — Universe ID:** a random 8-character base-32 ID plus an optional display name.

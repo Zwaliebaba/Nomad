@@ -69,7 +69,7 @@ Other documents own the rest: costs, production, power supply and the command ca
   - Outside ops areas, and while not engaged, a fleet travels at **cruise speed**, the speed of its slowest member, and cannot fire.
   - Detecting a hostile within 20 km, or taking fire, drops it to tactical speed.
   - Cruise speeds are chosen so that in-system trips take 2–15 min (doc 10 §4.1) and the 6 h trip limit within a sector holds for the slowest warship (doc 10, invariant 3).
-- **Docking:** docked ships sit inside the dome. They cannot be targeted, and they repair over time (the repair rate is set in doc 14).
+- **Docking:** docked ships sit inside the dome. They cannot be targeted, and they repair over time (the repair rate is set in doc 14). Capacity counts ships: mother-station core 24, other cores 8, +6 per dry dock. Frigates dock only where there is a dry dock (D-102).
 
 ### 3.4 Fleet orders
 
