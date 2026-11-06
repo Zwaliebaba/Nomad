@@ -42,14 +42,14 @@ Which of these may the Deputy do on its own?
 10. Run convoys and logistics
 11. Diplomacy
 
-*Recommendation (P-01):* 1, 3, 4, 5, 6, 9 and 10 within owner-authored standing orders. Item 2 only from an owner-approved list. Never 7, 8 or 11.
+*Recommendation (P-01):* 1, 3, 4, 5, 6, 9 and 10 within owner-authored standing orders. Item 2 only from an owner-approved list. Never 7, 8 or 11. *Worked out in `12-offline-play-and-deputy.md` §5.1.*
 
 **Q7 — Offline losses.** *(Blocking: docs 11, 15)*
 Is it acceptable for a player to lose their mother station, or any holding, while offline? If not, which protection do you want: reinforcement timers, vulnerability windows, loss caps, post-attack protection or allied cover?
-*Recommendation:* reinforcement through the shield (P-05) plus allied cover.
+*Recommendation (revised in round 2):* the clock-based stakes rule in `12-offline-play-and-deputy.md` §3–4, with allied cover. A holding's core can only be lost inside its owner's exposure window, after at least 12 h notice. P-05 is withdrawn.
 
 **Q8 — Deputy while online.** Can a player hand a holding or fleet to the Deputy while they are connected?
-*Recommendation:* yes (P-01).
+*Recommendation:* yes (P-01). Round 2 goes further, see Q22.
 
 **Q9 — Abandonment.** What happens to a player who stops logging in? Options: the Deputy runs the empire indefinitely, it decays, or after N days it becomes neutral or NPC-owned. With 100 slots, idle empires otherwise occupy space forever.
 
@@ -90,3 +90,24 @@ When the single human closes the client, does the Universe continue, with a head
 - Hosting: a cloud you want to standardise on, or one you want to avoid
 
 **Q18 — Working title.** Is the game called *Nomad*? The phase-1 package uses "Voxel RTS".
+
+## E. Offline play (round 2, from `12-offline-play-and-deputy.md`)
+
+**Q19 — Exposure window.** Does each commander choose one daily window (proposed: 4 h, contiguous) during which their holdings' cores can be besieged? Should changes take effect only after a delay (proposed: 48 h)? Should the window be per commander, as proposed, or per holding?
+
+**Q20 — Timings.** Are these the right order of magnitude?
+- At least 12 h of notice between a breach and the siege.
+- A 60 min siege clock.
+- 48 h of immunity after a successful defence.
+
+Also: should a commander's holdings come out of Reinforced at staggered times, so one window cannot be dogpiled?
+
+**Q21 — What a lost siege means.** What happens when the core falls: are the core modules destroyed, does the attacker capture the holding, or is the owner evicted, so the mother station has to relocate? This is tied to Q10 and to what "Nomad" means.
+
+**Q22 — Always-on Deputy.** Should the Deputy execute the commander's doctrine at all times, with online play adding direct control on top? Or should it take over only at disconnect, as R-03 currently reads?
+*Recommendation:* always on (PR-4). It removes the handover discontinuity, and players see and tune the Deputy every session.
+
+**Q23 — Vacation mode.** Do you want one? Proposed limits:
+- Up to 7 days per season.
+- A 72 h activation delay, so it cannot be used to dodge an attack that is already known.
+- No offensive actions while it is active.

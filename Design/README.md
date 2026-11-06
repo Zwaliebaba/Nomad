@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** design phase, round 1. The owner's requirements are captured; most game-level design is still open and waiting on the questions in `02-open-questions.md`.
+**Status:** design phase, round 2. The owner's requirements are captured. Doc 12 proposes a solution to the offline problem. Most other game-level design still waits on the questions in `02-open-questions.md`.
 
 ## Documents
 
@@ -12,6 +12,7 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 | 01 | [`01-game-concept.md`](01-game-concept.md) | Stated requirements, what they force, stress test, MVP framing | Draft |
 | 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, each with its impact and a recommendation | Open |
 | 03 | [`03-decision-log.md`](03-decision-log.md) | Decisions taken, with date and reason | Living |
+| 12 | [`12-offline-play-and-deputy.md`](12-offline-play-and-deputy.md) | Offline protection (stakes rule, shield lifecycle) and the Deputy (authority, doctrine, competence cap) | Proposed |
 | — | [`phase1-visual-slice/`](phase1-visual-slice/README.md) | Owner's phase-1 package: client look, camera, HUD, renderer architecture, voxel assets | Agreed (owner) |
 
 Planned once the round-1 questions are answered (numbers reserved):
@@ -20,10 +21,9 @@ Planned once the round-1 questions are answered (numbers reserved):
 |---|------------------|------------|
 | 10 | Universe structure: topology, scale, holdings, travel | Q1–Q4 |
 | 11 | Time and simulation: clocks, tick, offline behaviour, time scales | Q1, Q2, Q7 |
-| 12 | Deputy: authority, standing orders, defensive repertoire | Q6–Q9 |
-| 13 | AI commanders | Q12, Q15 |
+| 13 | AI commanders (builds on the Deputy in doc 12) | Q12, Q15, Q22 |
 | 14 | Economy | Q1, Q12 |
-| 15 | Combat and defence | Q5, Q7 |
+| 15 | Combat and defence (shield lifecycle from doc 12) | Q5, Q19–Q21 |
 | 20 | Technical architecture: server, client, persistence, networking | Q11, Q13, Q17 |
 | 30 | MVP scope, milestones and acceptance criteria | Q11–Q15 |
 

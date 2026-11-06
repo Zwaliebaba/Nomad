@@ -117,7 +117,7 @@ The phase-1 fixture shows ALLOY 21,860 at +312/m. A player offline for 8 hours a
 | P-02 | **One AI stack.** AI commander = Deputy (operational and tactical) + Strategist (strategic). The MVP's 9 AI players use it. | W-06 |
 | P-03 | **The MVP is client–server from day one.** It has a headless authoritative server, localhost is fine, and the Universe keeps running when the client closes. | W-03, C-01 |
 | P-04 | **One authoritative simulation process for ≤100 players,** partitioned internally by system, with snapshots plus a command journal for durability. No sharding until measurements demand it. | W-05, C-05, C-06 |
-| P-05 | **Offline protection through the shield.** When a Deputy-defended holding comes under siege, the shield enters a reinforced state, and the decisive phase is deferred to a window the defender can attend. This is one option among the W-01 families, offered as a concrete starting point. | W-01 |
+| P-05 | ~~**Offline protection through the shield.** When a Deputy-defended holding comes under siege, the shield enters a reinforced state, and the decisive phase is deferred to a window the defender can attend.~~ **Withdrawn (round 2):** tying protection to Deputy control is exploitable, because a defender could log off to become protected. Replaced by the clock-based stakes rule in `12-offline-play-and-deputy.md`. P-01 is refined there as well (PR-3, PR-4). | W-01 |
 | P-06 | **Seasonal Universes** with a win condition. Balance changes land between seasons. | W-04 |
 
 ## 5. MVP framing
