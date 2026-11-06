@@ -9,3 +9,5 @@
 7. **Zoom-scale tabs** (System/Sector/Galaxy): visual only in phase 1; their views are a separate design.
 8. **True cubes vs z scale 0.8165**: kept behind a config flag; decide after seeing both in motion.
 9. **Top bar label (resolved, Design D-022)**: Kestrel-7 is a system. The fixture now reads `SYSTEM KESTREL-7 · OPS GRID 0`; `reference/renders/ops-grid-hud@2x.png` still shows `SECTOR KESTREL-7`. The spec wins (README ground rule 1).
+10. **Pylon positions vs sector arcs (open, Design Q40)**: the pylons sit at azimuths 225° (N), 315° (E), 45° (S) and 135° (W) around the dome centre. These are exactly the sector *boundaries* in 01 §6, not the centres of the arcs. Proposed: centre each arc on its pylon (N 180–270°, E 270–360°, S 0–90°, W 90–180°), with grid north at azimuth 225° (screen-up in view 0). The hostile cruiser at 335° stays in the weak E sector.
+11. **"Sector bounds" (open, Design Q40)**: the camera clamp in 02 is called "sector bounds", which collides with the Sector layer of the Universe. Proposed: rename it to "ops-area bounds".

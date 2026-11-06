@@ -110,3 +110,17 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Sensor coverage** | The sensor ranges of a commander's holdings, ships and gates. It defines what that commander sees live. |
 | **Last-known** | Information outside current sensor coverage, shown with its age in strategic views. |
 | **Alliance** | A formal, size-capped group of commanders with shared vision and the right to defend each other's holdings (D-040). Not in the MVP, which has no diplomacy (D-026). |
+
+## Universe structure (doc 10, proposed)
+
+| Term | Meaning |
+|---|---|
+| **Site** | A fixed location in a system with deposits and a build area. A site owned by a commander is a holding. |
+| **Outpost** | A claimed site whose core module is not yet complete. It follows the peripheral rules and does not count for control. |
+| **Home / standard / hub system** | System kinds. *Home:* 7 sites, one with a mother station at season start. *Standard:* 5–7 sites. *Hub:* 8–9 sites with richer deposits, at the centre of a sector. |
+| **Raider haven** | A system that NPC raiders operate from. Not claimable in the MVP and not counted for control. |
+| **Frontier sector** | A reserved sector that opens for players who join mid-season. |
+| **Jump lane / trunk lane** | Timed, uninterruptible transit between gates. A jump lane links systems within a sector (40–70 min); a trunk lane links neighbouring sectors (90–150 min). |
+| **In-system lane** | A route between gates and sites inside a system, where interception happens. |
+| **Controlled / Contested / Open** | System control states. *Controlled:* one commander holds a strict majority of the sites. *Contested:* no majority, and two or more owners. *Open:* no majority, and at most one owner. |
+| **Ops area** | The region (proposed radius 20 km) around a site where the tactical ops-grid view applies. |

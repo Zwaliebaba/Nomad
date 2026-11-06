@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q34) on 2026-11-06.** Answers are recorded in `03-decision-log.md`, and the question is then marked ✅ here. The full original text of each question stays below for history. Recommendations are mine, and the owner is free to overrule them.
+Status: **Q1–Q34 answered on 2026-11-06. Open: Q35–Q40 from doc 10 (section H).** Answers are recorded in `03-decision-log.md`, and the question is then marked ✅ here. The full original text of each question stays below for history. Recommendations are mine, and the owner is free to overrule them.
 
 ## Answer summary
 
@@ -190,3 +190,23 @@ Also: should a commander's holdings come out of Reinforced at staggered times, s
 
 **✅ Q34 — Season carry-over (RK-07).** What survives a season reset?
 *Recommendation:* blueprints (saved station layouts), doctrine presets and cosmetics. Not resources, holdings or fleets.
+
+## H. Open (round 4, from `10-universe-structure.md`)
+
+**Q35 — System control rule (doc 10 §6).** A commander controls a system with a strict majority of its sites as holdings (4 of 7). Only holdings with a completed core count, outposts do not. The system is Contested when nobody has a majority and two or more commanders own holdings there, and Open otherwise. During the season, control gives sensor coverage of the whole system.
+*Recommendation:* adopt as written.
+
+**Q36 — Uninterruptible jump transit (doc 10 §4.2).** Transit between systems is a timer that cannot be interrupted. All interception happens inside systems, mostly at gate approaches.
+*Recommendation:* adopt. It keeps the simulation simple and makes gates the chokepoints.
+
+**Q37 — Scale targets (doc 10 §3, §12).** About 15 sites per commander; 5–9 sites and 2–4 gates per system; sectors of 12–16 systems for 6–8 commanders; jump lanes of 40–70 min; at most 4 jumps across a sector, keeping every trip within a sector under 6 h. MVP stage 1: one sector of 9 systems plus a raider haven, with about 60 sites.
+*Recommendation:* adopt as starting values, then tune them in the pacing simulation (D-037).
+
+**Q38 — Season galaxy (doc 10 §7).** Generate a new galaxy from a recorded seed each season. The topology is fully charted from the start (no exploration in the MVP), holding ownership is public, and everything else is under fog of war.
+*Recommendation:* adopt.
+
+**Q39 — Late joiners (doc 10 §7, RK-11).** Dormant frontier sectors sized for 15% of the commander cap; 7 days of protection that ends on the first offensive action; a start grant scaled to how much of the season has passed; no joins in the final 14 days.
+*Recommendation:* adopt.
+
+**Q40 — Phase-1 shield arcs (doc 10 §8).** The pylons sit exactly on the sector boundaries in phase-1 doc 01 §6, not at the centres of their arcs.
+*Recommendation:* centre each arc on its pylon (N 180–270°, E 270–360°, S 0–90°, W 90–180°) and define grid north as azimuth 225°, which is screen-up in view 0. The siege scenario is unaffected. Also rename the camera clamp's "sector bounds" to "ops-area bounds".
