@@ -153,7 +153,37 @@
    "factory_fb2": 4
   },
   "ship_plane_z": 16,
-  "cues": "footprint outline on ops grid (dashed, #38d6ff 70%) + dashed corner stalks + ELEV tag on hover/selection only"
+  "cues": "footprint outline on ops grid (dashed, #38d6ff 70%) + dashed corner stalks + ELEV tag on hover/selection only",
+  "footprint": {
+   "color": "#38d6ff",
+   "alpha": 0.7,
+   "fill_alpha": 0.06,
+   "width_ref_px": 1.0,
+   "dash_ref_px": [
+    4,
+    4
+   ]
+  },
+  "stalk": {
+   "color": "#38d6ff",
+   "alpha": 0.6,
+   "width_ref_px": 1.0,
+   "dash_ref_px": [
+    2,
+    3
+   ]
+  },
+  "style_note": "Doc 01 §7 gives the footprint colour and alphas; widths, dash patterns and the stalk alpha are the mockup's (reference/mockup/ops-grid-proposal.html). Widths and dashes are 1080p pixels and scale with the window, not the zoom."
+ },
+ "bloom": {
+  "radius_ref_px": 6,
+  "intensity": 0.6,
+  "composite": "screen",
+  "note": "Glow on emissive palette entries (doc 01 §2): radius in 1080p pixels at zoom 1, scaling with zoom and window size; the Gaussian sigma is half the radius. The blurred emissive image times intensity is added to the frame: 'additive' adds it as is, 'screen' adds it scaled by the headroom left (glow * (1 - frame)), so pale emitters keep their tint instead of clipping to white."
+ },
+ "hover": {
+  "brightness_lift": 0.18,
+  "note": "Hovered module: non-emissive faces are multiplied by 1 + brightness_lift (doc 06 M3)."
  },
  "background": {
   "color_center": "#18243a",

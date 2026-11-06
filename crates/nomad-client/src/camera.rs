@@ -457,6 +457,7 @@ impl Camera {
             cos_pitch: projection.cos_pitch,
             z_scale: projection.z_scale,
             px_per_unit: projection.px_per_unit * self.zoom * layout,
+            zoom: self.zoom,
             layout_scale: layout,
             anchor_px: self.viewport_px * 0.5 + projection.anchor_offset_ref_px * layout,
         };
@@ -484,6 +485,8 @@ pub struct ViewTransform {
     pub layout_scale: f32,
     /// Pixels per world unit along screen x, including zoom and layout scale.
     pub px_per_unit: f32,
+    /// The zoom level in effect (easing between steps while a zoom animates).
+    pub zoom: f32,
     /// Screen position of the pivot.
     pub anchor_px: Vec2,
 }

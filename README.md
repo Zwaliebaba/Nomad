@@ -39,12 +39,14 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
 ```
 
-Run the phase-1 client (milestones M1 and M2: window, background, infinite ops grid, camera and the station voxels):
+Run the phase-1 client (milestones M1 to M3: window, background, infinite ops grid, camera, the station voxels, bloom on emissive voxels, elevation cues under lifted modules, and the hover highlight with its `ELEV +n` tag):
 
 ```bash
 cargo run -p nomad-client                      # 1920x1080 window
 cargo run -p nomad-client -- --size 1280x720   # other window size
 cargo run -p nomad-client -- --screenshot out.png --view 1 --zoom 0.5   # one frame offscreen, no window
+cargo run -p nomad-client -- --screenshot out.png --hover 700,340       # as if the cursor were at that pixel
+cargo run -p nomad-client -- --screenshot out.png --turn-ms 125         # halfway through a +90° turn
 ```
 
 | Key | Action |
@@ -56,7 +58,9 @@ cargo run -p nomad-client -- --screenshot out.png --view 1 --zoom 0.5   # one fr
 | F11 | Toggle fullscreen |
 | F12 | Screenshot to `screenshots/` in the working directory |
 
-Assets load from `Design/phase1-visual-slice/assets`; set `NOMAD_ASSETS` to use another folder. Tuning values (pan speed, pan limit, grid fade, background and stars) live in `layout/scene_config.json` there (Design D-059, D-063). `RUST_LOG` sets the log filter. On Linux the client needs a Vulkan or OpenGL ES driver and, under X11, `libxkbcommon-x11` at run time; building needs no system packages. GPU tests are ignored by default; run them with `cargo test -p nomad-client -- --ignored` on a machine with a GPU or a software Vulkan driver such as Mesa lavapipe.
+Hovering a module highlights it; a lifted module (FA-1, FB-2) also shows its `ELEV +n` tag. The tag needs the phase-1 fonts, which are OFL-licensed and not bundled: put the JetBrains Mono and Rajdhani `.ttf` files (static or variable) into `Design/phase1-visual-slice/assets/fonts/`, which git ignores. Without them the client logs a warning and draws no tag text.
+
+Assets load from `Design/phase1-visual-slice/assets`; set `NOMAD_ASSETS` to use another folder. Tuning values (pan speed, pan limit, grid fade, background and stars, bloom, elevation cues and hover) live in `layout/scene_config.json` there (Design D-059, D-063); the tag's text and style live in `layout/hud_layout.json`. `RUST_LOG` sets the log filter. On Linux the client needs a Vulkan or OpenGL ES driver and, under X11, `libxkbcommon-x11` at run time; building needs no system packages. GPU tests are ignored by default; run them with `cargo test -p nomad-client -- --ignored` on a machine with a GPU or a software Vulkan driver such as Mesa lavapipe.
 
 Run the headless simulation harness (fast-forward, reports the state hash and speed):
 

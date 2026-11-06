@@ -4,14 +4,16 @@
 //! rejected with a clear error before the rest of it is read (`CODING_STANDARDS.md` §9). The voxel
 //! assets (`crate::assets`) share the asset root and the error type defined here.
 
+mod hud;
 mod scene;
 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+pub use hud::{ElevationTagStyle, FontRole, HudLayout, load_hud_layout};
 pub use scene::{
-    BackgroundConfig, ColorStop, GridLineStyle, MAX_NEBULAE, OpsGridConfig, SceneConfig,
-    StarsConfig,
+    BackgroundConfig, BloomComposite, BloomConfig, ColorStop, CueLineStyle, ElevationConfig,
+    GridLineStyle, MAX_NEBULAE, OpsGridConfig, SceneConfig, StarsConfig,
 };
 
 /// Environment variable that overrides the asset root.
@@ -44,6 +46,17 @@ pub fn scene_config_path(asset_root: &Path) -> PathBuf {
 /// Location of `station_scene.json` under an asset root.
 pub fn station_scene_path(asset_root: &Path) -> PathBuf {
     asset_root.join("voxels").join("station_scene.json")
+}
+
+/// Location of `hud_layout.json` under an asset root.
+pub fn hud_layout_path(asset_root: &Path) -> PathBuf {
+    asset_root.join("layout").join("hud_layout.json")
+}
+
+/// The folder the OFL fonts are downloaded into (phase-1 README, ground rule 4). It is
+/// git-ignored: the fonts are not bundled.
+pub fn fonts_dir(asset_root: &Path) -> PathBuf {
+    asset_root.join("fonts")
 }
 
 /// Reads and validates `scene_config.json`.
@@ -190,5 +203,6 @@ mod tests {
     fn default_asset_root_holds_the_scene_files() {
         assert!(scene_config_path(&default_asset_root()).is_file());
         assert!(station_scene_path(&default_asset_root()).is_file());
+        assert!(hud_layout_path(&default_asset_root()).is_file());
     }
 }

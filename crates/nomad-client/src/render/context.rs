@@ -6,13 +6,22 @@
 //! values directly. The phase-1 colours, alphas and gradients come from a browser mockup, and
 //! browsers blend in sRGB space. Blending the same way makes faint lines, such as the grid at
 //! alpha 0.05, look like the reference renders; blending in linear space would make them
-//! noticeably brighter. Revisit if bloom (M3) needs a linear intermediate target.
+//! noticeably brighter. Bloom (M3) stays in the same space: its blur and composite work on
+//! sRGB-encoded values, like the mockup's blurred glow, so no linear intermediate target is
+//! needed.
 //!
 //! # Depth and MSAA
 //!
 //! The scene pass renders into a 4× multisampled colour target with a depth buffer and resolves
 //! into the frame (doc 05: "use MSAA, not FXAA, on voxels"). Adapters that cannot multisample the
 //! frame format fall back to one sample, with a warning.
+//!
+//! # Emissive target
+//!
+//! The scene pass has a second colour target, [`EMISSIVE_FORMAT`], into which emissive surfaces
+//! write their colour and everything else writes nothing (or black, where it occludes). It is
+//! multisampled like the frame and resolves into a texture the bloom pass reads (doc 05 frame
+//! order, step 8).
 
 use std::sync::Arc;
 
@@ -24,6 +33,9 @@ use winit::window::Window;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 /// MSAA sample count of the scene pass (doc 05).
 pub const MSAA_SAMPLES: u32 = 4;
+/// Format of the emissive target and the bloom textures. 8-bit UNORM is renderable, blendable and
+/// filterable on every backend, including the GLES fallback.
+pub const EMISSIVE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 /// Adapter, device and queue. (wgpu objects keep their instance alive.)
 pub struct Gpu {
@@ -94,15 +106,17 @@ impl Gpu {
         })
     }
 
-    /// [`MSAA_SAMPLES`] when the adapter can multisample both `color` and [`DEPTH_FORMAT`],
-    /// otherwise 1.
+    /// [`MSAA_SAMPLES`] when the adapter can multisample `color`, [`EMISSIVE_FORMAT`] and
+    /// [`DEPTH_FORMAT`], otherwise 1.
     pub fn sample_count(&self, color: wgpu::TextureFormat) -> u32 {
-        let supported = [color, DEPTH_FORMAT].into_iter().all(|format| {
-            self.adapter
-                .get_texture_format_features(format)
-                .flags
-                .sample_count_supported(MSAA_SAMPLES)
-        });
+        let supported = [color, EMISSIVE_FORMAT, DEPTH_FORMAT]
+            .into_iter()
+            .all(|format| {
+                self.adapter
+                    .get_texture_format_features(format)
+                    .flags
+                    .sample_count_supported(MSAA_SAMPLES)
+            });
         if supported {
             MSAA_SAMPLES
         } else {
@@ -159,17 +173,19 @@ pub fn depth_stencil(
     }
 }
 
-/// The multisampled colour target (when MSAA is on) and the depth buffer for one frame size.
+/// The scene pass's size-dependent targets: the multisampled colour and emissive targets (when
+/// MSAA is on), the depth buffer, and the single-sample emissive texture the bloom pass reads.
 pub struct FrameTargets {
     size: (u32, u32),
     msaa_color: Option<wgpu::TextureView>,
+    msaa_emissive: Option<wgpu::TextureView>,
+    emissive: wgpu::TextureView,
     depth: wgpu::TextureView,
 }
 
 impl FrameTargets {
     pub fn new(device: &wgpu::Device, format: TargetFormat, (width, height): (u32, u32)) -> Self {
-        // Both attachments share the pass's sample count.
-        let attachment = |label, texture_format| {
+        let texture = |label, texture_format, sample_count, usage| {
             device
                 .create_texture(&wgpu::TextureDescriptor {
                     label: Some(label),
@@ -179,17 +195,34 @@ impl FrameTargets {
                         depth_or_array_layers: 1,
                     },
                     mip_level_count: 1,
-                    sample_count: format.sample_count,
+                    sample_count,
                     dimension: wgpu::TextureDimension::D2,
                     format: texture_format,
-                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    usage,
                     view_formats: &[],
                 })
                 .create_view(&wgpu::TextureViewDescriptor::default())
         };
+        // The scene pass's attachments share its sample count.
+        let attachment = |label, texture_format| {
+            texture(
+                label,
+                texture_format,
+                format.sample_count,
+                wgpu::TextureUsages::RENDER_ATTACHMENT,
+            )
+        };
+        let msaa = format.sample_count > 1;
         Self {
             size: (width, height),
-            msaa_color: (format.sample_count > 1).then(|| attachment("msaa colour", format.color)),
+            msaa_color: msaa.then(|| attachment("msaa colour", format.color)),
+            msaa_emissive: msaa.then(|| attachment("msaa emissive", EMISSIVE_FORMAT)),
+            emissive: texture(
+                "emissive",
+                EMISSIVE_FORMAT,
+                1,
+                wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            ),
             depth: attachment("depth", DEPTH_FORMAT),
         }
     }
@@ -198,27 +231,43 @@ impl FrameTargets {
         self.size
     }
 
-    /// The colour attachment for `frame`: the MSAA target resolving into `frame`, or `frame`
-    /// itself without MSAA. Cleared to `clear`.
-    pub fn color_attachment<'a>(
+    /// The resolved emissive image of the last scene pass.
+    pub fn emissive_view(&self) -> &wgpu::TextureView {
+        &self.emissive
+    }
+
+    /// The scene pass's colour attachments: the frame, cleared to `clear`, and the emissive
+    /// target, cleared to black. With MSAA each is the multisampled target resolving into the
+    /// single-sample one.
+    pub fn color_attachments<'a>(
         &'a self,
         frame: &'a wgpu::TextureView,
         clear: wgpu::Color,
-    ) -> wgpu::RenderPassColorAttachment<'a> {
-        let (view, resolve_target, store) = match &self.msaa_color {
-            // The samples are not needed once resolved.
-            Some(msaa) => (msaa, Some(frame), wgpu::StoreOp::Discard),
-            None => (frame, None, wgpu::StoreOp::Store),
+    ) -> [Option<wgpu::RenderPassColorAttachment<'a>>; 2] {
+        let attachment = |msaa: Option<&'a wgpu::TextureView>, single, clear| {
+            let (view, resolve_target, store) = match msaa {
+                // The samples are not needed once resolved.
+                Some(msaa) => (msaa, Some(single), wgpu::StoreOp::Discard),
+                None => (single, None, wgpu::StoreOp::Store),
+            };
+            Some(wgpu::RenderPassColorAttachment {
+                view,
+                depth_slice: None,
+                resolve_target,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear),
+                    store,
+                },
+            })
         };
-        wgpu::RenderPassColorAttachment {
-            view,
-            depth_slice: None,
-            resolve_target,
-            ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(clear),
-                store,
-            },
-        }
+        [
+            attachment(self.msaa_color.as_ref(), frame, clear),
+            attachment(
+                self.msaa_emissive.as_ref(),
+                &self.emissive,
+                wgpu::Color::TRANSPARENT,
+            ),
+        ]
     }
 
     /// The depth attachment, cleared to the far plane and discarded after the pass.

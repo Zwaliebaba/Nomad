@@ -7,7 +7,14 @@
 //!
 //! The palette lives in a small texture rather than the storage buffer doc 05 suggests: the device
 //! is created with WebGL2-level limits so the GLES fallback keeps working, and those allow no
-//! storage buffers (doc 05's module layout allows either; phase-1 doc 07 item 16).
+//! storage buffers (doc 05's module layout allows either; phase-1 doc 07 item 17).
+//!
+//! # Emissive output and hover (M3)
+//!
+//! Emissive palette entries also write their albedo into the scene pass's emissive target, which
+//! feeds the bloom (`render::bloom`); every other face writes black there, so an occluded emitter
+//! does not glow through. Each vertex carries its module's index, so the hovered module can be
+//! drawn brighter (doc 06 M3) without a second draw.
 //!
 //! # No back-face culling
 //!
@@ -38,11 +45,12 @@ pub const PALETTE_WIDTH: u32 = 256;
 /// docs), so this matters only if it is ever turned on.
 const FRONT_FACE: wgpu::FrontFace = wgpu::FrontFace::Cw;
 
-/// One mesh vertex: integer world position and (palette index, face id). 12 bytes.
+/// One mesh vertex: integer world position, module index and (palette index, face id). 12 bytes.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Pod, Zeroable)]
 pub struct VoxelVertex {
-    /// x, y, z and an unused fourth lane.
+    /// x, y, z and the index of the vertex's module in the scene (for the hover highlight; the
+    /// loader caps the module count far below `i16::MAX`).
     pub position: [i16; 4],
     pub palette_face: [u16; 2],
 }
@@ -71,7 +79,7 @@ fn build_mesh(scene: &StationScene, mesher: fn(&Chunk) -> Vec<Quad>) -> StationM
         indices: Vec::new(),
         quad_count: 0,
     };
-    for module in &scene.modules {
+    for (index, module) in scene.modules.iter().enumerate() {
         let quads = mesher(&module.chunk);
         tracing::debug!(
             module = %module.id,
@@ -79,22 +87,29 @@ fn build_mesh(scene: &StationScene, mesher: fn(&Chunk) -> Vec<Quad>) -> StationM
             quads = quads.len(),
             "meshed station module"
         );
+        let module_index = i16::try_from(index)
+            .expect("invariant: the loader caps the module count below i16::MAX");
         for quad in &quads {
-            push_quad(&mut mesh, quad);
+            push_quad(&mut mesh, quad, module_index);
         }
         mesh.quad_count += quads.len();
     }
     mesh
 }
 
-fn push_quad(mesh: &mut StationMesh, quad: &Quad) {
+fn push_quad(mesh: &mut StationMesh, quad: &Quad, module_index: i16) {
     let base = u32::try_from(mesh.vertices.len())
         .expect("invariant: the validated scene has far fewer than 2^32 vertices");
     let coord =
         |v: i32| i16::try_from(v).expect("invariant: voxel coordinates are validated to fit i16");
     for corner in quad.corners {
         mesh.vertices.push(VoxelVertex {
-            position: [coord(corner[0]), coord(corner[1]), coord(corner[2]), 0],
+            position: [
+                coord(corner[0]),
+                coord(corner[1]),
+                coord(corner[2]),
+                module_index,
+            ],
             palette_face: [quad.palette_index, quad.face.id()],
         });
     }
@@ -126,14 +141,25 @@ pub struct VoxelUniforms {
     view_proj: [[f32; 4]; 4],
     view_right: [f32; 4],
     shading: [f32; 4],
+    hover: [f32; 4],
 }
 
 impl VoxelUniforms {
-    pub fn new(view: &ViewTransform, shading: [f32; 3]) -> Self {
+    /// `hovered` is the index of the module under the cursor; `brightness_lift` comes from
+    /// `scene_config.json` → `hover`.
+    pub fn new(
+        view: &ViewTransform,
+        shading: [f32; 3],
+        hovered: Option<usize>,
+        brightness_lift: f32,
+    ) -> Self {
+        // Module indices are below MAX_MODULES, so they are exact in f32; -1 matches no module.
+        let hovered = hovered.map_or(-1.0, |index| index as f32);
         Self {
             view_proj: view.view_proj().to_cols_array_2d(),
             view_right: [view.right.x, view.right.y, 0.0, 0.0],
             shading: [shading[0], shading[1], shading[2], 0.0],
+            hover: [hovered, brightness_lift, 0.0, 0.0],
         }
     }
 }
@@ -227,8 +253,16 @@ impl VoxelPass {
         }
     }
 
-    pub fn prepare(&self, queue: &wgpu::Queue, view: &ViewTransform) {
-        let uniforms = VoxelUniforms::new(view, self.shading);
+    /// Uploads the frame's uniforms. `hovered` (a module index) is drawn with its non-emissive
+    /// faces lifted by `1 + brightness_lift`.
+    pub fn prepare(
+        &self,
+        queue: &wgpu::Queue,
+        view: &ViewTransform,
+        hovered: Option<usize>,
+        brightness_lift: f32,
+    ) {
+        let uniforms = VoxelUniforms::new(view, self.shading, hovered, brightness_lift);
         queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
     }
 
@@ -305,6 +339,9 @@ fn voxel_pipeline(
         label: Some("voxels.wgsl"),
         source: wgpu::ShaderSource::Wgsl(super::VOXELS_WGSL.into()),
     });
+    // Opaque: both targets are overwritten, the emissive one with the albedo of emissive faces
+    // and black elsewhere.
+    let targets = super::scene_targets(target, None);
     let attributes = wgpu::vertex_attr_array![0 => Sint16x4, 1 => Uint16x2];
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("voxels"),
@@ -336,11 +373,7 @@ fn voxel_pipeline(
             module: &shader,
             entry_point: Some("fs_voxel"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: target.color,
-                blend: None,
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
+            targets: &targets,
         }),
         multiview_mask: None,
         cache: None,
@@ -441,6 +474,15 @@ mod tests {
                 .iter()
                 .all(|&i| (i as usize) < mesh.vertices.len())
         );
+        // The fourth lane names the vertex's module, for the hover highlight; every module that
+        // has faces appears, in scene order.
+        let mut modules: Vec<i16> = mesh.vertices.iter().map(|v| v.position[3]).collect();
+        assert!(modules.is_sorted());
+        modules.dedup();
+        let expected: Vec<i16> = (0..scene.modules.len())
+            .map(|i| i16::try_from(i).unwrap())
+            .collect();
+        assert_eq!(modules, expected);
     }
 
     #[test]
@@ -460,6 +502,6 @@ mod tests {
     #[test]
     fn vertex_and_uniform_layouts_match_the_shader() {
         assert_eq!(size_of::<VoxelVertex>(), 12);
-        assert_eq!(size_of::<VoxelUniforms>(), 64 + 2 * 16);
+        assert_eq!(size_of::<VoxelUniforms>(), 64 + 3 * 16);
     }
 }

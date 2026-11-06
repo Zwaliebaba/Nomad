@@ -68,7 +68,7 @@ fn nebula_coverage(p: vec2<f32>, shape: vec4<f32>) -> f32 {
 }
 
 @fragment
-fn fs_background(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
+fn fs_background(@builtin(position) frag: vec4<f32>) -> SceneOut {
     let p = to_canvas(frag.xy);
 
     // Radial gradient in canvas units, like SVG objectBoundingBox (an ellipse on screen).
@@ -97,7 +97,7 @@ fn fs_background(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
     );
     color = mix(color, sun.rgb, sun.a * u.sun_shape.w);
 
-    return vec4<f32>(color, 1.0);
+    return no_glow(vec4<f32>(color, 1.0));
 }
 
 struct StarOut {
@@ -138,9 +138,9 @@ fn vs_star(
 }
 
 @fragment
-fn fs_star(in: StarOut) -> @location(0) vec4<f32> {
+fn fs_star(in: StarOut) -> SceneOut {
     let coverage = clamp(in.radius_px + 0.5 - length(in.local_px), 0.0, 1.0);
     let a = in.alpha * coverage;
     // Premultiplied alpha.
-    return vec4<f32>(u.star_color.rgb * a, a);
+    return no_glow(vec4<f32>(u.star_color.rgb * a, a));
 }

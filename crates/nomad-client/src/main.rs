@@ -1,13 +1,16 @@
 //! Game client.
 //!
 //! Phase 1 implements the visual slice specified in `Design/phase1-visual-slice/`. This is
-//! milestone M2 (phase-1 doc 06): a `winit` window with a `wgpu` surface, the screen-space
-//! background, the infinite ops grid, the snap-rotation camera with zoom and pan (M1), and the
-//! station voxels from `station_scene.json`, greedy-meshed and shaded relative to the camera.
+//! milestone M3 (phase-1 doc 06): a `winit` window with a `wgpu` surface, the screen-space
+//! background, the infinite ops grid, the snap-rotation camera with zoom and pan (M1), the
+//! station voxels from `station_scene.json`, greedy-meshed and shaded relative to the camera
+//! (M2), bloom on emissive voxels, elevation cues under lifted modules, and the hover highlight
+//! with its `ELEV +n` tag (M3).
 //!
 //! ```text
 //! nomad-client [--size WxH] [--view N] [--zoom Z]
 //! nomad-client --screenshot OUT.png [--size WxH] [--view N] [--zoom Z]
+//!              [--hover X,Y] [--turn-ms MS]
 //! ```
 //!
 //! `--screenshot` renders one frame offscreen, without a window, and writes a PNG.
@@ -18,6 +21,7 @@ mod camera;
 mod cli;
 mod config;
 mod mesh;
+mod pick;
 mod render;
 mod screenshot;
 
@@ -28,12 +32,12 @@ use std::process::ExitCode;
 use glam::Vec2;
 use tracing_subscriber::EnvFilter;
 
-use assets::voxel::StationScene;
-use camera::{Camera, Projection};
+use assets::SceneAssets;
+use camera::{Camera, Projection, Turn};
 use cli::{Command, Options};
 use config::{ConfigError, SceneConfig};
 use render::context::{Gpu, GpuError};
-use render::{Layers, Renderer};
+use render::{FrameInput, Layers, Renderer};
 use screenshot::ScreenshotError;
 
 /// Fatal errors, reported once at exit.
@@ -89,17 +93,11 @@ fn init_tracing() {
 }
 
 fn run(options: &Options) -> Result<(), AppError> {
-    let asset_root = config::asset_root();
-    let config_path = config::scene_config_path(&asset_root);
-    tracing::info!(path = %config_path.display(), "loading scene config");
-    let scene = config::load_scene_config(&config_path)?;
-    let station_path = config::station_scene_path(&asset_root);
-    tracing::info!(path = %station_path.display(), "loading station scene");
-    let station = assets::voxel::load_station_scene(&station_path)?;
-    let camera = initial_camera(&scene, options)?;
+    let assets = SceneAssets::load(&config::asset_root())?;
+    let camera = initial_camera(&assets.config, options)?;
     match &options.screenshot {
-        Some(path) => render_screenshot(&scene, &station, &camera, options.size, path),
-        None => app::run(scene, station, camera, options.size),
+        Some(path) => render_screenshot(&assets, camera, options, path),
+        None => app::run(assets, camera, options.size),
     }
 }
 
@@ -127,18 +125,39 @@ fn initial_camera(scene: &SceneConfig, options: &Options) -> Result<Camera, AppE
     Ok(camera)
 }
 
-/// `--screenshot`: one frame offscreen, no window.
+/// `--screenshot`: one frame offscreen, no window. `--turn-ms` and `--hover` freeze a moment of a
+/// turn and a cursor position, so the M3 hover and mid-turn cues can be checked offscreen.
 fn render_screenshot(
-    scene: &SceneConfig,
-    station: &StationScene,
-    camera: &Camera,
-    (width, height): (u32, u32),
+    assets: &SceneAssets,
+    mut camera: Camera,
+    options: &Options,
     path: &Path,
 ) -> Result<(), AppError> {
+    let (width, height) = options.size;
+    if let Some(ms) = options.turn_ms {
+        camera.rotate(Turn::Plus90);
+        camera.update(ms as f32 / 1000.0);
+    }
+    let view = camera.transform();
+    let hovered = options
+        .hover
+        .and_then(|(x, y)| pick::module_at(&assets.station, &view, Vec2::new(x, y)));
+    if options.hover.is_some() {
+        tracing::info!(
+            module = ?hovered.map(|i| assets.station.modules[i].id.as_str()),
+            "hover"
+        );
+    }
     let gpu = Gpu::headless()?;
     gpu.check_size(width, height)?;
-    let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, scene, station);
-    let image = renderer.render_to_image(width, height, &camera.transform(), Layers::default())?;
+    let mut renderer = Renderer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm, assets);
+    let image = renderer.render_to_image(
+        width,
+        height,
+        &view,
+        Layers::default(),
+        FrameInput { hovered },
+    )?;
     screenshot::save(path, &image)?;
     tracing::info!(
         path = %path.display(),

@@ -261,11 +261,10 @@ fn star_pipeline(
             module: shader,
             entry_point: Some("fs_star"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: target.color,
-                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
+            targets: &super::scene_targets(
+                target,
+                Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+            ),
         }),
         multiview_mask: None,
         cache: None,

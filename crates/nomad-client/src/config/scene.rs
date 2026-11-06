@@ -1,13 +1,14 @@
 //! `assets/layout/scene_config.json`, format `voxel-rts/scene-config@1` (phase-1 doc 03).
 //!
 //! Only the fields the client uses so far are declared; serde ignores the rest (shield, pylons,
-//! elevation, lights policy and the prose notes), so later milestones can add them without
-//! breaking older files.
+//! the elevation tier list, lights policy and the prose notes), so later milestones can add them
+//! without breaking older files.
 //!
 //! Every declared field is required, including the tuning values D-063 moved out of the code
-//! (pan speed, ops-area bounds, background and stars): the file is the one source of truth for
-//! them, so there are no fallback constants in the code that could silently disagree with it.
-//! The only optional field is `projection.true_cubes` (default `false`).
+//! (pan speed, ops-area bounds, background and stars) and the M3 looks (elevation cues, bloom,
+//! hover): the file is the one source of truth for them, so there are no fallback constants in
+//! the code that could silently disagree with it. The only optional field is
+//! `projection.true_cubes` (default `false`).
 
 use std::path::Path;
 
@@ -33,6 +34,9 @@ pub struct SceneConfig {
     pub camera: CameraConfig,
     pub ops_grid: OpsGridConfig,
     pub background: BackgroundConfig,
+    pub elevation: ElevationConfig,
+    pub bloom: BloomConfig,
+    pub hover: HoverConfig,
 }
 
 /// Projection, doc 01 §1.
@@ -178,6 +182,71 @@ pub struct StarsConfig {
     pub seed: u64,
 }
 
+/// Elevation cues, doc 01 §7: a dashed footprint on the ops grid under every module with
+/// `elevation_tier > 0`, and dashed stalks from its visible bottom corners down to the grid. Doc 01
+/// gives the footprint colour and alphas; widths, dash patterns and the stalk alpha are the
+/// mockup's (`reference/mockup/ops-grid-proposal.html`).
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct ElevationConfig {
+    pub footprint: FootprintStyle,
+    pub stalk: CueLineStyle,
+}
+
+/// The footprint outline and its fill.
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct FootprintStyle {
+    #[serde(flatten)]
+    pub line: CueLineStyle,
+    /// Opacity of the fill inside the outline (doc 01 §7: 0.06).
+    pub fill_alpha: f32,
+}
+
+/// A dashed overlay line. Widths and dashes are 1080p pixels and scale with the window, not with
+/// the zoom, like the ops-grid lines (D-063).
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct CueLineStyle {
+    pub color: Rgb,
+    pub alpha: f32,
+    pub width_ref_px: f32,
+    /// Dash and gap length. A gap of 0 draws a solid line.
+    pub dash_ref_px: [f32; 2],
+}
+
+/// Bloom on emissive palette entries, doc 01 §2: "small radius, ~6 px at zoom 1, intensity
+/// modest".
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct BloomConfig {
+    /// Glow radius in 1080p pixels at zoom 1. It scales with the zoom and the window size; the
+    /// Gaussian sigma is half of it.
+    pub radius_ref_px: f32,
+    /// Factor on the blurred emissive image before it is added to the frame.
+    pub intensity: f32,
+    pub composite: BloomComposite,
+}
+
+/// How the glow is added to the frame. Both only ever add light.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BloomComposite {
+    /// `frame + glow`, clipped at 1.
+    Additive,
+    /// `frame + glow · (1 − frame)`: additive, scaled by the headroom left, so a pale emitter
+    /// such as the pylon emitters' `#b8f6ff` keeps its tint instead of clipping to white.
+    Screen,
+}
+
+/// Hover highlight (doc 06 M3: "hover a module → highlight").
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct HoverConfig {
+    /// Non-emissive faces of the hovered module are multiplied by `1 + brightness_lift`.
+    pub brightness_lift: f32,
+}
+
+/// Largest bloom radius accepted, in 1080p pixels. The blur's tap count grows with the radius.
+pub const MAX_BLOOM_RADIUS_REF_PX: f32 = 32.0;
+/// Widest elevation-cue line accepted, in 1080p pixels.
+pub const MAX_CUE_WIDTH_REF_PX: f32 = 16.0;
+
 /// A rejected field and the reason.
 type Rejection = (&'static str, String);
 
@@ -209,7 +278,47 @@ impl SceneConfig {
         self.validate_projection()?;
         self.validate_camera()?;
         self.validate_grid()?;
-        self.background.validate()
+        self.background.validate()?;
+        self.validate_looks()
+    }
+
+    /// Elevation cues, bloom and hover (M3).
+    fn validate_looks(&self) -> Result<(), Rejection> {
+        let line_ok = |style: &CueLineStyle| {
+            unit(style.alpha)
+                && finite_positive(style.width_ref_px)
+                && style.width_ref_px <= MAX_CUE_WIDTH_REF_PX
+                && finite_positive(style.dash_ref_px[0])
+                && style.dash_ref_px[1].is_finite()
+                && style.dash_ref_px[1] >= 0.0
+        };
+        let line_rule = format!(
+            "alphas must be in [0, 1], width in (0, {MAX_CUE_WIDTH_REF_PX}], dash positive and \
+             gap not negative"
+        );
+        let footprint = &self.elevation.footprint;
+        if !(line_ok(&footprint.line) && unit(footprint.fill_alpha)) {
+            return Err(("elevation.footprint", line_rule));
+        }
+        if !line_ok(&self.elevation.stalk) {
+            return Err(("elevation.stalk", line_rule));
+        }
+        let bloom = &self.bloom;
+        if !(bloom.radius_ref_px.is_finite()
+            && (0.0..=MAX_BLOOM_RADIUS_REF_PX).contains(&bloom.radius_ref_px))
+        {
+            return Err((
+                "bloom.radius_ref_px",
+                format!("must be between 0 and {MAX_BLOOM_RADIUS_REF_PX}"),
+            ));
+        }
+        if !(bloom.intensity.is_finite() && (0.0..=4.0).contains(&bloom.intensity)) {
+            return Err(("bloom.intensity", "must be between 0 and 4".into()));
+        }
+        if !unit(self.hover.brightness_lift) {
+            return Err(("hover.brightness_lift", "must be in [0, 1]".into()));
+        }
+        Ok(())
     }
 
     fn validate_projection(&self) -> Result<(), Rejection> {
@@ -476,6 +585,25 @@ mod tests {
         assert_eq!(config.background.color_center, Rgb::new(0x18, 0x24, 0x3a));
     }
 
+    /// M3 looks: the doc 01 §7 footprint colour and alphas, the mockup's dashes and the doc 01 §2
+    /// bloom radius.
+    #[test]
+    fn m3_looks_come_from_the_file() {
+        let config = real_config();
+        let footprint = &config.elevation.footprint;
+        assert_eq!(footprint.line.color, Rgb::new(0x38, 0xd6, 0xff));
+        assert!((footprint.line.alpha - 0.7).abs() < 1e-6);
+        assert!((footprint.fill_alpha - 0.06).abs() < 1e-6);
+        assert!(approx(&footprint.line.dash_ref_px, &[4.0, 4.0]));
+        let stalk = &config.elevation.stalk;
+        assert_eq!(stalk.color, Rgb::new(0x38, 0xd6, 0xff));
+        assert!(approx(&stalk.dash_ref_px, &[2.0, 3.0]));
+        assert!((config.bloom.radius_ref_px - 6.0).abs() < 1e-6);
+        assert!(config.bloom.intensity > 0.0 && config.bloom.intensity <= 1.0);
+        assert_eq!(config.bloom.composite, BloomComposite::Screen);
+        assert!(config.hover.brightness_lift > 0.0 && config.hover.brightness_lift < 0.5);
+    }
+
     /// D-063 values: pan speed 800 px/s, ±200-voxel ops area, and the M1 background (D-061:
     /// about 200 stars).
     #[test]
@@ -530,7 +658,7 @@ mod tests {
     #[test]
     fn missing_tuning_values_are_rejected() {
         type Edit = fn(&mut serde_json::Value);
-        let cases: [(&str, Edit); 4] = [
+        let cases: [(&str, Edit); 6] = [
             ("pan speed", |v| {
                 v["camera"]
                     .as_object_mut()
@@ -552,6 +680,15 @@ mod tests {
                     .unwrap()
                     .remove("far_radius_voxels");
             }),
+            ("bloom", |v| {
+                v.as_object_mut().unwrap().remove("bloom");
+            }),
+            ("footprint fill", |v| {
+                v["elevation"]["footprint"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("fill_alpha");
+            }),
         ];
         for (name, edit) in cases {
             assert!(
@@ -564,7 +701,7 @@ mod tests {
     #[test]
     fn invalid_values_are_rejected() {
         type Edit = fn(&mut serde_json::Value);
-        let cases: [(&str, Edit); 13] = [
+        let cases: [(&str, Edit); 18] = [
             ("alpha_far zero", |v| {
                 v["ops_grid"]["major"]["alpha_far"] = 0.0.into();
             }),
@@ -603,6 +740,21 @@ mod tests {
             }),
             ("sun mid stop at 1", |v| {
                 v["background"]["sun"]["mid_stop"] = 1.0.into();
+            }),
+            ("footprint alpha above 1", |v| {
+                v["elevation"]["footprint"]["alpha"] = 1.5.into();
+            }),
+            ("stalk dash zero", |v| {
+                v["elevation"]["stalk"]["dash_ref_px"] = serde_json::json!([0, 3]);
+            }),
+            ("bloom radius huge", |v| {
+                v["bloom"]["radius_ref_px"] = 1000.into();
+            }),
+            ("bloom intensity negative", |v| {
+                v["bloom"]["intensity"] = (-0.5).into();
+            }),
+            ("hover lift above 1", |v| {
+                v["hover"]["brightness_lift"] = 2.into();
             }),
         ];
         for (name, edit) in cases {
