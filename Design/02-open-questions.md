@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **Rounds 1–2 answered on 2026-11-06. Two new questions are open (section F).** Answers are recorded in `03-decision-log.md`, and the question is then marked ✅ here. The full original text of each question stays below for history. Recommendations are mine, and the owner is free to overrule them.
+Status: **Rounds 1–2 answered on 2026-11-06. Open: Q26–Q27 (section F) and Q28–Q34 from the design review (section G).** Answers are recorded in `03-decision-log.md`, and the question is then marked ✅ here. The full original text of each question stays below for history. Recommendations are mine, and the owner is free to overrule them.
 
 ## Answer summary
 
@@ -154,3 +154,30 @@ Also: should a commander's holdings come out of Reinforced at staggered times, s
 *Recommendation:* spread their exit times across the window in 60 min steps, in breach order. Every siege then still finishes inside the 4 h window, for up to 4 holdings.
 
 **Q27 — Alliances after the MVP.** The MVP has no diplomacy (D-026), but the phase-1 HUD shows allied commanders and relief fleets, and the stakes rule counts on allied cover. Should the full game have formal alliances (shared vision, the right to defend each other's holdings), or informal cooperation only? Not blocking for the MVP.
+
+## G. Open (round 3, from `04-design-review.md`)
+
+**Q28 — How the exposure window is set (RK-01).** Free choice invites time-zone tanking: picking 04:00–08:00, when enemies are asleep.
+*Recommendation:* the window is the commander's most active 4 h over a rolling 14 days, moving at most 1 h per day; free choice only until 7 days of history exist. *Alternative:* restrict windows to a prime-time band in Universe time.
+
+**Q29 — Strategic time scale (RK-02).** Should each Universe have a time-scale setting that compresses strategic timers (notice, immunity, travel, builds, storage fill, season length) while combat and the tick stay at 1:1 (D-019)?
+*Recommendation:* yes. Run the MVP in a 1× "persistent" mode and an accelerated mode for playtests.
+
+**Q30 — Headless simulation track (RK-02, RK-04).** Should we start a headless `nomad-sim` prototype in parallel with phase 1? It would contain a minimal economy, fleets, the siege lifecycle and a first Deputy, and serve as the pacing tool and the seed of the server. This refines D-028.
+*Recommendation:* yes.
+
+**Q31 — Staging the MVP (RK-03).** Should the first MVP acceptance be 3 AI commanders plus NPC raiders in one sector, with the AI stack built for 9? Should vacation and derelict states be cut from the MVP?
+*Recommendation:* yes to both.
+
+**Q32 — Information model (RK-05).** Should there be fog of war per commander based on sensor coverage, with last-known information in strategic views and the server sending only what each commander can see?
+*Recommendation:* yes.
+
+**Q33 — Emergency jump details (RK-06).** When a mother station falls:
+- Are its site modules destroyed, or captured?
+- Where does it jump?
+- What protection follows?
+
+*Recommendation:* the modules are destroyed, and the attacker gains the cleared site. The station jumps to the commander's nearest owned holding, or else to a free site in a low-density sector. It then has 72 h of protection, and a comeback grant is scaled to how far the commander has fallen behind.
+
+**Q34 — Season carry-over (RK-07).** What survives a season reset?
+*Recommendation:* blueprints (saved station layouts), doctrine presets and cosmetics. Not resources, holdings or fleets.
