@@ -48,7 +48,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | N4 | Replication with interest management (doc 16 §6) | L |
 | | N5 | Process model: the client starts the server, start with Windows, shut down (doc 20 §2) | S |
 | **Client** | M1 ✅ | Window, camera, grid (phase 1) | — |
-| | M2 ⏳ | Station voxels (phase 1) | — |
+| | M2 ✅ | Station voxels (phase 1) | — |
 | | M3–M6 | Emissives and elevation cues, shield, ships and effects, HUD (phase 1) | L in total |
 | | C7 | Network client and view-model store, replacing fixtures with live data (doc 20 §8) | M |
 | | C8 | Selection and orders in TACTICAL; live ships and effects | M |

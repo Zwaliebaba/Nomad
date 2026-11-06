@@ -51,7 +51,7 @@ tests/
 - **Palette**: upload the 339-colour palette as a storage buffer; vertices carry a `u16` palette index and a face-direction id. The fragment shader applies the top/left/right factor by *view-space* normal so lighting rotates with the camera.
 - **Pixel crispness**: at integer zoom, snap the camera translation to whole pixels; use MSAA, not FXAA, on voxels.
 - **z scale 0.8165**: put it in the world → view matrix so meshes stay integer.
-- **Grid**: reconstruct world position on `z = 0` per pixel from the inverse view-projection; line intensity via `fwidth` for anti-aliasing; alpha = mix(near, far, smoothstep(r_near, r_far, distance_to_pivot)) with `far > 0`.
+- **Grid**: reconstruct world position on `z = 0` per pixel from the inverse view-projection; line intensity via `fwidth` for anti-aliasing; alpha = mix(near, far, smoothstep(r_near, r_far, distance_to_pivot)) with `far > 0`. *Fade superseded by Design D-059: a linear fade matched to the reference render, see 01 §4.*
 - **Shield**: generate an ellipsoid-cap mesh (64×24 segments). Sector by `atan2` of the fragment's world xy relative to the centre. Fresnel from the view-space normal. Hits are a small uniform array (position, start time) driving a hex-cell ripple.
 - **Text**: glyphon with JetBrains Mono and Rajdhani; cache layout per string; HUD at 1920×1080 logical units scaled by `min(w/1920, h/1080)`.
 - Performance budget: under 2 ms GPU at 1080p on integrated graphics for the voxel pass (about 17k voxels → about 20k faces after greedy meshing).

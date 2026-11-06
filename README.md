@@ -15,7 +15,7 @@ Design and build run in parallel (Design D-051). Being built: the phase-1 visual
 ```
 Design/                 Design documents (source of truth), including the phase-1 visual slice package
 crates/
-  nomad-client/         Game client (phase 1: the visual slice; milestone M1 so far)
+  nomad-client/         Game client (phase 1: the visual slice; milestones M1–M2 done)
   nomad-sim/            Deterministic simulation core (Design doc 11): tick, timers, SimId, random streams, snapshots
   nomad-types/          Shared primitives (Design doc 20 §3): SimId and typed ids, ticks, Universe time, small enums, command shapes
   nomad-protocol/       Wire protocol (Design doc 20 §5): versioned client and server messages, length-prefixed postcard framing
