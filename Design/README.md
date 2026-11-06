@@ -40,6 +40,7 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 | S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Planned and decided (D-139 to D-149); S5a being built, S5b after S4 |
 | S7 | [`plans/S7-sensors.md`](plans/S7-sensors.md) | Planned; questions Q166–Q174 open |
 | N4 | [`plans/N4-replication.md`](plans/N4-replication.md) | Planned; questions Q175–Q180 open |
+| S6 | [`plans/S6-offline-and-sieges.md`](plans/S6-offline-and-sieges.md) | Planned; questions Q142–Q160 open |
 
 ## Conventions
 
