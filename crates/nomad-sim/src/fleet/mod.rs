@@ -405,6 +405,68 @@ impl UniverseState {
         core.saturating_add(docking.dry_dock_ships.saturating_mul(h.dry_docks))
     }
 
+    /// Checks the ships and fleets for broken invariants and returns what is wrong, if
+    /// anything: membership both ways, finite positions, no ship inside an obstacle
+    /// footprint, no holding over its docking capacity, a pending transit for every fleet in
+    /// a lane. For tests and the harness; an empty list means consistent.
+    pub fn fleet_problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        for ship in self.ship_ids() {
+            let Some(view) = self.ship(ship) else {
+                problems.push(format!("{ship:?} has no fleet or no motion"));
+                continue;
+            };
+            let listed = self
+                .entities
+                .with::<Fleet, _>(view.fleet.sim_id(), |f| f.members.contains_key(&ship));
+            if listed != Some(true) {
+                problems.push(format!("{ship:?} is not listed by {:?}", view.fleet));
+            }
+            if !view.position.is_finite() || !view.velocity.is_finite() {
+                problems.push(format!("{ship:?} has a non-finite position or velocity"));
+            }
+            if let Place::InSystem(system) = view.place {
+                let p = Vec2::from(view.position);
+                for obstacle in station::obstacles_in(self, system) {
+                    if (p - obstacle.centre).length() < obstacle.radius_m - 1e-6 {
+                        problems.push(format!("{ship:?} is inside an obstacle footprint"));
+                    }
+                }
+            }
+        }
+        for id in self.fleet_ids() {
+            let Some(fleet) = self.entities.get::<Fleet>(id.sim_id()) else {
+                continue;
+            };
+            if fleet.members.is_empty() {
+                problems.push(format!("{id:?} has no ships"));
+            }
+            for &ship in fleet.members.keys() {
+                if self.entities.get::<Ship>(ship.sim_id()).map(|s| s.fleet) != Some(id) {
+                    problems.push(format!("{id:?} lists {ship:?}, which is not in it"));
+                }
+            }
+            if let Place::InTransit { arrive, .. } = fleet.place
+                && !self.transits_pending(id, arrive)
+            {
+                problems.push(format!("{id:?} is in a lane with no transit timer"));
+            }
+        }
+        for &holding in self.holdings.keys() {
+            if self.docked_ships(holding) > self.docking_capacity(holding) {
+                problems.push(format!("{holding:?} holds more ships than it can dock"));
+            }
+        }
+        problems
+    }
+
+    /// Whether the jump-transit queue holds `fleet` with arrival tick `arrive`.
+    fn transits_pending(&self, fleet: FleetId, arrive: Tick) -> bool {
+        self.transits
+            .pending()
+            .any(|(deadline, f)| f == &fleet && deadline == arrive)
+    }
+
     /// Marks `fleet` as engaged or not. Engaged fleets drop to tactical speed (doc 15 §3.3).
     ///
     /// The hook for "taking fire" (S5) and "hostile detected within 20 km" (S7). Until those
