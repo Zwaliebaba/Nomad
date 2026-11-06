@@ -27,6 +27,14 @@ cargo build --workspace
 cargo test --workspace
 ```
 
+CI cannot run the GPU tests. After changing render code, also run them locally (D-089):
+
+```bash
+cargo test -p nomad-client -- --ignored
+```
+
+In VS Code, the `Local checks` and `GPU tests` tasks run these.
+
 ## Commit messages
 
 The subject line is in imperative mood ("Add ops grid pass", not "Added …") and at most 72 characters. The body explains why the change is needed and cites design IDs where relevant.

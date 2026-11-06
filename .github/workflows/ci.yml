@@ -29,6 +29,14 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all --check
 
+  deny:
+    name: Licences and advisories
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
   build:
     # Debug (dev profile) only, by design (Design/03-decision-log.md D-010). Do not add Release builds.
     name: Build and test (Debug, ${{ matrix.os }})

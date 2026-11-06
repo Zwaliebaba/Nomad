@@ -57,6 +57,8 @@ missing_panics_doc = "allow"
 must_use_candidate = "allow"
 similar_names = "allow"
 # Restriction lints we opt into.
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
 dbg_macro = "warn"
 print_stderr = "warn"
 print_stdout = "warn"
