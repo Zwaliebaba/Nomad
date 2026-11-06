@@ -20,7 +20,8 @@ crates/
   nomad-types/          Shared primitives (Design doc 20 §3): SimId and typed ids, ticks, Universe time, small enums, command shapes
   nomad-protocol/       Wire protocol (Design doc 20 §5): versioned client and server messages, length-prefixed postcard framing
   nomad-harness/        Headless fast-forward runner: pacing runs and determinism checks
-  nomad-server/         Server shell (N2 plan): runs one Universe in real time, saves it to SQLite, recovers and catches up
+  nomad-server/         Server (N2, N3): runs one Universe in real time, saves it to SQLite, recovers, catches up, serves clients over QUIC
+  nomad-link/           Client side of the connection (D-125): finds and authenticates to a server, for the client and the tests
 .github/                CI workflow, Dependabot, pull request template
 tools/preview/          Single-file WebGL preview of the phase-1 scene (design-review aid, not the client)
 tools/station-spread/   Rebuilds the phase-1 station layout with the outer buildings spread out (Design D-111)
@@ -76,16 +77,20 @@ cargo run --release -p nomad-harness -- --economy --days 7   # scripted builders
 
 ### Run the server
 
-`nomad-server` hosts one Universe without a window (N2: no networking yet, so no client connects to it). It saves continuously to `<data>/universes/<id>/universe.db`. The data directory is `%LOCALAPPDATA%\Nomad` on Windows and `~/.local/share/Nomad` on Linux; set `NOMAD_DATA` or pass `--data-dir` to use another.
+`nomad-server` hosts one Universe without a window. It saves continuously to `<data>/universes/<id>/universe.db`. The data directory is `%LOCALAPPDATA%\Nomad` on Windows and `~/.local/share/Nomad` on Linux; set `NOMAD_DATA` or pass `--data-dir` to use another.
 
 ```bash
 cargo run -p nomad-server -- create                  # new stage-1 Universe: random seed, 3 AI, Normal, 8 weeks
 cargo run -p nomad-server -- create --seed 42 --name "Test" --season-weeks 10
 cargo run -p nomad-server -- run                     # run it; Ctrl+C saves and stops
 cargo run -p nomad-server -- status                  # meta, last tick, snapshots, journal, without running it
+cargo run -p nomad-server -- connect-info            # address, fingerprint, token and an import string for a client
+cargo run -p nomad-server -- rotate-token            # new token (stopped server only); --certificate renews the certificate too
 ```
 
 - `--universe <id>` picks a Universe when the data directory holds more than one. A second `run` on the same Universe is refused.
+- **Network (N3):** `run` listens for clients over QUIC on UDP `127.0.0.1:31790`. `--bind`/`NOMAD_BIND` and `--port`/`NOMAD_PORT` change the address and port; port 0 picks any free one (Design D-150). A local client finds the server through `server.json` in the Universe's directory, which holds the address, the certificate fingerprint and the token, and is removed on a clean stop.
+- **Identity:** the certificate, its key and the token are made once, at `create`, and kept in `identity.json` beside the database (D-151). Treat both files like a password: on Linux they are readable by your user only; on Windows they rely on your profile's permissions, and the server warns if the data directory lies outside your profile (D-122). `connect-info` prints what a client on another side of a container boundary needs, as a `nomad://` import string; `rotate-token` makes imported details stop working.
 - After the server has been stopped, `run` first catches up the missed time at fast-forward speed, then runs live at 10 Hz.
 - When the season's final tick has run, the Universe stops advancing: the server saves it and keeps serving that final state until Ctrl+C, and refuses inputs. `run` on an ended season catches up only to the season end, and `status` says the season has ended (Design D-116). A new season is a new Universe.
 - Every 60 s of Universe time the journal records a state hash, and a restart checks the replay against it. A mismatch is logged as an error, and the Universe still starts (D-109). The journal is kept for 48 h (D-110).
@@ -94,18 +99,21 @@ cargo run -p nomad-server -- status                  # meta, last tick, snapshot
 
 ### Run the server in Docker
 
-The `Dockerfile` builds a Linux image of the same server (D-029), which runs in Docker Desktop. There is no networking yet, so there is no port to publish. Run these from the repository root:
+The `Dockerfile` builds a Linux image of the same server (D-029), which runs in Docker Desktop. In the MVP this is a developer and soak-test mode (D-152). Run these from the repository root:
 
 ```bash
 docker build --build-arg NOMAD_BUILD_ID=$(git rev-parse HEAD) -t nomad-server .
 docker run --rm -v nomad-data:/data nomad-server create --name "Test"
-docker run -d --name nomad -v nomad-data:/data nomad-server    # run it in the background
+docker run -d --name nomad -v nomad-data:/data -p 127.0.0.1:31790:31790/udp nomad-server
+docker exec nomad nomad-server connect-info                    # the import string for the client
 docker exec nomad nomad-server status
 docker logs -f nomad
 docker stop nomad                                              # final snapshot, then exit
 ```
 
 - `NOMAD_BUILD_ID` is required: the build fails without it.
+- **Publish the port on loopback only**, as above (`127.0.0.1:`), so only this computer can connect (D-085, D-150). The image listens on every address inside the container. If you publish it on another host port, pass that port to `connect-info --port`.
+- The client cannot read the container's files, so it imports the details from `connect-info` once. They survive restarts and image upgrades (D-151); `docker exec nomad nomad-server rotate-token` works only while the server is stopped, so run it with `docker run --rm -v nomad-data:/data nomad-server rotate-token` after `docker stop`.
 - Keep Universes in a named volume, as above. Without `-v` they go to an anonymous volume, and `--rm` deletes them. A named volume lives on Docker Desktop's disk, so resetting Docker Desktop deletes it too.
 - **Upgrades:** a journal is replayed only by the build that wrote it (D-048). After an unclean stop, a new image refuses to start. Start the previous image, stop it with `docker stop`, then switch.
 

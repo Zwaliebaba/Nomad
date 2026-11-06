@@ -1,6 +1,7 @@
-# Linux container image of nomad-server (D-029, doc 20 §2). It has no networking yet, so no
-# client can connect to it (N3; open questions Q139-Q141). Usage: README.md, "Run the server
-# in Docker".
+# Linux container image of nomad-server (D-029, doc 20 §2): a developer and soak-test mode
+# in the MVP (D-152). It listens on UDP 31790 on every address inside the container; publish
+# it on the host's loopback only (`-p 127.0.0.1:31790:31790/udp`), which keeps the MVP
+# localhost-only (D-085, D-150). Usage: README.md, "Run the server in Docker".
 #
 # Keep the Rust version in step with rust-toolchain.toml.
 FROM rust:1.97.0-bookworm AS build
@@ -27,6 +28,9 @@ RUN useradd --system --uid 10001 --no-create-home nomad \
 COPY --from=build /nomad-server /usr/local/bin/nomad-server
 USER nomad
 ENV NOMAD_DATA=/data
+# All addresses inside the container; the host decides who can reach it (D-150).
+ENV NOMAD_BIND=0.0.0.0
+EXPOSE 31790/udp
 VOLUME /data
 # The exec form makes the server PID 1, so `docker stop` reaches it as SIGTERM and it writes
 # its final snapshot (doc 20 §7).

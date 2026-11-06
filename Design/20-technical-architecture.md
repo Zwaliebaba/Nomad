@@ -93,7 +93,15 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
   - **Frozen layout:** `Hello` stays variant 0 with `protocol` as its first field, and `Bye { VersionMismatch }` stays variant 0. A version mismatch can then be reported between builds whose layouts differ. That matters because the server outlives the client (D-026).
   - **Frame limits:** 16 MiB from server to client, 64 KiB from client to server.
   - **IDs:** `UniverseId` is a `u64`, shown as the 8-character base-32 ID (D-107). Commands are grouped by target (`Command::Fleet { fleet, order }`, later `Holding`, economy and doctrine).
-  - **Still to add in N3:** a nonce on `Ping`/`Pong`.
+  - **Added in N3** (protocol version 2): a nonce on `Ping`/`Pong`.
+- **As built in N3** (`plans/N3-transport-and-sessions.md`; D-120 to D-125, D-150, D-151):
+  - **Endpoint:** a network thread with a current-thread `tokio` runtime, the `quinn` endpoint, a hub task and one task per connection. A bridge thread moves the simulation's events into the runtime, so the simulation thread never waits on the network. TLS 1.3 with the `ring` provider, ALPN `nomad`, no 0-RTT.
+  - **Address:** UDP `127.0.0.1:31790` by default; `--bind`/`NOMAD_BIND` and `--port`/`NOMAD_PORT` override it (D-150). 31790 sits below every operating system's ephemeral range. The container image binds 0.0.0.0 and is published on the host's loopback only.
+  - **Identity:** certificate, key and token in `<universe>/identity.json`, made at `create` and kept (D-151); `rotate-token` replaces them while the server is stopped. `server.json` gives a local client the address, fingerprint and token, and `connect-info` prints them as a `nomad://` import string for a client that cannot read the server's files.
+  - **Sessions:** `Hello` within 5 s (version read from the frozen prefix), `Auth` within 5 s (constant-time comparison), `Welcome`; commands checked for a strictly increasing `client_seq` and a rate limit (20/s, bursts of 60); at most 4 connections; 30 s idle timeout with 5 s keep-alive. A malformed or out-of-order message ends the session with `Bye { ProtocolViolation }`.
+  - **Results:** the hub numbers each commander's simulation inputs itself and answers each command from the tick's outcomes, with validator reasons mapped to the wire enum (D-123). Commands during catch-up or after the season end are refused (`CatchingUp`, `SeasonOver`).
+  - **Online state:** a commander counts as connected while it has a session. The hub submits the change only while live; the simulation thread disconnects everyone when catch-up starts (D-047) and, at a start without catch-up, the commanders restored as connected.
+  - **Client:** the `nomad-link` crate (D-125), with `Connection` for async use and `Link` on a background thread with `std` channels and reconnects. The state stream is opened and stays empty until N4.
 - **Commands:**
   - The server checks only the envelope: size, rate and session.
   - The simulation's single validator (D-077) checks the meaning: ownership, resources, rules.

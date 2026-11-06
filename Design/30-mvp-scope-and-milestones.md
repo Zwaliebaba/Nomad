@@ -44,7 +44,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | A6 | Acceptance and pacing tuning (D-083, D-058, D-070) | L, iterative |
 | **Server and network** | N1 ✅ | `nomad-types`, `nomad-protocol` (doc 20 §3, §5) | M |
 | | N2 ✅ | Server shell: pacing, SQLite journal and snapshots, recovery, catch-up, journal checkpoints, season end (doc 20 §4, §6, §7; D-109, D-110, D-116; plan in `plans/N2-server-shell.md`) | M |
-| | N3 | QUIC transport, sessions, token, commands and results | M |
+| | N3 ✅ | QUIC transport, sessions, token, commands and results (plan in `plans/N3-transport-and-sessions.md`; D-120 to D-125, D-150, D-151) | M |
 | | N4 | Replication with interest management (doc 16 §6; plan in `plans/N4-replication.md`) | L |
 | | N5 | Process model: the client starts the server, start with Windows, shut down (doc 20 §2) | S |
 | **Client** | M1 ✅ | Window, camera, grid (phase 1) | — |
