@@ -17,6 +17,20 @@ rand_chacha = { version = "0.10", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
 
+# Client (phase-1 visual slice, Design D-004, phase-1 doc 05).
+bytemuck = { version = "1.25", features = ["derive"] }
+glam = "0.34"
+png = "0.18"
+pollster = "1.0"
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Backends: DX12 and Vulkan on Windows, Vulkan on Linux, GLES as the fallback on both.
+# All are loaded at run time, so building needs no system packages.
+wgpu = { version = "30.0", default-features = false, features = ["std", "parking_lot", "wgsl", "dx12", "vulkan", "gles"] }
+# X11 and Wayland on Linux, both loaded at run time; no client-side decoration theme.
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+
 # Every crate opts in with `[lints] workspace = true`. CI runs clippy with `-D warnings`,
 # so every `warn` below is an error in CI. Rationale: CODING_STANDARDS.md, section "Lints".
 [workspace.lints.rust]
