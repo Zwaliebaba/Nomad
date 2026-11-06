@@ -8,14 +8,14 @@ Targets: one Universe of up to 100 commanders, played in seasons. The MVP is one
 
 ## Status
 
-The MVP design is complete; the build works towards milestone MVP-α, the headless game (Design doc 30). Done: the deterministic simulation core, the Universe structure, ships, fleets and orders (S1–S3), the server shell with persistence and catch-up (N1–N2), and phase-1 client milestones M1–M3. Start at [`Design/README.md`](Design/README.md).
+The MVP design is complete; the build works towards milestone MVP-α, the headless game (Design doc 30). Done: the deterministic simulation core, the Universe structure, ships, fleets and orders (S1–S3), the server shell with persistence and catch-up (N1–N2), and phase-1 client milestones M1–M4. Start at [`Design/README.md`](Design/README.md).
 
 ## Repository layout
 
 ```
 Design/                 Design documents (source of truth), including the phase-1 visual slice package
 crates/
-  nomad-client/         Game client (phase 1: the visual slice; milestones M1–M3 done)
+  nomad-client/         Game client (phase 1: the visual slice; milestones M1–M4 done)
   nomad-sim/            Deterministic simulation core (Design doc 11): tick, timers, SimId, random streams, snapshots
   nomad-types/          Shared primitives (Design doc 20 §3): SimId and typed ids, ticks, Universe time, small enums, command shapes
   nomad-protocol/       Wire protocol (Design doc 20 §5): versioned client and server messages, length-prefixed postcard framing
@@ -40,7 +40,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
 ```
 
-Run the phase-1 client (milestones M1 to M3: window, background, infinite ops grid, camera, the station voxels, bloom on emissive voxels, elevation cues under lifted modules, and the hover highlight with its `ELEV +n` tag):
+Run the phase-1 client (milestones M1 to M4: window, background, infinite ops grid, camera, the station voxels, bloom on emissive voxels, elevation cues under lifted modules, the hover highlight with its `ELEV +n` tag, and the shield globe with its sector ring, the weak E sector and scripted hit ripples):
 
 ```bash
 cargo run -p nomad-client                      # borderless fullscreen on the current monitor
@@ -49,6 +49,7 @@ cargo run -p nomad-client -- --size 1280x720   # other window size
 cargo run -p nomad-client -- --screenshot out.png --view 1 --zoom 0.5   # one frame offscreen, no window
 cargo run -p nomad-client -- --screenshot out.png --hover 700,340       # as if the cursor were at that pixel
 cargo run -p nomad-client -- --screenshot out.png --turn-ms 125         # halfway through a +90° turn
+cargo run -p nomad-client -- --screenshot out.png --shield-ms 450       # 450 ms into the shield's hit loop
 ```
 
 | Key | Action |

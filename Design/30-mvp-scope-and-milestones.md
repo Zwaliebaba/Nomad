@@ -50,7 +50,8 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | **Client** | M1 ✅ | Window, camera, grid (phase 1) | — |
 | | M2 ✅ | Station voxels (phase 1) | — |
 | | M3 ✅ | Emissives (bloom), elevation cues, hover tag (phase 1) | — |
-| | M4–M6 | Shield, ships and effects, HUD (phase 1) | L in total |
+| | M4 ✅ | Shield: globe (D-100), sector ring and rim, scripted hit ripples (phase 1) | — |
+| | M5–M6 | Ships and effects, HUD (phase 1) | L in total |
 | | C7 | Network client and view-model store, replacing fixtures with live data (doc 20 §8) | M |
 | | C8 | Selection and orders in TACTICAL; live ships and effects | M |
 | **UI** | U1 | SYSTEM and SECTOR views, minimal GALAXY (doc 17 §3–4) | L |

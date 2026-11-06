@@ -21,20 +21,17 @@
 //! during the 250 ms turn. Halfway through a turn the two back corners swap; around that instant
 //! (within [`CORNER_CROSSFADE_DEG`] of it) the two candidates cross-fade instead of popping.
 
-use bytemuck::{Pod, Zeroable};
-use glam::{Vec2, Vec3};
-use wgpu::util::DeviceExt;
+use glam::Vec2;
 
 use super::context::TargetFormat;
+use super::lines::{LineBatch, LineVertex, QUAD_VERTICES, Stroke, push_fill, push_stroke};
 use crate::assets::voxel::StationScene;
 use crate::camera::ViewTransform;
-use crate::config::{CueLineStyle, ElevationConfig};
+use crate::config::ElevationConfig;
 
 /// Half-width of the yaw range, around the instant two corners are equally far back, over which
 /// their stalks cross-fade.
 pub const CORNER_CROSSFADE_DEG: f32 = 15.0;
-/// Vertices per stroke or fill quad (two triangles, not indexed).
-const QUAD_VERTICES: usize = 6;
 /// Quads per elevated module: one fill, four outline edges, at most four stalks.
 const QUADS_PER_MODULE: usize = 9;
 
@@ -127,85 +124,15 @@ pub fn stalk_visibility(corners: &[Vec2; 4], up_ground: Vec2) -> [f32; 4] {
     visibility
 }
 
-/// One overlay vertex (`OverlayIn` in the shader). 64 bytes.
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
-pub struct OverlayVertex {
-    start: [f32; 3],
-    end: [f32; 3],
-    corner: [f32; 2],
-    color: [f32; 4],
-    /// Dash, gap, phase and stroke width in window pixels; width 0 marks a fill.
-    dash: [f32; 4],
-}
-
-/// A dashed stroke style in window pixels.
-#[derive(Clone, Copy, Debug)]
-struct Stroke {
-    color: [f32; 4],
-    dash_px: f32,
-    gap_px: f32,
-    width_px: f32,
-}
-
-impl Stroke {
-    fn new(style: &CueLineStyle, layout_scale: f32) -> Self {
-        Self {
-            color: style.color.to_vec4(style.alpha),
-            dash_px: style.dash_ref_px[0] * layout_scale,
-            gap_px: style.dash_ref_px[1] * layout_scale,
-            width_px: style.width_ref_px * layout_scale,
-        }
-    }
-}
-
-fn push_stroke(
-    out: &mut Vec<OverlayVertex>,
-    start: Vec3,
-    end: Vec3,
-    stroke: &Stroke,
-    phase_px: f32,
-    opacity: f32,
-) {
-    let mut color = stroke.color;
-    color[3] *= opacity;
-    let vertex = |along: f32, side: f32| OverlayVertex {
-        start: start.to_array(),
-        end: end.to_array(),
-        corner: [along, side],
-        color,
-        dash: [stroke.dash_px, stroke.gap_px, phase_px, stroke.width_px],
-    };
-    let [a, b, c, d] = [
-        vertex(0.0, -1.0),
-        vertex(1.0, -1.0),
-        vertex(1.0, 1.0),
-        vertex(0.0, 1.0),
-    ];
-    out.extend([a, b, c, a, c, d]);
-}
-
-fn push_fill(out: &mut Vec<OverlayVertex>, quad: [Vec3; 4], color: [f32; 4]) {
-    let vertex = |p: Vec3| OverlayVertex {
-        start: p.to_array(),
-        end: p.to_array(),
-        corner: [0.0, 0.0],
-        color,
-        dash: [0.0; 4],
-    };
-    let [a, b, c, d] = quad.map(vertex);
-    out.extend([a, b, c, a, c, d]);
-}
-
 /// Appends the cues of `module` for `view` to `out`.
 pub fn build_cues(
-    out: &mut Vec<OverlayVertex>,
+    out: &mut Vec<LineVertex>,
     module: &ElevatedModule,
     style: &ElevationConfig,
     view: &ViewTransform,
 ) {
-    let footprint = Stroke::new(&style.footprint.line, view.layout_scale);
-    let stalk = Stroke::new(&style.stalk, view.layout_scale);
+    let footprint = Stroke::from_cue(&style.footprint.line, view.layout_scale);
+    let stalk = Stroke::from_cue(&style.stalk, view.layout_scale);
     let corners = module.corners();
     let ground = corners.map(|c| c.extend(0.0));
 
@@ -237,22 +164,10 @@ pub fn build_cues(
     }
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-struct OverlayUniforms {
-    view_proj: [[f32; 4]; 4],
-    viewport: [f32; 4],
-}
-
 pub struct OverlayPass {
-    uniform_buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
-    pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    vertex_capacity: usize,
-    vertex_count: u32,
+    lines: LineBatch,
     /// Reused every frame, so building the cues allocates nothing.
-    scratch: Vec<OverlayVertex>,
+    scratch: Vec<LineVertex>,
     modules: Vec<ElevatedModule>,
     style: ElevationConfig,
 }
@@ -264,41 +179,10 @@ impl OverlayPass {
         modules: Vec<ElevatedModule>,
         style: ElevationConfig,
     ) -> Self {
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("overlay uniforms"),
-            contents: bytemuck::bytes_of(&OverlayUniforms::zeroed()),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("overlay"),
-            entries: &[super::uniform_entry(
-                wgpu::ShaderStages::VERTEX,
-                size_of::<OverlayUniforms>(),
-            )],
-        });
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("overlay"),
-            layout: &layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-        });
-        let vertex_capacity = (modules.len() * QUADS_PER_MODULE * QUAD_VERTICES).max(1);
-        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("overlay vertices"),
-            size: (vertex_capacity * size_of::<OverlayVertex>()) as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        let capacity = modules.len() * QUADS_PER_MODULE * QUAD_VERTICES;
         Self {
-            uniform_buffer,
-            bind_group,
-            pipeline: overlay_pipeline(device, &layout, target),
-            vertex_buffer,
-            vertex_capacity,
-            vertex_count: 0,
-            scratch: Vec::with_capacity(vertex_capacity),
+            lines: LineBatch::new(device, target, capacity, "overlay"),
+            scratch: Vec::with_capacity(capacity),
             modules,
             style,
         }
@@ -306,89 +190,16 @@ impl OverlayPass {
 
     /// Rebuilds the cues for this frame's view and uploads them.
     pub fn prepare(&mut self, queue: &wgpu::Queue, view: &ViewTransform) {
-        let uniforms = OverlayUniforms {
-            view_proj: view.view_proj().to_cols_array_2d(),
-            viewport: [view.viewport_px.x, view.viewport_px.y, 0.0, 0.0],
-        };
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
         self.scratch.clear();
         for module in &self.modules {
             build_cues(&mut self.scratch, module, &self.style, view);
         }
-        debug_assert!(self.scratch.len() <= self.vertex_capacity);
-        self.scratch.truncate(self.vertex_capacity);
-        self.vertex_count = u32::try_from(self.scratch.len())
-            .expect("invariant: a few dozen vertices per elevated module");
-        if !self.scratch.is_empty() {
-            queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.scratch));
-        }
+        self.lines.upload(queue, view, &self.scratch);
     }
 
     pub fn draw(&self, pass: &mut wgpu::RenderPass<'_>) {
-        if self.vertex_count == 0 {
-            return;
-        }
-        pass.set_bind_group(0, &self.bind_group, &[]);
-        pass.set_pipeline(&self.pipeline);
-        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        pass.draw(0..self.vertex_count, 0..1);
+        self.lines.draw(pass, 0..self.lines.len());
     }
-}
-
-fn overlay_pipeline(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    target: TargetFormat,
-) -> wgpu::RenderPipeline {
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("overlay"),
-        bind_group_layouts: &[Some(layout)],
-        immediate_size: 0,
-    });
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("overlay.wgsl"),
-        source: wgpu::ShaderSource::Wgsl(super::OVERLAY_WGSL.into()),
-    });
-    let attributes = wgpu::vertex_attr_array![
-        0 => Float32x3,
-        1 => Float32x3,
-        2 => Float32x2,
-        3 => Float32x4,
-        4 => Float32x4,
-    ];
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("overlay"),
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: Some("vs_overlay"),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            buffers: &[Some(wgpu::VertexBufferLayout {
-                array_stride: size_of::<OverlayVertex>() as wgpu::BufferAddress,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &attributes,
-            })],
-        },
-        primitive: wgpu::PrimitiveState::default(),
-        // Doc 05 step 5: depth test on, depth write off. Footprints lie exactly on the plane of
-        // the deck's bottom faces, so equal depths pass.
-        depth_stencil: Some(super::context::depth_stencil(
-            false,
-            Some(wgpu::CompareFunction::LessEqual),
-        )),
-        multisample: target.multisample(),
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: Some("fs_overlay"),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            targets: &super::scene_targets(
-                target,
-                Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-            ),
-        }),
-        multiview_mask: None,
-        cache: None,
-    })
 }
 
 #[cfg(test)]
@@ -520,11 +331,5 @@ mod tests {
         assert!((anchor.y - lowest).abs() < 1e-3);
         let centre = t.world_to_screen(module.centre().extend(0.0));
         assert!((anchor.x - centre.x).abs() < 1e-3);
-    }
-
-    #[test]
-    fn vertex_layout_matches_the_shader() {
-        assert_eq!(size_of::<OverlayVertex>(), 64);
-        assert_eq!(size_of::<OverlayUniforms>(), 80);
     }
 }

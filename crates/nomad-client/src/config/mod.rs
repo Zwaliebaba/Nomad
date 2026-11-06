@@ -4,16 +4,19 @@
 //! rejected with a clear error before the rest of it is read (`CODING_STANDARDS.md` §9). The voxel
 //! assets (`crate::assets`) share the asset root and the error type defined here.
 
+mod fixture;
 mod hud;
 mod scene;
 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+pub use fixture::{Fixture, load_fixture};
 pub use hud::{ElevationTagStyle, FontRole, HudLayout, load_hud_layout};
 pub use scene::{
     BackgroundConfig, BloomComposite, BloomConfig, ColorStop, CueLineStyle, ElevationConfig,
-    GridLineStyle, MAX_NEBULAE, OpsGridConfig, SceneConfig, StarsConfig,
+    GridLineStyle, MAX_NEBULAE, MAX_SHIELD_IMPACTS, OpsGridConfig, SceneConfig, ShieldConfig,
+    ShieldLine, ShieldShape, StarsConfig,
 };
 
 /// Environment variable that overrides the asset root.
@@ -51,6 +54,11 @@ pub fn station_scene_path(asset_root: &Path) -> PathBuf {
 /// Location of `hud_layout.json` under an asset root.
 pub fn hud_layout_path(asset_root: &Path) -> PathBuf {
     asset_root.join("layout").join("hud_layout.json")
+}
+
+/// Location of the phase-1 fixture, `fixtures/siege_kr114.json`, under an asset root.
+pub fn fixture_path(asset_root: &Path) -> PathBuf {
+    asset_root.join("fixtures").join("siege_kr114.json")
 }
 
 /// The folder the OFL fonts are downloaded into (phase-1 README, ground rule 4). It is
@@ -204,5 +212,6 @@ mod tests {
         assert!(scene_config_path(&default_asset_root()).is_file());
         assert!(station_scene_path(&default_asset_root()).is_file());
         assert!(hud_layout_path(&default_asset_root()).is_file());
+        assert!(fixture_path(&default_asset_root()).is_file());
     }
 }

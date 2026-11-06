@@ -1,16 +1,16 @@
 //! Game client.
 //!
 //! Phase 1 implements the visual slice specified in `Design/phase1-visual-slice/`. This is
-//! milestone M3 (phase-1 doc 06): a `winit` window with a `wgpu` surface, the screen-space
+//! milestone M4 (phase-1 doc 06): a `winit` window with a `wgpu` surface, the screen-space
 //! background, the infinite ops grid, the snap-rotation camera with zoom and pan (M1), the
 //! station voxels from `station_scene.json`, greedy-meshed and shaded relative to the camera
 //! (M2), bloom on emissive voxels, elevation cues under lifted modules, and the hover highlight
-//! with its `ELEV +n` tag (M3).
+//! with its `ELEV +n` tag (M3), and the sectored shield globe with scripted hit ripples (M4).
 //!
 //! ```text
 //! nomad-client [--windowed] [--size WxH] [--view N] [--zoom Z]
 //! nomad-client --screenshot OUT.png [--size WxH] [--view N] [--zoom Z]
-//!              [--hover X,Y] [--turn-ms MS]
+//!              [--hover X,Y] [--turn-ms MS] [--shield-ms MS]
 //! ```
 //!
 //! `--screenshot` renders one frame offscreen, without a window, and writes a PNG.
@@ -125,8 +125,9 @@ fn initial_camera(scene: &SceneConfig, options: &Options) -> Result<Camera, AppE
     Ok(camera)
 }
 
-/// `--screenshot`: one frame offscreen, no window. `--turn-ms` and `--hover` freeze a moment of a
-/// turn and a cursor position, so the M3 hover and mid-turn cues can be checked offscreen.
+/// `--screenshot`: one frame offscreen, no window. `--turn-ms`, `--hover` and `--shield-ms` freeze a
+/// moment of a turn, a cursor position and the shield's hit loop, so the M3 hover, the mid-turn
+/// cues and the M4 ripples can be checked offscreen.
 fn render_screenshot(
     assets: &SceneAssets,
     mut camera: Camera,
@@ -156,7 +157,10 @@ fn render_screenshot(
         height,
         &view,
         Layers::default(),
-        FrameInput { hovered },
+        FrameInput {
+            hovered,
+            elapsed_ms: options.shield_ms.map_or(0, u64::from),
+        },
     )?;
     screenshot::save(path, &image)?;
     tracing::info!(

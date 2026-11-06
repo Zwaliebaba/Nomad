@@ -78,6 +78,8 @@ struct Running {
     /// Keyboard and edge-scroll pan speed, from `scene_config.json` (D-063).
     pan_speed_ref_px_per_s: f32,
     last_frame: Instant,
+    /// When the scripted effects (the shield's hit loop) started.
+    started: Instant,
     /// What the last frame drew besides the camera (the hovered module); F12 reuses it.
     frame_input: FrameInput,
 }
@@ -104,6 +106,7 @@ impl App {
             input: Input::default(),
             pan_speed_ref_px_per_s: self.assets.config.camera.pan_speed_ref_px_per_s,
             last_frame: Instant::now(),
+            started: Instant::now(),
             frame_input: FrameInput::default(),
         })
     }
@@ -263,7 +266,12 @@ impl Running {
             .cursor
             .filter(|_| !self.input.unfocused)
             .and_then(|cursor| pick::module_at(&assets.station, &view, cursor));
-        self.frame_input = FrameInput { hovered };
+        let elapsed_ms =
+            u64::try_from(now.duration_since(self.started).as_millis()).unwrap_or(u64::MAX);
+        self.frame_input = FrameInput {
+            hovered,
+            elapsed_ms,
+        };
 
         match self.surface.acquire(&self.gpu) {
             Acquired::Frame(frame, target) => {
