@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run nomad-client",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "cargo run -p nomad-client",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
