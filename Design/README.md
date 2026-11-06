@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** design and build run in parallel (D-051). All questions Q1–Q78 are answered (D-001 to D-084). Docs 10–16 are agreed, so every game rule the MVP needs is designed. Remaining design: 17 (strategic map views and UI), 20 (architecture), 30 (MVP scope and milestones). Being built: phase-1 M2 and the Universe structure in `nomad-sim`.
+**Status:** design and build run in parallel (D-051). Q1–Q78 are answered (D-001 to D-084). Docs 10–16 are agreed; docs 17, 20 and 30 are proposed, with Q79–Q91 open. Being built: phase-1 M2 and the Universe structure in `nomad-sim`.
 
 ## Documents
 
@@ -10,7 +10,7 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 |---|------|------------|--------|
 | 00 | [`00-glossary.md`](00-glossary.md) | Vocabulary and the Universe hierarchy. Read this first. | Draft (decisions applied) |
 | 01 | [`01-game-concept.md`](01-game-concept.md) | Stated requirements, what they force, stress test, MVP framing | Draft (decisions applied) |
-| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | All answered |
+| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | Q79–Q91 open |
 | 03 | [`03-decision-log.md`](03-decision-log.md) | Decisions taken, with date and reason | Living |
 | 04 | [`04-design-review.md`](04-design-review.md) | Ranked risk register for the agreed design (RK-01 to RK-11) | Decided |
 | 10 | [`10-universe-structure.md`](10-universe-structure.md) | Hierarchy, scale, topology and travel, sites and holdings, system control, season start and late joiners, coordinate frames | Agreed |
@@ -19,16 +19,13 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 | 14 | [`14-economy.md`](14-economy.md) | Resources, pooled stockpile with convoys, deposits, harvesting and refining, power, command cap, build slots and queues, costs, repair, start kit, pacing targets | Agreed |
 | 16 | [`16-information-model.md`](16-information-model.md) | Information classes, sensors and detection, transit visibility, last-known memory, what the server sends, AI fairness via `CommanderView` | Agreed |
 | 15 | [`15-combat-and-defence.md`](15-combat-and-defence.md) | Ships, orders, weapons and damage, dome and power, siege and capture mechanics, outposts, gates, raider limits, TTK targets, starting values | Agreed |
+| 17 | [`17-strategic-views-and-ui.md`](17-strategic-views-and-ui.md) | SYSTEM, SECTOR and GALAXY views, orders in strategic views, UI beyond phase 1, hotkey scheme | Proposed (Q84–Q87) |
+| 20 | [`20-technical-architecture.md`](20-technical-architecture.md) | Processes, crates, threads, protocol, replication, persistence, lifecycle, client architecture, security, testing | Proposed (Q79–Q83) |
+| 30 | [`30-mvp-scope-and-milestones.md`](30-mvp-scope-and-milestones.md) | MVP definition, work packages, milestones α–δ, order of work, acceptance, out of scope | Proposed (Q88–Q91) |
 | 12 | [`12-offline-play-and-deputy.md`](12-offline-play-and-deputy.md) | Offline protection (stakes rule, shield lifecycle, absence states) and the Deputy (authority, doctrine, competence cap) | Agreed |
 | — | [`phase1-visual-slice/`](phase1-visual-slice/README.md) | Owner's phase-1 package: client look, camera, HUD, renderer architecture, voxel assets | Agreed (owner) |
 
-Planned documents (numbers reserved). Their inputs are now decided:
-
-| # | Planned document | Inputs |
-|---|------------------|--------|
-| 17 | Strategic map views: SYSTEM and SECTOR views, fleet travel commands (phase-1 doc 07, item 7) | D-022, D-026 |
-| 20 | Technical architecture: server, client, protocol, persistence, crates | D-026, D-029, D-030 |
-| 30 | MVP scope, milestones and acceptance criteria, including the `nomad-sim` track | D-026 to D-028, D-037, D-038 |
+Every document the MVP needs now exists (see `30-mvp-scope-and-milestones.md` for the build plan).
 
 ## Conventions
 
