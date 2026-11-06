@@ -18,6 +18,8 @@ pub mod purpose {
     /// Season galaxy layout at season start: site and gate positions (per-system scope) and
     /// lane transit times (global scope). Design doc 10 §4, D-044.
     pub const GALAXY_LAYOUT: u32 = 2;
+    /// Season galaxy deposits at season start, per system (doc 14 §5, D-066).
+    pub const GALAXY_DEPOSITS: u32 = 3;
 }
 
 /// Identifies one random stream.

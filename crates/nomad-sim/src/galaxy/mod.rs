@@ -12,10 +12,15 @@
 //!
 //! Positions are in the **system frame**: km, 2D, origin at the star, +y = system north
 //! (doc 10 §8). Lane travel is a timed transit, not a distance (D-042).
+//!
+//! Sites carry their deposits and deposit values (doc 14 §5, D-066), which feed the balance
+//! of home neighbourhoods (doc 10 §4.3 invariant 5).
 
+mod deposit;
 mod generate;
 mod validate;
 
+pub use deposit::{Deposit, DepositKind, DepositValue, MAX_DEPOSITS_PER_SITE, Richness};
 pub use generate::{GenerationError, STAGE1_COMMANDERS, generate_stage1, stage1_sites};
 pub use validate::{
     GalaxyReport, InvariantLimits, SectorReport, Violation, WorstTrip, allowed_gates,
@@ -139,7 +144,19 @@ pub struct Site {
     pub system: SystemId,
     /// Where it is in the system frame.
     pub position: PositionKm,
+    /// Its 0–2 deposits (doc 14 §5, D-066).
+    pub deposits: Vec<Deposit>,
 }
+
+impl Site {
+    /// The total value of its deposits (D-066).
+    pub fn value(&self) -> DepositValue {
+        self.deposits.iter().map(|d| d.value()).sum()
+    }
+}
+
+/// Home neighbourhoods reach this many jumps from the home system (doc 10 §4.3 invariant 5).
+pub const HOME_NEIGHBOURHOOD_JUMPS: u32 = 2;
 
 /// A system's entry and exit point, at its edge (doc 10 §4.1).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -263,6 +280,53 @@ impl Galaxy {
         self.jumps_from_filtered(from, |_| true)
     }
 
+    /// The total deposit value of a site (D-066).
+    pub fn site_value(&self, site: SiteId) -> Option<DepositValue> {
+        self.sites.get(&site).map(Site::value)
+    }
+
+    /// The total deposit value of a system's sites (D-066).
+    pub fn system_value(&self, system: SystemId) -> Option<DepositValue> {
+        let system = self.systems.get(&system)?;
+        Some(
+            system
+                .sites
+                .iter()
+                .filter_map(|&s| self.site_value(s))
+                .sum(),
+        )
+    }
+
+    /// `system` and every system within `max_jumps` of it, through lanes of any kind.
+    pub fn neighbourhood(&self, system: SystemId, max_jumps: u32) -> BTreeSet<SystemId> {
+        self.jumps_from(system)
+            .into_iter()
+            .filter(|&(_, jumps)| jumps <= max_jumps)
+            .map(|(id, _)| id)
+            .collect()
+    }
+
+    /// The total deposit value of [`Self::neighbourhood`] (D-066).
+    pub fn neighbourhood_value(&self, system: SystemId, max_jumps: u32) -> Option<DepositValue> {
+        self.systems.contains_key(&system).then(|| {
+            self.neighbourhood(system, max_jumps)
+                .into_iter()
+                .filter_map(|id| self.system_value(id))
+                .sum()
+        })
+    }
+
+    /// The neighbourhood value of every home system, for invariant 5 (doc 10 §4.3): all
+    /// systems within [`HOME_NEIGHBOURHOOD_JUMPS`] of the home, the home included.
+    pub fn home_neighbourhood_values(&self) -> BTreeMap<SystemId, DepositValue> {
+        self.systems()
+            .filter(|(_, s)| s.kind == SystemKind::Home)
+            .filter_map(|(id, _)| {
+                Some((id, self.neighbourhood_value(id, HOME_NEIGHBOURHOOD_JUMPS)?))
+            })
+            .collect()
+    }
+
     /// Like [`Self::neighbours`], using only lanes accepted by `keep`.
     pub(crate) fn neighbours_filtered(
         &self,
@@ -367,7 +431,14 @@ impl Galaxy {
             .expect("invariant: a site is added to an existing system")
             .sites
             .push(id);
-        self.sites.insert(id, Site { system, position });
+        self.sites.insert(
+            id,
+            Site {
+                system,
+                position,
+                deposits: Vec::new(),
+            },
+        );
         id
     }
 
@@ -392,6 +463,13 @@ impl Galaxy {
             },
         );
         id
+    }
+
+    pub(crate) fn set_deposits(&mut self, site: SiteId, deposits: Vec<Deposit>) {
+        self.sites
+            .get_mut(&site)
+            .expect("invariant: deposits are set on an existing site")
+            .deposits = deposits;
     }
 
     pub(crate) fn add_lane(

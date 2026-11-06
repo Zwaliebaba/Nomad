@@ -5,17 +5,20 @@
 //! created in the order H1, N1, H2, N2, H3, N3, H4, N4, C, R, so their identities follow
 //! that order (doc 10 §4.4 diagram).
 //!
-//! Everything random is drawn from seeded streams with purpose
-//! [`purpose::GALAXY_LAYOUT`]: per system for site and gate positions, Universe-wide for lane
-//! transit times. The same season seed therefore gives the same galaxy (D-044, D-049).
+//! Everything random is drawn from seeded streams: purpose [`purpose::GALAXY_LAYOUT`] per
+//! system for site and gate positions and Universe-wide for lane transit times, and purpose
+//! [`purpose::GALAXY_DEPOSITS`] per system for deposits (doc 14 §5, D-066). The same season
+//! seed therefore gives the same galaxy (D-044, D-049).
 
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
 
 use thiserror::Error;
 
+use crate::galaxy::validate::neighbourhood_imbalance;
 use crate::galaxy::{
-    GateId, InvariantLimits, LaneKind, PositionKm, SystemId, SystemKind, Violation, validate,
+    Deposit, Galaxy, GateId, InvariantLimits, LaneKind, MAX_DEPOSITS_PER_SITE, PositionKm,
+    Richness, SystemId, SystemKind, Violation, validate,
 };
 use crate::holding::HoldingError;
 use crate::id::CommanderId;
@@ -61,6 +64,37 @@ const INNER_ORBIT_MAX_SITES: usize = 3;
 const GATE_MIN_SEPARATION_RAD: f64 = TAU / 6.0;
 /// Jump lane transit range in whole minutes (doc 10 §4.2, D-043).
 const JUMP_TRANSIT_MINUTES: (u64, u64) = (40, 70);
+
+// Deposits (doc 14 §5, D-066). The rules per system kind are agreed:
+//
+// - home: the mother-station site has 1 standard ore field; the other sites have mostly poor
+//   and standard ore, and the system has at most 1 crystal vein;
+// - standard: standard ore, plus 1–2 crystal veins;
+// - hub: rich ore and rich crystal.
+//
+// The counts and odds below are generator choices within those rules:
+//
+// - the mother-station site has that one ore field and nothing else;
+// - every home system gets exactly one crystal vein, poor or standard, so no home starts
+//   without crystal within reach;
+// - ore fields per site are drawn with the weights below; a crystal vein takes a free
+//   deposit slot on a site, or replaces an ore field if the site already has two;
+// - a site never has more than one crystal vein;
+// - the raider haven has no sites and therefore no deposits.
+
+/// Index of the mother-station site among a home system's sites: the first.
+const MOTHER_SITE: usize = 0;
+/// Weights for 0, 1 and 2 ore fields on a home or standard site.
+const ORE_FIELD_WEIGHTS: [u64; 3] = [1, 2, 1];
+/// Weights for 0, 1 and 2 ore fields on a hub site: every hub site has a deposit.
+const HUB_ORE_FIELD_WEIGHTS: [u64; 3] = [0, 1, 1];
+/// Crystal veins per standard system.
+const STANDARD_CRYSTAL_VEINS: (usize, usize) = (1, 2);
+/// Crystal veins in the hub.
+const HUB_CRYSTAL_VEINS: (usize, usize) = (2, 3);
+/// Full deposit draws tried until home neighbourhoods are balanced (invariant 5), before
+/// the generator falls back to mirroring.
+const DEPOSIT_DRAWS: u32 = 16;
 
 /// Why a galaxy could not be generated.
 #[derive(Clone, Debug, PartialEq, Error)]
@@ -155,6 +189,8 @@ pub fn generate_stage1(
         );
     }
 
+    place_deposits(galaxy, rng, &systems);
+
     let homes = systems
         .iter()
         .zip(&kinds)
@@ -172,6 +208,165 @@ pub fn generate_stage1(
         Ok(state)
     } else {
         Err(GenerationError::Invalid(report.violations))
+    }
+}
+
+/// Draws deposits for every system until home neighbourhoods are balanced (doc 10 §4.3
+/// invariant 5). Each draw continues the per-system deposit streams, so the result depends
+/// on the seed alone. If [`DEPOSIT_DRAWS`] draws all fail, [`mirror_deposits`] makes the
+/// neighbourhoods exactly equal, so generation always ends and always satisfies the
+/// invariant.
+fn place_deposits(galaxy: &mut Galaxy, rng: &mut RngStreams, systems: &[SystemId]) {
+    let spread = InvariantLimits::default().max_neighbourhood_spread_percent;
+    for _ in 0..DEPOSIT_DRAWS {
+        for &system in systems {
+            draw_system_deposits(galaxy, rng, system);
+        }
+        if neighbourhood_imbalance(&galaxy.home_neighbourhood_values(), spread).is_none() {
+            return;
+        }
+    }
+    mirror_deposits(galaxy, systems);
+}
+
+/// Draws the deposits of one system's sites by its kind (doc 14 §5).
+fn draw_system_deposits(galaxy: &mut Galaxy, rng: &mut RngStreams, system: SystemId) {
+    let Some(sys) = galaxy.system(system) else {
+        return;
+    };
+    let kind = sys.kind;
+    let sites = sys.sites.clone();
+    let key = StreamKey {
+        scope: system.sim_id().get(),
+        purpose: purpose::GALAXY_DEPOSITS,
+    };
+    let mut deposits: Vec<Vec<Deposit>> = vec![Vec::new(); sites.len()];
+    match kind {
+        SystemKind::Home => {
+            for (index, site) in deposits.iter_mut().enumerate() {
+                if index == MOTHER_SITE {
+                    site.push(Deposit::ore(Richness::Standard));
+                    continue;
+                }
+                for _ in 0..weighted(rng, key, ORE_FIELD_WEIGHTS) {
+                    site.push(Deposit::ore(poor_or_standard(rng, key)));
+                }
+            }
+            let richness = poor_or_standard(rng, key);
+            place_crystal_veins(rng, key, &mut deposits, 1, richness, Some(MOTHER_SITE));
+        }
+        SystemKind::Standard => {
+            for site in &mut deposits {
+                for _ in 0..weighted(rng, key, ORE_FIELD_WEIGHTS) {
+                    site.push(Deposit::ore(Richness::Standard));
+                }
+            }
+            let veins = count_in(rng, key, STANDARD_CRYSTAL_VEINS);
+            place_crystal_veins(rng, key, &mut deposits, veins, Richness::Standard, None);
+        }
+        SystemKind::Hub => {
+            for site in &mut deposits {
+                for _ in 0..weighted(rng, key, HUB_ORE_FIELD_WEIGHTS) {
+                    site.push(Deposit::ore(Richness::Rich));
+                }
+            }
+            let veins = count_in(rng, key, HUB_CRYSTAL_VEINS);
+            place_crystal_veins(rng, key, &mut deposits, veins, Richness::Rich, None);
+        }
+        SystemKind::RaiderHaven => {}
+    }
+    for (site, site_deposits) in sites.into_iter().zip(deposits) {
+        galaxy.set_deposits(site, site_deposits);
+    }
+}
+
+/// Puts `count` crystal veins on distinct random sites, skipping `exclude`. A vein takes a
+/// free deposit slot, or replaces the site's last ore field if it already has two.
+fn place_crystal_veins(
+    rng: &mut RngStreams,
+    key: StreamKey,
+    deposits: &mut [Vec<Deposit>],
+    count: usize,
+    richness: Richness,
+    exclude: Option<usize>,
+) {
+    let mut candidates: Vec<usize> = (0..deposits.len())
+        .filter(|&i| Some(i) != exclude)
+        .collect();
+    for _ in 0..count {
+        if candidates.is_empty() {
+            break;
+        }
+        let site = &mut deposits[candidates.swap_remove(rng.index(key, candidates.len()))];
+        if site.len() >= MAX_DEPOSITS_PER_SITE {
+            site.pop();
+        }
+        site.push(Deposit::crystal(richness));
+    }
+}
+
+/// Fallback for invariant 5: copies H1's deposits to every other home system and N1's to
+/// every other standard system, site by site. Every home neighbourhood then holds the hub,
+/// three home systems and two standard systems of identical value, so all neighbourhood
+/// values are equal. Home systems all have the same number of sites, and so do standard
+/// systems (doc 10 §4.4), and the mother station is always the first site.
+fn mirror_deposits(galaxy: &mut Galaxy, systems: &[SystemId]) {
+    for kind in [SystemKind::Home, SystemKind::Standard] {
+        let of_kind: Vec<SystemId> = systems
+            .iter()
+            .copied()
+            .filter(|&s| galaxy.system(s).is_some_and(|s| s.kind == kind))
+            .collect();
+        let Some((&template, rest)) = of_kind.split_first() else {
+            continue;
+        };
+        let pattern: Vec<Vec<Deposit>> = galaxy
+            .system(template)
+            .map(|s| s.sites.clone())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|site| {
+                galaxy
+                    .site(site)
+                    .map(|s| s.deposits.clone())
+                    .unwrap_or_default()
+            })
+            .collect();
+        for &system in rest {
+            let sites = galaxy
+                .system(system)
+                .map(|s| s.sites.clone())
+                .unwrap_or_default();
+            for (site, deposits) in sites.into_iter().zip(&pattern) {
+                galaxy.set_deposits(site, deposits.clone());
+            }
+        }
+    }
+}
+
+/// An index drawn with the given weights.
+fn weighted<const N: usize>(rng: &mut RngStreams, key: StreamKey, weights: [u64; N]) -> usize {
+    let mut roll = rng.below(key, weights.iter().sum());
+    for (index, &weight) in weights.iter().enumerate() {
+        if roll < weight {
+            return index;
+        }
+        roll -= weight;
+    }
+    0
+}
+
+/// A uniform count in `lo..=hi`.
+fn count_in(rng: &mut RngStreams, key: StreamKey, (lo, hi): (usize, usize)) -> usize {
+    lo + rng.index(key, hi - lo + 1)
+}
+
+/// Poor or standard, evenly ("mostly poor and standard ore" at home, doc 14 §5).
+fn poor_or_standard(rng: &mut RngStreams, key: StreamKey) -> Richness {
+    if rng.below(key, 2) == 0 {
+        Richness::Poor
+    } else {
+        Richness::Standard
     }
 }
 
@@ -338,6 +533,44 @@ mod tests {
         let c = state_hash(&generate_stage1(season(10), COMMANDERS).unwrap()).unwrap();
         assert_eq!(a, b);
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn mother_stations_sit_on_one_standard_ore_field() {
+        let state = generate_stage1(season(5), COMMANDERS).unwrap();
+        for (_, holding) in state.holdings() {
+            let site = state.galaxy().site(holding.site).unwrap();
+            assert_eq!(site.deposits, vec![Deposit::ore(Richness::Standard)]);
+        }
+    }
+
+    #[test]
+    fn mirroring_balances_home_neighbourhoods_exactly() {
+        let state = generate_stage1(season(5), COMMANDERS).unwrap();
+        let mut galaxy = state.galaxy().clone();
+        let systems: Vec<SystemId> = galaxy.systems().map(|(id, _)| id).collect();
+        // Strip H1 and both its standard neighbours: H1's neighbourhood is now far poorer
+        // than H3's, which contains none of them.
+        for system in [systems[0], systems[1], systems[7]] {
+            let sites = galaxy.system(system).unwrap().sites.clone();
+            for site in sites.into_iter().skip(1) {
+                galaxy.set_deposits(site, Vec::new());
+            }
+        }
+        assert!(neighbourhood_imbalance(&galaxy.home_neighbourhood_values(), 10).is_some());
+
+        mirror_deposits(&mut galaxy, &systems);
+        let values: Vec<_> = galaxy.home_neighbourhood_values().into_values().collect();
+        assert_eq!(values.len(), STAGE1_COMMANDERS);
+        assert!(values.iter().all(|&v| v == values[0]));
+        assert_eq!(
+            galaxy.system_value(systems[2]),
+            galaxy.system_value(systems[0])
+        );
+        assert_eq!(
+            galaxy.system_value(systems[3]),
+            galaxy.system_value(systems[1])
+        );
     }
 
     #[test]

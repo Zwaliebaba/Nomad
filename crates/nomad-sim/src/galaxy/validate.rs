@@ -16,12 +16,13 @@
 //! - **Invariant 3:** the worst-case trip between two sites of a sector takes at most 6 h for
 //!   the slowest warship class: straight in-system legs at cruise speed plus lane transits.
 //! - **Invariant 4:** home systems at least 2 jumps apart.
+//! - **Invariant 5:** every home neighbourhood (the home and all systems within 2 jumps) has
+//!   a total deposit value within ±10 % of every other home's, with the D-066 values
+//!   (doc 14 §5). Also checked: at most 2 deposits per site.
 //! - **Invariant 6:** at most 10 % dead ends, not counting raider havens.
 //!
 //! Not checked:
 //!
-//! - **Invariant 5** (deposit balance between home neighbourhoods) needs deposits, which
-//!   come from the economy design (doc 14).
 //! - **Invariant 7** (each sector borders 2–4 others through trunk lanes) is about a
 //!   multi-sector galaxy. MVP stage 1 has a single sector (doc 10 §3), so it cannot apply.
 
@@ -31,7 +32,8 @@ use std::ops::RangeInclusive;
 use thiserror::Error;
 
 use crate::galaxy::{
-    Galaxy, GateId, LaneId, LaneKind, PositionKm, SectorId, SiteId, SystemId, SystemKind,
+    DepositValue, Galaxy, GateId, LaneId, LaneKind, MAX_DEPOSITS_PER_SITE, PositionKm, SectorId,
+    SiteId, SystemId, SystemKind,
 };
 use crate::id::SimId;
 use crate::time::{TICKS_PER_SECOND, Ticks};
@@ -59,6 +61,9 @@ pub struct InvariantLimits {
     pub jump_transit: RangeInclusive<Ticks>,
     /// Trunk lane transit range (doc 10 §4.2).
     pub trunk_transit: RangeInclusive<Ticks>,
+    /// Invariant 5: how far, in percent, a home neighbourhood's deposit value may lie from
+    /// any other's.
+    pub max_neighbourhood_spread_percent: u64,
 }
 
 impl Default for InvariantLimits {
@@ -73,6 +78,7 @@ impl Default for InvariantLimits {
             min_site_spacing_km: 50.0,
             jump_transit: Ticks::from_minutes(40)..=Ticks::from_minutes(70),
             trunk_transit: Ticks::from_minutes(90)..=Ticks::from_minutes(150),
+            max_neighbourhood_spread_percent: 10,
         }
     }
 }
@@ -141,6 +147,8 @@ pub struct GalaxyReport {
     pub longest_in_system_trip_s: f64,
     /// The smallest distance between two sites of one system, in km.
     pub closest_sites_km: Option<f64>,
+    /// Invariant 5: each home system's neighbourhood deposit value.
+    pub home_neighbourhoods: BTreeMap<SystemId, DepositValue>,
     /// Everything that is wrong, in the order it was found.
     pub violations: Vec<Violation>,
 }
@@ -269,6 +277,29 @@ pub enum Violation {
         /// Systems that are not raider havens.
         systems: usize,
     },
+    /// A site has more deposits than allowed (D-066).
+    #[error("site {site:?} has {count} deposits")]
+    TooManyDeposits {
+        /// The site.
+        site: SiteId,
+        /// Its deposits.
+        count: usize,
+    },
+    /// Invariant 5: the richest and poorest home neighbourhoods are too far apart.
+    #[error(
+        "home neighbourhoods are unbalanced: {richest:?} has {richest_value}, \
+         {poorest:?} has {poorest_value}"
+    )]
+    NeighbourhoodImbalance {
+        /// The home with the richest neighbourhood.
+        richest: SystemId,
+        /// Its neighbourhood value.
+        richest_value: DepositValue,
+        /// The home with the poorest neighbourhood.
+        poorest: SystemId,
+        /// Its neighbourhood value.
+        poorest_value: DepositValue,
+    },
 }
 
 /// Checks `galaxy` against doc 10 §4.3 and the D-043 values in `limits`.
@@ -289,13 +320,60 @@ pub fn validate(galaxy: &Galaxy, limits: &InvariantLimits) -> GalaxyReport {
     }
     let min_home_separation_jumps = check_home_separation(galaxy, limits, &mut violations);
 
+    for (site, s) in galaxy.sites() {
+        if s.deposits.len() > MAX_DEPOSITS_PER_SITE {
+            violations.push(Violation::TooManyDeposits {
+                site,
+                count: s.deposits.len(),
+            });
+        }
+    }
+    let home_neighbourhoods = galaxy.home_neighbourhood_values();
+    if let Some(violation) = neighbourhood_imbalance(
+        &home_neighbourhoods,
+        limits.max_neighbourhood_spread_percent,
+    ) {
+        violations.push(violation);
+    }
+
     GalaxyReport {
         sectors,
         min_home_separation_jumps,
         longest_in_system_trip_s,
         closest_sites_km,
+        home_neighbourhoods,
         violations,
     }
+}
+
+/// Invariant 5: `None` if every value lies within `spread_percent` of every other value.
+///
+/// "Within ±10 % of every other home's" must hold in both directions for every pair, so the
+/// binding pair is the richest against the poorest: `richest − poorest ≤ 10 % × poorest`.
+/// Integer arithmetic only.
+pub(crate) fn neighbourhood_imbalance(
+    values: &BTreeMap<SystemId, DepositValue>,
+    spread_percent: u64,
+) -> Option<Violation> {
+    // Ties go to the lowest identity, so the report is deterministic.
+    let mut richest = values.iter().next()?;
+    let mut poorest = richest;
+    for entry in values {
+        if entry.1 > richest.1 {
+            richest = entry;
+        }
+        if entry.1 < poorest.1 {
+            poorest = entry;
+        }
+    }
+    let spread = u128::from(richest.1.milli().saturating_sub(poorest.1.milli()));
+    let allowed = u128::from(spread_percent) * u128::from(poorest.1.milli());
+    (spread * 100 > allowed).then_some(Violation::NeighbourhoodImbalance {
+        richest: *richest.0,
+        richest_value: *richest.1,
+        poorest: *poorest.0,
+        poorest_value: *poorest.1,
+    })
 }
 
 fn check_integrity(galaxy: &Galaxy, out: &mut Vec<Violation>) {
@@ -769,7 +847,7 @@ fn as_u64(n: usize) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::galaxy::{STAGE1_COMMANDERS, generate_stage1};
+    use crate::galaxy::{Deposit, Richness, STAGE1_COMMANDERS, generate_stage1};
     use crate::id::{CommanderId, SimIdAllocator};
     use crate::state::SeasonConfig;
 
@@ -1011,6 +1089,60 @@ mod tests {
             &r,
             |v| matches!(v, Violation::TransitOutOfRange { lane, .. } if *lane == trunk)
         ));
+    }
+
+    #[test]
+    fn neighbourhood_balance_boundary_is_ten_percent_of_the_poorest() {
+        let mut ids = SimIdAllocator::default();
+        let mut g = Galaxy::default();
+        let sector = g.add_sector(&mut ids);
+        let a = g.add_system(&mut ids, sector, SystemKind::Home);
+        let b = g.add_system(&mut ids, sector, SystemKind::Home);
+        let values = |x, y| {
+            BTreeMap::from([
+                (a, DepositValue::from_milli(x)),
+                (b, DepositValue::from_milli(y)),
+            ])
+        };
+        assert_eq!(neighbourhood_imbalance(&values(100_000, 110_000), 10), None);
+        assert_eq!(neighbourhood_imbalance(&values(110_000, 100_000), 10), None);
+        assert_eq!(
+            neighbourhood_imbalance(&values(100_000, 110_001), 10),
+            Some(Violation::NeighbourhoodImbalance {
+                richest: b,
+                richest_value: DepositValue::from_milli(110_001),
+                poorest: a,
+                poorest_value: DepositValue::from_milli(100_000),
+            })
+        );
+        assert_eq!(neighbourhood_imbalance(&values(0, 0), 10), None);
+        assert_eq!(neighbourhood_imbalance(&BTreeMap::new(), 10), None);
+    }
+
+    #[test]
+    fn rejects_unbalanced_homes_and_crowded_deposits() {
+        let (mut g, _) = stage1(3);
+        let s = systems(&g);
+        let r = report(&g);
+        assert_eq!(r.home_neighbourhoods.len(), 4);
+        // H1's neighbourhood is H1, N1, N4, H2, H4 and C, which does not include H3.
+        let h1 = g.neighbourhood(s[0], 2);
+        assert_eq!(h1, BTreeSet::from([s[0], s[1], s[7], s[2], s[6], s[8]]));
+
+        for system in [s[0], s[1], s[7]] {
+            let sites = g.system(system).unwrap().sites.clone();
+            for site in sites {
+                g.set_deposits(site, Vec::new());
+            }
+        }
+        let site = g.system(s[8]).unwrap().sites[0];
+        g.set_deposits(site, vec![Deposit::ore(Richness::Rich); 3]);
+        let r = report(&g);
+        assert!(has(&r, |v| matches!(
+            v,
+            Violation::NeighbourhoodImbalance { poorest, .. } if *poorest == s[0]
+        )));
+        assert!(has(&r, |v| *v == Violation::TooManyDeposits { site, count: 3 }));
     }
 
     #[test]
