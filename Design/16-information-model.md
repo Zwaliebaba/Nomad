@@ -54,6 +54,8 @@ Rendering of the strategic views belongs to doc 17; the protocol belongs to doc 
 - **Lock** (D-052) builds only while the target is detected.
 - The HSTL **ranging laser** (doc 15 §4) needs detection within 4 km.
 
+> **Settled with the S7 plan (D-173 to D-181):** the sensors phase runs for all observers every fifth tick (D-173); detection is per ship, and a fleet shows only its detected members (D-174); a holding is one target that reveals its modules (D-175); sensors are carried by completed cores, ships in space and system control (D-176). Last-known memory keeps one entry per fleet and per holding (D-177, narrowing D-076) and drops a fleet entry when its spot is back in view without it (D-178). Departures (D-179), lost Attack targets (D-180) and NPC memory (D-181) follow the plan.
+
 ## 4. Fleets in transit
 
 *Agreed (D-074), building on D-042.*
@@ -89,6 +91,8 @@ Rendering of the strategic views belongs to doc 17; the protocol belongs to doc 
   - every 5 s for the galaxy summary.
 
   Deadlines are sent instead of countdowns (doc 11 §3).
+
+> **Settled with the N4 plan (D-182 to D-187):** the simulation thread extracts each connected commander's view through `CommanderView`, and the network thread diffs and sends it (D-182, amending doc 20 §4). The 10 Hz tier covers the whole system being viewed (D-183). Entries are typed, with velocity so the client can extrapolate (D-184); combat effects are sent as projectile events (D-185); the client reports its focus with `SetFocus` (D-186); deltas carry `since`, and a gap triggers a reconnect (D-187). Protocol version 3.
 
 ## 7. AI commanders, the Deputy and raiders see what humans see
 

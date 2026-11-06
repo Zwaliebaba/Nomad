@@ -1,6 +1,6 @@
 # Work package S7 — Sensors and fog of war
 
-Status: **Planned; questions Q166–Q174 open.** Written together with `N4-replication.md`, because N4 sends each client exactly what S7 decides its commander can see. Builds on S3 (ships, fleets, holdings, lane transit, the validator), S5a (targeting, the engagement trigger) and S4 (modules, the economy views). This plan is also the brief for whoever builds S7. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q166–Q174 → D-173–D-181). Written together with `N4-replication.md`, because N4 sends each client exactly what S7 decides its commander can see. Builds on S3 (ships, fleets, holdings, lane transit, the validator), S5a (targeting, the engagement trigger) and S4 (modules, the economy views). This plan is also the brief for whoever builds S7. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -135,23 +135,23 @@ Every commander, and every NPC faction, knows only what its sensors detect, what
 
 Numbered Q166–Q174; each has a recommendation and alternatives. N4's questions follow in `N4-replication.md`.
 
-- **Q166 — When the sensors phase runs.** Doc 11 and doc 16 say 2 Hz, "staggered".
+- **✅ Q166 (D-173) — When the sensors phase runs.** Doc 11 and doc 16 say 2 Hz, "staggered".
   *Recommendation:* all observers at once on every fifth tick, so each half second has one consistent picture; stagger only if the harness shows a spike. At MVP scale a pass costs well under 1 ms. *Alternatives:* staggered per observer across the five ticks (smoother load, but observers see the Universe at different ticks); every tick (10 Hz, five times the cost for no gameplay gain).
-- **Q167 — Detecting part of a fleet.** Doc 16 detects targets, and targets are ships with different signatures. A fleet can mix a WARDEN (Heavy, 1.5) with LANCERs (Light, 0.6).
+- **✅ Q167 (D-174) — Detecting part of a fleet.** Doc 16 detects targets, and targets are ships with different signatures. A fleet can mix a WARDEN (Heavy, 1.5) with LANCERs (Light, 0.6).
   *Recommendation:* detection per ship, as doc 16 says. A fleet appears when any member is detected, and lists only the members that are detected; its composition is partly known until all are in range. *Alternatives:* detecting any member reveals the whole fleet (simpler, but a cruiser then exposes its escorts at 2.5× their range); one test per fleet at its centre with its largest signature (cheapest, same effect as the previous one).
-- **Q168 — Detecting holdings and modules.** A holding's site and owner are public, but its modules are not.
+- **✅ Q168 (D-175) — Detecting holdings and modules.** A holding's site and owner are public, but its modules are not.
   *Recommendation:* the holding is one target at its dome centre with signature 1.5 (Structure); detecting it reveals all its modules, their hull and state. *Alternatives:* each module is a separate target (about 10× the targets for almost no difference, since all modules lie within 1.3 km of the centre); modules are public, like ownership (removes the scouting value of seeing a station's defences).
-- **Q169 — What carries sensors.** Doc 16 lists holding cores and ship classes.
+- **✅ Q169 (D-176) — What carries sensors.** Doc 16 lists holding cores and ship classes.
   *Recommendation:* completed holding cores and ships in space, including ships under the arrival shroud, plus system control. Not docked ships (the core already covers more), not fleets in transit (doc 16 §4), not outposts under construction, not modules. *Alternatives:* outposts under construction get a reduced sensor (for example 20 km) from the moment the kit lands; shrouded arrivals are blind for the 10 s shroud.
-- **Q170 — What last-known memory stores.** D-076 says "the last observation of every entity". Per-ship and per-module entries multiply memory and snapshot size by the fleet and station sizes.
+- **✅ Q170 (D-177) — What last-known memory stores.** D-076 says "the last observation of every entity". Per-ship and per-module entries multiply memory and snapshot size by the fleet and station sizes.
   *Recommendation:* one entry per fleet (composition by class, hull % per class, position, heading, velocity, tick seen) and one per holding (observed modules with kind, slot, hull % and state, tick seen). *Alternatives:* one entry per ship and per module; fleet entries only, with holdings known only from public data and live sensing.
-- **Q171 — Clearing stale fleet entries.** D-076 keeps a fleet entry for 24 h. A commander who looks at the remembered spot and finds nothing would still see the ghost.
+- **✅ Q171 (D-178) — Clearing stale fleet entries.** D-076 keeps a fleet entry for 24 h. A commander who looks at the remembered spot and finds nothing would still see the ghost.
   *Recommendation:* drop a fleet entry as soon as the commander's current picture covers its remembered position (for its largest remembered signature) and the fleet is not detected. The 24 h expiry still applies otherwise. *Alternatives:* keep D-076's 24 h only; keep the entry but mark it "not at last position".
-- **Q172 — When a departure is observed.** D-074 says anyone "who currently has sensor coverage of the origin gate" sees a departure. Coverage of a point and detection of a target differ when signatures differ.
+- **✅ Q172 (D-179) — When a departure is observed.** D-074 says anyone "who currently has sensor coverage of the origin gate" sees a departure. Coverage of a point and detection of a target differ when signatures differ.
   *Recommendation:* an observer sees the departure if a ship of the departing fleet was in its visibility set at the last pass before the fleet entered transit (always within the 5 s spool-up). The record holds the fleet's identity and composition as seen, destination and arrival tick, and expires when the arrival is observed or 10 min after the arrival tick. *Alternatives:* coverage means the gate point lies within a sensor's range at signature 1.0, whatever the fleet; the record holds only destination and arrival time, not the fleet's identity.
-- **Q173 — An Attack target that drops out of detection.** Doc 15 does not say what happens.
+- **✅ Q173 (D-180) — An Attack target that drops out of detection.** Doc 15 does not say what happens.
   *Recommendation:* the fleet continues to the target's last-known position and holds there; the order completes with a `TargetLost` event if the target is not detected again on the way. *Alternatives:* the order is cancelled at once and the fleet holds where it is; the fleet keeps pursuing the true position (rejected in principle: that is information the commander does not have).
-- **Q174 — NPC raiders and memory.** Doc 16 §7 says raiders see through their faction's sensors under the same rules; D-076 gives memory to commanders.
+- **✅ Q174 (D-181) — NPC raiders and memory.** Doc 16 §7 says raiders see through their faction's sensors under the same rules; D-076 gives memory to commanders.
   *Recommendation:* NPC factions have visibility sets and lane traffic, but no last-known memory; the raider director (A3) works from public data and live sensing. *Alternatives:* NPC factions keep the same memory as commanders (more state, for raids that remember convoy routes); NPC factions see their own systems in full (simpler, but breaks "same rules").
 
 ## 6. Tasks, in order

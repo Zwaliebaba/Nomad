@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** the MVP design is complete. All questions Q1–Q141 are answered (D-001 to D-153), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
+**Status:** the MVP design is complete. All questions Q1–Q180 are answered (D-001 to D-188), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
 
 ## Documents
 
@@ -37,10 +37,10 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 | N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Built (D-106, D-107, D-109, D-110; season end D-116, sleep catch-up D-117) |
 | N3 | [`plans/N3-transport-and-sessions.md`](plans/N3-transport-and-sessions.md) | Planned and decided (D-120 to D-125) |
 | S4 | [`plans/S4-economy.md`](plans/S4-economy.md) | Planned and decided (D-126 to D-138); being built |
-| S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Planned and decided (D-139 to D-149); S5a being built, S5b after S4 |
-| S7 | [`plans/S7-sensors.md`](plans/S7-sensors.md) | Planned; questions Q166–Q174 open |
-| N4 | [`plans/N4-replication.md`](plans/N4-replication.md) | Planned; questions Q175–Q180 open |
-| S6 | [`plans/S6-offline-and-sieges.md`](plans/S6-offline-and-sieges.md) | Planned; questions Q142–Q160 open |
+| S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Planned and decided (D-139 to D-149); S5a built (details D-188), S5b after S4 |
+| S7 | [`plans/S7-sensors.md`](plans/S7-sensors.md) | Planned and decided (D-173 to D-181) |
+| N4 | [`plans/N4-replication.md`](plans/N4-replication.md) | Planned and decided (D-182 to D-187) |
+| S6 | [`plans/S6-offline-and-sieges.md`](plans/S6-offline-and-sieges.md) | Planned and decided (D-154 to D-172) |
 
 ## Conventions
 

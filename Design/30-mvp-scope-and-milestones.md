@@ -33,8 +33,8 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | S3 ✅ | Movement, fleets, orders, cruise mode, jump transit (doc 15 §3, D-042; plan in `plans/S3-movement-and-orders.md`) | M |
 | | S4 ⏳ | Economy: harvesting and refining, pool, buffers and convoys, power, slots and queues, command cap, repair, start kit, claiming (doc 14; D-135; plan in `plans/S4-economy.md`) | L |
 | | S5 ⏳ | Combat (doc 15 §4–5; plan in `plans/S5-combat.md`). S5a ✅: weapons, lock, projectiles, multipliers, targeting, engagement. S5b: dome sectors and regeneration, turrets, abilities, module damage, after S4 (D-139) | L |
-| | S6 | Offline and siege rules: activity windows, breach, Reinforced, siege, Held and Fallen, capture, emergency jump, outpost combat, gate rules, protections (docs 12, 15; claiming moved to S4, D-135) | L |
-| | S7 | Sensors: visibility sets, signatures, lane traffic, last-known memory, `CommanderView` (doc 16) | M |
+| | S6 | Offline and siege rules (docs 12, 15; plan in `plans/S6-offline-and-sieges.md`). S6a: commander records, activity and windows, presence, grace and order lapse, alongside S5b. S6b: breach, Reinforced, siege, Held and Fallen, capture, emergency jump, outpost combat, protections, after S5b (D-172; claiming moved to S4, D-135) | L |
+| | S7 | Sensors: visibility sets, signatures, lane traffic, last-known memory, `CommanderView` (doc 16; plan in `plans/S7-sensors.md`) | M |
 | | S8 | Season standings, win, season end (D-020, D-041) | S |
 | **AI** | A1 | Deputy (doc 13 §4) | M |
 | | A2 | Strategist economy | L |
@@ -45,7 +45,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | **Server and network** | N1 ✅ | `nomad-types`, `nomad-protocol` (doc 20 §3, §5) | M |
 | | N2 ✅ | Server shell: pacing, SQLite journal and snapshots, recovery, catch-up, journal checkpoints, season end (doc 20 §4, §6, §7; D-109, D-110, D-116; plan in `plans/N2-server-shell.md`) | M |
 | | N3 | QUIC transport, sessions, token, commands and results | M |
-| | N4 | Replication with interest management (doc 16 §6) | L |
+| | N4 | Replication with interest management (doc 16 §6; plan in `plans/N4-replication.md`) | L |
 | | N5 | Process model: the client starts the server, start with Windows, shut down (doc 20 §2) | S |
 | **Client** | M1 ✅ | Window, camera, grid (phase 1) | — |
 | | M2 ✅ | Station voxels (phase 1) | — |
@@ -83,7 +83,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 
 *Agreed (D-095).* Three streams run in parallel:
 
-1. **Rules and AI (the critical path):** S3 → S4 and S5a → S5b → S6 → S7 → A1 → A2 → A3 → A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist.
+1. **Rules and AI (the critical path):** S3 → S4 and S5a → S5b and S6a → S6b → S7 → A1 → A2 → A3 → A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist.
 2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send.
 3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7.
 

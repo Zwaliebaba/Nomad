@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q141) on 2026-11-06.**
+Status: **All questions answered (Q1–Q180) on 2026-11-06.**
 
 ## Answer summary
 
@@ -147,6 +147,40 @@ Status: **All questions answered (Q1–Q141) on 2026-11-06.**
 | Q139 | Fixed default port with bind and port overrides | D-150 |
 | Q140 | Persistent certificate and token, `connect-info` | D-151 |
 | Q141 | Containers are a developer mode; external-server setting | D-152 |
+| Q142 | What counts as activity (D-032) | D-154 |
+| Q143 | Window granularity and when it moves | D-155 |
+| Q144 | Freeze the window during a pending siege | D-156 |
+| Q145 | The initial window and the first 7 days | D-157 |
+| Q146 | Stagger slots and the 12 h notice (D-015 against D-033) | D-158 |
+| Q147 | A sector at 0 during protection (doc 12 §3 against the protection rules) | D-159 |
+| Q148 | Who counts as online at the siege start | D-160 |
+| Q149 | Attackers who go offline during the siege | D-161 |
+| Q150 | Which orders lapse after the grace (doc 12 §5.3, PR-3) | D-162 |
+| Q151 | Who may damage the core and capture (D-057 against doc 15 §7) | D-163 |
+| Q152 | Where a fallen mother station goes (conflict in D-034) | D-164 |
+| Q153 | "A free site in a low-density sector" in a one-sector MVP (D-034) | D-165 |
+| Q154 | How an emergency jump travels | D-166 |
+| Q155 | The comeback grant (D-034) | D-167 |
+| Q156 | What a capture cancels and keeps | D-168 |
+| Q157 | Disabled peripheral structures inside the window (doc 12 §3) | D-169 |
+| Q158 | Are protections public? | D-170 |
+| Q159 | Catch-up minutes in the activity history | D-171 |
+| Q160 | Split S6 and order it against S5b | D-172 |
+| Q166 | When the sensors phase runs | D-173 |
+| Q167 | Detecting part of a fleet | D-174 |
+| Q168 | Detecting holdings and modules | D-175 |
+| Q169 | What carries sensors | D-176 |
+| Q170 | What last-known memory stores | D-177 |
+| Q171 | Clearing stale fleet entries | D-178 |
+| Q172 | When a departure is observed | D-179 |
+| Q173 | An Attack target that drops out of detection | D-180 |
+| Q174 | NPC raiders and memory | D-181 |
+| Q175 | Where each client's view is computed | D-182 |
+| Q176 | What the 10 Hz tier covers | D-183 |
+| Q177 | How rich view entries are | D-184 |
+| Q178 | How combat effects reach the client | D-185 |
+| Q179 | How the client tells the server what it views | D-186 |
+| Q180 | Delta consistency | D-187 |
 
 ## A. Universe and time
 
@@ -652,3 +686,75 @@ The full questions, with alternatives, are in the plans' question sections. The 
 
 **✅ Q141 (D-152) — The client and a server it did not start (doc 20 §2, §7; D-085; N5).** The client starts the server if none is running. With the server in a container, the client cannot tell that from a server that is missing, so it could start a second, Windows server with a different Universe. "Shut down Universe" also misbehaves: under `--restart unless-stopped` the container restarted within a second of a clean exit, so the Universe would not stay stopped. "Start the Universe when I log in to Windows" does not apply either.
 *Recommendation (Proposed):* keep the MVP on the Windows process model of D-085 and treat the container as a developer and soak-test mode, not a player-facing option. Add an explicit client setting for an external server: with it set, the client never starts a server and hides "Shut down Universe" and the logon option, and the operator stops the server with `docker stop`. Whichever way this is answered, record it as a new decision extending D-085.
+
+## U. Round 16, from `plans/S6-offline-and-sieges.md`, `plans/S7-sensors.md` and `plans/N4-replication.md` (answered)
+
+The full questions, with alternatives, are in the plans' question sections; Q161–Q165 and Q181–Q189 were not used. The owner chose every recommendation.
+
+**✅ Q142** → D-154: **What counts as activity (D-032):** A minute counts when the commander is online at the 60 s sample (connected, or scheduled online for an AI). An idle open client counts. The 1 h/day drift and the 14-day history limit the effect, and a window in hours when the player isn't there only hurts that player.
+
+**✅ Q143** → D-155: **Window granularity and when it moves:** 15-minute buckets over 14 UTC days. The window moves only at its own end, never while open, towards the best 4 h by at most 1 h per day. Ties keep the current window, then prefer the nearest start, then the earliest.
+
+**✅ Q144** → D-156: **Freeze the window during a pending siege:** The window does not move while any of the commander's holdings is Reinforced or under siege, as D-032 freezes history during vacation.
+
+**✅ Q145** → D-157: **The initial window and the first 7 days:** Set at creation: the human's from `create --window`, by default the client's local 19:00–23:00; an AI's from its schedule. A `SetExposureWindow` command may change it during the first 7 days, taking effect when the window is next closed. After that only activity moves it.
+
+**✅ Q146** → D-158: **Stagger slots and the 12 h notice (D-015 against D-033):** The exit is the earliest slot (window start + 0, 1, 2 or 3 h) at least 12 h after the breach and after the commander's earlier-breached exits. Settles D-015 against D-033.
+
+**✅ Q147** → D-159: **A sector at 0 during protection (doc 12 §3 against the protection rules):** Sectors can still be worn to 0, keep blocking and regenerate, and no breach happens. Once protection ends, the next hostile hit on a sector at 0 is a breach. Settles doc 12 §3 against the protection rules.
+
+**✅ Q148** → D-160: **Who counts as online at the siege start:** Connected or inside the 120 s grace; an AI by its schedule. A network blip at the start doesn't hand the defender a free Held.
+
+**✅ Q149** → D-161: **Attackers who go offline during the siege:** The clock runs on. Their direct orders lapse after the grace, and doctrine never attacks a core, so their assault stops in practice.
+
+**✅ Q150** → D-162: **Which orders lapse after the grace (doc 12 §5.3, PR-3):** All direct fleet orders lapse and fleets fall back to doctrine (A1; until then station-keep). Economy queues and convoy routes are doctrine and continue.
+
+**✅ Q151** → D-163: **Who may damage the core and capture (D-057 against doc 15 §7):** Any commander hostile to the owner can damage modules through the open sector, and capture goes to the most core damage among all of them. D-057's tie-breaks already deter last-second sniping. NPC raiders deal no damage to modules inside the dome, so they never take part in sieges (D-056). Settles D-057 against doc 15 §7.
+
+**✅ Q152** → D-164: **Where a fallen mother station goes (conflict in D-034):** A free site in the system of the commander's nearest holding by route time; if there is none, the free site in the least-held claimable system (Q153); if there is none, it station-keeps by its nearest holding until a site frees up. Supersedes D-034's "jumps to the nearest owned holding".
+
+**✅ Q153** → D-165: **"A free site in a low-density sector" in a one-sector MVP (D-034):** The free site in the claimable system with the fewest holdings. Ties go to the shortest route from the fallen site, then the lowest `SiteId`.
+
+**✅ Q154** → D-166: **How an emergency jump travels:** An uninterruptible transit along the fastest route, lasting that route's time (in-system legs at cruise speed, spool-ups and lanes), untargetable and invisible like lane transit. On arrival it docks if there is capacity, otherwise it station-keeps by the core.
+
+**✅ Q155** → D-167: **The comeback grant (D-034):** The cost of one core kit for each holding the commander is behind the standings leader after the fall; at least 1 kit and at most 3; paid into the pool, ignoring the storage cap.
+
+**✅ Q156** → D-168: **What a capture cancels and keeps:** Queued and running builds at the holding are cancelled without refund. Its local buffers (ore, and alloy waiting for a convoy) transfer with it. The old owner's convoys to it hold or re-route by doctrine (S4).
+
+**✅ Q157** → D-169: **Disabled peripheral structures inside the window (doc 12 §3):** Disabled structures stay targetable, and a hit inside the window destroys one.
+
+**✅ Q158** → D-170: **Are protections public?:** Each holding's `breachable_from` is public, like the window (D-075).
+
+**✅ Q159** → D-171: **Catch-up minutes in the activity history:** Record catch-up minutes as offline for everyone, consistent with D-047. The windows then follow the hours in which play can actually happen.
+
+**✅ Q160** → D-172: **Split S6 and order it against S5b:** Build S6a (commander records, activity and windows, presence, grace and lapse, announcements infrastructure) in parallel with S5b. S6b (defence states, capture, emergency jumps, protections, peripheral outcomes, harness sieges) follows S5b.
+
+**✅ Q166** → D-173: **When the sensors phase runs:** All observers at once on every fifth tick, so each half second has one consistent picture; stagger only if the harness shows a spike. At MVP scale a pass costs well under 1 ms.
+
+**✅ Q167** → D-174: **Detecting part of a fleet:** Detection per ship, as doc 16 says. A fleet appears when any member is detected, and lists only the members that are detected; its composition is partly known until all are in range.
+
+**✅ Q168** → D-175: **Detecting holdings and modules:** The holding is one target at its dome centre with signature 1.5 (Structure); detecting it reveals all its modules, their hull and state.
+
+**✅ Q169** → D-176: **What carries sensors:** Completed holding cores and ships in space, including ships under the arrival shroud, plus system control. Not docked ships (the core already covers more), not fleets in transit (doc 16 §4), not outposts under construction, not modules.
+
+**✅ Q170** → D-177: **What last-known memory stores:** One entry per fleet (composition by class, hull % per class, position, heading, velocity, tick seen) and one per holding (observed modules with kind, slot, hull % and state, tick seen). Narrows D-076's "every entity".
+
+**✅ Q171** → D-178: **Clearing stale fleet entries:** Drop a fleet entry as soon as the commander's current picture covers its remembered position (for its largest remembered signature) and the fleet is not detected. The 24 h expiry still applies otherwise. Extends D-076's 24 h expiry.
+
+**✅ Q172** → D-179: **When a departure is observed:** An observer sees the departure if a ship of the departing fleet was in its visibility set at the last pass before the fleet entered transit (always within the 5 s spool-up). The record holds the fleet's identity and composition as seen, destination and arrival tick, and expires when the arrival is observed or 10 min after the arrival tick.
+
+**✅ Q173** → D-180: **An Attack target that drops out of detection:** The fleet continues to the target's last-known position and holds there; the order completes with a `TargetLost` event if the target is not detected again on the way.
+
+**✅ Q174** → D-181: **NPC raiders and memory:** NPC factions have visibility sets and lane traffic, but no last-known memory; the raider director (A3) works from public data and live sensing.
+
+**✅ Q175** → D-182: **Where each client's view is computed:** After each step, the simulation thread extracts each connected commander's due view through S7's `CommanderView`, and the network thread only diffs and sends. One visibility implementation serves the AI and replication, and the cost scales with connected clients, not the Universe. Amends doc 20 §4 ("change sets, visibility sets").
+
+**✅ Q176** → D-183: **What the 10 Hz tier covers:** The focus tier is the whole system being viewed, in TACTICAL or SYSTEM; other systems with presence at 2 Hz; the galaxy summary every 5 s. On localhost the extra traffic does not matter. Amends doc 16 §6 and doc 20 §5 ("the ops area being viewed").
+
+**✅ Q177** → D-184: **How rich view entries are:** Typed entries per kind now, carrying doc 16's identification (class, owner, hull %, fleet membership), position, heading and velocity, and in `own` the private details that the β views need (orders, queues, power, cargo, economy; U1–U3). Fields for later packages (S6 deadlines, S8 standings) are added in their packages. Protocol version 3 with N4.
+
+**✅ Q178** → D-185: **How combat effects reach the client:** In the focus tier, events for projectiles fired and ended since the last delta, sent only when the shooter or target is own or sensed; the client simulates the straight flight between them.
+
+**✅ Q179** → D-186: **How the client tells the server what it views:** A `SetFocus { focus }` message (TACTICAL site, SYSTEM, SECTOR or GALAXY), rate-limited, not journaled; it only changes rates, never visibility. Until the client sends one, the focus is the mother station's system.
+
+**✅ Q180** → D-187: **Delta consistency:** Each delta carries `since`, the tick of the previous view message; the client reconnects into a fresh snapshot if the chain breaks. No periodic full snapshots.

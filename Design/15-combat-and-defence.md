@@ -122,7 +122,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 - A sector below 50% shows as weak (phase 1). A sector at 0 is a **breach**, and the holding enters Reinforced (D-015, D-033).
 - During Reinforced, the dome is immune to hostile fire (doc 12).
 - During a Siege, the breached sector is open: no regeneration, no blocking. Projectiles entering through the open arc can hit modules.
-- **Minimal dome** (RK-09): every core module projects a four-sector dome. A core with no pylons has 25% of full sector strength. Each pylon adds 25% of full strength to its sector. The mother station starts with four pylons.
+- **Minimal dome** (RK-09): every core module projects a four-sector dome. A core with no pylons has 25% of full sector strength. Each pylon adds 25% of full strength to its sector. The mother station starts with four pylons. *(Superseded in part by D-140: the core gives 25% and each sector's own pylon the other 75%.)*
 
 ### 5.2 Power and regeneration
 

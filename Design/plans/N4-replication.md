@@ -1,6 +1,6 @@
 # Work package N4 — Replication with interest management
 
-Status: **Planned; questions Q175–Q180 open.** Written together with `S7-sensors.md`, because N4 sends each client exactly what S7 decides its commander can see. Builds on N3 (sessions, the state stream N3 opens empty, `nomad-link`, protocol version 2) and on S7's `CommanderView`. This plan is also the brief for whoever builds N4. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q175–Q180 → D-182–D-187). Written together with `S7-sensors.md`, because N4 sends each client exactly what S7 decides its commander can see. Builds on N3 (sessions, the state stream N3 opens empty, `nomad-link`, protocol version 2) and on S7's `CommanderView`. This plan is also the brief for whoever builds N4. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -123,17 +123,17 @@ A connected client receives its commander's view: a full snapshot when the sessi
 
 Numbered Q175–Q180; each has a recommendation and alternatives. S7's questions (Q166–Q174) are in `S7-sensors.md`.
 
-- **Q175 — Where each client's view is computed.** Doc 20 §4 has the simulation thread publish "change sets, visibility sets" for the network thread to filter.
+- **✅ Q175 (D-182) — Where each client's view is computed.** Doc 20 §4 has the simulation thread publish "change sets, visibility sets" for the network thread to filter.
   *Recommendation:* after each step, the simulation thread extracts each connected commander's due view through S7's `CommanderView`, and the network thread only diffs and sends. One visibility implementation serves the AI and replication, and the cost scales with connected clients, not the Universe. *Alternatives:* the simulation publishes a Universe-wide change set plus visibility deltas, and the network thread keeps a mirror and filters (doc 20 §4's wording; a second visibility filter to keep identical); the simulation keeps per-client known sets and emits ready deltas (puts session state into the simulation thread).
-- **Q176 — What the 10 Hz tier covers.** Doc 16 and doc 20 say "the ops area being viewed". In SYSTEM view, fleets cross the whole system and need smooth motion too.
+- **✅ Q176 (D-183) — What the 10 Hz tier covers.** Doc 16 and doc 20 say "the ops area being viewed". In SYSTEM view, fleets cross the whole system and need smooth motion too.
   *Recommendation:* the focus tier is the whole system being viewed, in TACTICAL or SYSTEM; other systems with presence at 2 Hz; the galaxy summary every 5 s. On localhost the extra traffic does not matter. *Alternatives:* exactly as written, only the viewed ops area at 10 Hz and the rest of that system at 2 Hz; everything at 10 Hz in the MVP (localhost only), tiers added for hosting.
-- **Q177 — How rich view entries are.** The N1 `EntityEntry` holds only kind, owner, location and last-seen; every added field bumps the protocol version.
+- **✅ Q177 (D-184) — How rich view entries are.** The N1 `EntityEntry` holds only kind, owner, location and last-seen; every added field bumps the protocol version.
   *Recommendation:* typed entries per kind now, carrying doc 16's identification (class, owner, hull %, fleet membership), position, heading and velocity, and in `own` the private details that the β views need (orders, queues, power, cargo, economy; U1–U3). Fields for later packages (S6 deadlines, S8 standings) are added in their packages. *Alternatives:* a generic key–value property bag (no version bumps, no type safety); minimal entries extended one U-package at a time (a version bump each time).
-- **Q178 — How combat effects reach the client.** Projectiles are not entities (S5 §4.3), but TACTICAL must draw shots, hits and flak.
+- **✅ Q178 (D-185) — How combat effects reach the client.** Projectiles are not entities (S5 §4.3), but TACTICAL must draw shots, hits and flak.
   *Recommendation:* in the focus tier, events for projectiles fired and ended since the last delta, sent only when the shooter or target is own or sensed; the client simulates the straight flight between them. *Alternatives:* every projectile's position in every update (simple, heavier); only hit and destruction events, with shots drawn as client-side guesses (lightest, least faithful).
-- **Q179 — How the client tells the server what it views.** The rates depend on the focus.
+- **✅ Q179 (D-186) — How the client tells the server what it views.** The rates depend on the focus.
   *Recommendation:* a `SetFocus { focus }` message (TACTICAL site, SYSTEM, SECTOR or GALAXY), rate-limited, not journaled; it only changes rates, never visibility. Until the client sends one, the focus is the mother station's system. *Alternatives:* the server infers the focus from the last area the commander gave orders in; the client subscribes to an explicit list of systems at 10 Hz.
-- **Q180 — Delta consistency.** QUIC streams are reliable and ordered, so deltas cannot be lost in normal operation.
+- **✅ Q180 (D-187) — Delta consistency.** QUIC streams are reliable and ordered, so deltas cannot be lost in normal operation.
   *Recommendation:* each delta carries `since`, the tick of the previous view message; the client reconnects into a fresh snapshot if the chain breaks. No periodic full snapshots. *Alternatives:* no check, trusting the stream; a full snapshot every 60 s as a self-healing net (costs bandwidth, hides bugs).
 
 ## 6. Tasks, in order

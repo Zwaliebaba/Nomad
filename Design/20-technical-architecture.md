@@ -59,7 +59,7 @@ Most of it puts together decisions already taken; the new choices are marked *Pr
 
 | Thread | Does |
 |---|---|
-| **Simulation** (one OS thread, owns `UniverseState`) | Paces ticks against a monotonic clock. Each tick it takes the pending inputs, runs `step`, and publishes `TickOutputs` (change sets, visibility sets, command results, announcements). It encodes a snapshot every 5 min at a tick boundary. |
+| **Simulation** (one OS thread, owns `UniverseState`) | *(D-182: it also extracts each connected commander's view through `CommanderView` after the step; the network thread diffs it.)* Paces ticks against a monotonic clock. Each tick it takes the pending inputs, runs `step`, and publishes `TickOutputs` (change sets, visibility sets, command results, announcements). It encodes a snapshot every 5 min at a tick boundary. |
 | **Network** (`tokio` runtime) | Runs the `quinn` endpoint, one task per connection, envelope checks (authentication, size and rate limits) and replication sends |
 | **Persistence** | Appends to the journal in batches, flushing at least once per second (D-048). Writes snapshots and maintains read models. |
 
