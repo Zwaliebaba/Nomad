@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use crate::combat::Projectiles;
 use crate::entities::Entities;
 use crate::fleet::FleetId;
 use crate::galaxy::{Galaxy, SiteId, SystemId};
@@ -63,6 +64,8 @@ pub struct UniverseState {
     /// The jump-transit queue: fleets in lane transit, by arrival tick (doc 11 §4.1 phase 5,
     /// D-042).
     pub(crate) transits: TimerQueue<FleetId>,
+    /// Projectiles in flight (doc 15 §4; S5 plan §4.3).
+    pub(crate) projectiles: Projectiles,
 }
 
 impl UniverseState {
@@ -93,6 +96,7 @@ impl UniverseState {
             catching_up: false,
             entities: Entities::default(),
             transits: TimerQueue::default(),
+            projectiles: Projectiles::default(),
         }
     }
 

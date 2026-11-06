@@ -2,6 +2,7 @@
 
 use nomad_types::{Command, Owner};
 
+use crate::combat::CombatEvent;
 use crate::command::{CommandRejection, execute};
 use crate::fleet::FleetEvent;
 use crate::id::CommanderId;
@@ -23,6 +24,8 @@ pub struct TickOutputs {
     pub commands: Vec<CommandResult>,
     /// What happened to fleets (S3 plan §4.4).
     pub fleet_events: Vec<FleetEvent>,
+    /// What combat did: damage, destroyed ships and fleets (S5 plan §4.3).
+    pub combat_events: Vec<CombatEvent>,
 }
 
 /// The outcome of one command input.
@@ -39,8 +42,8 @@ pub struct CommandResult {
 /// Computes the next tick: applies `inputs`, fires due timers and advances the tick counter.
 ///
 /// Phase order follows Design doc 11 §4.1. Phase 5 (movement and transit) runs ships and
-/// fleets (S3); phases 3–4 and 6–9 (AI, Deputy, sensors, combat, economy, derived state)
-/// arrive with their work packages (D-051).
+/// fleets (S3); phase 7 runs ship combat (S5a). Phases 3–4, 6 and 8–9 (AI, Deputy, sensors,
+/// economy, derived state) arrive with their work packages (D-051).
 pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     let now = state.tick.next();
     let mut out = TickOutputs {
@@ -85,6 +88,9 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
 
     // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4).
     crate::fleet::movement::run(state, now, &mut out.fleet_events);
+
+    // Phase 7: ship combat (S5 plan §4.2–§4.4).
+    crate::combat::run(state, now, &mut out.combat_events);
 
     state.tick = now;
     out

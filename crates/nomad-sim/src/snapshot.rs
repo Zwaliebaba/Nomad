@@ -25,8 +25,10 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// - 6: ships and fleets as canonical entity tables, the jump-transit queue, mother-station
 ///   and dry-dock fields on holdings, and the rules without the separation response time
 ///   (S3 plan §4.2);
-/// - 7: the rules gain the combat section (S5 plan §4.1).
-pub const FORMAT: u32 = 7;
+/// - 7: the rules gain the combat section (S5 plan §4.1);
+/// - 8: ship combat state: damage, weapons, attackers, engagement deadlines and projectiles
+///   in flight (S5 plan §4.9).
+pub const FORMAT: u32 = 8;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

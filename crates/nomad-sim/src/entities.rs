@@ -16,6 +16,7 @@ use std::fmt;
 use hecs::{Component, DynamicBundle, Entity, World};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::combat::{Attackers, Damage, Weapons};
 use crate::fleet::{Fleet, Motion, Ship, Shroud};
 use crate::id::SimId;
 
@@ -108,6 +109,9 @@ impl Entities {
             fleets: self.table(),
             motions: self.table(),
             shrouds: self.table(),
+            damages: self.table(),
+            weapons: self.table(),
+            attackers: self.table(),
         }
     }
 
@@ -125,11 +129,17 @@ impl Entities {
             fleets,
             motions,
             shrouds,
+            damages,
+            weapons,
+            attackers,
         } = tables;
         check_sorted(&ships, "ships")?;
         check_sorted(&fleets, "fleets")?;
         check_sorted(&motions, "motions")?;
         check_sorted(&shrouds, "shrouds")?;
+        check_sorted(&damages, "damages")?;
+        check_sorted(&weapons, "weapons")?;
+        check_sorted(&attackers, "attackers")?;
 
         let mut entities = Self::default();
         // Ships and fleets are the entities; the other tables add components to them.
@@ -151,6 +161,25 @@ impl Entities {
             }
             entities.attach(id, shroud)?;
         }
+        // Combat state (S5a): damage and weapons on ships, attackers on fleets.
+        for (id, damage) in damages {
+            if !entities.has::<Ship>(id) {
+                return Err(TableError::Orphan(id));
+            }
+            entities.attach(id, damage)?;
+        }
+        for (id, w) in weapons {
+            if !entities.has::<Ship>(id) {
+                return Err(TableError::Orphan(id));
+            }
+            entities.attach(id, w)?;
+        }
+        for (id, a) in attackers {
+            if !entities.has::<Fleet>(id) {
+                return Err(TableError::Orphan(id));
+            }
+            entities.attach(id, a)?;
+        }
         Ok(entities)
     }
 
@@ -169,6 +198,9 @@ struct EntityTables {
     fleets: Vec<(SimId, Fleet)>,
     motions: Vec<(SimId, Motion)>,
     shrouds: Vec<(SimId, Shroud)>,
+    damages: Vec<(SimId, Damage)>,
+    weapons: Vec<(SimId, Weapons)>,
+    attackers: Vec<(SimId, Attackers)>,
 }
 
 /// Why entity tables from a snapshot were rejected. Snapshots come from outside the process,

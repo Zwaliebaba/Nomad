@@ -22,6 +22,8 @@ pub mod purpose {
     pub const GALAXY_DEPOSITS: u32 = 3;
     /// Where ships arriving through a gate appear, per destination system (D-055).
     pub const ARRIVAL_SCATTER: u32 = 4;
+    /// Shot spread, per system, drawn in (ship `SimId`, weapon index) order (doc 15 §4).
+    pub const COMBAT: u32 = 5;
 }
 
 /// Identifies one random stream.

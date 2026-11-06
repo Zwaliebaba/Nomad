@@ -167,7 +167,7 @@ pub(crate) fn spawn_fleet(
                 place: Place::InSystem(system),
                 members,
                 rules_of_engagement: DEFAULT_RULES_OF_ENGAGEMENT,
-                engaged: false,
+                engaged_until: None,
                 active: None,
                 queue: VecDeque::new(),
             },

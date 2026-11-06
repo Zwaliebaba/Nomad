@@ -34,9 +34,11 @@
 //! **Game rules arrive as their design is agreed (D-051).** So far: the Universe structure
 //! (doc 10), deposit data and values (doc 14 §5, D-066), system control (D-041), and
 //! movement, fleets and orders (doc 15 §3, §9; D-101 to D-105). Claims, economy flows,
-//! weapons, sensors and the Deputy are not here yet. Until weapons exist (S5) attacks only
-//! close to weapon range; until sensors exist (S7) every entity counts as visible.
+//! sensors and the Deputy are not here yet. Ship combat is ([`combat`], S5a: weapons, lock,
+//! projectiles, the multiplier table, engagement); the dome, turrets and abilities follow
+//! with S5b. Until sensors exist (S7) every entity counts as visible.
 
+pub mod combat;
 mod command;
 mod entities;
 pub mod fleet;
@@ -47,6 +49,7 @@ mod id;
 mod input;
 mod rng;
 pub mod rules;
+pub mod scenario;
 pub mod snapshot;
 mod state;
 mod step;
@@ -56,6 +59,7 @@ mod time;
 mod timers;
 mod util;
 
+pub use combat::{CombatEvent, ProjectileId};
 pub use command::{CommandRejection, validate_command};
 pub use fleet::{
     FleetEvent, FleetId, FleetView, MotionMode, Place, ShipClass, ShipId, ShipView, TravelStage,

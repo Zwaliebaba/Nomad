@@ -4,16 +4,16 @@
 //! | Order | S3 behaviour |
 //! |---|---|
 //! | Move | To a point in the fleet's system |
-//! | Attack-move | As Move until weapons exist (S5) |
+//! | Attack-move | As Move, but pauses while a hostile is within weapon range; fires as under weapons free (S5) |
 //! | Patrol | Loop through the waypoints |
 //! | Guard | Stay within the guard radius of the object, following it |
 //! | Station-keep | Hold the position, or the present offset from a target, following it |
-//! | Attack | Close to weapon range of the target and hold; firing arrives in S5 |
+//! | Attack | Close to weapon range of the target, hold and fire at it; completes when it is destroyed (S5) |
 //! | Dock | Approach the holding's launch point and dock, if there is room (D-102) |
 //! | Launch | Undock at once, at the holding's launch point |
 //! | Retreat | Route to the nearest (or the given) owned holding by time, and dock |
 //! | Jump | Route over lanes: gate, 5 s spool-up, transit, arrival with a 10 s shroud (D-055) |
-//! | Rules of engagement | Stored on the fleet at once, whatever the queue (used from S5) |
+//! | Rules of engagement | Stored on the fleet at once, whatever the queue (S5: who fires) |
 //!
 //! An order that cannot start when its turn comes, because things changed since it was
 //! validated, is dropped with a [`FleetEvent::OrderDropped`]. So is an order whose target
@@ -21,9 +21,10 @@
 
 use std::collections::VecDeque;
 
-use nomad_types::{FleetOrder, Queueing};
+use nomad_types::{FleetOrder, Queueing, RulesOfEngagement};
 use tracing::debug;
 
+use crate::combat::hostile_ship_within;
 use crate::command::{Context, dock_check, fleet_cruise_speed, locate, nearest_holding};
 use crate::fleet::route::{self, RouteEnd};
 use crate::fleet::{
@@ -430,6 +431,9 @@ pub(crate) fn decide(state: &UniverseState, id: FleetId, fleet: &Fleet, now: Tic
         change: Change::None,
     };
     match &active.task {
+        Task::MoveTo { .. } if attack_move_pauses(state, fleet, &active.order, system, here) => {
+            keep(Goal::Stop)
+        }
         Task::MoveTo { to } => {
             let to = Vec2::from(*to);
             Decision {
@@ -468,10 +472,7 @@ pub(crate) fn decide(state: &UniverseState, id: FleetId, fleet: &Fleet, now: Tic
             }
             None => drop_order(),
         },
-        Task::Attack { target } => match (track(*target), engagement_range_m(state, fleet)) {
-            (Some(t), Some(range)) => keep(hold_within(here, t.position, range, 0.9)),
-            _ => drop_order(),
-        },
+        Task::Attack { target } => decide_attack(state, fleet, *target, system, here),
         Task::Dock { holding } => match station::launch_point(state, *holding) {
             Some(point) if holding_system(state, *holding) == Some(system) => {
                 let point = Vec2::from(point);
@@ -491,6 +492,50 @@ pub(crate) fn decide(state: &UniverseState, id: FleetId, fleet: &Fleet, now: Tic
             stage,
             then_dock,
         } => decide_travel(state, fleet, hops, *stage, *then_dock, now),
+    }
+}
+
+/// Whether an Attack-move pauses this tick: it fights what it meets, so it holds while a
+/// hostile is within the fleet's engagement range (S5 plan §4.2), unless it holds fire.
+fn attack_move_pauses(
+    state: &UniverseState,
+    fleet: &Fleet,
+    order: &FleetOrder,
+    system: SystemId,
+    here: Vec2,
+) -> bool {
+    matches!(order, FleetOrder::AttackMove { .. })
+        && fleet.rules_of_engagement != RulesOfEngagement::HoldFire
+        && engagement_range_m(state, fleet)
+            .is_some_and(|range| hostile_ship_within(state, system, fleet.owner, here, range))
+}
+
+/// An Attack: close to weapon range of the target and hold; combat fires at it (S5).
+fn decide_attack(
+    state: &UniverseState,
+    fleet: &Fleet,
+    target: crate::id::SimId,
+    system: SystemId,
+    here: Vec2,
+) -> Decision {
+    let tracked = locate(state, target).filter(|t| t.system == system);
+    match (tracked, engagement_range_m(state, fleet)) {
+        (Some(t), Some(range)) => Decision {
+            goal: hold_within(here, t.position, range, 0.9),
+            change: Change::None,
+        },
+        // A destroyed ship or fleet no longer exists: the attack succeeded. One that docked,
+        // jumped or left the system still exists: the order lost its target.
+        (None, _)
+            if !state.entities.contains(target)
+                && !state.holdings.contains_key(&HoldingId(target)) =>
+        {
+            Decision {
+                goal: Goal::Stop,
+                change: Change::Complete,
+            }
+        }
+        _ => drop_order(),
     }
 }
 

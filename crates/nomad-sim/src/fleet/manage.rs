@@ -32,7 +32,7 @@ pub(crate) fn create_fleet(
         let fleet = state.entities.get::<Ship>(ship.sim_id())?.fleet;
         let (place, engaged) = state
             .entities
-            .with::<Fleet, _>(fleet.sim_id(), |f| (f.place, f.engaged))?;
+            .with::<Fleet, _>(fleet.sim_id(), |f| (f.place, f.engaged_until))?;
         sources.push((motion, place, engaged));
     }
     let (first, place, _) = *sources.first()?;
@@ -58,7 +58,8 @@ pub(crate) fn create_fleet(
         place,
         members: ships.iter().map(|&s| (s, Vec2::ZERO)).collect(),
         rules_of_engagement: DEFAULT_RULES_OF_ENGAGEMENT,
-        engaged: sources.iter().any(|&(_, _, engaged)| engaged),
+        // The new fleet stays engaged as long as the longest-engaged source (D-114).
+        engaged_until: sources.iter().filter_map(|&(_, _, until)| until).max(),
         active: None,
         queue: VecDeque::new(),
     };
@@ -85,7 +86,7 @@ pub(crate) fn merge_fleets(state: &mut UniverseState, fleet: FleetId, into: Flee
     }
     let spacing = state.rules.movement.formation_spacing_m;
     if let Some(target) = state.entities.get_mut::<Fleet>(into.sim_id()) {
-        target.engaged |= absorbed.engaged;
+        target.engaged_until = target.engaged_until.max(absorbed.engaged_until);
         target
             .members
             .extend(absorbed.members.keys().map(|&s| (s, Vec2::ZERO)));
