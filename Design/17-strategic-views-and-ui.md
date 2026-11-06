@@ -1,6 +1,6 @@
 # 17 — Strategic views and UI
 
-Status: **Proposed (round 10).** Built on the phase-1 package (look, HUD, camera), D-020, D-022, D-032, D-044, D-062, D-064, D-067, D-068, D-072 to D-076 and D-082, and docs 12–16. Decisions needed: Q84–Q87. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 10).** Q84–Q87 were decided as D-090 to D-093. Built on the phase-1 package (look, HUD, camera), D-020, D-022, D-032, D-044, D-062, D-064, D-067, D-068, D-072 to D-076 and D-082, and docs 12–16. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -28,7 +28,7 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 
 ## 3. View levels and navigation
 
-*Proposed (Q84).*
+*Agreed (D-090).*
 
 | Level | Key | Shows | Rotation |
 |---|---|---|---|
@@ -44,7 +44,7 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 
 ## 4. SYSTEM and SECTOR contents
 
-*Proposed (Q84).*
+*Agreed (D-090).*
 
 **SYSTEM view:**
 
@@ -68,7 +68,7 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 
 ## 5. Orders in strategic views
 
-*Proposed (Q85).*
+*Agreed (D-091).*
 
 - **Selecting:** click or drag a box around fleets in SYSTEM or SECTOR.
 - **Giving orders:**
@@ -81,7 +81,7 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 
 ## 6. UI beyond the phase-1 HUD
 
-*Proposed (Q86).* The MVP needs these UI pieces:
+*Agreed (D-092).* The MVP needs these UI pieces:
 
 | UI | Contents | Source |
 |---|---|---|
@@ -98,7 +98,7 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 
 ## 7. Hotkeys
 
-*Proposed (Q87); resolves phase-1 doc 07 item 1.*
+*Agreed (D-093); resolves phase-1 doc 07 item 1.*
 
 | Function | Keys |
 |---|---|

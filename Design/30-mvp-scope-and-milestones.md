@@ -1,6 +1,6 @@
 # 30 — MVP scope, milestones and acceptance
 
-Status: **Proposed (round 10).** Built on R-05, D-026, D-028, D-037, D-038, D-051, D-058, D-070 and D-083, and docs 10–17 and 20. Decisions needed: Q88–Q91. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 10).** Q88–Q91 were decided as D-094 to D-097. Built on R-05, D-026, D-028, D-037, D-038, D-051, D-058, D-070 and D-083, and docs 10–17 and 20. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. What the MVP is
 
@@ -62,7 +62,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 
 ## 3. Milestones
 
-*Proposed (Q88).*
+*Agreed (D-094).*
 
 | Milestone | Contents | Acceptance |
 |---|---|---|
@@ -73,7 +73,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 
 ## 4. Order of work
 
-*Proposed (Q89).* Three streams run in parallel:
+*Agreed (D-095).* Three streams run in parallel:
 
 1. **Rules and AI (the critical path):** S3 → S4 and S5 → S6 → S7 → A1 → A2 → A3 → A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist.
 2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send.
@@ -83,7 +83,7 @@ The streams meet at β (a playable slice) and γ (acceptance). Each package ends
 
 ## 5. MVP acceptance (γ)
 
-*Proposed (Q91).*
+*Agreed (D-097).*
 
 1. **A season runs end to end:**
    - A full 8-week season runs fast-forwarded in the harness (allowed by D-036 and D-047) and produces a winner by system control (D-020).
@@ -95,7 +95,7 @@ The streams meet at β (a playable slice) and γ (acceptance). Each package ends
 
 ## 6. Out of scope for the MVP
 
-*Proposed (Q90). Most items are derived from earlier decisions.*
+*Agreed (D-096). Most items are derived from earlier decisions.*
 
 | Out of scope | Source |
 |---|---|

@@ -1,6 +1,6 @@
 # 07 — Open questions (not blocking phase 1)
 
-1. **Hotkey conflict**: Q/E rotate the camera, but Q is also "Shield surge" on the command card. Phase 1 uses Ctrl+key for command-card hotkeys; the final scheme (for example a grid layout on QWER/ASDF/ZXCV with rotation on mouse buttons 4/5) needs a decision.
+1. **Hotkey conflict (resolved, Design D-093: positional QWER/ASDF/ZXCV command card, rotation on Alt+Q/E and mouse 4/5, WASD pan dropped)**: Q/E rotate the camera, but Q is also "Shield surge" on the command card. Phase 1 uses Ctrl+key for command-card hotkeys; the final scheme (for example a grid layout on QWER/ASDF/ZXCV with rotation on mouse buttons 4/5) needs a decision.
 2. **Ship altitude vs labels**: the mockup's hostile cruiser label still says "ELEV +26". The phase 1 rule is that all ships fly on z = 16, so the label shows range only. Update the mockup or revisit the rule.
 3. **Mockup vs data**: the proposal artboard is the visual source; the voxel data was reconstructed from it. If the artboard changes, re-export the data rather than hand-editing JSON.
 4. **Ships are placeholders**: the mockup ships were 2D-baked and could not be exported. Final ship art needs a 3D voxel pipeline (MagicaVoxel `.vox` import is a natural next step).

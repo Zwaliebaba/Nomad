@@ -12,10 +12,10 @@ Nomad (working title) is a persistent multiplayer space RTS in Rust:
 - Client: a custom `wgpu` + `winit` renderer drawing an isometric voxel scene, on Windows. Server: Linux; `hecs`, `tokio` + `quinn`, SQLite (D-029, D-030).
 - License: proprietary (D-031). Only permissively licensed dependencies may ship.
 
-## Current phase: design
+## Current phase: build (the MVP design is complete)
 
 - `Design/` is the source of truth. Read `Design/README.md` first, then `Design/00-glossary.md`.
-- Implement only what an agreed design document or decision covers. The phase-1 visual slice (`Design/phase1-visual-slice/`) is fully specified and may be implemented.
+- Implement only what an agreed design document or decision covers. Every MVP document is agreed. Pick work packages from `Design/30-mvp-scope-and-milestones.md` §2, in the order of §4.
 - The `nomad-sim` core (doc 11: tick, deadline timers, `SimId`, random streams, snapshots, headless harness) is being built now (D-051). **Game rules** come only from agreed design documents: Universe structure (doc 10), offline rules and the Deputy (doc 12), economy (doc 14), combat and defence (doc 15), information model and fog of war (doc 16), AI commanders, the Deputy and raiders (doc 13). Do not invent rules.
 - Do not invent gameplay rules in code. If a task needs a design decision that does not exist yet, stop and say so. Then propose the decision, or add a question to `Design/02-open-questions.md`.
 - `Design/03-decision-log.md` holds every decision:

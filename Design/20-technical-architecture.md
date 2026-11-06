@@ -1,6 +1,6 @@
 # 20 — Technical architecture
 
-Status: **Proposed (round 10).** Built on D-004, D-010, D-011, D-026, D-029, D-030, D-031, D-047 to D-050, D-075, D-077 and D-084, and docs 11, 13 and 16. Decisions needed: Q79–Q83. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 10).** Q79–Q83 were decided as D-085 to D-089. Built on D-004, D-010, D-011, D-026, D-029, D-030, D-031, D-047 to D-050, D-075, D-077 and D-084, and docs 11, 13 and 16. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -17,7 +17,7 @@ Most of it puts together decisions already taken; the new choices are marked *Pr
 
 ## 2. Processes
 
-*Proposed (Q79).*
+*Agreed (D-085).*
 
 ```text
  ┌──────────── Windows PC (MVP, D-029) ─────────────┐
@@ -38,7 +38,7 @@ Most of it puts together decisions already taken; the new choices are marked *Pr
 
 ## 3. Crates
 
-*Proposed (Q80).*
+*Agreed (D-086).*
 
 | Crate | Owns | Depends on |
 |---|---|---|
@@ -66,7 +66,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 
 ## 5. Protocol
 
-*Proposed (Q81).*
+*Agreed (D-087).*
 
 - **Transport:** QUIC via `quinn` over TLS 1.3 with `rustls`. In the MVP the server generates a self-signed certificate on first start, and the client pins its fingerprint.
 - **Streams:** one reliable bidirectional control stream (session, commands, acknowledgements) and one reliable unidirectional state stream. There are **no unreliable datagrams in the MVP**; head-of-line blocking does not matter on localhost. Revisit for hosting.
@@ -101,7 +101,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 
 ## 6. Persistence
 
-*Proposed (Q82).*
+*Agreed (D-088).*
 
 - **Storage:** `rusqlite` with bundled SQLite, in write-ahead-log mode. One file per Universe in the per-user data directory (`%LOCALAPPDATA%\Nomad\universes\<id>\universe.db` on Windows). The path comes from the `directories` crate.
 - **Tables:**
@@ -151,7 +151,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 
 ## 11. Testing
 
-*Proposed (Q83).*
+*Agreed (D-089).*
 
 | Level | What | Where |
 |---|---|---|

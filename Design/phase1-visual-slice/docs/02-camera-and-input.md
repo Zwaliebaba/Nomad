@@ -12,6 +12,8 @@
 
 ## Key bindings (phase 1)
 
+> **Superseded in part by Design D-093.** Camera rotation moves to Alt+Q/E and mouse buttons 4/5. WASD panning is dropped (arrow keys, screen edges and middle-mouse drag remain). The command card uses positional hotkeys QWER / ASDF / ZXCV without a modifier. Control groups use 1–9, with Ctrl+1–9 to assign. The table below is the original phase-1 scheme, kept for reference.
+
 | Key | Action |
 |---|---|
 | Q / E | Rotate view −90° / +90° |

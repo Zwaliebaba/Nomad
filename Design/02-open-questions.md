@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **Q1–Q78 answered on 2026-11-06. Open: Q79–Q91 from docs 20, 17 and 30 (section O).**
+Status: **All questions answered (Q1–Q91) on 2026-11-06.**
 
 ## Answer summary
 
@@ -84,6 +84,19 @@ Status: **Q1–Q78 answered on 2026-11-06. Open: Q79–Q91 from docs 20, 17 and 
 | Q76 | Doctrine preset values as starting point | D-082 |
 | Q77 | AI acceptance criteria | D-083 |
 | Q78 | wgpu chooses the backend automatically | D-084 |
+| Q79 | Client starts the headless server | D-085 |
+| Q80 | Add `nomad-types`, `nomad-protocol`, `nomad-server` | D-086 |
+| Q81 | QUIC with reliable streams | D-087 |
+| Q82 | SQLite file per Universe | D-088 |
+| Q83 | Client–server integration test in CI | D-089 |
+| Q84 | Iso, north-up strategic views | D-090 |
+| Q85 | Select and right-click strategic orders | D-091 |
+| Q86 | Full MVP UI set | D-092 |
+| Q87 | Positional hotkey grid | D-093 |
+| Q88 | Milestones α–δ | D-094 |
+| Q89 | Three parallel work streams | D-095 |
+| Q90 | Out-of-scope list, no audio | D-096 |
+| Q91 | MVP acceptance criteria | D-097 |
 
 ## A. Universe and time
 
@@ -406,15 +419,15 @@ All three read only `CommanderView` and run inside the deterministic step.
 **✅ Q78 — Windows graphics backend for the client.** wgpu is built with DX12, Vulkan and OpenGL ES. On Windows it will most likely choose Vulkan when a Vulkan driver exists, unless `WGPU_BACKEND` says otherwise.
 *Recommendation:* make DX12 the default on Windows, falling back to Vulkan and then OpenGL ES. It is the platform's native API, it works with PIX, and it is closest to the owner's own DX12 work. Linux keeps Vulkan first.
 
-## O. Open (round 10, from docs 20, 17 and 30)
+## O. Round 10, from docs 20, 17 and 30 (answered)
 
-**Q79 — Process model (doc 20 §2).** A separate headless server. The client starts it in the background, and it keeps running after the client closes. "Start with Windows" is opt-in, as a per-user logon task. Localhost only.
+**✅ Q79 — Process model (doc 20 §2).** A separate headless server. The client starts it in the background, and it keeps running after the client closes. "Start with Windows" is opt-in, as a per-user logon task. Localhost only.
 *Recommendation:* adopt.
 
-**Q80 — Crates (doc 20 §3).** Add `nomad-types` (shared primitives), `nomad-protocol` and `nomad-server`. The client depends on protocol and types, never on `nomad-sim`.
+**✅ Q80 — Crates (doc 20 §3).** Add `nomad-types` (shared primitives), `nomad-protocol` and `nomad-server`. The client depends on protocol and types, never on `nomad-sim`.
 *Recommendation:* adopt.
 
-**Q81 — Protocol (doc 20 §5).**
+**✅ Q81 — Protocol (doc 20 §5).**
 - QUIC via `quinn` with TLS, using a self-signed certificate pinned by the client.
 - Reliable streams only in the MVP; `postcard` frames; exact protocol-version match.
 - Commands answered with the tick they apply on, or a rejection.
@@ -422,34 +435,34 @@ All three read only `CommanderView` and run inside the deterministic step.
 
 *Recommendation:* adopt.
 
-**Q82 — Persistence implementation (doc 20 §6).** `rusqlite` with bundled SQLite in write-ahead-log mode, one file per Universe in the per-user data directory. Snapshots are uncompressed in the MVP.
+**✅ Q82 — Persistence implementation (doc 20 §6).** `rusqlite` with bundled SQLite in write-ahead-log mode, one file per Universe in the per-user data directory. Snapshots are uncompressed in the MVP.
 *Recommendation:* adopt.
 
-**Q83 — Testing (doc 20 §11).** Add a localhost client–server integration test to CI, Debug on both operating systems. Long AI and pacing runs are ignored tests run manually; no scheduled CI job in the MVP.
+**✅ Q83 — Testing (doc 20 §11).** Add a localhost client–server integration test to CI, Debug on both operating systems. Long AI and pacing runs are ignored tests run manually; no scheduled CI job in the MVP.
 *Recommendation:* adopt.
 
-**Q84 — View levels (doc 17 §3–4).** TACTICAL, SYSTEM, SECTOR and GALAXY on F1–F4, with double-click to drill down. Strategic views use the same 2:1 iso style, north-up, with no rotation. GALAXY stays minimal in the MVP.
+**✅ Q84 — View levels (doc 17 §3–4).** TACTICAL, SYSTEM, SECTOR and GALAXY on F1–F4, with double-click to drill down. Strategic views use the same 2:1 iso style, north-up, with no rotation. GALAXY stays minimal in the MVP.
 *Recommendation:* adopt.
 
-**Q85 — Orders in strategic views (doc 17 §5).** Select fleets in SYSTEM or SECTOR; right-click to move, attack or jump, with a route and arrival-time preview. Micro stays in TACTICAL.
+**✅ Q85 — Orders in strategic views (doc 17 §5).** Select fleets in SYSTEM or SECTOR; right-click to move, attack or jump, with a route and arrival-time preview. Micro stays in TACTICAL.
 *Recommendation:* adopt.
 
-**Q86 — UI beyond the phase-1 HUD (doc 17 §6).** Doctrine editor, Deputy status, away report, window and siege panel, build menu with slot diagram and blueprints, economy panel, fleet panel, season panel and start screen. In-client notifications, plus a Windows toast while the client runs.
+**✅ Q86 — UI beyond the phase-1 HUD (doc 17 §6).** Doctrine editor, Deputy status, away report, window and siege panel, build menu with slot diagram and blueprints, economy panel, fleet panel, season panel and start screen. In-client notifications, plus a Windows toast while the client runs.
 *Recommendation:* adopt.
 
-**Q87 — Hotkeys (doc 17 §7; resolves phase-1 doc 07 item 1).** Positional command card on QWER / ASDF / ZXCV. Camera rotation on Alt+Q/E and mouse buttons 4/5. Pan with the arrow keys, screen edges and middle-mouse drag; WASD panning is dropped. Control groups on 1–9.
+**✅ Q87 — Hotkeys (doc 17 §7; resolves phase-1 doc 07 item 1).** Positional command card on QWER / ASDF / ZXCV. Camera rotation on Alt+Q/E and mouse buttons 4/5. Pan with the arrow keys, screen edges and middle-mouse drag; WASD panning is dropped. Control groups on 1–9.
 *Recommendation:* adopt.
 
-**Q88 — Milestones (doc 30 §3).** α headless game → β playable slice → γ stage 1, which is MVP acceptance (D-038) → δ stage 2, each with its acceptance criteria.
+**✅ Q88 — Milestones (doc 30 §3).** α headless game → β playable slice → γ stage 1, which is MVP acceptance (D-038) → δ stage 2, each with its acceptance criteria.
 *Recommendation:* adopt.
 
-**Q89 — Order of work (doc 30 §4).** Three parallel streams: rules and AI (the critical path); server and network (N1–N2 can start now); client and UI (phase-1 M3–M6 now, live data later).
+**✅ Q89 — Order of work (doc 30 §4).** Three parallel streams: rules and AI (the critical path); server and network (N1–N2 can start now); client and UI (phase-1 M3–M6 now, live data later).
 *Recommendation:* adopt.
 
-**Q90 — Out of scope for the MVP (doc 30 §6).** The consolidated list, including **no audio in the MVP**.
+**✅ Q90 — Out of scope for the MVP (doc 30 §6).** The consolidated list, including **no audio in the MVP**.
 *Recommendation:* adopt.
 
-**Q91 — MVP acceptance criteria (doc 30 §5).**
+**✅ Q91 — MVP acceptance criteria (doc 30 §5).**
 - A full season runs in the harness, and a 14-day human playtest succeeds.
 - The AI meets D-083.
 - Pacing is within ±25% of D-058 and D-070.
