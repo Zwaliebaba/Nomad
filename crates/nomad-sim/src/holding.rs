@@ -137,6 +137,25 @@ pub(crate) fn control_states(
         .collect()
 }
 
+/// The control state of one system, or `None` if it does not exist or cannot be claimed.
+pub(crate) fn control_state(
+    galaxy: &Galaxy,
+    holdings: &BTreeMap<HoldingId, Holding>,
+    system: SystemId,
+) -> Option<ControlState> {
+    let sys = galaxy.system(system).filter(|s| s.kind.is_claimable())?;
+    let mut completed: BTreeMap<CommanderId, usize> = BTreeMap::new();
+    for holding in holdings.values().filter(|h| h.core_complete) {
+        if galaxy
+            .site(holding.site)
+            .is_some_and(|s| s.system == system)
+        {
+            *completed.entry(holding.owner).or_default() += 1;
+        }
+    }
+    Some(ControlState::from_counts(sys.sites.len(), &completed))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,6 +238,10 @@ mod tests {
         }
         let system = state.galaxy().site(sites[0]).unwrap().system;
         assert_eq!(state.control_state(system), Some(ControlState::Contested));
+        assert_eq!(
+            state.control_states().get(&system),
+            Some(&ControlState::Contested)
+        );
 
         // A fourth site as an outpost does not give control (D-041) ...
         let outpost = state.insert_holding(sites[5], YOU, false).unwrap();

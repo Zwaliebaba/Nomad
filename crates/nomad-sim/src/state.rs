@@ -116,7 +116,7 @@ impl UniverseState {
     /// The control state of `system`, or `None` if it does not exist or cannot be claimed,
     /// such as a raider haven (doc 10 §6, D-041).
     pub fn control_state(&self, system: SystemId) -> Option<ControlState> {
-        self.control_states().remove(&system)
+        holding::control_state(&self.galaxy, &self.holdings, system)
     }
 
     /// The control state of every claimable system, in system order (doc 10 §6, D-041).

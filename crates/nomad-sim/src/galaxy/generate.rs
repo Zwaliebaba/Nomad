@@ -197,7 +197,7 @@ pub fn generate_stage1(
         .filter(|&(_, &kind)| kind == SystemKind::Home)
         .map(|(&system, _)| system);
     let mother_sites: Vec<_> = homes
-        .filter_map(|home| state.galaxy.system(home)?.sites.first().copied())
+        .filter_map(|home| state.galaxy.system(home)?.sites.get(MOTHER_SITE).copied())
         .collect();
     for (site, commander) in mother_sites.into_iter().zip(commanders) {
         state.insert_holding(site, commander, true)?;

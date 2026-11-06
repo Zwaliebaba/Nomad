@@ -8,16 +8,19 @@
 //! - seeded random streams per scope and purpose ([`RngStreams`]);
 //! - canonical snapshots and a state hash ([`snapshot`]);
 //! - the [`step`] function that advances the Universe by one tick;
-//! - the season galaxy's topology ([`galaxy`], Design doc 10) and holdings with the system
-//!   control rule ([`ControlState`], D-041).
+//! - the season galaxy ([`galaxy`], Design doc 10): topology, site deposits (doc 14 §5),
+//!   the MVP stage-1 generator and its invariant validator;
+//! - holdings and the system control rule ([`ControlState`], D-041).
 //!
 //! **Determinism contract (D-049):** the same build, the same snapshot and the same inputs
 //! produce bit-identical state. This crate reads no clock, does no I/O and starts no threads
 //! (D-050). Everything non-deterministic enters through [`TickInputs`].
 //!
-//! **No game rules yet (D-051).** Economy, combat and the Deputy arrive with Design docs 14
-//! and 15. Until then the only scheduled work is a diagnostic workload that exercises the
-//! timers and random streams for pacing and determinism tests.
+//! **Game rules arrive as their design is agreed (D-051).** So far: the Universe structure
+//! (doc 10), deposit data and values (doc 14 §5, D-066) and system control (D-041). Claims,
+//! economy flows, combat and the Deputy are not here yet, so the only scheduled work is a
+//! diagnostic workload that exercises the timers and random streams for pacing and
+//! determinism tests.
 
 pub mod galaxy;
 mod holding;
