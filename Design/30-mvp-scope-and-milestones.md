@@ -30,7 +30,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 |---|---|---|---|
 | **Simulation rules** | S1 ✅ | Simulation core (doc 11) | — |
 | | S2 ✅ | Universe structure, deposits, generator invariants (doc 10, D-066, D-098, D-099) | M |
-| | S3 | Movement, fleets, orders, cruise mode, jump transit (doc 15 §3, D-042) | M |
+| | S3 ⏳ | Movement, fleets, orders, cruise mode, jump transit (doc 15 §3, D-042; plan in `plans/S3-movement-and-orders.md`) | M |
 | | S4 | Economy: harvesting and refining, pool, buffers and convoys, power, slots and queues, command cap, repair, start kit (doc 14) | L |
 | | S5 | Combat: weapons, lock, projectiles, multipliers, dome sectors and regeneration, turrets, abilities (doc 15 §4–5) | L |
 | | S6 | Offline and siege rules: activity windows, breach, Reinforced, siege, Held and Fallen, capture, emergency jump, outposts, gate rules, protections (docs 12, 15) | L |
@@ -43,7 +43,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | A5 | Personalities, difficulty, schedules | M |
 | | A6 | Acceptance and pacing tuning (D-083, D-058, D-070) | L, iterative |
 | **Server and network** | N1 ✅ | `nomad-types`, `nomad-protocol` (doc 20 §3, §5) | M |
-| | N2 | Server shell: pacing, SQLite journal and snapshots, recovery, catch-up (doc 20 §4, §6, §7) | M |
+| | N2 ⏳ | Server shell: pacing, SQLite journal and snapshots, recovery, catch-up (doc 20 §4, §6, §7; plan in `plans/N2-server-shell.md`) | M |
 | | N3 | QUIC transport, sessions, token, commands and results | M |
 | | N4 | Replication with interest management (doc 16 §6) | L |
 | | N5 | Process model: the client starts the server, start with Windows, shut down (doc 20 §2) | S |
@@ -59,6 +59,12 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | U5 | Away report, notifications, window and siege panel | M |
 | | U6 | Fleet panel, season panel, start screen and catch-up | M |
 | | U7 | Hotkey scheme (doc 17 §7) | S |
+
+### Delivered
+
+| Pull request | Merged | Contents |
+|---|---|---|
+| Zwaliebaba/Nomad#1 | 2026-11-06 | The complete MVP design (D-001 to D-107); repository standards and CI; S1 simulation core; S2 Universe structure; N1 `nomad-types` and `nomad-protocol`; phase-1 M1 and M2; the WebGL preview tool |
 
 ## 3. Milestones
 
