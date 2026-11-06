@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **Q1–Q138 answered on 2026-11-06. Q139–Q141 (round 15, running the server in a container) are open.**
+Status: **All questions answered (Q1–Q141) on 2026-11-06.**
 
 ## Answer summary
 
@@ -144,6 +144,9 @@ Status: **Q1–Q138 answered on 2026-11-06. Q139–Q141 (round 15, running the s
 | Q136 | SHLD SURGE stays at 20% per use | D-147 |
 | Q137 | FLAK SCREEN | D-148 |
 | Q138 | Recovery of disabled structures | D-149 |
+| Q139 | Fixed default port with bind and port overrides | D-150 |
+| Q140 | Persistent certificate and token, `connect-info` | D-151 |
+| Q141 | Containers are a developer mode; external-server setting | D-152 |
 
 ## A. Universe and time
 
@@ -637,15 +640,15 @@ The full questions, with alternatives, are in the plans' question sections. The 
 **✅ Q137** → D-148: **FLAK SCREEN:** for 10 s the holding fires one burst per second at each hostile Light or Medium target within 2 km of the dome centre, at most 8 bursts per second, each with the WARDEN's flak values (30 damage, 150 m radius).
 
 **✅ Q138** → D-149: **Recovery of disabled structures:** back online once no hostile has been inside the holding's ops area (20 km) for 10 min, at 10% hull, then repaired normally (D-071); REPAIR brings it online at once.
-## T. Round 15, from the Docker Desktop trial (open)
+## T. Round 15, from the Docker Desktop trial (answered)
 
 *Derived* from a trial of `nomad-server` in Docker Desktop on 2026-11-06. N2's server already runs in a Linux container (D-029), with a `Dockerfile` in the repository. There is no networking yet. These three gaps appear once N3 adds it, because doc 20 assumes the client and server share one Windows user's machine and files. Settle them before N3 starts. *(Renumbered from Q109–Q111 on merge: those numbers were already taken by the N3 plan's questions, answered as D-120 to D-125. Q139 and Q140 interact with D-120 and D-121.)*
 
-**Q139 — Bind address and port (doc 20 §2; D-085, D-087; N3).** The server is specified to bind to 127.0.0.1. Inside a container that address cannot be reached through a published port. No design document names a port either. QUIC through Docker Desktop's UDP forwarding is also untested, and cannot be tested before N3.
+**✅ Q139 (D-150) — Bind address and port (doc 20 §2; D-085, D-087; N3).** The server is specified to bind to 127.0.0.1. Inside a container that address cannot be reached through a published port. No design document names a port either. QUIC through Docker Desktop's UDP forwarding is also untested, and cannot be tested before N3.
 *Recommendation (Proposed):* add a bind-address setting (`--bind`, or `NOMAD_BIND`) and fix a default UDP port in N3. The default address stays 127.0.0.1, so the MVP does not change. The image sets 0.0.0.0, and the host publishes the port on loopback only (`-p 127.0.0.1:PORT:PORT/udp`), which keeps D-085's "localhost only".
 
-**Q140 — Getting the token and certificate to the client (doc 20 §5, §9; D-087; N3).** The client reads its token from the per-user data directory and pins the fingerprint of the server's self-signed certificate. With the server in a container, those files sit in a volume the client cannot read. A shared bind mount would expose them, but user-only file permissions mean little across the Windows file share, and the Universe database should stay off that share.
+**✅ Q140 (D-151) — Getting the token and certificate to the client (doc 20 §5, §9; D-087; N3).** The client reads its token from the per-user data directory and pins the fingerprint of the server's self-signed certificate. With the server in a container, those files sit in a volume the client cannot read. A shared bind mount would expose them, but user-only file permissions mean little across the Windows file share, and the Universe database should stay off that share.
 *Recommendation (Proposed):* add an operator command that prints the address, token and certificate fingerprint (for example `docker exec nomad nomad-server connect-info`), and let the client import them once into its own per-user configuration. The certificate and token stay in the data directory, so they survive an image upgrade. Hosting will need the same step. The cost is that the token appears in a terminal.
 
-**Q141 — The client and a server it did not start (doc 20 §2, §7; D-085; N5).** The client starts the server if none is running. With the server in a container, the client cannot tell that from a server that is missing, so it could start a second, Windows server with a different Universe. "Shut down Universe" also misbehaves: under `--restart unless-stopped` the container restarted within a second of a clean exit, so the Universe would not stay stopped. "Start the Universe when I log in to Windows" does not apply either.
+**✅ Q141 (D-152) — The client and a server it did not start (doc 20 §2, §7; D-085; N5).** The client starts the server if none is running. With the server in a container, the client cannot tell that from a server that is missing, so it could start a second, Windows server with a different Universe. "Shut down Universe" also misbehaves: under `--restart unless-stopped` the container restarted within a second of a clean exit, so the Universe would not stay stopped. "Start the Universe when I log in to Windows" does not apply either.
 *Recommendation (Proposed):* keep the MVP on the Windows process model of D-085 and treat the container as a developer and soak-test mode, not a player-facing option. Add an explicit client setting for an external server: with it set, the client never starts a server and hides "Shut down Universe" and the logon option, and the operator stops the server with `docker stop`. Whichever way this is answered, record it as a new decision extending D-085.

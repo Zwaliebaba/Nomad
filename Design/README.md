@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** the MVP design is complete. Questions Q1–Q138 are answered (D-001 to D-149), and every document is agreed. Q139–Q141, on running the server in a container, are open and affect N3 and N5. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
+**Status:** the MVP design is complete. All questions Q1–Q141 are answered (D-001 to D-152), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
 
 ## Documents
 

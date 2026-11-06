@@ -1,6 +1,6 @@
 # Work package N3 — Transport and sessions
 
-Status: **Planned and decided** (Q109–Q114 → D-120 to D-125). Starts now: N1 and N2 are merged, and S3 provides real commands to carry. This plan is also the brief for whoever builds N3. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q109–Q114 → D-120 to D-125). **Amended by D-150 and D-151** (container trial): a fixed default port with `--bind`/`--port` overrides instead of an OS-chosen port, and a persistent certificate and token with `connect-info` and `rotate-token` instead of new ones at every start. D-152 (external servers) belongs to N5 and C7. Starts now: N1 and N2 are merged, and S3 provides real commands to carry. This plan is also the brief for whoever builds N3. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 

@@ -70,7 +70,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 *Agreed (D-087).*
 
 - **Transport:** QUIC via `quinn` over TLS 1.3 with `rustls`. In the MVP the server generates a self-signed certificate on first start, and the client pins its fingerprint.
-  > **Amended by D-120 to D-124 (N3 plan):** the server listens on an OS-chosen port and writes port, fingerprint and token to `<universe>/server.json` (D-120); certificate and token are new at every start (D-121); validator rejection reasons go on the wire with "unknown / not yours / not visible" collapsed into `NotFound` (D-123); a second connection for a commander replaces the first (D-124).
+  > **Amended by D-120 to D-124 (N3 plan):** the server listens on an OS-chosen port and writes port, fingerprint and token to `<universe>/server.json` (D-120; superseded by D-150: a fixed default port with `--bind` and `--port` overrides, `server.json` kept); certificate and token are new at every start (D-121; superseded by D-151: they persist, with `connect-info` and `rotate-token` commands); validator rejection reasons go on the wire with "unknown / not yours / not visible" collapsed into `NotFound` (D-123); a second connection for a commander replaces the first (D-124).
 - **Streams:** one reliable bidirectional control stream (session, commands, acknowledgements) and one reliable unidirectional state stream. There are **no unreliable datagrams in the MVP**; head-of-line blocking does not matter on localhost. Revisit for hosting.
 - **Encoding:** length-prefixed `postcard` frames of one versioned `enum` per direction. Client and server must have **exactly the same protocol version**, because they ship together in the MVP.
 - **Messages:**
