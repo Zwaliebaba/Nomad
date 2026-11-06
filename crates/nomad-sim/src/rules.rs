@@ -22,9 +22,9 @@
 //! | Cruise drop range | Doc 15 §3.3: a hostile within 20 km (a hook until S7) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
 //!
-//! *Proposed* (no agreed value; tuning numbers of this implementation): separation distance
-//! and response time, obstacle margin, look-ahead time (D-105 fixes the behaviour, not the
-//! numbers), the guard radius (S3 plan §4.4 names it without a value) and the launch point.
+//! *Proposed* (no agreed value; tuning numbers of this implementation): separation
+//! distance, obstacle margin, look-ahead time (D-105 fixes the behaviour, not the numbers),
+//! the guard radius (S3 plan §4.4 names it without a value) and the launch point.
 
 use std::collections::BTreeMap;
 
@@ -120,12 +120,9 @@ pub struct MovementRules {
     pub formation_spacing_m: f64,
     /// Cell size of the per-system grid for neighbour queries.
     pub neighbour_cell_m: f64,
-    /// Ships closer than this push each other apart (soft separation, D-105). *Proposed;*
+    /// Ships closer than this give way to each other (soft separation, D-105). *Proposed;*
     /// smaller than the formation spacing, so it never fights a formation.
     pub separation_m: f64,
-    /// How quickly separation resolves an overlap: the push speed is the overlap divided by
-    /// this time. *Proposed.*
-    pub separation_response_s: f64,
     /// Steering keeps this clearance from obstacle footprints. *Proposed.*
     pub obstacle_margin_m: f64,
     /// How far ahead, in seconds of travel, steering looks for obstacles. *Proposed.*
@@ -291,7 +288,6 @@ impl Rules {
             ("formation_spacing_m", m.formation_spacing_m),
             ("neighbour_cell_m", m.neighbour_cell_m),
             ("separation_m", m.separation_m),
-            ("separation_response_s", m.separation_response_s),
             ("look_ahead_s", m.look_ahead_s),
             ("guard_radius_m", m.guard_radius_m),
             ("cruise_drop_hostile_range_m", m.cruise_drop_hostile_range_m),

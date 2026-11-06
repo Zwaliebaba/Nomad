@@ -49,8 +49,8 @@ impl ServerConfig {
 }
 
 /// An external input for the simulation (doc 11 §6). It applies on the tick after the one
-/// during which it was submitted.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// during which it was submitted. Not `Eq`: commands carry `f64` positions (S3).
+#[derive(Clone, Debug, PartialEq)]
 pub enum Input {
     /// From a commander's client.
     Commander(CommanderInput),

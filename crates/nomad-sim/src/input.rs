@@ -4,13 +4,14 @@
 //! server with the tick it applies on. The Deputy, AI commanders and NPC raiders are not
 //! inputs: they run inside the deterministic step.
 
+use nomad_types::Command;
 use serde::{Deserialize, Serialize};
 
 use crate::id::CommanderId;
 use crate::time::Ticks;
 
 /// All external inputs that apply on one tick.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct TickInputs {
     /// Operator commands, applied first, in journal order.
     pub operator: Vec<OperatorInput>,
@@ -20,7 +21,7 @@ pub struct TickInputs {
 }
 
 /// An input from one commander's client.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CommanderInput {
     /// Who sent it.
     pub commander: CommanderId,
@@ -30,14 +31,16 @@ pub struct CommanderInput {
     pub kind: CommanderInputKind,
 }
 
-/// Kinds of commander input. Game commands arrive with Design docs 14 and 15 (D-051).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Kinds of commander input.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum CommanderInputKind {
     /// The commander's client connected. This is a real input: it drives the disconnect
     /// grace period, siege eligibility and the activity-derived exposure window (D-032).
     Connected,
     /// The commander's client disconnected.
     Disconnected,
+    /// A command (doc 15 §3.4), checked by the single validator (D-077).
+    Command(Command),
 }
 
 /// Operator commands (Design doc 11 §6).

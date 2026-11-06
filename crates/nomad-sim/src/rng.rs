@@ -20,6 +20,8 @@ pub mod purpose {
     pub const GALAXY_LAYOUT: u32 = 2;
     /// Season galaxy deposits at season start, per system (doc 14 §5, D-066).
     pub const GALAXY_DEPOSITS: u32 = 3;
+    /// Where ships arriving through a gate appear, per destination system (D-055).
+    pub const ARRIVAL_SCATTER: u32 = 4;
 }
 
 /// Identifies one random stream.

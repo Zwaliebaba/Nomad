@@ -61,7 +61,6 @@
     "formation_spacing_m": 150,
     "neighbour_cell_m": 2000,
     "separation_m": 120,
-    "separation_response_s": 2,
     "obstacle_margin_m": 60,
     "look_ahead_s": 4,
     "guard_radius_m": 3000,

@@ -26,15 +26,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0x94e9_d208_d25c_c4a5),
-    (1, 0x2835_9672_531d_5a1d),
-    (2, 0x5e54_0dae_babe_74fa),
-    (7, 0x04ce_fe0a_1a8f_dc28),
-    (99, 0x8fda_ae39_0d8c_7f53),
+    (0, 0xa779_8a36_526c_7b9b),
+    (1, 0xfd7e_05d7_a347_d5f0),
+    (2, 0xe883_f296_5e61_73ad),
+    (7, 0xbe74_5fae_ebdc_4145),
+    (99, 0x2416_0436_25d0_e78b),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0x53e1_918b_6920_59e9;
+const DIAGNOSTIC_RUN_HASH: u64 = 0x79da_6b0e_8440_3ea8;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig {
@@ -45,7 +45,7 @@ fn season(seed: u64) -> SeasonConfig {
 
 #[test]
 fn snapshot_format_is_unchanged() {
-    assert_eq!(snapshot::FORMAT, 5);
+    assert_eq!(snapshot::FORMAT, 6);
 }
 
 #[test]

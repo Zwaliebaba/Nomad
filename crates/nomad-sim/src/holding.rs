@@ -29,6 +29,12 @@ pub struct Holding {
     /// Whether the core module is complete. Until it is, the site is an outpost and does not
     /// count for control (D-041).
     pub core_complete: bool,
+    /// Whether its core is a mother-station core, with 24 docking places (D-102) and the
+    /// phase-1 station layout (S3 plan §4.3).
+    pub mother_station: bool,
+    /// Dry docks, each adding 6 docking places and letting frigates dock (D-102). Set from
+    /// the start kit until modules are simulated (S4).
+    pub dry_docks: u32,
 }
 
 /// The number of completed holdings needed to control a system with `site_count` sites: a

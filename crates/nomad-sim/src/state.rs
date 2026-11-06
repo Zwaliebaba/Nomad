@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use crate::entities::Entities;
+use crate::fleet::FleetId;
 use crate::galaxy::{Galaxy, SiteId, SystemId};
 use crate::holding::{self, ControlState, Holding, HoldingError, HoldingId};
 use crate::id::{CommanderId, SimIdAllocator};
@@ -56,6 +58,11 @@ pub struct UniverseState {
     /// cleared only by the journaled [`crate::OperatorInput::CatchUpStart`] and
     /// [`crate::OperatorInput::CatchUpEnd`] inputs, so replay reproduces it.
     pub(crate) catching_up: bool,
+    /// Ships and fleets (doc 15 §3; S3 plan §4.2).
+    pub(crate) entities: Entities,
+    /// The jump-transit queue: fleets in lane transit, by arrival tick (doc 11 §4.1 phase 5,
+    /// D-042).
+    pub(crate) transits: TimerQueue<FleetId>,
 }
 
 impl UniverseState {
@@ -84,6 +91,8 @@ impl UniverseState {
             galaxy: Galaxy::default(),
             holdings: BTreeMap::new(),
             catching_up: false,
+            entities: Entities::default(),
+            transits: TimerQueue::default(),
         }
     }
 
@@ -172,6 +181,8 @@ impl UniverseState {
                 site,
                 owner,
                 core_complete,
+                mother_station: false,
+                dry_docks: 0,
             },
         )
     }
