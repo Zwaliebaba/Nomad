@@ -64,7 +64,7 @@ Data note: the station was reconstructed from the 2D mockup. Hidden back sides w
 
 - Ellipsoid cap centred `(-8.6, 9.4, 0)`, horizontal radius 36, vertical radius 40 (before the 0.8165 z scale).
 - At rest: fill alpha ≈ 0.05 with a fresnel rim (`#7fe6ff`, alpha 0.75). Rendered in a transparent pass after opaque voxels, back faces first (dashed rim on the far half of the base ring), then front faces.
-- Four **sectors** by azimuth around the dome centre (N 225–315°, E 315–45°, S 45–135°, W 135–225°, measured in world xy). Each sector's base-ring arc is drawn 2 px; a sector below 50% strength is tinted `#ff9a4a`, dashed, and its rim is also orange.
+- Four **sectors** by azimuth around the dome centre, each centred on its pylon (N 180–270°, E 270–360°, S 0–90°, W 90–180°, measured in world xy; grid north is azimuth 225°, screen-up in view 0; Design D-046). Each sector's base-ring arc is drawn 2 px; a sector below 50% strength is tinted `#ff9a4a`, dashed, and its rim is also orange.
 - Hits: hex-pattern ripple at the impact point (radius 4–6 voxels, 600 ms, additive), plus a hot flash (`#fff6e0` → `#ffb15a`). Projectiles stop at the dome surface.
 
 ## 7. Elevation cues

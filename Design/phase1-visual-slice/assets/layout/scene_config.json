@@ -39,7 +39,7 @@
    1.5,
    2.0
   ],
-  "pan": "WASD / edge scroll / middle-drag, clamped to sector bounds",
+  "pan": "WASD / edge scroll / middle-drag, clamped to ops-area bounds",
   "light": "camera-relative (rotates with view)"
  },
  "ops_grid": {
@@ -67,7 +67,7 @@
    "alpha_near": 0.4
   },
   "near_radius_voxels": 55,
-  "far": "infinite \u2014 never ends at screen edge; fade from alpha_near to alpha_far, never to zero"
+  "far": "infinite — never ends at screen edge; fade from alpha_near to alpha_far, never to zero"
  },
  "shield": {
   "center": [
@@ -84,39 +84,40 @@
    {
     "pylon": "pylon_n",
     "az_deg": [
-     225,
-     315
+     180,
+     270
     ],
     "strength": 1.0
    },
    {
     "pylon": "pylon_e",
     "az_deg": [
-     315,
-     45
+     270,
+     360
     ],
     "strength": 0.38
    },
    {
     "pylon": "pylon_s",
     "az_deg": [
-     45,
-     135
+     0,
+     90
     ],
     "strength": 0.88
    },
    {
     "pylon": "pylon_w",
     "az_deg": [
-     135,
-     225
+     90,
+     180
     ],
     "strength": 0.92
    }
   ],
   "weak_threshold": 0.5,
   "weak_color": "#ff9a4a",
-  "hit": "hex pattern ripple at impact point, 600 ms, radius 4-6 voxels"
+  "hit": "hex pattern ripple at impact point, 600 ms, radius 4-6 voxels",
+  "grid_north_az_deg": 225
  },
  "pylons": {
   "pylon_n": [

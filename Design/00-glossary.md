@@ -111,7 +111,7 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Last-known** | Information outside current sensor coverage, shown with its age in strategic views. |
 | **Alliance** | A formal, size-capped group of commanders with shared vision and the right to defend each other's holdings (D-040). Not in the MVP, which has no diplomacy (D-026). |
 
-## Universe structure (doc 10, proposed)
+## Universe structure (doc 10, agreed)
 
 | Term | Meaning |
 |---|---|

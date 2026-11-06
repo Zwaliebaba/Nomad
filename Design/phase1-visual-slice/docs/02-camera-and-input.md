@@ -8,7 +8,7 @@
 - Transition: 250 ms ease-in-out on yaw. During the turn, render normally (the voxel look survives intermediate angles for a quarter second); input is queued, not dropped.
 - Lighting is camera-relative: after a turn, the newly visible faces receive the same top/left/right factors.
 - Zoom: discrete steps `0.5, 0.75, 1.0, 1.5, 2.0`; mouse wheel, 150 ms ease, zoom toward the cursor. Keep pixel snapping at integer zoom levels to keep voxel edges crisp.
-- Pan: WASD / arrow keys, edge scroll (16 px margin), middle-mouse drag. Clamp to sector bounds (phase 1: ±200 voxels around the pivot).
+- Pan: WASD / arrow keys, edge scroll (16 px margin), middle-mouse drag. Clamp to ops-area bounds (phase 1: ±200 voxels around the pivot; Design D-046).
 
 ## Key bindings (phase 1)
 
