@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **Q1–Q100 answered on 2026-11-06. Round 13 (Q101–Q108) is open.**
+Status: **All questions answered (Q1–Q108) on 2026-11-06.**
 
 ## Answer summary
 
@@ -106,6 +106,14 @@ Status: **Q1–Q100 answered on 2026-11-06. Round 13 (Q101–Q108) is open.**
 | Q98 | Random Universe ID plus name | D-107 |
 | Q99 | State-hash checkpoints in the journal, checked on replay | D-109 |
 | Q100 | Journal kept for 48 h | D-110 |
+| Q101 | Start kit as in doc 14 §12 | D-112 |
+| Q102 | S3 movement starting values | D-113 |
+| Q103 | Engagement ends after 30 s clear | D-114 |
+| Q104 | S3 fleet details as built | D-115 |
+| Q105 | Season end freezes the Universe, read-only | D-116 |
+| Q106 | Catch-up after a lag of more than 1 minute | D-117 |
+| Q107 | Screen-blend bloom by default | D-118 |
+| Q108 | Phase-1 scene is illustrative; slot geometry with S4 | D-119 |
 
 ## A. Universe and time
 
@@ -510,28 +518,28 @@ All three read only `CommanderView` and run inside the deterministic step.
 
 **✅ Q100 — Journal retention (doc 11 §8).** The journal was kept only for the last 2 snapshots, about 10 minutes, so an incident from the night before could not be replayed even though hourly snapshots exist. Proposed: keep the journal for 48 h, matching the hourly snapshots. Entries written before an upgrade still need the old build, and a tool for replaying to a chosen tick is not yet specified.
 *Recommendation:* adopt, with the 48 h value provisional until the journal volume is measured.
-## R. Round 13, from building S3, N2, M3 and the station spread (open)
+## R. Round 13, from building S3, N2, M3 and the station spread (answered)
 
-**Q101 — Season start kit (doc 14 §12).** S3 already builds the mother station's dry dock and the 3 VX + 2 MULE fleet from §12, and S4 will build the rest, but §12 is still labelled *Proposed*.
+**✅ Q101 — Season start kit (doc 14 §12).** S3 already builds the mother station's dry dock and the 3 VX + 2 MULE fleet from §12, and S4 will build the rest, but §12 is still labelled *Proposed*.
 *Recommendation:* agree §12 as written.
 
-**Q102 — S3 movement starting values.** Doc 15 gives no numbers for these, so S3 uses them as *Proposed* entries in the rules file: ship separation 120 m (soft; two ships sharing a slot settle about 80 m apart), obstacle margin 60 m with a 4 s look-ahead, guard radius 3 km, the launch and docking point at the centre of the phase-1 CAP WING, and new fleets starting on *weapons free* (the Balanced doctrine, D-082).
+**✅ Q102 — S3 movement starting values.** Doc 15 gives no numbers for these, so S3 uses them as *Proposed* entries in the rules file: ship separation 120 m (soft; two ships sharing a slot settle about 80 m apart), obstacle margin 60 m with a 4 s look-ahead, guard radius 3 km, the launch and docking point at the centre of the phase-1 CAP WING, and new fleets starting on *weapons free* (the Balanced doctrine, D-082).
 *Recommendation:* adopt as starting values, tuned like every rules-file number.
 
-**Q103 — When an engagement ends (doc 15 §3.3).** Detecting a hostile within 20 km or taking fire drops a fleet to tactical speed, but nothing says when it may cruise again. S3 has the hook and no rule.
+**✅ Q103 — When an engagement ends (doc 15 §3.3).** Detecting a hostile within 20 km or taking fire drops a fleet to tactical speed, but nothing says when it may cruise again. S3 has the hook and no rule.
 *Recommendation:* cruise resumes once no hostile has been detected within 20 km and the fleet has not taken fire for 30 s. The delay stops a fleet flipping between modes at the edge of detection range.
 
-**Q104 — Fleet details settled while building S3.** (a) Every docked ship counts as ready to launch, and docking a fleet is all-or-nothing. (b) "Class weapon range" for a mixed fleet is the shortest range among its armed ships; for the WARDEN that is its battery's 3 km. (c) Order positions are bounded by the farthest site or gate in the system plus 20 km. (d) A fleet entering an ops area at cruise speed sheds speed inside it, limited by its acceleration, rather than having to arrive at tactical speed. (e) Gate spool-up is per fleet: if any ship leaves the 2 km range, the whole fleet's spool-up is cancelled.
+**✅ Q104 — Fleet details settled while building S3.** (a) Every docked ship counts as ready to launch, and docking a fleet is all-or-nothing. (b) "Class weapon range" for a mixed fleet is the shortest range among its armed ships; for the WARDEN that is its battery's 3 km. (c) Order positions are bounded by the farthest site or gate in the system plus 20 km. (d) A fleet entering an ops area at cruise speed sheds speed inside it, limited by its acceleration, rather than having to arrive at tactical speed. (e) Gate spool-up is per fleet: if any ship leaves the 2 km range, the whole fleet's spool-up is cancelled.
 *Recommendation:* adopt all five as built.
 
-**Q105 — Season end on the server (D-020; N2).** When the season clock runs out, the server now logs a warning and keeps simulating, because nothing defines what happens next.
+**✅ Q105 — Season end on the server (D-020; N2).** When the season clock runs out, the server now logs a warning and keeps simulating, because nothing defines what happens next.
 *Recommendation:* at the final tick, S8 fixes the standings and the winner. The Universe then stops advancing: the server stays up and serves the final state read-only until it is shut down, and a new season is a new Universe (D-020).
 
-**Q106 — Catching up after the PC sleeps (doc 11 §2; N2).** A sleeping PC suspends the server, and on waking the Universe is behind UTC. N2 treats a lag of more than one minute like downtime: journaled `CatchUpStart`, fast-forward with every commander offline, then `CatchUpEnd`. Smaller lags are run off by back-to-back live ticks.
+**✅ Q106 — Catching up after the PC sleeps (doc 11 §2; N2).** A sleeping PC suspends the server, and on waking the Universe is behind UTC. N2 treats a lag of more than one minute like downtime: journaled `CatchUpStart`, fast-forward with every commander offline, then `CatchUpEnd`. Smaller lags are run off by back-to-back live ticks.
 *Recommendation:* adopt, with the one-minute threshold.
 
-**Q107 — Bloom composite (phase-1 doc 07 item 22; M3).** A plain additive bloom turns the pale cyan pylon emitters white; the reference renders keep them cyan with a halo. M3 therefore uses a screen composite by default (`frame + glow × (1 − frame)`), which still only adds light. `"additive"` stays available in `scene_config.json`.
+**✅ Q107 — Bloom composite (phase-1 doc 07 item 22; M3).** A plain additive bloom turns the pale cyan pylon emitters white; the reference renders keep them cyan with a halo. M3 therefore uses a screen composite by default (`frame + glow × (1 − frame)`), which still only adds light. `"additive"` stays available in `scene_config.json`.
 *Recommendation:* keep screen as the default.
 
-**Q108 — Inner modules outside the dome (D-067, doc 14 §9.1, doc 15 §5; found with D-111).** Inner slots, which hold the factories and the dry dock, are supposed to lie inside the dome. In the phase-1 scene they never did: with the dome circle at radius 36 voxels (1.26 km) around the station centre, 0% of FB-2, 16% of FA-1 and 11% of the dry dock were inside it, and after the spread almost none are. Covering them would take a radius of about 64 voxels, which breaks doc 15's 1.26 km and would swallow the solar array, which D-100 wants visibly outside.
+**✅ Q108 — Inner modules outside the dome (D-067, doc 14 §9.1, doc 15 §5; found with D-111).** Inner slots, which hold the factories and the dry dock, are supposed to lie inside the dome. In the phase-1 scene they never did: with the dome circle at radius 36 voxels (1.26 km) around the station centre, 0% of FB-2, 16% of FA-1 and 11% of the dry dock were inside it, and after the spread almost none are. Covering them would take a radius of about 64 voxels, which breaks doc 15's 1.26 km and would swallow the solar array, which D-100 wants visibly outside.
 *Recommendation:* keep the dome radius and treat the phase-1 scene as illustrative, not as a slot layout. The real slot geometry (inner slots inside the dome, outer slots outside) is designed with S4 and module placement (D-067), and the phase-1 scene is brought into line then.

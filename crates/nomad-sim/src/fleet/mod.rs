@@ -44,7 +44,7 @@ use crate::state::UniverseState;
 use crate::time::Tick;
 
 /// Rules of engagement of a new fleet: weapons free, as in the default Balanced doctrine
-/// (D-082, doc 13 §9). *Proposed:* doc 15 §3.4 sets rules per fleet but names no default.
+/// (D-082, doc 13 §9; D-113).
 pub const DEFAULT_RULES_OF_ENGAGEMENT: RulesOfEngagement = RulesOfEngagement::WeaponsFree;
 
 /// A ship (component).

@@ -129,9 +129,10 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 
 1. **Start:** take a lock on the Universe file (a second server on the same Universe is refused), load the latest snapshot, replay the journal while checking state hashes (D-109), then catch up to the wall clock.
 2. **During catch-up**, clients may connect, but they receive only `CatchUp { progress }`, and their commands are rejected until the server is live.
-3. **Live** play.
+3. **Live** play. If the server falls more than 1 minute behind UTC, as after the PC slept, it catches up again as in step 2 (D-117).
 4. **Clean shutdown**, triggered by the client's "Shut down Universe" or an operator command, writes a final snapshot and exits.
 5. **Crash:** the next start recovers from the snapshot and journal (at most about 1 s of commands lost, D-048).
+6. **Season end:** after the season's final tick the Universe stops advancing. The server serves the final state read-only and refuses commands until it is shut down (D-116).
 
 ## 8. Client architecture
 

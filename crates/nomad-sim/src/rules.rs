@@ -18,13 +18,13 @@
 //! | Formation spacing, neighbour cells | S3 plan §4.3 |
 //! | Gates | D-055: 2 km scatter, 5 s spool-up, 10 s shroud; S3 plan §4.4: within 2 km |
 //! | Docking | D-102 (Q93) |
-//! | Start kit | Doc 14 §12 (*Proposed* there): 3 VX and 2 MULE, one dry dock |
+//! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE, one dry dock |
 //! | Cruise drop range | Doc 15 §3.3: a hostile within 20 km (a hook until S7) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
 //!
-//! *Proposed* (no agreed value; tuning numbers of this implementation): separation
-//! distance, obstacle margin, look-ahead time (D-105 fixes the behaviour, not the numbers),
-//! the guard radius (S3 plan §4.4 names it without a value) and the launch point.
+//! Starting values adopted from this implementation (D-113): separation distance, obstacle
+//! margin, look-ahead time (D-105 fixes the behaviour, D-113 the numbers), the guard radius
+//! (S3 plan §4.4 names it without a value) and the launch point.
 
 use std::collections::BTreeMap;
 
@@ -120,15 +120,14 @@ pub struct MovementRules {
     pub formation_spacing_m: f64,
     /// Cell size of the per-system grid for neighbour queries.
     pub neighbour_cell_m: f64,
-    /// Ships closer than this give way to each other (soft separation, D-105). *Proposed;*
-    /// smaller than the formation spacing, so it never fights a formation.
+    /// Ships closer than this give way to each other (soft separation, D-105; value D-113).
+    /// Smaller than the formation spacing, so it never fights a formation.
     pub separation_m: f64,
-    /// Steering keeps this clearance from obstacle footprints. *Proposed.*
+    /// Steering keeps this clearance from obstacle footprints (D-113).
     pub obstacle_margin_m: f64,
-    /// How far ahead, in seconds of travel, steering looks for obstacles. *Proposed.*
+    /// How far ahead, in seconds of travel, steering looks for obstacles (D-113).
     pub look_ahead_s: f64,
-    /// A guarding fleet stays within this distance of what it guards. *Proposed;* the S3
-    /// plan names the radius without a value.
+    /// A guarding fleet stays within this distance of what it guards (D-113).
     pub guard_radius_m: f64,
     /// A hostile detected within this range drops a fleet out of cruise mode (doc 15 §3.3).
     /// A hook for S7.
@@ -185,8 +184,8 @@ pub struct StationLayout {
     pub ship_plane_z_voxels: i32,
     /// Azimuth of grid north in grid xy, degrees from +x towards +y (D-046).
     pub grid_north_azimuth_deg: f64,
-    /// Where launched ships appear, in grid xy. *Proposed:* the centre of the phase-1 CAP
-    /// WING, inside the dome and clear of every obstacle.
+    /// Where launched ships appear and dock, in grid xy: the centre of the phase-1 CAP WING,
+    /// inside the dome and clear of every obstacle (D-113).
     pub launch_point_voxels: [f64; 2],
     /// The station modules, with their bounds.
     pub modules: Vec<ModuleShape>,
