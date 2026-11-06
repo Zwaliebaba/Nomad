@@ -96,9 +96,9 @@
       { "id": "pylon_e", "min_voxels": [6, -13, 0], "max_voxels": [14, -5, 20] },
       { "id": "pylon_s", "min_voxels": [6, 24, 0], "max_voxels": [14, 32, 19] },
       { "id": "pylon_w", "min_voxels": [-31, 24, 0], "max_voxels": [-23, 32, 19] },
-      { "id": "solar_array", "min_voxels": [-62, -42, 0], "max_voxels": [-23, -3, 6] },
-      { "id": "factory_fa1", "min_voxels": [-55, 13, 8], "max_voxels": [-36, 30, 19] },
-      { "id": "dry_dock", "min_voxels": [-20, 43, 0], "max_voxels": [13, 56, 11] }
+      { "id": "solar_array", "min_voxels": [-66, -46, 0], "max_voxels": [-23, -3, 6] },
+      { "id": "factory_fa1", "min_voxels": [-59, 13, 8], "max_voxels": [-40, 30, 19] },
+      { "id": "dry_dock", "min_voxels": [-20, 47, 0], "max_voxels": [13, 60, 11] }
     ]
   }
 }

@@ -11,6 +11,10 @@
 //! values here in the same commit (D-099 item 9: no migration before the first real
 //! Universe). An unexplained mismatch is a determinism bug. The values below are for the
 //! newest version in the [`snapshot::FORMAT`] history.
+//!
+//! The state carries the season's rules (D-104), so a deliberate change to the embedded rules
+//! file also changes these values without a format change: the schema stays readable. Last
+//! re-recorded for D-111 (the spread mother-station bounds).
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
 use nomad_sim::snapshot::{self, state_hash};
@@ -26,15 +30,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0xa779_8a36_526c_7b9b),
-    (1, 0xfd7e_05d7_a347_d5f0),
-    (2, 0xe883_f296_5e61_73ad),
-    (7, 0xbe74_5fae_ebdc_4145),
-    (99, 0x2416_0436_25d0_e78b),
+    (0, 0x227b_32dd_11dc_9426),
+    (1, 0x79d6_6d45_fca7_cef3),
+    (2, 0xf506_13d3_a7c5_d88c),
+    (7, 0xcc13_baa1_564d_840e),
+    (99, 0x5227_05be_c258_a23c),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0x79da_6b0e_8440_3ea8;
+const DIAGNOSTIC_RUN_HASH: u64 = 0x82de_75e8_7253_8c5b;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig {
