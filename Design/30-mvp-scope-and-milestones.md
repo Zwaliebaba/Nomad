@@ -31,9 +31,9 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | **Simulation rules** | S1 ✅ | Simulation core (doc 11) | — |
 | | S2 ✅ | Universe structure, deposits, generator invariants (doc 10, D-066, D-098, D-099) | M |
 | | S3 ✅ | Movement, fleets, orders, cruise mode, jump transit (doc 15 §3, D-042; plan in `plans/S3-movement-and-orders.md`) | M |
-| | S4 | Economy: harvesting and refining, pool, buffers and convoys, power, slots and queues, command cap, repair, start kit (doc 14) | L |
-| | S5 | Combat: weapons, lock, projectiles, multipliers, dome sectors and regeneration, turrets, abilities (doc 15 §4–5) | L |
-| | S6 | Offline and siege rules: activity windows, breach, Reinforced, siege, Held and Fallen, capture, emergency jump, outposts, gate rules, protections (docs 12, 15) | L |
+| | S4 ⏳ | Economy: harvesting and refining, pool, buffers and convoys, power, slots and queues, command cap, repair, start kit, claiming (doc 14; D-135; plan in `plans/S4-economy.md`) | L |
+| | S5 ⏳ | Combat (doc 15 §4–5; plan in `plans/S5-combat.md`). S5a: weapons, lock, projectiles, multipliers, targeting, in parallel with S4. S5b: dome sectors and regeneration, turrets, abilities, module damage, after S4 (D-139) | L |
+| | S6 | Offline and siege rules: activity windows, breach, Reinforced, siege, Held and Fallen, capture, emergency jump, outpost combat, gate rules, protections (docs 12, 15; claiming moved to S4, D-135) | L |
 | | S7 | Sensors: visibility sets, signatures, lane traffic, last-known memory, `CommanderView` (doc 16) | M |
 | | S8 | Season standings, win, season end (D-020, D-041) | S |
 | **AI** | A1 | Deputy (doc 13 §4) | M |
@@ -82,7 +82,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 
 *Agreed (D-095).* Three streams run in parallel:
 
-1. **Rules and AI (the critical path):** S3 → S4 and S5 → S6 → S7 → A1 → A2 → A3 → A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist.
+1. **Rules and AI (the critical path):** S3 → S4 and S5a → S5b → S6 → S7 → A1 → A2 → A3 → A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist.
 2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send.
 3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7.
 

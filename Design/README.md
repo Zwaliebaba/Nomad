@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** the MVP design is complete. All questions Q1–Q108 are answered (D-001 to D-119), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
+**Status:** the MVP design is complete. All questions Q1–Q138 are answered (D-001 to D-149), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
 
 ## Documents
 
@@ -35,9 +35,9 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 |---|---|---|
 | S3 | [`plans/S3-movement-and-orders.md`](plans/S3-movement-and-orders.md) | Built (D-101 to D-105; gaps decided as D-112 to D-115) |
 | N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Built except D-109 and D-110 (journal checkpoints, 48 h journal) and the D-116 season-end freeze, in progress; gaps decided as D-116, D-117 |
-| N3 | [`plans/N3-transport-and-sessions.md`](plans/N3-transport-and-sessions.md) | Planned; questions Q109–Q114 open |
-| S4 | [`plans/S4-economy.md`](plans/S4-economy.md) | Planned; questions Q115–Q127 open |
-| S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Planned; questions Q128–Q138 open |
+| N3 | [`plans/N3-transport-and-sessions.md`](plans/N3-transport-and-sessions.md) | Planned and decided (D-120 to D-125) |
+| S4 | [`plans/S4-economy.md`](plans/S4-economy.md) | Planned and decided (D-126 to D-138); being built |
+| S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Planned and decided (D-139 to D-149); S5a being built, S5b after S4 |
 
 ## Conventions
 

@@ -1,6 +1,6 @@
 # Work package S4 — Economy
 
-Status: **Planned; questions Q115–Q127 open.** Written together with `S5-combat.md`, because power, modules and module damage are shared between the two. Builds on S3 (entities, rules file, holdings, validator). This plan is also the brief for whoever builds S4.
+Status: **Planned and decided** (Q115–Q127 → D-126 to D-138). Written together with `S5-combat.md`, because power, modules and module damage are shared between the two. Builds on S3 (entities, rules file, holdings, validator). This plan is also the brief for whoever builds S4.
 
 ## 1. Goal
 
@@ -172,31 +172,31 @@ Holdings produce, store, spend and build. Every commander has a pool of alloy an
 
 Numbered Q115–Q127; each has a recommendation and alternatives.
 
-- **Q115 — Harvesting and refining (doc 14 §6).** As written: refining is local to the holding, one harvester per ore field, a 1 h ore buffer, and power-limited producers slow in proportion.
+- **✅ Q115 (D-126) — Harvesting and refining (doc 14 §6).** As written: refining is local to the holding, one harvester per ore field, a 1 h ore buffer, and power-limited producers slow in proportion.
   *Recommendation:* adopt. *Alternatives:* ore travels in buffers and convoys to refineries at depots; refining only at depots.
-- **Q116 — Power (doc 14 §7).** As written: supply and demand per holding, no transfer between holdings, the values in the table.
+- **✅ Q116 (D-127) — Power (doc 14 §7).** As written: supply and demand per holding, no transfer between holdings, the values in the table.
   *Recommendation:* adopt. *Alternatives:* power shared within a system; shared across the commander's holdings.
-- **Q117 — Power allocation (§4.5).** Fixed draws (pylon base, turrets, active abilities) are all-or-nothing and served first; scalable draws (regeneration, production, the building dock) share by profile tiers, proportionally within a tier. An ability needs its full draw free to start.
+- **✅ Q117 (D-128) — Power allocation (§4.5).** Fixed draws (pylon base, turrets, active abilities) are all-or-nothing and served first; scalable draws (regeneration, production, the building dock) share by profile tiers, proportionally within a tier. An ability needs its full draw free to start.
   *Recommendation:* adopt. *Alternatives:* one proportional cut for everything; a strict priority per consumer type.
-- **Q118 — Command cap (doc 14 §8).** 120 from the mother station, +10 per other completed holding, at most 300.
+- **✅ Q118 (D-129) — Command cap (doc 14 §8).** 120 from the mother station, +10 per other completed holding, at most 300.
   *Recommendation:* adopt. *Alternatives:* +15 per holding up to 300; a flat 200.
-- **Q119 — Slot template (§4.2).** Every core projects the same 36-voxel dome. 4 pylon slots; inner slots: 6 standard + 1 dock at the mother station, 4 standard + 1 dock elsewhere; 1 solar slot outside the dome.
+- **✅ Q119 (D-130) — Slot template (§4.2).** Every core projects the same 36-voxel dome. 4 pylon slots; inner slots: 6 standard + 1 dock at the mother station, 4 standard + 1 dock elsewhere; 1 solar slot outside the dome.
   *Recommendation:* adopt. *Alternatives:* 8/6 standard inner slots (more turrets, longer build-out); no dock slot at other holdings (frigates only at the mother station).
-- **Q120 — Peripheral slots (supersedes D-067's "1–2 peripheral slots").** D-067 puts solar arrays and harvesters in 1–2 peripheral slots, but a site with two deposits plus a solar array needs three. Proposed: one solar slot, plus one deposit slot per deposit for its harvester or extractor.
+- **✅ Q120 (D-131) — Peripheral slots (supersedes D-067's "1–2 peripheral slots").** D-067 puts solar arrays and harvesters in 1–2 peripheral slots, but a site with two deposits plus a solar array needs three. Proposed: one solar slot, plus one deposit slot per deposit for its harvester or extractor.
   *Recommendation:* adopt. *Alternatives:* D-067 as written (a two-deposit site cannot also have solar, so it cannot run a refinery and pylons); a fixed 3 peripheral slots.
-- **Q121 — FB-2 in the phase-1 station (D-065 against D-112).** D-065 makes FB-2 a second refinery, but D-112's kit has one refinery and one storage module and "matches the phase-1 station". The mother site has one ore field (600 ore/h), so a second refinery would idle.
+- **✅ Q121 (D-132) — FB-2 in the phase-1 station (D-065 against D-112).** D-065 makes FB-2 a second refinery, but D-112's kit has one refinery and one storage module and "matches the phase-1 station". The mother site has one ore field (600 ore/h), so a second refinery would idle.
   *Recommendation:* FB-2 is the storage module (it has a container rack); D-065's FB-2 clause is superseded and D-112 stands. *Alternatives:* FB-2 is a second refinery and the kit gains it; FB-2 is a turret.
-- **Q122 — MULE cargo.** Doc 14 never sets it, but convoys and core-kit delivery need it.
+- **✅ Q122 (D-133) — MULE cargo.** Doc 14 never sets it, but convoys and core-kit delivery need it.
   *Recommendation:* 2,000 units (1 alloy or 1 crystal = 1 unit); a core kit fills the hold. One MULE then keeps up with one remote 600 A/h holding on a 2–3 h round trip. *Alternatives:* 1,000 units; 4,000 units.
-- **Q123 — Convoy routes.** A convoy order is a looped list of own holdings ending at a depot. MULEs load buffered alloy and crystal in proportion, up to capacity, and unload into the pool; overflow at the pool is lost as at the source.
+- **✅ Q123 (D-134) — Convoy routes.** A convoy order is a looped list of own holdings ending at a depot. MULEs load buffered alloy and crystal in proportion, up to capacity, and unload into the pool; overflow at the pool is lost as at the source.
   *Recommendation:* adopt. *Alternatives:* crystal first, then alloy; load from the fullest buffer first, whatever the route order.
-- **Q124 — Claiming moves into S4.** Doc 30 lists outposts under S6, but the expansion target (D-070) and the Strategist's *Expand* goal need core kits, delivery, the 2 h outpost and completion as a holding. S6 keeps the outpost combat exception (D-054) and capture.
+- **✅ Q124 (D-135) — Claiming moves into S4.** Doc 30 lists outposts under S6, but the expansion target (D-070) and the Strategist's *Expand* goal need core kits, delivery, the 2 h outpost and completion as a holding. S6 keeps the outpost combat exception (D-054) and capture.
   *Recommendation:* move claiming into S4. *Alternatives:* keep all of it in S6 and measure expansion only after S6.
-- **Q125 — How to read "full build-out in 2–3 days of income" (D-070).** Against the starting income, or one standard holding's own output (600 A/h), the §4.2 build-out takes 2.4 days. Against mid-season income it takes 0.8 days.
+- **✅ Q125 (D-136) — How to read "full build-out in 2–3 days of income" (D-070).** Against the starting income, or one standard holding's own output (600 A/h), the §4.2 build-out takes 2.4 days. Against mid-season income it takes 0.8 days.
   *Recommendation:* the holding's own output (it reads as a payback period, and it is what the costs were sized for). *Alternatives:* mid-season income, which needs about 3× the module costs or more slots; measure both and decide at α.
-- **Q126 — Pacing deviations already visible (§5).** Late income projects to about 5–6× start (target 3–4×), and a full cap fleet to about 15 h of income (target about 24 h).
+- **✅ Q126 (D-137) — Pacing deviations already visible (§5).** Late income projects to about 5–6× start (target 3–4×), and a full cap fleet to about 15 h of income (target about 24 h).
   *Recommendation:* keep the starting values for α, measure, and then tune numbers only (ship costs, non-home ore yields). *Alternatives:* adjust now (ship costs ×1.5, poorer ore outside home systems); add a new rule with diminishing returns per extra refinery.
-- **Q127 — Harvesters under the stakes rule (doc 12 §3).** The doc 12 table lists "harvesters" among things that can be destroyed in real time, but harvester and extractor modules are peripheral structures (doc 14 §9.3), which outside the owner's window can only be disabled.
+- **✅ Q127 (D-138) — Harvesters under the stakes rule (doc 12 §3).** The doc 12 table lists "harvesters" among things that can be destroyed in real time, but harvester and extractor modules are peripheral structures (doc 14 §9.3), which outside the owner's window can only be disabled.
   *Recommendation:* harvester and extractor modules follow the peripheral rule (disabled outside the window, destroyable inside it); doc 12's "harvesters" means harvesting craft, of which the MVP has none. *Alternative:* harvester modules can be destroyed at any time.
 
 ## 7. Tasks, in order

@@ -91,7 +91,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 
 ## 4. Weapons and damage
 
-*Agreed (D-052).*
+*Agreed (D-052).* Details agreed with the S5 plan: a ship's hit radius is half its model's short side (D-143); auto-targeting prefers the highest multiplier, then the nearest, then the lowest `SimId` (D-144); there is no friendly fire (D-146); return fire covers hostiles that hit the fleet or its commander's structures in range in the last 30 s (D-145). SHLD SURGE stays at 20% (D-147); FLAK SCREEN is defined in D-148.
 
 - **Projectiles:** each weapon has damage per shot, a fire interval, projectile speed, range, and a spread that narrows as **lock** builds. Bolts fly at about 800 m/s, matching the phase-1 HUD's "TTI 1.1 s" at 0.9 km. Torpedoes are slower, about 350 m/s, and do not home.
 - **Lock:**
@@ -118,6 +118,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 - A hostile projectile that crosses the dome circle damages the sector whose arc it crosses, then stops (phase 1: projectiles stop at the dome).
 - **The dome is one-way.** Outgoing fire from turrets and docked defenders launching from inside passes through it.
 - **Pylons are inside the dome and cannot be targeted separately.** A sector's strength *is* its pylon's projection.
+- *Agreed with the S5 plan:* a sector's maximum is 25% from the core plus 75% from its own pylon (D-140, superseding D-053's 25% per pylon). Every core has the same dome (D-141). Regeneration is allocated MW × 50/120 per second, scaling with the sector's maximum (D-142); power is allocated as in D-128.
 - A sector below 50% shows as weak (phase 1). A sector at 0 is a **breach**, and the holding enters Reinforced (D-015, D-033).
 - During Reinforced, the dome is immune to hostile fire (doc 12).
 - During a Siege, the breached sector is open: no regeneration, no blocking. Projectiles entering through the open arc can hit modules.

@@ -40,6 +40,8 @@ Two consequences follow:
 
 **What attackers can never do** is take a core while the owner sleeps, or without warning.
 
+*Clarified after the S4/S5 plans:* harvester and extractor modules follow the peripheral rule; "harvesters" in the first row means harvesting craft, of which the MVP has none (D-138). A disabled structure comes back online once no hostile has been inside its holding's 20 km ops area for 10 min, at 10% hull; REPAIR restores it at once (D-149).
+
 The disabled-not-destroyed rule keeps the phase-1 reason for defending SOL-1 (D-003): losing its power weakens the shield sectors. At the same time it prevents an offline player from losing their infrastructure outright.
 
 ## 4. The shield lifecycle

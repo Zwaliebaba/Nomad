@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q108) on 2026-11-06.**
+Status: **All questions answered (Q1–Q138) on 2026-11-06.**
 
 ## Answer summary
 
@@ -114,6 +114,36 @@ Status: **All questions answered (Q1–Q108) on 2026-11-06.**
 | Q106 | Catch-up after a lag of more than 1 minute | D-117 |
 | Q107 | Screen-blend bloom by default | D-118 |
 | Q108 | Phase-1 scene is illustrative; slot geometry with S4 | D-119 |
+| Q109 | Finding the server | D-120 |
+| Q110 | Certificate and token are new at every server start, | D-121 |
+| Q111 | Privacy of `server.json` | D-122 |
+| Q112 | Rejection reasons go on the wire | D-123 |
+| Q113 | A second connection for the same commander replaces the first | D-124 |
+| Q114 | New crate `nomad-link` | D-125 |
+| Q115 | Harvesting and refining as in doc 14 §6 | D-126 |
+| Q116 | Power as in doc 14 §7 | D-127 |
+| Q117 | Power allocation | D-128 |
+| Q118 | Command cap | D-129 |
+| Q119 | Slot template | D-130 |
+| Q120 | Peripheral slots | D-131 |
+| Q121 | FB-2 is the storage module | D-132 |
+| Q122 | MULE cargo is 2,000 units | D-133 |
+| Q123 | Convoy routes | D-134 |
+| Q124 | Claiming moves into S4 | D-135 |
+| Q125 | "Build-out in 2–3 days of income" (D-070) is read against the holding's own output | D-136 |
+| Q126 | Pacing deviations are measured, not pre-tuned | D-137 |
+| Q127 | Harvester and extractor modules follow the peripheral rule | D-138 |
+| Q128 | S5 is split | D-139 |
+| Q129 | Sector maximum = 25% from the core + 75% from that sector's own pylon, | D-140 |
+| Q130 | Every core has the same dome | D-141 |
+| Q131 | Regeneration = allocated MW × 50 / 120 per second; | D-142 |
+| Q132 | Ship hit radius is half the model's short side, | D-143 |
+| Q133 | Auto-targeting | D-144 |
+| Q134 | Return fire | D-145 |
+| Q135 | No friendly fire | D-146 |
+| Q136 | SHLD SURGE stays at 20% per use | D-147 |
+| Q137 | FLAK SCREEN | D-148 |
+| Q138 | Recovery of disabled structures | D-149 |
 
 ## A. Universe and time
 
@@ -543,3 +573,67 @@ All three read only `CommanderView` and run inside the deterministic step.
 
 **✅ Q108 — Inner modules outside the dome (D-067, doc 14 §9.1, doc 15 §5; found with D-111).** Inner slots, which hold the factories and the dry dock, are supposed to lie inside the dome. In the phase-1 scene they never did: with the dome circle at radius 36 voxels (1.26 km) around the station centre, 0% of FB-2, 16% of FA-1 and 11% of the dry dock were inside it, and after the spread almost none are. Covering them would take a radius of about 64 voxels, which breaks doc 15's 1.26 km and would swallow the solar array, which D-100 wants visibly outside.
 *Recommendation:* keep the dome radius and treat the phase-1 scene as illustrative, not as a slot layout. The real slot geometry (inner slots inside the dome, outer slots outside) is designed with S4 and module placement (D-067), and the phase-1 scene is brought into line then.
+
+## S. Round 14, from `plans/N3-transport-and-sessions.md`, `plans/S4-economy.md` and `plans/S5-combat.md` (answered)
+
+The full questions, with alternatives, are in the plans' question sections. The owner chose every recommendation.
+
+**✅ Q109** → D-120: **Finding the server:** it listens on 127.0.0.1 on a port the OS chooses, and writes the port, its certificate fingerprint and the session token to `<universe>/server.json`, which counts as stale while the Universe lock is free.
+
+**✅ Q110** → D-121: **Certificate and token are new at every server start,** published only in `server.json`, which the client reads on each connect. Amends doc 20 §5 and §9 ("on first start").
+
+**✅ Q111** → D-122: **Privacy of `server.json`:** mode 0600 on Linux; on Windows the per-user ACL of `%LOCALAPPDATA%`. The server warns when the data directory lies outside the user profile. No `unsafe` Win32 code.
+
+**✅ Q112** → D-123: **Rejection reasons go on the wire** as a wire enum in `nomad-types`. "Unknown", "not yours" and "not visible" collapse into one `NotFound`, so probing reveals nothing about unseen entities (doc 16 §6). The server maps validator reasons to it, with an exhaustive test. Protocol version 2.
+
+**✅ Q113** → D-124: **A second connection for the same commander replaces the first** (`Bye { Replaced }`), without a disconnect/connect pair in the simulation.
+
+**✅ Q114** → D-125: **New crate `nomad-link`:** the client side of the connection (connect, pinning, handshake, channels, reconnect), used by the game client (C7) and the integration tests. Amends D-086's crate list.
+
+**✅ Q115** → D-126: **Harvesting and refining as in doc 14 §6:** refining is local to the holding, one harvester per ore field, a 1 h ore buffer, and power-limited producers slow in proportion.
+
+**✅ Q116** → D-127: **Power as in doc 14 §7:** supply and demand per holding, never transferred between holdings, with the values in its table.
+
+**✅ Q117** → D-128: **Power allocation:** fixed draws (pylon base, turrets, active abilities) are all-or-nothing and served first; scalable draws (regeneration, production, the building dock) share by routing-profile tiers, proportionally within a tier. An ability needs its full draw free to start.
+
+**✅ Q118** → D-129: **Command cap:** 120 from the mother station, +10 per other completed holding, at most 300 (doc 14 §8). At 5 holdings that is 160, not the 200 doc 14 §13's rough check assumed.
+
+**✅ Q119** → D-130: **Slot template:** every core projects the same 36-voxel dome; 4 pylon slots; inner slots 6 standard + 1 dock at the mother station and 4 + 1 elsewhere; 1 solar slot outside the dome. This is the slot geometry D-119 left to S4.
+
+**✅ Q120** → D-131: **Peripheral slots:** one solar slot plus one deposit slot per deposit, for its harvester or extractor. Supersedes D-067's "1–2 peripheral slots", which could not hold two deposits and a solar array (D-098).
+
+**✅ Q121** → D-132: **FB-2 is the storage module** (it carries a container rack). Supersedes D-065's clause making FB-2 a second refinery; D-112's one-refinery start kit stands.
+
+**✅ Q122** → D-133: **MULE cargo is 2,000 units** (1 alloy or 1 crystal = 1 unit); a core kit fills the hold.
+
+**✅ Q123** → D-134: **Convoy routes:** a convoy order is a looped list of own holdings ending at a depot. MULEs load buffered alloy and crystal in proportion up to capacity and unload into the pool; overflow at the pool is lost, as at the source.
+
+**✅ Q124** → D-135: **Claiming moves into S4:** core kits, delivery, the 2 h outpost and completion as a holding. S6 keeps the outpost combat exception (D-054) and capture. Amends doc 30 §2.
+
+**✅ Q125** → D-136: **"Build-out in 2–3 days of income" (D-070) is read against the holding's own output** (600 A/h for a standard holding): about 2.4 days.
+
+**✅ Q126** → D-137: **Pacing deviations are measured, not pre-tuned:** S4 and S5 build with the starting values; the harness measures every D-070 and D-058 target at α, and then only numbers are tuned (ship costs, yields, hull).
+
+**✅ Q127** → D-138: **Harvester and extractor modules follow the peripheral rule:** disabled outside the owner's window, destroyable inside it. Doc 12 §3's "harvesters" means harvesting craft, of which the MVP has none.
+
+**✅ Q128** → D-139: **S5 is split:** S5a (ship combat: weapons, lock, projectiles, multipliers, auto-targeting) is built in parallel with S4; S5b (dome sectors, regeneration, turrets, abilities, module damage) follows S4. Amends doc 30 §4.
+
+**✅ Q129** → D-140: **Sector maximum = 25% from the core + 75% from that sector's own pylon,** so four pylons give full strength and a missing pylon leaves its sector at 25%. Supersedes D-053's "each pylon adds 25% to its sector", which never reached doc 15 §12's full strength.
+
+**✅ Q130** → D-141: **Every core has the same dome:** radius 36 voxels (1.26 km), 150,000 per full sector, 50/s regeneration. Holdings differ only through power and pylons.
+
+**✅ Q131** → D-142: **Regeneration = allocated MW × 50 / 120 per second;** the maximum rate and the MW drawn scale with the sector's maximum (a 25% sector regenerates at most 12.5/s and draws at most 30 MW).
+
+**✅ Q132** → D-143: **Ship hit radius is half the model's short side,** as rules values (VX ≈ 90 m, LANCER and WARDEN ≈ 120 m, MULE ≈ 50 m, HSTL ≈ 190 m); TTK is tuned through hull at α. A smaller collision radius stays an option at A6 if fights feel too deterministic.
+
+**✅ Q133** → D-144: **Auto-targeting:** with no explicit target under *weapons free*, each weapon takes the hostile in range with the highest multiplier for it, then the nearest, then the lowest `SimId`, and keeps it while valid. Explicit targets (player, Deputy, AI) override it.
+
+**✅ Q134** → D-145: **Return fire:** a fleet engages only hostiles that damaged one of its ships, or one of its commander's structures within its weapon range, in the last 30 s (D-114's window).
+
+**✅ Q135** → D-146: **No friendly fire:** projectiles pass through friendly ships, and flak damages only hostile targets.
+
+**✅ Q136** → D-147: **SHLD SURGE stays at 20% per use** as a starting value. D-058's breach target is measured with the Deputy's default ability use; the core-kill target with the defender's turrets destroyed or absent.
+
+**✅ Q137** → D-148: **FLAK SCREEN:** for 10 s the holding fires one burst per second at each hostile Light or Medium target within 2 km of the dome centre, at most 8 bursts per second, each with the WARDEN's flak values (30 damage, 150 m radius).
+
+**✅ Q138** → D-149: **Recovery of disabled structures:** back online once no hostile has been inside the holding's ops area (20 km) for 10 min, at 10% hull, then repaired normally (D-071); REPAIR brings it online at once.

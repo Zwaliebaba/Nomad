@@ -1,6 +1,6 @@
 # Work package N3 — Transport and sessions
 
-Status: **Planned; questions Q109–Q114 open.** Starts now: N1 and N2 are merged, and S3 provides real commands to carry. This plan is also the brief for whoever builds N3. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q109–Q114 → D-120 to D-125). Starts now: N1 and N2 are merged, and S3 provides real commands to carry. This plan is also the brief for whoever builds N3. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -157,27 +157,27 @@ The connection cap protects only against a local process flooding the port. Off-
 
 ## 5. Questions
 
-**Q109 — How the client finds the server.** The server must listen on some port, and the client must learn it.
+**✅ Q109 (D-120) — How the client finds the server.** The server must listen on some port, and the client must learn it.
 *Recommendation:* an ephemeral port picked by the OS, written with the fingerprint and token into `<universe>/server.json` (§4.2). The client reads the data directory for the token anyway (doc 20 §9). Ports never collide, and two Universes could run side by side.
 *Alternatives:* (a) a fixed default port, for example 47 100, with a `--port` override, plus the file for the token and fingerprint; (b) a fixed port only.
 
-**Q110 — How long the certificate and token live.** Doc 20 §5 and §9 say the server creates them "on first start", which suggests they persist.
+**✅ Q110 (D-121) — How long the certificate and token live.** Doc 20 §5 and §9 say the server creates them "on first start", which suggests they persist.
 *Recommendation:* make both fresh at every server start and publish them only in `server.json`. Then no private key or token sits on disk while the server is down, and nothing needs rotating. Pinning across restarts would add no protection on one PC: whoever can replace the server can also rewrite the file the client trusts. Hosting replaces all of this with real certificates (D-029).
 *Alternatives:* (a) persistent certificate and token, created at `create` and stored in the Universe directory (the literal reading of doc 20); (b) persistent certificate, fresh token at every start.
 
-**Q111 — Keeping the connection file private on Windows.** On Linux the file gets mode 0600 through `std`. Windows has no mode bits; privacy comes from ACLs. Our code may not use `unsafe` (`CODING_STANDARDS.md`).
+**✅ Q111 (D-122) — Keeping the connection file private on Windows.** On Linux the file gets mode 0600 through `std`. Windows has no mode bits; privacy comes from ACLs. Our code may not use `unsafe` (`CODING_STANDARDS.md`).
 *Recommendation:* rely on the per-user ACL that `%LOCALAPPDATA%` already has (the user, SYSTEM and Administrators) and document it. When `NOMAD_DATA` or `--data-dir` points outside the user's profile, log a warning that the token may be readable by others. No new dependency, no `unsafe`.
 *Alternatives:* (a) set an explicit owner-only DACL through a maintained Windows ACL crate (a new Windows-only dependency to vet with `cargo deny`); (b) set it with our own Win32 calls (needs the owner's agreement to an `unsafe` exception).
 
-**Q112 — The validator's reason on the wire.** `RejectReason::Invalid` carries no detail today (S3), so the client cannot say why an order failed. But the validator's 25 reasons include `UnknownFleet` against `NotOwner`, and `UnknownTarget` against others. A modified client could probe IDs and learn that unseen entities exist, which doc 16 §6 and doc 20 §9 rule out.
+**✅ Q112 (D-123) — The validator's reason on the wire.** `RejectReason::Invalid` carries no detail today (S3), so the client cannot say why an order failed. But the validator's 25 reasons include `UnknownFleet` against `NotOwner`, and `UnknownTarget` against others. A modified client could probe IDs and learn that unseen entities exist, which doc 16 §6 and doc 20 §9 rule out.
 *Recommendation:* add a wire enum mirroring the validator's reasons, but collapse "does not exist", "not yours" and "not visible to you" into one `NotFound`, so a rejection reveals nothing about undetected entities. The mapping lives in the server, and the enum lives in `nomad-types` so the client can show messages without depending on `nomad-sim` (D-086). A test checks that every validator reason maps to a wire reason.
 *Alternatives:* (a) send the validator's reason as it is (simplest; leaks the existence of entities); (b) keep `Invalid` without detail (no leak; the UI can only say "invalid order").
 
-**Q113 — A second connection for the same commander.** The MVP has one human commander. A crashed or restarted client can leave a half-open session until the 30 s idle timeout.
+**✅ Q113 (D-124) — A second connection for the same commander.** The MVP has one human commander. A crashed or restarted client can leave a half-open session until the 30 s idle timeout.
 *Recommendation:* the newest authenticated session replaces the old one, which gets `Bye { Replaced }`. The commander stays connected for the simulation (no `Disconnected`/`Connected` pair), so a quick client restart does not start the grace period.
 *Alternatives:* (a) refuse the new session until the old one ends (`Bye { AlreadyConnected }`), so a crashed client locks the player out for up to 30 s; (b) allow several sessions per commander (two windows), which N4 must then serve twice.
 
-**Q114 — Where the client-side connection code lives.** Doc 20 §3 lists no crate for it. The integration test needs a headless client, and the game client (C7) needs the same code.
+**✅ Q114 (D-125) — Where the client-side connection code lives.** Doc 20 §3 lists no crate for it. The integration test needs a headless client, and the game client (C7) needs the same code.
 *Recommendation:* a new small crate `nomad-link`: the QUIC client, pinning, handshake, reconnects and the channel API (§4.8). It depends on `nomad-protocol` and `nomad-types` only. `nomad-client` uses it in C7, and the server's integration tests use it as a dev-dependency. This amends D-086's crate list.
 *Alternatives:* (a) a module inside `nomad-client`, with the integration test in `nomad-client`'s tests (no new crate, but every server test build compiles `wgpu` and `winit`); (b) a `client` feature of `nomad-protocol` (doc 20 says the protocol crate has no networking).
 

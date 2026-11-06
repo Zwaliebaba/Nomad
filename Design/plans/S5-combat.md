@@ -1,6 +1,6 @@
 # Work package S5 — Combat
 
-Status: **Planned; questions Q128–Q138 open.** Written together with `S4-economy.md`, because power, modules and module damage are shared between the two. Builds on S3 (ships, fleets, orders, the cruise-drop hook) and, for its second half, on S4 (modules and power). This plan is also the brief for whoever builds S5.
+Status: **Planned and decided** (Q128–Q138 → D-139 to D-149). S5a (ship combat) is built in parallel with S4; S5b follows S4 (D-139). Written together with `S4-economy.md`, because power, modules and module damage are shared between the two. Builds on S3 (ships, fleets, orders, the cruise-drop hook) and, for its second half, on S4 (modules and power). This plan is also the brief for whoever builds S5.
 
 ## 1. Goal
 
@@ -159,27 +159,27 @@ S5 is built in two parts (Q128).
 
 Numbered Q128–Q138; each has a recommendation and alternatives.
 
-- **Q128 — Split S5 and its order with S4.** S5a (ship combat) needs only S3 and can start now. S5b (dome, turrets, abilities, module damage) needs S4's modules and power.
+- **✅ Q128 (D-139) — Split S5 and its order with S4.** S5a (ship combat) needs only S3 and can start now. S5b (dome, turrets, abilities, module damage) needs S4's modules and power.
   *Recommendation:* build S5a in parallel with S4, then S5b. *Alternatives:* S4 first, then all of S5; all of S5 now, with power assumed full until S4.
-- **Q129 — Sector maximum (conflict in D-053).** D-053 and doc 15 §5.1 say a core alone gives 25% and "each pylon adds 25% to its sector", which never reaches the full 150,000 per sector that doc 15 §12 gives a four-pylon mother station. Doc 15 also says "a sector's strength *is* its pylon's projection".
+- **✅ Q129 (D-140) — Sector maximum (conflict in D-053).** D-053 and doc 15 §5.1 say a core alone gives 25% and "each pylon adds 25% to its sector", which never reaches the full 150,000 per sector that doc 15 §12 gives a four-pylon mother station. Doc 15 also says "a sector's strength *is* its pylon's projection".
   *Recommendation:* sector maximum = 25% from the core + 75% from that sector's pylon, so four pylons give full strength and an unbuilt pylon leaves its sector at 25%. *Alternatives:* 25% + 25% per pylon anywhere in the holding, capped at 100% (three pylons reach full); keep D-053 literally and define full as core + own pylon (each sector 50% of today's value).
-- **Q130 — The same dome for every core.** The mother station's dome is 36 voxels (1.26 km) with 150,000 per full sector and 50/s regeneration. Nothing defines other cores' domes.
+- **✅ Q130 (D-141) — The same dome for every core.** The mother station's dome is 36 voxels (1.26 km) with 150,000 per full sector and 50/s regeneration. Nothing defines other cores' domes.
   *Recommendation:* every core has the same radius, maxima and regeneration; other holdings differ only through their 120 MW core supply and their pylons. One slot template then serves every holding (S4 Q119). *Alternatives:* other cores at half strength; a smaller radius (24 voxels) for other cores.
-- **Q131 — Regeneration.** Regeneration = allocated MW × 50 / 120 per second (50/s at the full 120 MW). The maximum rate and the MW drawn scale with the sector's maximum, so a 25% sector regenerates at most 12.5/s and draws at most 30 MW.
+- **✅ Q131 (D-142) — Regeneration.** Regeneration = allocated MW × 50 / 120 per second (50/s at the full 120 MW). The maximum rate and the MW drawn scale with the sector's maximum, so a 25% sector regenerates at most 12.5/s and draws at most 30 MW.
   *Recommendation:* adopt. *Alternative:* a fixed 50/s and 120 MW for any sector size, so weak sectors refill fast.
-- **Q132 — Ship hit radius.** Doc 15 §4 takes hit circles from the model's size, but ships use the station's voxel size (phase-1 doc 03), so at 35 m per voxel the models are large: VX 280 × 175 m, WARDEN about 600 m long. Spread (4–20 mrad, 6–30 m at 1.5 km) and dodging then barely matter, and skirmishes run about 35% short.
+- **✅ Q132 (D-143) — Ship hit radius.** Doc 15 §4 takes hit circles from the model's size, but ships use the station's voxel size (phase-1 doc 03), so at 35 m per voxel the models are large: VX 280 × 175 m, WARDEN about 600 m long. Spread (4–20 mrad, 6–30 m at 1.5 km) and dodging then barely matter, and skirmishes run about 35% short.
   *Recommendation:* the radius is half the model's short side, as rules values (VX ≈ 90 m, LANCER and WARDEN ≈ 120 m, MULE ≈ 50 m, HSTL ≈ 190 m), and TTK is tuned through hull at α. *Alternatives:* a separate, smaller collision radius (about a quarter of the model), so that lock and spread matter; half the model's long side.
-- **Q133 — Auto-targeting.** With no explicit target, under *weapons free*, each weapon takes the hostile in range with the highest multiplier for that weapon, then the nearest, then the lowest `SimId`, and keeps it while it stays valid.
+- **✅ Q133 (D-144) — Auto-targeting.** With no explicit target, under *weapons free*, each weapon takes the hostile in range with the highest multiplier for that weapon, then the nearest, then the lowest `SimId`, and keeps it while it stays valid.
   *Recommendation:* adopt; the Deputy's target priority (doc 13 §4) overrides it with explicit targets. *Alternatives:* nearest first; lowest hull first.
-- **Q134 — What *return fire* means.** Doc 15 §3.4 names it without a rule.
+- **✅ Q134 (D-145) — What *return fire* means.** Doc 15 §3.4 names it without a rule.
   *Recommendation:* a fleet on return fire engages only hostiles that damaged one of its ships, or one of its commander's structures within its weapon range, in the last 30 s (D-114's window). *Alternatives:* only hostiles that damaged this fleet; any hostile while the fleet is engaged.
-- **Q135 — Friendly fire.** Doc 15 does not say whether flak bursts and projectiles hurt one's own side.
+- **✅ Q135 (D-146) — Friendly fire.** Doc 15 does not say whether flak bursts and projectiles hurt one's own side.
   *Recommendation:* none: projectiles pass through friendly ships, and flak damages only hostile targets. *Alternative:* full friendly fire (flak near one's own interceptors hurts them).
-- **Q136 — SHLD SURGE and what "unopposed" means in D-058.** A surge restores 20% of a sector per 90 s, about 333/s on average, nearly 7× full regeneration. Breach time is 4.7 min without it and about 9 min with the Deputy's default trigger. Turrets on the attackers' side reach strike craft that are killing the core.
+- **✅ Q136 (D-147) — SHLD SURGE and what "unopposed" means in D-058.** A surge restores 20% of a sector per 90 s, about 333/s on average, nearly 7× full regeneration. Breach time is 4.7 min without it and about 9 min with the Deputy's default trigger. Turrets on the attackers' side reach strike craft that are killing the core.
   *Recommendation:* keep the surge as a starting value. The breach target is measured with the Deputy's default ability use; the core-kill target is measured with the defender's turrets destroyed or absent. *Alternatives:* halve the surge to 10%; measure both targets with no defence at all.
-- **Q137 — FLAK SCREEN parameters.** Doc 15 gives "10 s of flak bursts around the station", 90 MW and a 60 s cooldown, but no damage or reach.
+- **✅ Q137 (D-148) — FLAK SCREEN parameters.** Doc 15 gives "10 s of flak bursts around the station", 90 MW and a 60 s cooldown, but no damage or reach.
   *Recommendation:* for 10 s the holding fires one burst per second at each hostile Light or Medium target within 2 km of the dome centre, at most 8 bursts per second, each with the WARDEN's flak values (30 damage, 150 m radius). *Alternatives:* a fixed 4 bursts per second; bursts only in the weakest sector's arc.
-- **Q138 — Recovery of disabled structures (doc 12 §3).** A disabled structure restores "10 min after the last hostile leaves, or sooner if repaired", but "leaves" and the restored hull are not defined.
+- **✅ Q138 (D-149) — Recovery of disabled structures (doc 12 §3).** A disabled structure restores "10 min after the last hostile leaves, or sooner if repaired", but "leaves" and the restored hull are not defined.
   *Recommendation:* it comes back online once no hostile has been inside its holding's ops area (20 km) for 10 min, at 10% hull, then repairs normally (D-071). REPAIR brings it back online at once. *Alternatives:* back at full hull; "leaves" means out of weapon range of the structure.
 
 ## 7. Tasks, in order

@@ -79,7 +79,7 @@ Combat mechanics stay in doc 15; AI economic behaviour belongs to doc 13.
 
 ## 6. Harvesting and refining
 
-*Proposed.*
+*Agreed (D-126).* Harvester and extractor modules follow the peripheral rule of doc 12 §3 (D-138).
 
 - A **harvester module** on a site with an ore field extracts ore at 600 ore/h × richness. There is one harvester per ore field.
 - A **refinery module** converts ore into alloy 1:1, up to 900 per hour. Ore that is not refined collects in a small ore buffer (1 h), then stops.
@@ -88,7 +88,7 @@ Combat mechanics stay in doc 15; AI economic behaviour belongs to doc 13.
 
 ## 7. Power
 
-*Proposed.*
+*Agreed (D-127); allocation between consumers in D-128.*
 
 | Source | Output |
 |---|---|
@@ -109,7 +109,7 @@ Supply and demand are per holding, so power does not travel between holdings. Th
 
 ## 8. Command cap
 
-*Proposed.* The cap is **120** from the mother station, plus **10 per other completed holding**, up to **300**.
+*Agreed (D-129).* The cap is **120** from the mother station, plus **10 per other completed holding**, up to **300**.
 
 The fleet grows with expansion, but only sublinearly: holdings beyond the 18th add nothing. Command costs come from doc 15 §12 (VX 6, LANCER 10, WARDEN 25, MULE 4). Losing holdings lowers the cap. Nothing is destroyed, but no new ships can be built while the fleet is over the cap.
 
@@ -121,6 +121,7 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
 
 - Modules go into **build slots**, which are fixed positions on each site's ops grid at the phase-1 elevation tiers (0 / 4 / 8 / 12). The number of slots depends on the site (doc 10 §5, "build area").
 - **Slot types:** 4 pylon slots around the dome edge; 1–2 peripheral slots outside the dome, for solar arrays and harvesters; inner slots for everything else.
+  > **Superseded in part by D-130 and D-131:** every core has the same dome and template: 4 pylon slots; inner slots 6 standard + 1 dock at the mother station, 4 + 1 elsewhere; one solar slot plus one deposit slot per deposit. Details in `plans/S4-economy.md` §4.2.
 - Trusses are generated automatically between modules and are cosmetic.
 - A **blueprint** (D-035) is a saved assignment of modules to slots plus a build order.
 - *Why slots rather than free placement:* free placement needs collision and adjacency rules, tier rules for every module type (phase-1 doc 07, item 6), placement UI and an AI that lays out stations. Slots keep the phase-1 diorama look at a fraction of that cost.

@@ -48,6 +48,7 @@ Most of it puts together decisions already taken; the new choices are marked *Pr
 | `nomad-server` *(new)* | Wall-clock pacing, network, sessions, replication, journal and snapshots (SQLite), recovery, catch-up, operator commands | `nomad-sim`, `nomad-protocol` |
 | `nomad-client` | Renderer, input, UI, network client, view-model store | `nomad-protocol`, `nomad-types` |
 | `nomad-harness` | Headless fast-forward runs, pacing and AI acceptance runs | `nomad-sim` |
+| `nomad-link` *(D-125)* | The client side of the connection: connect, pinning, handshake, channels, reconnect; used by the client and the integration tests | `nomad-protocol`, `nomad-types` |
 
 - **The client never depends on `nomad-sim`.** That keeps the client from simulating anything (C-03), and keeps rules code out of the shipped client.
 - `nomad-sim` re-exports its primitives from `nomad-types`. The existing types move there unchanged.
@@ -69,6 +70,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 *Agreed (D-087).*
 
 - **Transport:** QUIC via `quinn` over TLS 1.3 with `rustls`. In the MVP the server generates a self-signed certificate on first start, and the client pins its fingerprint.
+  > **Amended by D-120 to D-124 (N3 plan):** the server listens on an OS-chosen port and writes port, fingerprint and token to `<universe>/server.json` (D-120); certificate and token are new at every start (D-121); validator rejection reasons go on the wire with "unknown / not yours / not visible" collapsed into `NotFound` (D-123); a second connection for a commander replaces the first (D-124).
 - **Streams:** one reliable bidirectional control stream (session, commands, acknowledgements) and one reliable unidirectional state stream. There are **no unreliable datagrams in the MVP**; head-of-line blocking does not matter on localhost. Revisit for hosting.
 - **Encoding:** length-prefixed `postcard` frames of one versioned `enum` per direction. Client and server must have **exactly the same protocol version**, because they ship together in the MVP.
 - **Messages:**
@@ -148,7 +150,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 *Derived* from `CODING_STANDARDS.md` §5. The details are proposed.
 
 - **Bound everything that arrives:** malformed frames, oversized messages and unknown versions are rejected and logged, never turned into a panic. Each message type has a maximum size; each session has a command rate limit.
-- **MVP authentication:** on first start the server creates the local commander and a random token, stored in the per-user data directory with user-only permissions. The client reads the token from there. Accounts and external identity are hosting work, outside the MVP.
+- **MVP authentication:** on first start the server creates the local commander and a random token, stored in the per-user data directory with user-only permissions. The client reads the token from there. *Amended by D-121 and D-122:* the token is new at every server start and lives in `server.json`, protected by mode 0600 on Linux and the profile's per-user ACL on Windows. Accounts and external identity are hosting work, outside the MVP.
 - Clients never receive entities they have not detected (doc 16 §6), so a modified client learns nothing extra.
 
 ## 10. Observability
