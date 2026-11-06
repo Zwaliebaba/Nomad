@@ -8,14 +8,14 @@ Targets: one Universe of up to 100 commanders, played in seasons. The MVP is one
 
 ## Status
 
-Design and build run in parallel (Design D-051). Being built: the phase-1 visual slice (`nomad-client`) and the deterministic simulation core (`nomad-sim`), still without game rules. Start at [`Design/README.md`](Design/README.md).
+The MVP design is complete; the build works towards milestone MVP-α, the headless game (Design doc 30). Done: the deterministic simulation core, the Universe structure, ships, fleets and orders (S1–S3), the server shell with persistence and catch-up (N1–N2), and phase-1 client milestones M1–M3. Start at [`Design/README.md`](Design/README.md).
 
 ## Repository layout
 
 ```
 Design/                 Design documents (source of truth), including the phase-1 visual slice package
 crates/
-  nomad-client/         Game client (phase 1: the visual slice; milestones M1–M2 done)
+  nomad-client/         Game client (phase 1: the visual slice; milestones M1–M3 done)
   nomad-sim/            Deterministic simulation core (Design doc 11): tick, timers, SimId, random streams, snapshots
   nomad-types/          Shared primitives (Design doc 20 §3): SimId and typed ids, ticks, Universe time, small enums, command shapes
   nomad-protocol/       Wire protocol (Design doc 20 §5): versioned client and server messages, length-prefixed postcard framing

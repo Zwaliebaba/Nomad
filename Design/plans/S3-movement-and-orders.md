@@ -1,6 +1,6 @@
 # Work package S3 — Movement, fleets and orders
 
-Status: **Planned and decided** (Q92–Q96 → D-101 to D-105). Starts when N1 (`nomad-types`, `nomad-protocol`) is merged. This plan is also the brief for whoever builds S3.
+Status: **Built** (merged on the working branch, PR Zwaliebaba/Nomad#2). Planned and decided as Q92–Q96 → D-101 to D-105. The gaps found while building it are Q101–Q104. This plan is also the brief for whoever builds S3.
 
 ## 1. Goal
 

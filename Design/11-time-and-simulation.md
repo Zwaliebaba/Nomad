@@ -142,7 +142,7 @@ stateDiagram-v2
 
 | Item | Proposal |
 |---|---|
-| **Snapshot** | Full serialised Universe state, keyed by `SimId`, compressed with zstd. Written every **5 min** (3,000 ticks) and on clean shutdown, atomically. Estimated at a few MB at full scale. |
+| **Snapshot** | Full serialised Universe state, keyed by `SimId`; uncompressed in the MVP (D-088 supersedes the zstd compression first written here). Written every **5 min** (3,000 ticks) and on clean shutdown, atomically. Estimated at a few MB at full scale. |
 | **Journal** | Append-only inputs (§6) with tick and sequence number. **Flushed to disk at least once per second.** |
 | **Worst-case loss on a crash** | At most about 1 s of player commands. Everything else is recomputed by replay. |
 | **Recovery** | Load the latest snapshot, replay the journal entries after it while checking state hashes (§5), then catch up to the wall clock (§7). |

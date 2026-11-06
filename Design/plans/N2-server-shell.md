@@ -1,6 +1,6 @@
 # Work package N2 — Server shell
 
-Status: **Planned and decided** (Q97–Q100 → D-106, D-107, D-109, D-110). Starts when N1 is merged, in parallel with S3. This plan is also the brief for whoever builds N2.
+Status: **Built, except D-109 and D-110** (journal state-hash checkpoints and 48 h journal retention, decided after the build). Merged on the working branch, PR Zwaliebaba/Nomad#2. Planned and decided as Q97–Q100 → D-106, D-107, D-109, D-110. The gaps found while building it are Q105 and Q106. This plan is also the brief for whoever builds N2.
 
 ## 1. Goal
 
