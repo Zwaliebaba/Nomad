@@ -1,6 +1,6 @@
 # 14 — Economy
 
-Status: **Proposed (round 7).** Built on D-016, D-019, D-020, D-025, D-035, D-041, D-043, D-049 and D-053, docs 10, 12 and 15, and W-08. Decisions needed: Q58–Q65. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 7).** Q58–Q65 were decided as D-064 to D-071. Numbers are starting values, tuned against the pacing targets (D-070). Built on D-016, D-019, D-020, D-025, D-035, D-041, D-043, D-049 and D-053, docs 10, 12 and 15, and W-08. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -33,7 +33,7 @@ Combat mechanics stay in doc 15; AI economic behaviour belongs to doc 13.
 
 ## 3. Resources
 
-*Proposed (Q59).*
+*Agreed (D-065).*
 
 | Resource | Kind | Source | Used for |
 |---|---|---|---|
@@ -47,7 +47,7 @@ Combat mechanics stay in doc 15; AI economic behaviour belongs to doc 13.
 
 ## 4. Where resources are stored
 
-*Proposed (Q58): a pooled stockpile, fed by convoys from remote holdings.*
+*Agreed (D-064): a pooled stockpile, fed by convoys from remote holdings.*
 
 - **Spending comes from one pool per commander,** as the phase-1 top bar shows. A build at any holding draws from the pool when it starts.
 - A **depot** is the mother station, or any holding with a storage module. Holdings **in the same system as a depot** deliver straight into the pool.
@@ -66,7 +66,7 @@ Combat mechanics stay in doc 15; AI economic behaviour belongs to doc 13.
 
 ## 5. Deposits
 
-*Proposed (Q60).*
+*Agreed (D-066).*
 
 - **Each site has 0–2 deposits.** A deposit is either an ore field (asteroids, like AST-1) or a crystal vein. Its richness is *poor* (×0.5), *standard* (×1) or *rich* (×1.5).
 - **Deposits never run out** in the MVP. They are limited by rate, not by quantity. Depletion, which might one day push commanders to migrate, is a possible later design.
@@ -116,7 +116,7 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
 
 ### 9.1 Placement
 
-*Proposed (Q61).*
+*Agreed (D-067).*
 
 - Modules go into **build slots**, which are fixed positions on each site's ops grid at the phase-1 elevation tiers (0 / 4 / 8 / 12). The number of slots depends on the site (doc 10 §5, "build area").
 - **Slot types:** 4 pylon slots around the dome edge; 1–2 peripheral slots outside the dome, for solar arrays and harvesters; inner slots for everything else.
@@ -126,7 +126,7 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
 
 ### 9.2 Build queues
 
-*Proposed (Q62).*
+*Agreed (D-068).*
 
 - Each holding has **one build queue** for modules and ships, as the phase-1 MS-01 queue shows. Each **dry dock** adds one parallel lane for ships.
 - **Payment:** an item is paid in full when it starts building. If the pool is short, the item waits; it does not block items after it that can be afforded.
@@ -161,7 +161,7 @@ The relative costs keep the phase-1 command card's proportions (FRIGATE 400 A ·
 
 ## 10. Repair, salvage and upkeep
 
-*Proposed (Q65).*
+*Agreed (D-071).*
 
 - **Repair:**
   - Docked ships and undamaged-in-the-last-60-s modules repair **free at 1% of hull per minute**.
@@ -171,7 +171,7 @@ The relative costs keep the phase-1 command card's proportions (FRIGATE 400 A ·
 
 ## 11. System control and the economy
 
-*Proposed (Q63): no economic bonus for control.*
+*Agreed (D-069): no economic bonus for control.*
 
 Control already decides the season (D-020) and gives sensor coverage (D-041). Adding an income bonus would make the leader's lead grow faster.
 
@@ -186,7 +186,7 @@ Control already decides the season (D-020) and gives sensor coverage (D-041). Ad
 
 ## 13. Economy pacing targets
 
-*Proposed (Q64).* As with doc 15's time-to-kill targets, these targets are what gets agreed. The numbers in §6–§12 are tuned until they hold in the pacing simulation (D-037).
+*Agreed (D-070).* As with doc 15's time-to-kill targets, these targets are what gets agreed. The numbers in §6–§12 are tuned until they hold in the pacing simulation (D-037).
 
 | Target | Value |
 |---|---|

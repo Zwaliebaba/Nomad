@@ -152,7 +152,7 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Breach credit** | The commanders who damaged a dome in the 10 min before its breach. They are the siege's attackers. |
 | **Time-to-kill (TTK) targets** | The engagement durations that stat tuning aims for. |
 
-## Economy (doc 14, proposed)
+## Economy (doc 14, agreed)
 
 | Term | Meaning |
 |---|---|

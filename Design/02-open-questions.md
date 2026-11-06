@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **Q1–Q57 answered on 2026-11-06. Open: Q58–Q65 from doc 14 (section L).**
+Status: **All questions answered (Q1–Q65) on 2026-11-06.**
 
 ## Answer summary
 
@@ -63,6 +63,14 @@ Status: **Q1–Q57 answered on 2026-11-06. Open: Q58–Q65 from doc 14 (section 
 | Q55 | About 200 stars (spec) | D-061 |
 | Q56 | Views named by facing: N, W, S, E | D-062 |
 | Q57 | M1 defaults accepted; tuning values to config | D-063 |
+| Q58 | Pooled stockpile fed by convoys | D-064 |
+| Q59 | No munitions in the MVP | D-065 |
+| Q60 | Never-ending, rate-limited deposits | D-066 |
+| Q61 | Fixed build slots | D-067 |
+| Q62 | One queue per holding; pay at start | D-068 |
+| Q63 | No economic bonus for control | D-069 |
+| Q64 | Economy pacing targets as tuning goal | D-070 |
+| Q65 | Free slow repair plus paid REPAIR; no salvage, no upkeep | D-071 |
 
 ## A. Universe and time
 
@@ -292,32 +300,32 @@ Also: should a commander's holdings come out of Reinforced at staggered times, s
 
 **✅ Q57 — M1 defaults.** *Answered: accept them, and move tuning values to `scene_config.json` (D-063).*
 
-## L. Open (round 7, from `14-economy.md`)
+## L. Round 7, from `14-economy.md` (answered)
 
-**Q58 — Where resources are stored (doc 14 §4).**
+**✅ Q58 — Where resources are stored (doc 14 §4).**
 - Spending comes from one pool per commander.
 - Holdings in a system that has a depot (the mother station, or any holding with storage) deliver straight to the pool.
 - Other holdings fill a 2 h local buffer, which MULE convoys empty. Convoys can be raided and held by blockades.
 
 *Recommendation:* adopt. The alternatives are a pool without convoys (raids and blockades lose meaning) and fully local stockpiles (too much logistics for the MVP).
 
-**Q59 — MVP resources (doc 14 §3).** ALLOY and CRYSTAL as stocks; ORE as an intermediate flow; POWER as a flow per holding; COMMAND as the fleet cap. MUNITIONS is left out of the MVP, and FB-2 becomes a second refinery.
+**✅ Q59 — MVP resources (doc 14 §3).** ALLOY and CRYSTAL as stocks; ORE as an intermediate flow; POWER as a flow per holding; COMMAND as the fleet cap. MUNITIONS is left out of the MVP, and FB-2 becomes a second refinery.
 *Recommendation:* adopt.
 
-**Q60 — Deposits (doc 14 §5).** 0–2 deposits per site (ore field or crystal vein), poor, standard or rich (×0.5, ×1, ×1.5), never running out, distributed by system kind. Deposit value: ore 1, crystal 3 (× richness).
+**✅ Q60 — Deposits (doc 14 §5).** 0–2 deposits per site (ore field or crystal vein), poor, standard or rich (×0.5, ×1, ×1.5), never running out, distributed by system kind. Deposit value: ore 1, crystal 3 (× richness).
 *Recommendation:* adopt.
 
-**Q61 — Module placement (doc 14 §9.1).** Fixed build slots per site at the phase-1 elevation tiers (pylon, peripheral and inner slots), with trusses generated automatically. A blueprint is a slot assignment plus a build order.
+**✅ Q61 — Module placement (doc 14 §9.1).** Fixed build slots per site at the phase-1 elevation tiers (pylon, peripheral and inner slots), with trusses generated automatically. A blueprint is a slot assignment plus a build order.
 *Recommendation:* adopt. Free placement needs collision and tier rules, placement UI and AI layout.
 
-**Q62 — Build queues and payment (doc 14 §9.2).** One queue per holding, plus one parallel ship lane per dry dock. Items are paid when they start and wait if the pool is short. Cancelling refunds 100% before start and 50% after.
+**✅ Q62 — Build queues and payment (doc 14 §9.2).** One queue per holding, plus one parallel ship lane per dry dock. Items are paid when they start and wait if the pool is short. Cancelling refunds 100% before start and 50% after.
 *Recommendation:* adopt.
 
-**Q63 — Economic bonus for system control (doc 14 §11).** None. Control already decides the season and gives sensor coverage.
+**✅ Q63 — Economic bonus for system control (doc 14 §11).** None. Control already decides the season and gives sensor coverage.
 *Recommendation:* no bonus.
 
-**Q64 — Economy pacing targets (doc 14 §13).** Storage fills in 8–12 h; first expansion within 1 h; one new holding per 12–24 h early on; a full cap fleet takes about 24 h of mid-season income; building out a holding takes 2–3 days; late income is 3–4× starting income. These are the tuning goal; the numbers are starting values.
+**✅ Q64 — Economy pacing targets (doc 14 §13).** Storage fills in 8–12 h; first expansion within 1 h; one new holding per 12–24 h early on; a full cap fleet takes about 24 h of mid-season income; building out a holding takes 2–3 days; late income is 3–4× starting income. These are the tuning goal; the numbers are starting values.
 *Recommendation:* adopt.
 
-**Q65 — Repair, salvage and upkeep (doc 14 §10).** Free slow repair (1% per minute out of combat); the REPAIR ability costs 8 A/s for 80 hull/s; no salvage; no upkeep.
+**✅ Q65 — Repair, salvage and upkeep (doc 14 §10).** Free slow repair (1% per minute out of combat); the REPAIR ability costs 8 A/s for 80 hull/s; no salvage; no upkeep.
 *Recommendation:* adopt.
