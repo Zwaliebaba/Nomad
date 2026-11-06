@@ -138,7 +138,7 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Catch-up** | Fast-forwarding the Universe after the server was down, until it reaches the wall clock again. |
 | **Freeze** | An operator tool for exceptional outages: shifts all deadlines by the outage instead of catching up. |
 
-## Combat and defence (doc 15, proposed)
+## Combat and defence (doc 15, agreed)
 
 | Term | Meaning |
 |---|---|

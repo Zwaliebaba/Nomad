@@ -1,6 +1,6 @@
 # 15 — Combat and defence
 
-Status: **Proposed (round 6).** Built on D-003, D-014, D-015, D-017, D-033, D-034, D-039, D-041, D-042, D-046, D-047 and D-049, docs 10–12, and RK-09. Decisions needed: Q46–Q52. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 6).** Q46–Q52 were decided as D-052 to D-058. The stat values in §12 are starting values to be tuned (D-058). Built on D-003, D-014, D-015, D-017, D-033, D-034, D-039, D-041, D-042, D-046, D-047 and D-049, docs 10–12, and RK-09. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -37,7 +37,7 @@ Other documents own the rest: costs, production, power supply and the command ca
 
 ### 3.1 Classes and roles
 
-*Proposed (Q46).* The MVP uses the phase-1 placeholder classes. Roles form a counter triangle: **interceptors beat strike craft, strike craft beat frigates and structures, frigates beat interceptors.**
+*Agreed (D-052).* The MVP uses the phase-1 placeholder classes. Roles form a counter triangle: **interceptors beat strike craft, strike craft beat frigates and structures, frigates beat interceptors.**
 
 | Class | Size class | Role | Strong against | Weak against |
 |---|---|---|---|---|
@@ -50,7 +50,7 @@ Other documents own the rest: costs, production, power supply and the command ca
 
 ### 3.2 Damage multipliers
 
-*Proposed (Q46).* Each weapon class has a percentage multiplier against each target class.
+*Agreed (D-052).* Each weapon class has a percentage multiplier against each target class.
 
 | Weapon ↓ / target → | Light | Medium | Heavy | Structure | Dome |
 |---|---|---|---|---|---|
@@ -89,7 +89,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 
 ## 4. Weapons and damage
 
-*Proposed (Q46).*
+*Agreed (D-052).*
 
 - **Projectiles:** each weapon has damage per shot, a fire interval, projectile speed, range, and a spread that narrows as **lock** builds. Bolts fly at about 800 m/s, matching the phase-1 HUD's "TTI 1.1 s" at 0.9 km. Torpedoes are slower, about 350 m/s, and do not home.
 - **Lock:**
@@ -109,7 +109,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 
 ### 5.1 The dome
 
-*Proposed (Q47).*
+*Agreed (D-053).*
 
 - The dome is a circle in the system frame: radius = the shield's `radius_xy` (36 voxels for the mother station), centred on the dome centre.
 - It has four sectors, each centred on its pylon (D-046), and each with a strength pool (an integer) and a maximum.
@@ -153,7 +153,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 ## 6. Siege mechanics
 
-*Agreed lifecycle (D-015, doc 12 §4); details proposed (Q51).*
+*Agreed lifecycle (D-015, doc 12 §4); details agreed (D-057).*
 
 - **Breach:** a sector reaches 0, and the holding enters Reinforced. The exit time follows D-015, D-032 and D-033.
 - **Attackers of a siege:** every commander whose ships damaged that holding's dome during the 10 min before the breach. At least one of them must be online at siege start, otherwise the result is Held immediately (doc 12).
@@ -166,7 +166,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 ## 7. Capture and the emergency jump
 
-*Proposed (Q51), detailing D-017 and D-034.*
+*Agreed (D-057), detailing D-017 and D-034.*
 
 - **Who captures:** the attacker who dealt the most core damage during the siege. Ties go to the larger total damage dealt to the holding, then to the lower `CommanderId`. This deters a third party from sniping the core in the final second.
 - **Normal holding:**
@@ -181,7 +181,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 ## 8. Claims and outposts
 
-*Proposed (Q48), detailing doc 10 §5 and RK-09.*
+*Agreed (D-054), detailing doc 10 §5 and RK-09.*
 
 - A **MULE** carries a **core kit** (cost in doc 14) to a free site and deploys it. The site becomes an **outpost**, and its construction takes **2 h**. When complete, the site becomes a holding with a minimal dome (§5.1).
 - **An outpost under construction can be destroyed at any time.** This is an exception to doc 12's disable-only rule. Without it, nobody could contest a land grab outside the claimant's window. The claimant chose to expose the kit.
@@ -189,7 +189,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 ## 9. Gates
 
-*Proposed (Q49), detailing D-042.*
+*Agreed (D-055), detailing D-042.*
 
 - **Arrival:**
   - Arriving ships appear inside the gate approach zone (radius 20 km), scattered up to 2 km from the gate.
@@ -204,7 +204,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 ## 10. NPC raiders
 
-*Proposed (Q50); behaviour belongs to doc 13.*
+*Agreed (D-056); behaviour belongs to doc 13.*
 
 - Raider havens send out raid groups: strike craft, and sometimes a heavy cruiser.
 - **Raiders do zero damage to domes, so they can never breach or siege.** This is guaranteed mechanically, not left to AI behaviour.
@@ -214,7 +214,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 ## 11. Time-to-kill targets
 
-*Proposed (Q52).* These are the tuning targets. The numbers in §12 are only a starting point; the first pacing-simulation task (D-037) is to tune them until these targets hold.
+*Agreed (D-058).* These are the tuning targets. The numbers in §12 are only a starting point; the first pacing-simulation task (D-037) is to tune them until these targets hold.
 
 | Engagement | Target duration |
 |---|---|

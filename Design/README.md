@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** design and build run in parallel (D-051). All questions Q1–Q45 are answered (D-001 to D-051), and docs 10, 11 and 12 are agreed. Being built: the phase-1 client and the `nomad-sim` core. Next design document: 15 (combat and defence), then 14 (economy).
+**Status:** design and build run in parallel (D-051). All questions Q1–Q57 are answered (D-001 to D-063). Docs 10, 11, 12 and 15 are agreed. Being built: phase-1 M2 (station voxels) and the Universe structure in `nomad-sim`. Next design document: 14 (economy).
 
 ## Documents
 
@@ -10,12 +10,12 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 |---|------|------------|--------|
 | 00 | [`00-glossary.md`](00-glossary.md) | Vocabulary and the Universe hierarchy. Read this first. | Draft (decisions applied) |
 | 01 | [`01-game-concept.md`](01-game-concept.md) | Stated requirements, what they force, stress test, MVP framing | Draft (decisions applied) |
-| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | Q46–Q52 open |
+| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | All answered |
 | 03 | [`03-decision-log.md`](03-decision-log.md) | Decisions taken, with date and reason | Living |
 | 04 | [`04-design-review.md`](04-design-review.md) | Ranked risk register for the agreed design (RK-01 to RK-11) | Decided |
 | 10 | [`10-universe-structure.md`](10-universe-structure.md) | Hierarchy, scale, topology and travel, sites and holdings, system control, season start and late joiners, coordinate frames | Agreed |
 | 11 | [`11-time-and-simulation.md`](11-time-and-simulation.md) | Clocks, timer layers, tick phases, determinism, journal, catch-up after downtime, persistence, crate boundary | Agreed |
-| 15 | [`15-combat-and-defence.md`](15-combat-and-defence.md) | Ships, orders, weapons and damage, dome and power, siege and capture mechanics, outposts, gates, raider limits, TTK targets, starting values | Proposed (Q46–Q52) |
+| 15 | [`15-combat-and-defence.md`](15-combat-and-defence.md) | Ships, orders, weapons and damage, dome and power, siege and capture mechanics, outposts, gates, raider limits, TTK targets, starting values | Agreed |
 | 12 | [`12-offline-play-and-deputy.md`](12-offline-play-and-deputy.md) | Offline protection (stakes rule, shield lifecycle, absence states) and the Deputy (authority, doctrine, competence cap) | Agreed |
 | — | [`phase1-visual-slice/`](phase1-visual-slice/README.md) | Owner's phase-1 package: client look, camera, HUD, renderer architecture, voxel assets | Agreed (owner) |
 
