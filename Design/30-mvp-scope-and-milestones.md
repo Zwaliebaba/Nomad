@@ -29,7 +29,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | Track | Package | Content | Size |
 |---|---|---|---|
 | **Simulation rules** | S1 ✅ | Simulation core (doc 11) | — |
-| | S2 ⏳ | Universe structure, deposits, generator invariants (doc 10, D-066) | M |
+| | S2 ✅ | Universe structure, deposits, generator invariants (doc 10, D-066, D-098, D-099) | M |
 | | S3 | Movement, fleets, orders, cruise mode, jump transit (doc 15 §3, D-042) | M |
 | | S4 | Economy: harvesting and refining, pool, buffers and convoys, power, slots and queues, command cap, repair, start kit (doc 14) | L |
 | | S5 | Combat: weapons, lock, projectiles, multipliers, dome sectors and regeneration, turrets, abilities (doc 15 §4–5) | L |

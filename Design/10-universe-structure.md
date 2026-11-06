@@ -53,8 +53,8 @@ Other documents own the rest: the resource chain (14), ships, combat and claimin
   - **Home:** 7 sites, one of them holding a commander's mother station at season start.
   - **Standard:** 5–7 sites.
   - **Hub:** 8–9 sites with richer deposits, the contested centre of a sector.
-  - **Raider haven:** NPC raiders operate from here. Not claimable in the MVP, and not counted for control.
-- In-system trips between any two points take **2–15 min** at cruise speed. The phase-1 relief fleet's ETA of 04:00 from gate K-OST to KR-114 fits this. Ship speeds are set in doc 15. *(Agreed, D-043.)*
+  - **Raider haven:** NPC raiders operate from here. Not claimable in the MVP, and not counted for control. It has no sites or deposits and one gate, to the hub (D-099).
+- In-system trips between any two points take **at most 15 min** at cruise speed. The 50 km minimum site spacing sets the floor (D-099). The phase-1 relief fleet's ETA of 04:00 from gate K-OST to KR-114 fits this. Ship speeds are set in doc 15. *(Agreed, D-043.)*
 
 ### 4.2 Lanes
 
@@ -70,13 +70,13 @@ Other documents own the rest: the resource chain (14), ships, combat and claimin
 
 *Agreed (D-043).* The galaxy generator must guarantee all of these, and a test checks every generated galaxy against them:
 
-1. The whole galaxy is connected. Each sector's internal graph contains at least one cycle, so there is always more than one route of attack.
+1. The whole galaxy is connected. Each sector's internal graph contains at least one cycle. **No lane is a bridge, except lanes to raider havens**, so there is always more than one route of attack (D-099).
 2. Sector diameter is **at most 4 jumps**.
-3. **The worst-case trip between any two sites in a sector takes at most 6 h** for the slowest warship class (RK-08, half of the 12 h notice). Nominal check: 4 × 70 min plus 5 in-system legs of about 10 min ≈ 5.5 h.
+3. **The worst-case trip between any two sites in a sector takes at most 6 h** for the slowest *commander* warship, the WARDEN (RK-08, half of the 12 h notice). Nominal check: 4 × 70 min plus 5 in-system legs of about 10 min ≈ 5.5 h. Once ship speeds exist, the check also includes the 5 s gate spool-up and the tactical-speed legs inside ops areas (D-099).
 4. Home systems are at least 2 jumps apart.
-5. Each home neighbourhood (all systems within 2 jumps) has a total deposit value within ±10% of every other home's.
+5. Each home neighbourhood (all systems within 2 jumps) has a total deposit value within ±10% of every other home's. Precisely, the richest neighbourhood is at most the poorest + 10% (D-099).
 6. Dead ends make up at most 10% of systems, not counting raider havens.
-7. Each sector borders 2–4 others through trunk lanes.
+7. Each sector borders 2–4 others through trunk lanes. This applies only to galaxies with at least 3 sectors (D-099).
 
 ### 4.4 MVP stage 1 sector
 
@@ -150,7 +150,7 @@ This matches the phase-1 system panel: in Kestrel-7, "YOU 3 · HSTL 2 · FREE 2"
 | Frame | Units and axes | Use |
 |---|---|---|
 | **Galaxy** | Abstract 2D layout units | Drawing the galaxy and sector maps only. Travel times are properties of lanes, not distances. |
-| **System** | km, 2D, origin at the star, +y = system north | Sites, gates, in-system movement, combat |
+| **System** | km in documents and UI, stored in metres in the simulation (doc 11 §5, D-099); 2D, origin at the star, +y = system north | Sites, gates, in-system movement, combat |
 | **Grid** (holding) | Voxels; `x`, `y` horizontal, `z` up; origin at the core (phase 1) | Modules, rendering, local effects |
 
 - **1 voxel ≈ 35 m.** *Derived* from the phase-1 fixture: HSTL-C1 is reported at 3.1 km and sits 88.9 voxels from the dome centre. The shield dome's radius of 36 voxels is therefore about 1.26 km.

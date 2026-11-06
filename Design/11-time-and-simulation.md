@@ -142,7 +142,7 @@ stateDiagram-v2
 | **Worst-case loss on a crash** | At most about 1 s of player commands. Everything else is recomputed by replay. |
 | **Recovery** | Load the latest snapshot, replay the journal entries after it, then catch up to the wall clock (§7). |
 | **Retention** | The last 2 snapshots plus their journal; hourly snapshots for 48 h; daily snapshots for the rest of the season. Older journal entries are discarded. |
-| **Upgrades** | The snapshot schema is versioned and migrated forward by newer builds. A journal is replayable only by the build that wrote it. A server upgrade therefore always goes clean shutdown → final snapshot → new build loads that snapshot. |
+| **Upgrades** | The snapshot schema is versioned and migrated forward by newer builds. Until the first real Universe exists (milestone β), a format change may simply reject older snapshots (D-099). A journal is replayable only by the build that wrote it. A server upgrade therefore always goes clean shutdown → final snapshot → new build loads that snapshot. |
 | **Read models** | Leaderboards, season history and account data are separate projections, not the authoritative state. |
 
 *Why not a row per entity?* At 10 Hz with about 10⁴ entities, relational writes would dominate the tick budget. A deterministic simulation makes snapshots plus a journal both cheaper and more reliable.

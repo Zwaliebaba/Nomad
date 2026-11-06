@@ -74,6 +74,7 @@ Combat mechanics stay in doc 15; AI economic behaviour belongs to doc 13.
   - **Home:** the mother-station site has 1 standard ore field. The other home sites have mostly poor and standard ore, and at most 1 crystal vein.
   - **Standard:** standard ore, plus 1–2 crystal veins.
   - **Hub:** rich ore and rich crystal. That is what makes it worth contesting.
+- **Counts** (D-098): ore fields per site are drawn as 0/1/2 with weights 1:2:1; every home system has exactly one crystal vein; standard-system veins are Standard richness; the hub has 2–3 crystal veins and ore on every site; the mother-station site holds only its Standard ore field.
 - **Deposit value**, used for doc 10 invariant 5 and the season tie-break in D-041: ore field = 1 × richness, crystal vein = 3 × richness. The generator keeps every home neighbourhood's total value within ±10% of the others.
 
 ## 6. Harvesting and refining
