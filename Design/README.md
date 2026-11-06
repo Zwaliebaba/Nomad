@@ -15,14 +15,14 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 | 04 | [`04-design-review.md`](04-design-review.md) | Ranked risk register for the agreed design (RK-01 to RK-11) | Decided |
 | 10 | [`10-universe-structure.md`](10-universe-structure.md) | Hierarchy, scale, topology and travel, sites and holdings, system control, season start and late joiners, coordinate frames | Agreed |
 | 11 | [`11-time-and-simulation.md`](11-time-and-simulation.md) | Clocks, timer layers, tick phases, determinism, journal, catch-up after downtime, persistence, crate boundary | Agreed |
+| 12 | [`12-offline-play-and-deputy.md`](12-offline-play-and-deputy.md) | Offline protection (stakes rule, shield lifecycle, absence states) and the Deputy (authority, doctrine, competence cap) | Agreed |
 | 13 | [`13-ai-commanders.md`](13-ai-commanders.md) | AI stack (Deputy, Strategist, raider director), Deputy rules, Strategist goals, AI schedules, difficulty, doctrine presets, AI acceptance criteria | Agreed |
 | 14 | [`14-economy.md`](14-economy.md) | Resources, pooled stockpile with convoys, deposits, harvesting and refining, power, command cap, build slots and queues, costs, repair, start kit, pacing targets | Agreed |
-| 16 | [`16-information-model.md`](16-information-model.md) | Information classes, sensors and detection, transit visibility, last-known memory, what the server sends, AI fairness via `CommanderView` | Agreed |
 | 15 | [`15-combat-and-defence.md`](15-combat-and-defence.md) | Ships, orders, weapons and damage, dome and power, siege and capture mechanics, outposts, gates, raider limits, TTK targets, starting values | Agreed |
+| 16 | [`16-information-model.md`](16-information-model.md) | Information classes, sensors and detection, transit visibility, last-known memory, what the server sends, AI fairness via `CommanderView` | Agreed |
 | 17 | [`17-strategic-views-and-ui.md`](17-strategic-views-and-ui.md) | SYSTEM, SECTOR and GALAXY views, orders in strategic views, UI beyond phase 1, hotkey scheme | Proposed (Q84–Q87) |
 | 20 | [`20-technical-architecture.md`](20-technical-architecture.md) | Processes, crates, threads, protocol, replication, persistence, lifecycle, client architecture, security, testing | Proposed (Q79–Q83) |
 | 30 | [`30-mvp-scope-and-milestones.md`](30-mvp-scope-and-milestones.md) | MVP definition, work packages, milestones α–δ, order of work, acceptance, out of scope | Proposed (Q88–Q91) |
-| 12 | [`12-offline-play-and-deputy.md`](12-offline-play-and-deputy.md) | Offline protection (stakes rule, shield lifecycle, absence states) and the Deputy (authority, doctrine, competence cap) | Agreed |
 | — | [`phase1-visual-slice/`](phase1-visual-slice/README.md) | Owner's phase-1 package: client look, camera, HUD, renderer architecture, voxel assets | Agreed (owner) |
 
 Every document the MVP needs now exists (see `30-mvp-scope-and-milestones.md` for the build plan).
