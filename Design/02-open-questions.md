@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q65) on 2026-11-06.**
+Status: **Q1–Q65 answered on 2026-11-06. Open: Q66–Q70 from doc 16 (section M).**
 
 ## Answer summary
 
@@ -328,4 +328,26 @@ Also: should a commander's holdings come out of Reinforced at staggered times, s
 *Recommendation:* adopt.
 
 **✅ Q65 — Repair, salvage and upkeep (doc 14 §10).** Free slow repair (1% per minute out of combat); the REPAIR ability costs 8 A/s for 80 hull/s; no salvage; no upkeep.
+*Recommendation:* adopt.
+
+## M. Open (round 8, from `16-information-model.md`)
+
+**Q66 — Detection model (doc 16 §3).** Detection is binary within sensor range × target signature (Light 0.6, Medium 1.0, Heavy and Structure 1.5). A detected target is fully identified. No stealth, ECM or decoys in the MVP.
+*Recommendation:* adopt.
+
+**Q67 — Sensor sources and ranges (doc 16 §3).**
+- Holding core 40 km (phase-1 "PULSE · 40 KM").
+- Ships: VX 15 km, LANCER 10 km, WARDEN 25 km, MULE 8 km; raiders 12 km and 30 km.
+- System control gives coverage of the whole system.
+- One shared picture per commander.
+
+*Recommendation:* adopt as starting values.
+
+**Q68 — Visibility of fleets in transit (doc 16 §4).** Fleets in jump transit are invisible. Anyone covering the origin gate sees the departure, destination and arrival time (the phase-1 lane traffic). Arrivals are visible at the destination gate.
+*Recommendation:* adopt.
+
+**Q69 — Public and private information (doc 16 §2).** Public: topology, ownership, control, standings and **each commander's exposure window**. Private: **online status**, doctrine, build queues, stockpiles. Siege announcements go to the owner and the commanders with breach credit.
+*Recommendation:* adopt.
+
+**Q70 — Last-known memory (doc 16 §5).** Kept on the server per commander and included in snapshots. Fleets expire after 24 h without a sighting; structures stay until seen again or until ownership changes. Strategic views show the age of each entry.
 *Recommendation:* adopt.

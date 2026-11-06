@@ -163,3 +163,14 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Deposit** | An ore field or crystal vein on a site, poor, standard or rich, never running out. |
 | **Build slot** | A fixed position on a site's ops grid where one module can be built: pylon, peripheral or inner. |
 | **Command cap** | The fleet limit: 120 from the mother station, plus 10 per other holding, up to 300. |
+
+## Information (doc 16, proposed)
+
+| Term | Meaning |
+|---|---|
+| **Signature** | How detectable a target is by size class (Light 0.6, Medium 1.0, Heavy and Structure 1.5). It multiplies the sensor range. |
+| **Shared picture** | Everything any of a commander's sensors detects, available to all of that commander's units. |
+| **Visibility set** | The entities a commander currently detects, computed in the 2 Hz sensors phase. |
+| **Lane traffic** | Observed departures through a gate the commander covers, with destination and arrival time. |
+| **`CommanderView`** | The read-only projection of what one commander knows. It is the only input AI commanders and Deputies get. |
+| **Announcement** | Siege information addressed to the owner and the commanders with breach credit. |
