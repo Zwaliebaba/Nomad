@@ -137,3 +137,17 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Snapshot / journal** | A full saved state every 5 min, plus an append-only log of external inputs flushed at least every second. |
 | **Catch-up** | Fast-forwarding the Universe after the server was down, until it reaches the wall clock again. |
 | **Freeze** | An operator tool for exceptional outages: shifts all deadlines by the outage instead of catching up. |
+
+## Combat and defence (doc 15, proposed)
+
+| Term | Meaning |
+|---|---|
+| **Size class** | Light, Medium, Heavy, Structure or Dome. Damage multipliers work against these. |
+| **Lock** | Fire-control solution per weapon and target, 0–100%. Spread narrows as lock builds (phase-1 "LOCK 92%"). |
+| **TTI** | Time to impact of a projectile. |
+| **Cruise mode** | Fast travel outside ops areas while not engaged. Fleets in cruise cannot fire. |
+| **Core kit** | What a MULE deploys to claim a site. It becomes an outpost, then a holding when complete. |
+| **Jump shroud** | 10 s after arrival through a gate in which a ship cannot be targeted and cannot fire. |
+| **Spool-up** | 5 s before departing through a gate, during which a ship can still be hit. |
+| **Breach credit** | The commanders who damaged a dome in the 10 min before its breach. They are the siege's attackers. |
+| **Time-to-kill (TTK) targets** | The engagement durations that stat tuning aims for. |
