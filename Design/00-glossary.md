@@ -151,3 +151,15 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Spool-up** | 5 s before departing through a gate, during which a ship can still be hit. |
 | **Breach credit** | The commanders who damaged a dome in the 10 min before its breach. They are the siege's attackers. |
 | **Time-to-kill (TTK) targets** | The engagement durations that stat tuning aims for. |
+
+## Economy (doc 14, proposed)
+
+| Term | Meaning |
+|---|---|
+| **Pool** | A commander's single stockpile of ALLOY and CRYSTAL, which all spending draws from. Limited by the storage cap. |
+| **Depot** | The mother station, or any holding with a storage module. Holdings in the same system as a depot deliver straight to the pool. |
+| **Local buffer** | Up to 2 h of production stored at a holding that has no depot in its system, until a convoy collects it. |
+| **Convoy** | A MULE hauler on a logistics route, carrying buffered resources to the pool. Convoys can be raided and blockaded. |
+| **Deposit** | An ore field or crystal vein on a site, poor, standard or rich, never running out. |
+| **Build slot** | A fixed position on a site's ops grid where one module can be built: pylon, peripheral or inner. |
+| **Command cap** | The fleet limit: 120 from the mother station, plus 10 per other holding, up to 300. |
