@@ -62,6 +62,8 @@ Data note: the station was reconstructed from the 2D mockup. Hidden back sides w
 
 ## 6. Shield dome
 
+> **Superseded in part by Design D-100:** the shield is a **full globe centred on the ship plane** (z = 16), not a cap on the ops grid. Its equator is the hit circle, the sector ring is drawn at the equator, and the part below the grid is drawn at reduced opacity. The vertical radius is tuned at M4 so the solar array still reads as outside. `scene_config.json` gains the centre height and shape at M4. The original text below is kept for reference.
+
 - Ellipsoid cap centred `(-8.6, 9.4, 0)`, horizontal radius 36, vertical radius 40 (before the 0.8165 z scale).
 - At rest: fill alpha ≈ 0.05 with a fresnel rim (`#7fe6ff`, alpha 0.75). Rendered in a transparent pass after opaque voxels, back faces first (dashed rim on the far half of the base ring), then front faces.
 - Four **sectors** by azimuth around the dome centre, each centred on its pylon (N 180–270°, E 270–360°, S 0–90°, W 90–180°, measured in world xy; grid north is azimuth 225°, screen-up in view 0; Design D-046). Each sector's base-ring arc is drawn 2 px; a sector below 50% strength is tinted `#ff9a4a`, dashed, and its rim is also orange.

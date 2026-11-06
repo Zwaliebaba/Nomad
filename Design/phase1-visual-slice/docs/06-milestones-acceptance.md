@@ -17,7 +17,7 @@ Each milestone ends in a runnable build plus an F12 screenshot committed to `scr
 
 ## M4 — Shield dome
 - Dome with rim, four sectors, E sector at 38% shown orange and dashed, hit ripples on a 2 s scripted loop at the two impact points of the reference.
-- **Accept**: the dome reads as a hemisphere in all four views; the solar array stays visibly outside it.
+- **Accept**: the shield reads as a globe around the station in all four views (Design D-100); the solar array stays visibly outside it.
 
 ## M5 — Ships and effects
 - Placeholder ships at their placements (free headings), engine trails, scripted bolt volleys, ranging laser ending at the dome, dry-dock frigate at a 74% reveal.

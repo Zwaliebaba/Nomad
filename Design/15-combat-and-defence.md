@@ -111,7 +111,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 
 *Agreed (D-053).*
 
-- The dome is a circle in the system frame: radius = the shield's `radius_xy` (36 voxels for the mother station), centred on the dome centre.
+- The dome is a circle in the system frame: radius = the shield's `radius_xy` (36 voxels for the mother station), centred on the dome centre. It is drawn as a globe centred on the ship plane, and this circle is the globe's equator (D-100).
 - It has four sectors, each centred on its pylon (D-046), and each with a strength pool (an integer) and a maximum.
 - A hostile projectile that crosses the dome circle damages the sector whose arc it crosses, then stops (phase 1: projectiles stop at the dome).
 - **The dome is one-way.** Outgoing fire from turrets and docked defenders launching from inside passes through it.
