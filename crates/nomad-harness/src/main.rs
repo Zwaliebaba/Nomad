@@ -24,9 +24,11 @@
 //! nomad-harness --fleets [--seed N] [--hours N | --ticks N] [--order-interval-secs N]
 //!               [--restore-at N] [--rules PATH]
 //! nomad-harness --combat skirmish|battle|stress [--seed N] [--rules PATH]
+//! nomad-harness --economy [--seed N] [--days N] [--rules PATH]
 //! ```
 
 mod combat;
+mod economy;
 mod fleets;
 mod galaxy;
 
@@ -51,6 +53,8 @@ struct Args {
     restore_at: Option<u64>,
     galaxy: bool,
     combat: Option<combat::Set>,
+    economy: bool,
+    days: u64,
     rules: Option<PathBuf>,
 }
 
@@ -67,6 +71,8 @@ impl Default for Args {
             restore_at: None,
             galaxy: false,
             combat: None,
+            economy: false,
+            days: 7,
             rules: None,
         }
     }
@@ -88,6 +94,8 @@ fn parse_args() -> Result<Args, String> {
             "--restore-at" => args.restore_at = Some(parse(&value()?)?),
             "--galaxy" => args.galaxy = true,
             "--combat" => args.combat = Some(combat::Set::parse(&value()?)?),
+            "--economy" => args.economy = true,
+            "--days" => args.days = parse(&value()?)?,
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--help" | "-h" => {
                 return Err(
@@ -96,7 +104,8 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --galaxy [--seed N] [--rules PATH]\n       \
                      nomad-harness --fleets [--seed N] [--hours N | --ticks N] \
                             [--order-interval-secs N] [--restore-at N] [--rules PATH]\n       \
-                     nomad-harness --combat skirmish|battle|stress [--seed N] [--rules PATH]"
+                     nomad-harness --combat skirmish|battle|stress [--seed N] [--rules PATH]\n       \
+                     nomad-harness --economy [--seed N] [--days N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -129,6 +138,16 @@ fn run() -> Result<(), String> {
     }
     if let Some(set) = args.combat {
         return combat::run(&mut io::stdout().lock(), set, args.seed, &rules);
+    }
+    if args.economy {
+        return economy::run(
+            &mut io::stdout().lock(),
+            economy::EconomyRun {
+                seed: args.seed,
+                days: args.days,
+                rules,
+            },
+        );
     }
     if args.fleets {
         let hours = Ticks::from_hours(args.hours).get();
