@@ -309,9 +309,9 @@ mod signals {
 
     #[cfg(windows)]
     struct Listeners {
-        ctrl_c: tokio::signal::windows::CtrlC,
-        ctrl_break: tokio::signal::windows::CtrlBreak,
-        ctrl_close: tokio::signal::windows::CtrlClose,
+        interrupt: tokio::signal::windows::CtrlC,
+        break_key: tokio::signal::windows::CtrlBreak,
+        close: tokio::signal::windows::CtrlClose,
     }
 
     #[cfg(windows)]
@@ -319,18 +319,18 @@ mod signals {
         fn new() -> io::Result<Self> {
             use tokio::signal::windows::{ctrl_break, ctrl_c, ctrl_close};
             Ok(Self {
-                ctrl_c: ctrl_c()?,
-                ctrl_break: ctrl_break()?,
-                ctrl_close: ctrl_close()?,
+                interrupt: ctrl_c()?,
+                break_key: ctrl_break()?,
+                close: ctrl_close()?,
             })
         }
 
         fn poll(&mut self, cx: &mut Context<'_>) -> Poll<&'static str> {
-            if self.ctrl_c.poll_recv(cx).is_ready() {
+            if self.interrupt.poll_recv(cx).is_ready() {
                 Poll::Ready("Ctrl+C")
-            } else if self.ctrl_break.poll_recv(cx).is_ready() {
+            } else if self.break_key.poll_recv(cx).is_ready() {
                 Poll::Ready("Ctrl+Break")
-            } else if self.ctrl_close.poll_recv(cx).is_ready() {
+            } else if self.close.poll_recv(cx).is_ready() {
                 // Windows ends the process a few seconds after a console close; a stage-1
                 // final snapshot takes milliseconds.
                 Poll::Ready("console close")
