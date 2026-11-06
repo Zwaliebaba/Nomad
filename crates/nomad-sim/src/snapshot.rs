@@ -19,8 +19,9 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///
 /// - 2: the season galaxy and holdings (Design doc 10);
 /// - 3: the catch-up mode (doc 11 §7, D-047; N2 plan §4.5);
-/// - 4: the season's rules, copied into the Universe at creation (D-104).
-pub const FORMAT: u32 = 4;
+/// - 4: the season's rules, copied into the Universe at creation (D-104);
+/// - 5: galaxy positions in metres instead of km (D-099 item 2).
+pub const FORMAT: u32 = 5;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

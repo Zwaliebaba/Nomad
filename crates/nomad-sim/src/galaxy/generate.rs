@@ -17,9 +17,10 @@ use thiserror::Error;
 
 use crate::galaxy::validate::neighbourhood_imbalance;
 use crate::galaxy::{
-    Deposit, Galaxy, GateId, InvariantLimits, LaneKind, MAX_DEPOSITS_PER_SITE, PositionKm,
+    Deposit, Galaxy, GateId, InvariantLimits, LaneKind, MAX_DEPOSITS_PER_SITE, PositionMetres,
     Richness, SystemId, SystemKind, Violation, validate,
 };
+use crate::geometry::polar;
 use crate::holding::HoldingError;
 use crate::id::CommanderId;
 use crate::rng::{RngStreams, StreamKey, purpose};
@@ -41,7 +42,7 @@ const HAVEN: usize = RING + 1;
 // the agreed constraints, and the validator checks the result.
 //
 // - Sites sit on two orbits (doc 10 §5 "orbit and angle"), gates on a ring at the edge
-//   (doc 10 §4.1). Orbits and the edge are at least `PLACEMENT_SPACING_KM` apart radially,
+//   (doc 10 §4.1). Orbits and the edge are at least `PLACEMENT_SPACING_M` apart radially,
 //   and sites on one orbit are at least that far apart along the chord, so the 50 km
 //   minimum site spacing (doc 10 §8) holds by construction with a 5 km margin.
 // - The widest span is gate to gate across the system: at most 2 × 195 km = 390 km, which
@@ -51,14 +52,14 @@ const HAVEN: usize = RING + 1;
 //   site-to-gate legs (≤ 325 km each) and three gate-to-gate legs (≤ 390 km each), about
 //   5.7 h, inside the 6 h limit (doc 10 §4.3).
 
-/// Inner orbit radius range, km. Keeps sites well clear of the star.
-const INNER_ORBIT_KM: (f64, f64) = (55.0, 65.0);
-/// Outer orbit radius range, km.
-const OUTER_ORBIT_KM: (f64, f64) = (120.0, 130.0);
-/// Gate ring radius range, km: the system edge.
-const EDGE_KM: (f64, f64) = (185.0, 195.0);
+/// Inner orbit radius range, m (55–65 km). Keeps sites well clear of the star.
+const INNER_ORBIT_M: (f64, f64) = (55_000.0, 65_000.0);
+/// Outer orbit radius range, m (120–130 km).
+const OUTER_ORBIT_M: (f64, f64) = (120_000.0, 130_000.0);
+/// Gate ring radius range, m (185–195 km): the system edge.
+const EDGE_M: (f64, f64) = (185_000.0, 195_000.0);
 /// Minimum distance the generator keeps between sites: doc 10 §8's 50 km plus a margin.
-const PLACEMENT_SPACING_KM: f64 = 55.0;
+const PLACEMENT_SPACING_M: f64 = 55_000.0;
 /// At most this many sites on the inner orbit (it has room for 3 at 55 km spacing).
 const INNER_ORBIT_MAX_SITES: usize = 3;
 /// Minimum angle between two gates of one system, so gates do not bunch up.
@@ -413,8 +414,8 @@ fn stage1_lanes() -> Vec<(usize, usize)> {
 }
 
 struct Layout {
-    sites: Vec<PositionKm>,
-    gates: Vec<PositionKm>,
+    sites: Vec<PositionMetres>,
+    gates: Vec<PositionMetres>,
 }
 
 fn draw_layout(rng: &mut RngStreams, system: SystemId, sites: usize, gates: usize) -> Layout {
@@ -425,13 +426,13 @@ fn draw_layout(rng: &mut RngStreams, system: SystemId, sites: usize, gates: usiz
     let mut positions = Vec::with_capacity(sites);
     if sites > 0 {
         let inner = 1 + rng.index(key, sites.min(INNER_ORBIT_MAX_SITES));
-        for (count, band) in [(inner, INNER_ORBIT_KM), (sites - inner, OUTER_ORBIT_KM)] {
-            let radius_km = between(rng, key, band);
-            let min_angle = chord_angle_rad(radius_km, PLACEMENT_SPACING_KM);
+        for (count, band) in [(inner, INNER_ORBIT_M), (sites - inner, OUTER_ORBIT_M)] {
+            let radius_m = between(rng, key, band);
+            let min_angle = chord_angle_rad(radius_m, PLACEMENT_SPACING_M);
             positions.extend(
                 spaced_angles(rng, key, count, min_angle)
                     .into_iter()
-                    .map(|angle| PositionKm::from_polar(radius_km, angle)),
+                    .map(|angle| polar(radius_m, angle)),
             );
         }
         // Which site lands on which orbit should not follow identity order.
@@ -439,10 +440,10 @@ fn draw_layout(rng: &mut RngStreams, system: SystemId, sites: usize, gates: usiz
             positions.swap(i, rng.index(key, i + 1));
         }
     }
-    let edge_km = between(rng, key, EDGE_KM);
+    let edge_m = between(rng, key, EDGE_M);
     let gates = spaced_angles(rng, key, gates, GATE_MIN_SEPARATION_RAD)
         .into_iter()
-        .map(|angle| PositionKm::from_polar(edge_km, angle))
+        .map(|angle| polar(edge_m, angle))
         .collect();
     Layout {
         sites: positions,
@@ -455,9 +456,9 @@ fn between(rng: &mut RngStreams, key: StreamKey, (lo, hi): (f64, f64)) -> f64 {
     lo + rng.unit_f64(key) * (hi - lo)
 }
 
-/// The angle between two points on a circle of `radius_km` that are `chord_km` apart.
-fn chord_angle_rad(radius_km: f64, chord_km: f64) -> f64 {
-    2.0 * libm::asin((chord_km / (2.0 * radius_km)).min(1.0))
+/// The angle between two points on a circle of `radius_m` that are `chord_m` apart.
+fn chord_angle_rad(radius_m: f64, chord_m: f64) -> f64 {
+    2.0 * libm::asin((chord_m / (2.0 * radius_m)).min(1.0))
 }
 
 /// `count` random angles, each at least `min_gap_rad` from its neighbours around the circle.

@@ -9,10 +9,8 @@
 //!
 //! A change that is meant to alter the encoding bumps [`snapshot::FORMAT`] and records new
 //! values here in the same commit (D-099 item 9: no migration before the first real
-//! Universe). An unexplained mismatch is a determinism bug.
-//!
-//! Format 3 appended the catch-up flag (N2 plan §4.5); format 4 adds the season's rules to
-//! the state (D-104). The values below were re-recorded for format 4 with the same commands.
+//! Universe). An unexplained mismatch is a determinism bug. The values below are for the
+//! newest version in the [`snapshot::FORMAT`] history.
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
 use nomad_sim::snapshot::{self, state_hash};
@@ -28,15 +26,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0xef9a_f7a9_627b_c345),
-    (1, 0xe4c1_84e3_c715_cb46),
-    (2, 0x349b_f3d0_2e8b_7f2f),
-    (7, 0xeb0e_faca_4533_49fa),
-    (99, 0x4d89_7f37_d073_6dd5),
+    (0, 0x94e9_d208_d25c_c4a5),
+    (1, 0x2835_9672_531d_5a1d),
+    (2, 0x5e54_0dae_babe_74fa),
+    (7, 0x04ce_fe0a_1a8f_dc28),
+    (99, 0x8fda_ae39_0d8c_7f53),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0xc83c_b328_5817_a376;
+const DIAGNOSTIC_RUN_HASH: u64 = 0x53e1_918b_6920_59e9;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig {
@@ -47,7 +45,7 @@ fn season(seed: u64) -> SeasonConfig {
 
 #[test]
 fn snapshot_format_is_unchanged() {
-    assert_eq!(snapshot::FORMAT, 4);
+    assert_eq!(snapshot::FORMAT, 5);
 }
 
 #[test]

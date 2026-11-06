@@ -34,6 +34,7 @@
 //! determinism tests.
 
 pub mod galaxy;
+pub mod geometry;
 mod holding;
 mod id;
 mod input;
@@ -47,14 +48,15 @@ mod timers;
 mod util;
 
 pub use galaxy::{
-    Galaxy, GateId, Lane, LaneId, LaneKind, PositionKm, SectorId, Site, SiteId, System, SystemId,
-    SystemKind,
+    Galaxy, GateId, Lane, LaneId, LaneKind, SectorId, Site, SiteId, System, SystemId, SystemKind,
 };
+pub use geometry::Vec2;
 pub use holding::{
     ControlState, Holding, HoldingError, HoldingId, control_from_counts, majority_threshold,
 };
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
+pub use nomad_types::{Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};
 pub use state::{ScheduledEvent, SeasonConfig, UniverseState};

@@ -214,7 +214,7 @@ impl Summary<'_> {
                 .min_home_separation_jumps
                 .map_or_else(|| "-".to_owned(), |j| j.to_string()),
             report.longest_in_system_trip_s / 60.0,
-            report.closest_sites_km.unwrap_or(0.0),
+            report.closest_sites_m.unwrap_or(0.0) / 1_000.0,
         )?;
 
         let values: Vec<String> = report

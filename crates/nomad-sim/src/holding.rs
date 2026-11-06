@@ -150,7 +150,8 @@ pub(crate) fn control_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::galaxy::{PositionKm, SystemKind};
+    use crate::galaxy::SystemKind;
+    use crate::geometry::polar;
     use crate::{SeasonConfig, UniverseState};
 
     const YOU: CommanderId = CommanderId(1);
@@ -168,9 +169,8 @@ mod tests {
         let sector = galaxy.add_sector(ids);
         let system = galaxy.add_system(ids, sector, SystemKind::Standard);
         let haven = galaxy.add_system(ids, sector, SystemKind::RaiderHaven);
-        let mut place = |system, i: u32| {
-            galaxy.add_site(ids, system, PositionKm::from_polar(100.0, f64::from(i)))
-        };
+        let mut place =
+            |system, i: u32| galaxy.add_site(ids, system, polar(100_000.0, f64::from(i)));
         let sites = (0..7).map(|i| place(system, i)).collect();
         let haven_sites = (0..2).map(|i| place(haven, i)).collect();
         (state, sites, haven_sites)

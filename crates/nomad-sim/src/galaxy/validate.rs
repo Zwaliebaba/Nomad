@@ -32,9 +32,10 @@ use std::ops::RangeInclusive;
 use thiserror::Error;
 
 use crate::galaxy::{
-    DepositValue, Galaxy, GateId, LaneId, LaneKind, MAX_DEPOSITS_PER_SITE, PositionKm, SectorId,
-    SiteId, SystemId, SystemKind, is_claimable,
+    DepositValue, Galaxy, GateId, LaneId, LaneKind, MAX_DEPOSITS_PER_SITE, PositionMetres,
+    SectorId, SiteId, SystemId, SystemKind, is_claimable,
 };
+use crate::geometry::distance_m;
 use crate::id::SimId;
 use crate::time::{TICKS_PER_SECOND, Ticks};
 
@@ -56,7 +57,7 @@ pub struct InvariantLimits {
     /// Longest trip between two points of one system at that speed (doc 10 §4.1).
     pub max_in_system_trip: Ticks,
     /// Minimum distance between two sites of one system (doc 10 §8).
-    pub min_site_spacing_km: f64,
+    pub min_site_spacing_m: f64,
     /// Jump lane transit range (doc 10 §4.2).
     pub jump_transit: RangeInclusive<Ticks>,
     /// Trunk lane transit range (doc 10 §4.2).
@@ -75,7 +76,7 @@ impl Default for InvariantLimits {
             max_dead_end_percent: 10,
             slowest_warship_cruise_m_per_s: 500.0,
             max_in_system_trip: Ticks::from_minutes(15),
-            min_site_spacing_km: 50.0,
+            min_site_spacing_m: 50_000.0,
             jump_transit: Ticks::from_minutes(40)..=Ticks::from_minutes(70),
             trunk_transit: Ticks::from_minutes(90)..=Ticks::from_minutes(150),
             max_neighbourhood_spread_percent: 10,
@@ -145,8 +146,8 @@ pub struct GalaxyReport {
     pub min_home_separation_jumps: Option<u32>,
     /// The longest straight trip between two points of one system, in seconds.
     pub longest_in_system_trip_s: f64,
-    /// The smallest distance between two sites of one system, in km.
-    pub closest_sites_km: Option<f64>,
+    /// The smallest distance between two sites of one system, in metres.
+    pub closest_sites_m: Option<f64>,
     /// Invariant 5: each home system's neighbourhood deposit value.
     pub home_neighbourhoods: BTreeMap<SystemId, DepositValue>,
     /// Everything that is wrong, in the order it was found.
@@ -211,14 +212,14 @@ pub enum Violation {
         transit: Ticks,
     },
     /// Two sites of one system are closer than the minimum spacing (doc 10 §8).
-    #[error("sites {a:?} and {b:?} are {distance_km:.1} km apart")]
+    #[error("sites {a:?} and {b:?} are {distance_m:.0} m apart")]
     SitesTooClose {
         /// One site.
         a: SiteId,
         /// The other.
         b: SiteId,
         /// Their distance.
-        distance_km: f64,
+        distance_m: f64,
     },
     /// Crossing a system takes longer than allowed (doc 10 §4.1).
     #[error("crossing system {system:?} takes {duration_s:.0} s")]
@@ -307,7 +308,7 @@ pub fn validate(galaxy: &Galaxy, limits: &InvariantLimits) -> GalaxyReport {
     let mut violations = Vec::new();
     check_integrity(galaxy, &mut violations);
     check_lanes(galaxy, limits, &mut violations);
-    let (longest_in_system_trip_s, closest_sites_km) =
+    let (longest_in_system_trip_s, closest_sites_m) =
         check_systems(galaxy, limits, &mut violations);
 
     let sectors = galaxy
@@ -340,7 +341,7 @@ pub fn validate(galaxy: &Galaxy, limits: &InvariantLimits) -> GalaxyReport {
         sectors,
         min_home_separation_jumps,
         longest_in_system_trip_s,
-        closest_sites_km,
+        closest_sites_m,
         home_neighbourhoods,
         violations,
     }
@@ -456,7 +457,7 @@ fn check_lanes(galaxy: &Galaxy, limits: &InvariantLimits, out: &mut Vec<Violatio
     }
 }
 
-/// Per-system checks. Returns the longest in-system trip (s) and the closest site pair (km).
+/// Per-system checks. Returns the longest in-system trip (s) and the closest site pair (m).
 fn check_systems(
     galaxy: &Galaxy,
     limits: &InvariantLimits,
@@ -465,7 +466,7 @@ fn check_systems(
     let max_trip_s = secs(limits.max_in_system_trip);
     let speed = limits.slowest_warship_cruise_m_per_s;
     let mut longest_s: f64 = 0.0;
-    let mut closest_km: Option<f64> = None;
+    let mut closest_m: Option<f64> = None;
     for (id, system) in galaxy.systems() {
         if let Some(range) = allowed_sites(system.kind)
             && !range.contains(&system.sites.len())
@@ -486,22 +487,22 @@ fn check_systems(
             });
         }
 
-        let sites: Vec<(SiteId, PositionKm)> = system
+        let sites: Vec<(SiteId, PositionMetres)> = system
             .sites
             .iter()
             .filter_map(|&s| Some((s, galaxy.site(s)?.position)))
             .collect();
         for (i, &(a, pa)) in sites.iter().enumerate() {
             for &(b, pb) in &sites[i + 1..] {
-                let distance_km = pa.distance_km(pb);
-                closest_km = Some(closest_km.map_or(distance_km, |c| c.min(distance_km)));
-                if distance_km < limits.min_site_spacing_km {
-                    out.push(Violation::SitesTooClose { a, b, distance_km });
+                let distance_m = distance_m(pa, pb);
+                closest_m = Some(closest_m.map_or(distance_m, |c| c.min(distance_m)));
+                if distance_m < limits.min_site_spacing_m {
+                    out.push(Violation::SitesTooClose { a, b, distance_m });
                 }
             }
         }
 
-        let points: Vec<PositionKm> = sites
+        let points: Vec<PositionMetres> = sites
             .iter()
             .map(|&(_, p)| p)
             .chain(
@@ -525,7 +526,7 @@ fn check_systems(
             });
         }
     }
-    (longest_s, closest_km)
+    (longest_s, closest_m)
 }
 
 fn check_sector(
@@ -647,7 +648,7 @@ fn check_sector(
 
 /// Shortest travel times between all gates of `systems`.
 struct GateTimes {
-    gates: Vec<(GateId, PositionKm)>,
+    gates: Vec<(GateId, PositionMetres)>,
     index: BTreeMap<GateId, usize>,
     /// Row-major `gates.len()²` matrix of seconds; infinite where there is no route.
     time: Vec<f64>,
@@ -656,7 +657,7 @@ struct GateTimes {
 /// Floyd–Warshall over the gates of `systems`: straight legs between gates of one system,
 /// and jump lanes between systems.
 fn gate_times(galaxy: &Galaxy, systems: &[SystemId], speed_m_per_s: f64) -> GateTimes {
-    let gates: Vec<(GateId, PositionKm)> = systems
+    let gates: Vec<(GateId, PositionMetres)> = systems
         .iter()
         .filter_map(|&id| galaxy.system(id))
         .flat_map(|s| s.gates.iter())
@@ -727,7 +728,7 @@ fn worst_trip(galaxy: &Galaxy, systems: &[SystemId], speed_m_per_s: f64) -> Opti
     let n = gates.len();
 
     // (site, its system's gate indices, position)
-    let mut sites: Vec<(SiteId, SystemId, PositionKm)> = Vec::new();
+    let mut sites: Vec<(SiteId, SystemId, PositionMetres)> = Vec::new();
     let mut gates_of: BTreeMap<SystemId, Vec<usize>> = BTreeMap::new();
     for &id in systems {
         let Some(system) = galaxy.system(id) else {
@@ -831,8 +832,8 @@ fn components(adjacency: &BTreeMap<SystemId, BTreeSet<SystemId>>) -> usize {
 }
 
 /// Travel time in seconds for a straight leg at `speed_m_per_s`.
-fn leg_s(a: PositionKm, b: PositionKm, speed_m_per_s: f64) -> f64 {
-    a.distance_km(b) * 1_000.0 / speed_m_per_s
+fn leg_s(a: PositionMetres, b: PositionMetres, speed_m_per_s: f64) -> f64 {
+    distance_m(a, b) / speed_m_per_s
 }
 
 /// A duration in seconds.
@@ -920,7 +921,7 @@ mod tests {
         // At least 4 transits of 40 min; at most the 6 h limit.
         assert!(trip.duration_s >= 4.0 * 40.0 * 60.0);
         assert!(trip.duration_s <= 6.0 * 3_600.0);
-        assert!(r.closest_sites_km.unwrap() >= 50.0);
+        assert!(r.closest_sites_m.unwrap() >= 50_000.0);
         assert!(r.longest_in_system_trip_s <= 15.0 * 60.0);
     }
 
@@ -932,10 +933,10 @@ mod tests {
         let sector = g.add_sector(&mut ids);
         let a = g.add_system(&mut ids, sector, SystemKind::Standard);
         let b = g.add_system(&mut ids, sector, SystemKind::Standard);
-        let sa = g.add_site(&mut ids, a, PositionKm::ORIGIN);
-        let sb = g.add_site(&mut ids, b, PositionKm::ORIGIN);
-        let ga = g.add_gate(&mut ids, a, PositionKm { x: 100.0, y: 0.0 });
-        let gb = g.add_gate(&mut ids, b, PositionKm { x: 0.0, y: 100.0 });
+        let sa = g.add_site(&mut ids, a, PositionMetres::ORIGIN);
+        let sb = g.add_site(&mut ids, b, PositionMetres::ORIGIN);
+        let ga = g.add_gate(&mut ids, a, PositionMetres::new(100_000.0, 0.0));
+        let gb = g.add_gate(&mut ids, b, PositionMetres::new(0.0, 100_000.0));
         g.add_lane(&mut ids, ga, gb, Ticks::from_minutes(50), LaneKind::Jump);
         let trip = worst_trip(&g, &[a, b], 500.0).unwrap();
         assert_eq!((trip.from, trip.to), (sa, sb));
@@ -977,8 +978,8 @@ mod tests {
     fn rejects_neighbouring_homes() {
         let (mut g, mut ids) = stage1(3);
         let s = systems(&g);
-        let ga = g.add_gate(&mut ids, s[0], PositionKm { x: 0.0, y: 190.0 });
-        let gb = g.add_gate(&mut ids, s[2], PositionKm { x: 0.0, y: -190.0 });
+        let ga = g.add_gate(&mut ids, s[0], PositionMetres::new(0.0, 190_000.0));
+        let gb = g.add_gate(&mut ids, s[2], PositionMetres::new(0.0, -190_000.0));
         g.add_lane(&mut ids, ga, gb, Ticks::from_minutes(50), LaneKind::Jump);
         let r = report(&g);
         assert_eq!(r.min_home_separation_jumps, Some(1));
@@ -1041,15 +1042,13 @@ mod tests {
         let s = systems(&g);
         let home = g.system(s[0]).unwrap().clone();
         let p = g.site(home.sites[0]).unwrap().position;
-        g.sites.get_mut(&home.sites[1]).unwrap().position = PositionKm {
-            x: p.x + 30.0,
-            y: p.y,
-        };
-        g.gates.get_mut(&home.gates[0]).unwrap().position = PositionKm { x: 500.0, y: 0.0 };
+        g.sites.get_mut(&home.sites[1]).unwrap().position =
+            PositionMetres::new(p.x + 30_000.0, p.y);
+        g.gates.get_mut(&home.gates[0]).unwrap().position = PositionMetres::new(500_000.0, 0.0);
         let r = report(&g);
         assert!(has(&r, |v| matches!(
             v,
-            Violation::SitesTooClose { distance_km, .. } if (distance_km - 30.0).abs() < 1e-9
+            Violation::SitesTooClose { distance_m, .. } if (distance_m - 30_000.0).abs() < 1e-6
         )));
         assert!(has(
             &r,
@@ -1061,9 +1060,9 @@ mod tests {
     fn rejects_wrong_counts_and_lane_kinds() {
         let (mut g, mut ids) = stage1(3);
         let s = systems(&g);
-        g.add_site(&mut ids, s[0], PositionKm { x: 0.0, y: 0.0 });
+        g.add_site(&mut ids, s[0], PositionMetres::ORIGIN);
         let extra: Vec<GateId> = (0..3)
-            .map(|_| g.add_gate(&mut ids, s[1], PositionKm { x: 190.0, y: 0.0 }))
+            .map(|_| g.add_gate(&mut ids, s[1], PositionMetres::new(190_000.0, 0.0)))
             .collect();
         let loop_lane = g.add_lane(
             &mut ids,
