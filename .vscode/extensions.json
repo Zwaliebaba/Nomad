@@ -1,0 +1,15 @@
+{
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "ms-vscode.cpptools",
+    "fill-labs.dependi",
+    "tamasfe.even-better-toml",
+    "wgsl-analyzer.wgsl-analyzer",
+    "EditorConfig.EditorConfig",
+    "github.vscode-github-actions"
+  ],
+  "unwantedRecommendations": [
+    "1yib.rust-bundle",
+    "dustypomerleau.rust-syntax"
+  ]
+}

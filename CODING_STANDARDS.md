@@ -7,6 +7,8 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
 | Formatting | `rustfmt` (`rustfmt.toml`), `.editorconfig`, CI `cargo fmt --check` |
 | Lints | `[workspace.lints]` in `Cargo.toml`, `clippy.toml`, CI `clippy -D warnings` |
 | Toolchain | `rust-toolchain.toml` (pinned) |
+| Licences and advisories | `deny.toml`, CI `cargo deny check` |
+| Simulation rules | `crates/nomad-sim/clippy.toml`, CI `clippy -D warnings` |
 | Everything else | Review |
 
 ## 1. Toolchain
@@ -22,7 +24,7 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
 ## 3. Lints
 
 - Every crate starts with `[lints] workspace = true`. Do not override workspace lint levels per crate.
-- The workspace enables `clippy::pedantic` and a few restriction lints (`unwrap_used`, `dbg_macro`, `todo`, `print_stdout`, `print_stderr`, `undocumented_unsafe_blocks`). `unsafe_code` is denied. CI treats warnings as errors.
+- The workspace enables `clippy::pedantic` and a few restriction lints (`allow_attributes`, `allow_attributes_without_reason`, `unwrap_used`, `dbg_macro`, `todo`, `print_stdout`, `print_stderr`, `undocumented_unsafe_blocks`). `unsafe_code` is denied. CI treats warnings as errors.
 - When a lint is wrong for a specific case, suppress it on the smallest scope with `#[expect(clippy::lint_name, reason = "why")]`. `#[expect]` fails once the suppression is no longer needed, which `#[allow]` does not. Never suppress a whole lint group at crate level.
 
 ## 4. Naming and vocabulary
@@ -51,7 +53,7 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
 `unsafe` is denied workspace-wide. If an exception is unavoidable, all of the following apply:
 
 - The owner agrees to it in the PR.
-- It is confined to the smallest possible module, with `#[allow(unsafe_code)]` on that module.
+- It is confined to the smallest possible module, with `#[expect(unsafe_code, reason = "why")]` on that module.
 - Every `unsafe` block carries a `// SAFETY:` comment that explains why the invariants hold.
 
 ## 8. Simulation code
@@ -61,7 +63,7 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
 - Authoritative Universe state lives only in the server-side simulation. Clients send commands and render the state they receive (design C-02, C-03).
 - Given the same state, commands and seed, the simulation must produce the same result:
   - Time is the tick counter. Do not read wall-clock time (`Instant::now`, `SystemTime::now`) inside the simulation.
-  - Do not iterate a `HashMap` or `HashSet` where the order affects the outcome. Use `BTreeMap`, `IndexMap` or sorted vectors.
+  - Do not iterate a `HashMap` or `HashSet` where the order affects the outcome. Use `BTreeMap`, `IndexMap` or sorted vectors. `nomad-sim` bans both types outright, because a lint cannot tell a safe use from an unsafe one; a lookup-only exception needs `#[expect(clippy::disallowed_types, reason = "why")]`.
   - Randomness comes from a seeded RNG that is passed in explicitly. There is no global or thread-local RNG.
   - Logic runs on a fixed tick, never on frame time.
 - Every simulated object has a `SimId(u64)`, assigned in increasing order and never reused. A `hecs` `Entity` is a storage handle only and never leaves the simulation.

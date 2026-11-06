@@ -1,6 +1,6 @@
 # 11 — Time and simulation
 
-Status: **Agreed (round 5).** Q41–Q44 were decided as D-047 to D-050. Built on D-019, D-026, D-029, D-030, D-036, D-037 and P-04, on C-02, C-03, C-05 and C-06 from doc 01, and on `CODING_STANDARDS.md` §8. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 5).** Q41–Q44 were decided as D-047 to D-050. Built on D-019, D-026, D-029, D-030, D-036, D-037 and P-04, on C-02, C-03, C-05 and C-06 from doc 01, and on `CODING_STANDARDS.md` §8. D-109 and D-110 later amended §5, §6, §8, §10 and §11. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -63,7 +63,7 @@ Network replication and interest management belong to docs 16 and 20.
 | 7 | **Combat** | Every tick | Targeting, fire, projectiles with swept hit tests, damage, shield sectors and their lifecycle (doc 15). |
 | 8 | **Economy** | 1 Hz | Harvest, production, storage caps (doc 14, D-025). |
 | 9 | **Derived state** | When it changes | System control (D-041), siege eligibility, activity sampling once per minute. |
-| 10 | **Outputs** | Every tick | A change set for replication (doc 16), notifications, a state hash at a configurable interval. |
+| 10 | **Outputs** | Every tick | A change set for replication (doc 16), notifications, a state hash at a configurable interval (§5, D-109). |
 
 *Derived:* the Deputy and the AI commanders run **inside** the deterministic step. They are functions of the state and a seeded random-number generator, so they never have to be journaled. Replaying the journal reproduces their decisions.
 
@@ -94,6 +94,8 @@ Network replication and interest management belong to docs 16 and 20.
 
 **CI check** *(Proposed):* a headless test runs N ticks twice from the same seed and compares state hashes. It is cheap enough for the Debug-only CI (D-010).
 
+**Replay check** *(Agreed, D-109):* every 600 ticks (60 s, configurable) the server appends that tick's state hash to the journal, after the tick's inputs. Replay recomputes the hash at each checkpoint. A mismatch is logged as an `error` with the tick and both hashes, and recovery continues, because the diverged state is still a valid Universe. *Derived:* journal batches are written in order, so a checkpoint that survives a crash never covers inputs that were lost.
+
 ## 6. Inputs and the journal
 
 *Agreed (D-048).* Anything that enters the simulation from outside is journaled with the tick it applies on:
@@ -103,6 +105,8 @@ Network replication and interest management belong to docs 16 and 20.
 - **Operator commands:** freeze, configuration changes, season start.
 
 *Derived:* AI commanders' online and offline schedules (D-027) are generated from the seed. They are not journaled.
+
+*Agreed (D-109):* the journal also holds state-hash checkpoints (§5). They are checks, not inputs, and the simulation never reads them.
 
 ## 7. Running live, catching up, fast-forward
 
@@ -141,8 +145,8 @@ stateDiagram-v2
 | **Snapshot** | Full serialised Universe state, keyed by `SimId`, compressed with zstd. Written every **5 min** (3,000 ticks) and on clean shutdown, atomically. Estimated at a few MB at full scale. |
 | **Journal** | Append-only inputs (§6) with tick and sequence number. **Flushed to disk at least once per second.** |
 | **Worst-case loss on a crash** | At most about 1 s of player commands. Everything else is recomputed by replay. |
-| **Recovery** | Load the latest snapshot, replay the journal entries after it, then catch up to the wall clock (§7). |
-| **Retention** | The last 2 snapshots plus their journal; hourly snapshots for 48 h; daily snapshots for the rest of the season. Older journal entries are discarded. |
+| **Recovery** | Load the latest snapshot, replay the journal entries after it while checking state hashes (§5), then catch up to the wall clock (§7). |
+| **Retention** | The last 2 snapshots; hourly snapshots for 48 h; daily snapshots for the rest of the season. The journal is kept for 48 h (D-110), so any moment in that window can be replayed from the preceding hourly snapshot, by the build that wrote the journal. Older journal entries are discarded. A tool for replaying to a chosen tick is not yet specified. |
 | **Upgrades** | The snapshot schema is versioned and migrated forward by newer builds. Until the first real Universe exists (milestone β), a format change may simply reject older snapshots (D-099). A journal is replayable only by the build that wrote it. A server upgrade therefore always goes clean shutdown → final snapshot → new build loads that snapshot. |
 | **Read models** | Leaderboards, season history and account data are separate projections, not the authoritative state. |
 
@@ -163,11 +167,11 @@ stateDiagram-v2
 
 ## 10. Stress test
 
-1. **Determinism costs discipline:** `SimId`, sorted application, `libm`, integer resources. In return we get crash recovery by replay, reproducible pacing runs and bug reports that can be reproduced. If a determinism bug slips through, recovery still works from the latest snapshot, so we lose replay fidelity, not the Universe. The CI hash test catches regressions.
+1. **Determinism costs discipline:** `SimId`, sorted application, `libm`, integer resources. In return we get crash recovery by replay, reproducible pacing runs and bug reports that can be reproduced. If a determinism bug slips through, recovery still works from the latest snapshot, so we lose replay fidelity, not the Universe. Journaled state hashes show when that has happened (D-109). The CI hash test catches regressions.
 2. **A 10 Hz tick versus fast projectiles.** A bolt at about 800 m/s (phase-1 HUD: TTI 1.1 s at 0.9 km) covers 80 m, about 2.3 voxels, per tick. Hit tests must be swept (segment against shape), not point checks. That is a doc 15 rule.
 3. **Catch-up turns downtime into offline time for everyone.** That is fair because everyone is affected equally, and the offline rules were designed for exactly this situation. Holding back NPC raids removes the one unfair element. Long hosted outages have the freeze tool.
 4. **The MVP server stops when the PC is off.** Catch-up keeps the Universe consistent, but the AI commanders only "act overnight" in compressed form at the next start. Those decisions are identical to what live play would have produced, because the simulation is deterministic.
-5. **Journal volume.** About 30 active players at RTS command rates produce millions of commands per day. Compaction after each snapshot keeps the journal to minutes.
+5. **Journal volume.** About 30 active players at RTS command rates produce millions of commands per day. The journal is kept for 48 h (D-110). *Proposed estimate:* 5 million commands a day at about 100 bytes each comes to about 1 GB, so the 48 h value stays provisional until the volume is measured.
 6. **Server upgrades mid-season** depend on forward migration of snapshots. That is a real engineering cost. It applies only to the hosted server, and the clean-shutdown rule keeps it contained.
 7. **The tick budget at full scale is unmeasured.** Partitioning by star system leaves parallelism available, and the pacing simulation measures the real cost before anything else is built on it.
 
@@ -180,6 +184,8 @@ stateDiagram-v2
 | Command latency | Applied on the next tick (≤ 100 ms plus network round trip) |
 | Snapshot interval | 5 min, plus on clean shutdown |
 | Journal flush | ≤ 1 s |
+| State-hash checkpoint | 600 ticks (60 s), configurable |
+| Journal retention | 48 h (provisional) |
 | Tick budget (full scale) | Mean ≤ 30 ms, p99 ≤ 80 ms |
 | Fast-forward target | ≥ 50× full scale; ≥ 500× MVP stage 1 |
 | Universe time | UTC, computed from the tick |

@@ -46,6 +46,8 @@ cargo build --workspace
 cargo test --workspace
 ```
 
+After changing render code, also run the GPU tests, which CI cannot run: `cargo test -p nomad-client -- --ignored`.
+
 ## CI rules
 
 - CI builds the **Debug** profile only (D-010). Do not add `--release` builds or a build-configuration matrix.

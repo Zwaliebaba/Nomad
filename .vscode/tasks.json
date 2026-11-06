@@ -1,0 +1,53 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "cargo build: nomad-client",
+      "type": "shell",
+      "command": "cargo build -p nomad-client",
+      "group": "build",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "cargo fmt",
+      "type": "shell",
+      "command": "cargo fmt --all",
+      "problemMatcher": []
+    },
+    {
+      "label": "cargo clippy",
+      "type": "shell",
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "cargo build: workspace",
+      "type": "shell",
+      "command": "cargo build --workspace",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "cargo test",
+      "type": "shell",
+      "command": "cargo test --workspace",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "Local checks",
+      "dependsOrder": "sequence",
+      "dependsOn": ["cargo fmt", "cargo clippy", "cargo build: workspace", "cargo test"],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "GPU tests",
+      "type": "shell",
+      "command": "cargo test -p nomad-client -- --ignored",
+      "group": "test",
+      "problemMatcher": ["$rustc"]
+    }
+  ]
+}

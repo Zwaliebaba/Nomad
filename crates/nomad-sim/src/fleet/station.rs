@@ -145,7 +145,7 @@ mod tests {
         let obstacles = layout_obstacles(&layout, PositionMetres::ORIGIN);
         // The core spindle's 23 × 23 voxel footprint: radius 11.5 × √2 voxels ≈ 569 m.
         assert!(obstacles[0].centre.length() < 1e-9);
-        assert!((obstacles[0].radius_m - 11.5 * 2_f64.sqrt() * 35.0).abs() < 1e-9);
+        assert!((obstacles[0].radius_m - 11.5 * libm::sqrt(2.0) * 35.0).abs() < 1e-9);
         // Pylon N is due north of the dome centre, about 26 voxels out (D-046).
         let pylon_n = obstacles[1].centre;
         let dome_centre = grid_to_system(&layout, [-8.6, 9.4]);

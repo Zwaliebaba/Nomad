@@ -1,6 +1,6 @@
 # 20 — Technical architecture
 
-Status: **Agreed (round 10).** Q79–Q83 were decided as D-085 to D-089. Built on D-004, D-010, D-011, D-026, D-029, D-030, D-031, D-047 to D-050, D-075, D-077 and D-084, and docs 11, 13 and 16. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 10).** Q79–Q83 were decided as D-085 to D-089. Built on D-004, D-010, D-011, D-026, D-029, D-030, D-031, D-047 to D-050, D-075, D-077 and D-084, and docs 11, 13 and 16. D-109 later amended §6 and §7. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -112,7 +112,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 - **Tables:**
   - `meta`: format, build, seed, season.
   - `snapshots`: tick, build, format, data.
-  - `journal`: tick, sequence, kind, payload, build.
+  - `journal`: tick, sequence, kind, payload, build. Kinds include state-hash checkpoints (D-109).
   - read-model tables, for example standings.
 - **Snapshots are not compressed in the MVP.** They are a few MB at stage-2 scale. Compression can be added if size becomes a problem.
 - **Retention follows doc 11 §8.** Upgrades always go through a clean-shutdown snapshot (D-048).
@@ -122,7 +122,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 
 *Derived* from doc 11 §7 and D-047.
 
-1. **Start:** take a lock on the Universe file (a second server on the same Universe is refused), load the latest snapshot, replay the journal, then catch up to the wall clock.
+1. **Start:** take a lock on the Universe file (a second server on the same Universe is refused), load the latest snapshot, replay the journal while checking state hashes (D-109), then catch up to the wall clock.
 2. **During catch-up**, clients may connect, but they receive only `CatchUp { progress }`, and their commands are rejected until the server is live.
 3. **Live** play.
 4. **Clean shutdown**, triggered by the client's "Shut down Universe" or an operator command, writes a final snapshot and exits.
