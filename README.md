@@ -20,6 +20,7 @@ crates/
   nomad-types/          Shared primitives (Design doc 20 §3): SimId and typed ids, ticks, Universe time, small enums, command shapes
   nomad-protocol/       Wire protocol (Design doc 20 §5): versioned client and server messages, length-prefixed postcard framing
   nomad-harness/        Headless fast-forward runner: pacing runs and determinism checks
+  nomad-server/         Server shell (N2 plan): runs one Universe in real time, saves it to SQLite, recovers and catches up
 .github/                CI workflow, Dependabot, pull request template
 tools/preview/          Single-file WebGL preview of the phase-1 scene (design-review aid, not the client)
 AGENTS.md               Instructions for AI coding agents
@@ -62,6 +63,22 @@ Run the headless simulation harness (fast-forward, reports the state hash and sp
 ```bash
 cargo run -p nomad-harness -- --ticks 36000 --diagnostics 10000
 ```
+
+### Run the server
+
+`nomad-server` hosts one Universe without a window (N2: no networking yet, so no client connects to it). It saves continuously to `<data>/universes/<id>/universe.db`. The data directory is `%LOCALAPPDATA%\Nomad` on Windows and `~/.local/share/Nomad` on Linux; set `NOMAD_DATA` or pass `--data-dir` to use another.
+
+```bash
+cargo run -p nomad-server -- create                  # new stage-1 Universe: random seed, 3 AI, Normal, 8 weeks
+cargo run -p nomad-server -- create --seed 42 --name "Test" --season-weeks 10
+cargo run -p nomad-server -- run                     # run it; Ctrl+C saves and stops
+cargo run -p nomad-server -- status                  # meta, last tick, snapshots, journal, without running it
+```
+
+- `--universe <id>` picks a Universe when the data directory holds more than one. A second `run` on the same Universe is refused.
+- After the server has been stopped, `run` first catches up the missed time at fast-forward speed, then runs live at 10 Hz.
+- `create --backdate-hours N` starts the season N hours in the past, so the first `run` catches up. Use it to test catch-up.
+- `RUST_LOG` sets the log filter (default `info` for `run`). Logs go to stderr.
 
 ## Continuous integration
 
