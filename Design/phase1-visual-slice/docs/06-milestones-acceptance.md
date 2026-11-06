@@ -3,7 +3,7 @@
 Each milestone ends in a runnable build plus an F12 screenshot committed to `screenshots/milestones/`.
 
 ## M1 — Window, camera, grid
-- A winit window with a wgpu surface at 1920×1080, resizable.
+- A winit window with a wgpu surface at 1920×1080, resizable. *(Design D-108: the client now opens borderless fullscreen by default; `--windowed` gives the 1920×1080 window.)*
 - Background and infinite ops grid render; minor/major spacing and colours match 01 §4.
 - **Accept**: the grid reaches every screen edge at every zoom level; Q/E rotate in 250 ms; Home resets.
 

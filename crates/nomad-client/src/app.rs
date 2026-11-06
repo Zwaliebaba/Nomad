@@ -34,14 +34,22 @@ const MAX_FRAME_DT_S: f32 = 0.1;
 /// spinning.
 const SKIPPED_FRAME_RETRY: Duration = Duration::from_millis(100);
 
-/// Opens the window and runs until it is closed.
-pub fn run(assets: SceneAssets, camera: Camera, size: (u32, u32)) -> Result<(), AppError> {
+/// Opens the window and runs until it is closed. With `fullscreen` the window opens
+/// borderless fullscreen on the current monitor (D-108); `size` is then the window size F11
+/// returns to.
+pub fn run(
+    assets: SceneAssets,
+    camera: Camera,
+    size: (u32, u32),
+    fullscreen: bool,
+) -> Result<(), AppError> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Wait);
     let mut app = App {
         assets,
         initial_camera: camera,
         size,
+        fullscreen,
         running: None,
         error: None,
     };
@@ -53,6 +61,8 @@ struct App {
     assets: SceneAssets,
     initial_camera: Camera,
     size: (u32, u32),
+    /// Open borderless fullscreen (D-108).
+    fullscreen: bool,
     running: Option<Running>,
     /// A fatal error raised inside the event loop, reported after it exits.
     error: Option<AppError>,
@@ -77,7 +87,8 @@ impl App {
         let (width, height) = self.size;
         let attributes = Window::default_attributes()
             .with_title(WINDOW_TITLE)
-            .with_inner_size(PhysicalSize::new(width, height));
+            .with_inner_size(PhysicalSize::new(width, height))
+            .with_fullscreen(self.fullscreen.then_some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(attributes)?);
         let (gpu, surface) = WindowSurface::create(&window, event_loop.owned_display_handle())?;
         let renderer = Renderer::new(&gpu, surface.view_format(), &self.assets);

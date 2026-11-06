@@ -4,12 +4,14 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 pub const USAGE: &str = "\
-usage: nomad-client [--size WxH] [--view N] [--zoom Z]
+usage: nomad-client [--windowed] [--size WxH] [--view N] [--zoom Z]
        nomad-client --screenshot OUT.png [--size WxH] [--view N] [--zoom Z]
                     [--hover X,Y] [--turn-ms MS]
 
   --screenshot OUT.png  render one frame offscreen (no window) and write it as a PNG
-  --size WxH            window or image size in pixels (default 1920x1080)
+  --windowed            open a window instead of borderless fullscreen (the default)
+  --size WxH            window or image size in pixels (default 1920x1080); implies
+                        --windowed
   --view N              initial view 0-3 (default 0)
   --zoom Z              initial zoom, one of the zoom levels in scene_config.json (default 1)
   --hover X,Y           screenshot only: as if the cursor were at pixel X,Y (hover highlight
@@ -32,6 +34,9 @@ pub struct Options {
     /// Render offscreen to this PNG instead of opening a window.
     pub screenshot: Option<PathBuf>,
     pub size: (u32, u32),
+    /// Open a window instead of borderless fullscreen (D-108). Set by `--windowed` and by
+    /// `--size`; ignored by `--screenshot`.
+    pub windowed: bool,
     pub view: u8,
     pub zoom: Option<f32>,
     /// Screenshot only: a simulated cursor position in pixels.
@@ -45,6 +50,7 @@ impl Default for Options {
         Self {
             screenshot: None,
             size: DEFAULT_SIZE,
+            windowed: false,
             view: 0,
             zoom: None,
             hover: None,
@@ -70,7 +76,11 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, String
         let mut value = || args.next().ok_or_else(|| format!("{flag} needs a value"));
         match flag.as_str() {
             "--screenshot" => options.screenshot = Some(PathBuf::from(value()?)),
-            "--size" => options.size = parse_size(&utf8(value()?)?)?,
+            "--size" => {
+                options.size = parse_size(&utf8(value()?)?)?;
+                options.windowed = true;
+            }
+            "--windowed" => options.windowed = true,
             "--view" => {
                 let text = utf8(value()?)?;
                 options.view = text
@@ -149,8 +159,20 @@ mod tests {
     }
 
     #[test]
-    fn defaults_open_a_window() {
+    fn defaults_open_borderless_fullscreen() {
         assert_eq!(run(&[]), Ok(Command::Run(Options::default())));
+        assert!(!Options::default().windowed);
+    }
+
+    #[test]
+    fn windowed_and_size_open_a_window() {
+        let windowed = |args: &[&str]| match run(args) {
+            Ok(Command::Run(options)) => options.windowed,
+            other => panic!("{args:?} gave {other:?}"),
+        };
+        assert!(windowed(&["--windowed"]));
+        assert!(windowed(&["--size", "1280x720"]));
+        assert!(!windowed(&["--view", "2"]));
     }
 
     #[test]
@@ -174,6 +196,7 @@ mod tests {
             Ok(Command::Run(Options {
                 screenshot: Some(PathBuf::from("out/v1.png")),
                 size: (1280, 720),
+                windowed: true,
                 view: 1,
                 zoom: Some(0.5),
                 hover: Some((700.0, 420.5)),

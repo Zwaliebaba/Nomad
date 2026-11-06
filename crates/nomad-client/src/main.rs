@@ -8,7 +8,7 @@
 //! with its `ELEV +n` tag (M3).
 //!
 //! ```text
-//! nomad-client [--size WxH] [--view N] [--zoom Z]
+//! nomad-client [--windowed] [--size WxH] [--view N] [--zoom Z]
 //! nomad-client --screenshot OUT.png [--size WxH] [--view N] [--zoom Z]
 //!              [--hover X,Y] [--turn-ms MS]
 //! ```
@@ -97,7 +97,7 @@ fn run(options: &Options) -> Result<(), AppError> {
     let camera = initial_camera(&assets.config, options)?;
     match &options.screenshot {
         Some(path) => render_screenshot(&assets, camera, options, path),
-        None => app::run(assets, camera, options.size),
+        None => app::run(assets, camera, options.size, !options.windowed),
     }
 }
 

@@ -42,7 +42,8 @@ cargo fmt --all
 Run the phase-1 client (milestones M1 to M3: window, background, infinite ops grid, camera, the station voxels, bloom on emissive voxels, elevation cues under lifted modules, and the hover highlight with its `ELEV +n` tag):
 
 ```bash
-cargo run -p nomad-client                      # 1920x1080 window
+cargo run -p nomad-client                      # borderless fullscreen on the current monitor
+cargo run -p nomad-client -- --windowed        # 1920x1080 window
 cargo run -p nomad-client -- --size 1280x720   # other window size
 cargo run -p nomad-client -- --screenshot out.png --view 1 --zoom 0.5   # one frame offscreen, no window
 cargo run -p nomad-client -- --screenshot out.png --hover 700,340       # as if the cursor were at that pixel
@@ -55,7 +56,7 @@ cargo run -p nomad-client -- --screenshot out.png --turn-ms 125         # halfwa
 | Mouse wheel | Zoom step toward the cursor (0.5, 0.75, 1, 1.5, 2) |
 | WASD, arrows, screen edge, middle-mouse drag | Pan (±200 voxels around the deck centre) |
 | Home | View 0, zoom 1, deck centre |
-| F11 | Toggle fullscreen |
+| F11 | Toggle between borderless fullscreen and a window |
 | F12 | Screenshot to `screenshots/` in the working directory |
 
 Hovering a module highlights it; a lifted module (FA-1, FB-2) also shows its `ELEV +n` tag. The tag needs the phase-1 fonts, which are OFL-licensed and not bundled: put the JetBrains Mono and Rajdhani `.ttf` files (static or variable) into `Design/phase1-visual-slice/assets/fonts/`, which git ignores. Without them the client logs a warning and draws no tag text.
