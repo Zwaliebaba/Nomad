@@ -123,7 +123,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 
 ### 5.2 Power and regeneration
 
-*Proposed.*
+*Agreed (D-053); power values in doc 14 §7.*
 
 - Generators produce power: SOL-1 and others, supply defined in doc 14. Consumers are shield regeneration, turrets, production and abilities.
 - **Power routing** (the phase-1 PWR ROUTE button) picks a priority profile: *Balanced*, *Shields first* or *Production first*. When demand exceeds supply, consumers are served in priority order.
