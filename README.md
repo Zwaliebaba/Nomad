@@ -88,6 +88,23 @@ cargo run -p nomad-server -- status                  # meta, last tick, snapshot
 - `create --backdate-hours N` starts the season N hours in the past, so the first `run` catches up. Use it to test catch-up.
 - `RUST_LOG` sets the log filter (default `info` for `run`). Logs go to stderr.
 
+### Run the server in Docker
+
+The `Dockerfile` builds a Linux image of the same server (D-029), which runs in Docker Desktop. There is no networking yet, so there is no port to publish. Run these from the repository root:
+
+```bash
+docker build --build-arg NOMAD_BUILD_ID=$(git rev-parse HEAD) -t nomad-server .
+docker run --rm -v nomad-data:/data nomad-server create --name "Test"
+docker run -d --name nomad -v nomad-data:/data nomad-server    # run it in the background
+docker exec nomad nomad-server status
+docker logs -f nomad
+docker stop nomad                                              # final snapshot, then exit
+```
+
+- `NOMAD_BUILD_ID` is required: the build fails without it.
+- Keep Universes in a named volume, as above. Without `-v` they go to an anonymous volume, and `--rm` deletes them. A named volume lives on Docker Desktop's disk, so resetting Docker Desktop deletes it too.
+- **Upgrades:** a journal is replayed only by the build that wrote it (D-048). After an unclean stop, a new image refuses to start. Start the previous image, stop it with `docker stop`, then switch.
+
 ## Continuous integration
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push:
