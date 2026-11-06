@@ -164,7 +164,7 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Build slot** | A fixed position on a site's ops grid where one module can be built: pylon, peripheral or inner. |
 | **Command cap** | The fleet limit: 120 from the mother station, plus 10 per other holding, up to 300. |
 
-## Information (doc 16, proposed)
+## Information (doc 16, agreed)
 
 | Term | Meaning |
 |---|---|

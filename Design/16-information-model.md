@@ -1,6 +1,6 @@
 # 16 — Information model
 
-Status: **Proposed (round 8).** Built on D-027, D-039, D-041, D-042, D-044, D-052 and D-055, docs 11, 12 and 15, and the phase-1 HUD. Decisions needed: Q66–Q70. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 8).** Q66–Q70 were decided as D-072 to D-076. Built on D-027, D-039, D-041, D-042, D-044, D-052 and D-055, docs 11, 12 and 15, and the phase-1 HUD. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -21,18 +21,18 @@ Rendering of the strategic views belongs to doc 17; the protocol belongs to doc 
 | Class | What | Who sees it | Status |
 |---|---|---|---|
 | **Public** | Galaxy topology: systems, gates, lanes, sites, deposit kinds and richness. Holding ownership. System control states. Season standings. | Everyone | Agreed (D-044, D-041) |
-| **Public (proposed additions)** | Each commander's exposure window | Everyone | Proposed (Q69) |
+| **Public (proposed additions)** | Each commander's exposure window | Everyone | Agreed (D-075) |
 | **Own** | Everything about one's own assets | The owner | Derived |
 | **Sensed** | Whatever the commander's sensors detect right now | That commander | Agreed (D-039) |
-| **Last-known** | Earlier sensed information, with the time it was seen | That commander | Agreed in principle (D-039); rules proposed (Q70) |
+| **Last-known** | Earlier sensed information, with the time it was seen | That commander | Agreed in principle (D-039); rules agreed (D-076) |
 | **Announced** | Reinforced exit times and siege starts | The owner, the commanders with breach credit (D-057), and later the owner's allies | Derived (doc 12 §4, D-057) |
-| **Private** | Online status, doctrine, build queues, stockpiles | The owner only (allies decided with D-040) | Proposed (Q69) |
+| **Private** | Online status, doctrine, build queues, stockpiles | The owner only (allies decided with D-040) | Agreed (D-075) |
 
 **Why the exposure window should be public:** a breach announces the siege time anyway, so keeping the window secret only adds guesswork. Publishing it lets attackers plan, which is the purpose of D-015. **Why online status should stay private:** showing who is asleep would make raids on sleeping players' peripheral assets more targeted. The stakes rule protects cores, but not convoys.
 
 ## 3. Sensors and detection
 
-*Proposed (Q66, Q67).*
+*Agreed (D-072, D-073).*
 
 - **Detection is binary and 2D:** a target is detected when it is within `sensor range × target signature` of any of the commander's sensors.
 - **Signature by size class:** Light 0.6, Medium 1.0, Heavy 1.5, Structure 1.5. A strike group can therefore approach closer, unseen, than a cruiser can.
@@ -56,7 +56,7 @@ Rendering of the strategic views belongs to doc 17; the protocol belongs to doc 
 
 ## 4. Fleets in transit
 
-*Proposed (Q68), building on D-042.*
+*Agreed (D-074), building on D-042.*
 
 - A fleet in jump transit is **invisible**. It is a timer, not a position.
 - **Departures can be seen:** anyone who currently has sensor coverage of the **origin gate** sees the departure, the destination system and the arrival time. That is what the phase-1 system panel's lane traffic shows ("HSTL WAVE 2 · K-WEST · ~09:30").
@@ -65,7 +65,7 @@ Rendering of the strategic views belongs to doc 17; the protocol belongs to doc 
 
 ## 5. Last-known information
 
-*Proposed (Q70).*
+*Agreed (D-076).*
 
 - The server keeps, **per commander**, the last observation of every entity that commander has ever detected: position, class, owner, hull and the time seen. This memory is part of commander state, so it is in snapshots (D-048) and survives a reconnect.
 - **Expiry:** ships and fleets are dropped from memory after **24 h** without a new sighting. Structures stay until they are seen again, or until public ownership shows the holding has changed hands.
