@@ -6,11 +6,11 @@ Instructions for AI coding agents working in this repository (Claude Code, Codex
 
 Nomad (working title) is a persistent multiplayer space RTS in Rust:
 
-- Commanders grow an empire from a mother station in a shared **Universe** that keeps running while they are offline.
-- While a player is away, a **Deputy** AI keeps the player's standard actions running and defends their assets.
-- Scale target: up to 100 players per Universe.
-- MVP: one human player and up to 9 AI commanders.
-- Client: a custom `wgpu` + `winit` renderer drawing an isometric voxel scene.
+- Commanders grow an empire from a mother station in one shared **Universe** (up to 100 commanders, seasons of 8–12 weeks) that keeps running while they are offline.
+- A **Deputy** AI always executes each commander's standing orders (doctrine). While the player is away it runs the empire alone. Offline protection is clock-based: see `Design/12-offline-play-and-deputy.md`.
+- MVP: one human player and up to 9 AI commanders, on a local headless server.
+- Client: a custom `wgpu` + `winit` renderer drawing an isometric voxel scene, on Windows. Server: Linux; `hecs`, `tokio` + `quinn`, SQLite (D-029, D-030).
+- License: proprietary (D-031). Only permissively licensed dependencies may ship.
 
 ## Current phase: design
 

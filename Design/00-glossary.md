@@ -1,6 +1,6 @@
 # 00 — Glossary
 
-Status: **Draft.** Terms marked *(phase 1)* come from the owner's phase-1 package. Terms marked *(proposed)* are new and still need confirmation.
+Status: **Draft; round-2 decisions applied.** Terms marked *(phase 1)* come from the owner's phase-1 package. Terms marked *(proposed)* are new and still need confirmation. Unmarked terms are agreed.
 
 ## Rule: the total game space is the Universe
 
@@ -14,20 +14,20 @@ The whole persistent game space is the **Universe** (D-008). It is never "the wo
 
 ## Spatial hierarchy
 
-Taken from the phase-1 breadcrumb `ORION ARM › VEIL SECTOR › KESTREL-7 › ORBIT III › KR-114`. Whether every level is a real gameplay layer is Q4.
+Taken from the phase-1 breadcrumb `ORION ARM › VEIL SECTOR › KESTREL-7 › ORBIT III › KR-114`. Agreed in D-022: **Sector, System and Holding are gameplay layers; Arm and Orbit are flavour and positioning only.**
 
 | Level | Example | Meaning |
 |---|---|---|
-| **Universe** | — | One persistent game instance, sized for up to 100 players (R-04). |
-| **Galaxy** | — | The playable star map. It is open (Q4) whether one Universe is exactly one galaxy. |
-| **Arm** | Orion Arm | Large region of the galaxy. Possibly flavour only. |
-| **Sector** | Veil Sector | Group of systems. The scale of the SECTOR zoom tab (F3). |
-| **System** | Kestrel-7 | A star with orbits, a belt and gates. The scale of the SYSTEM zoom tab (F2). The example has 7 holdings. |
-| **Orbit** | Orbit III | A position band around the star where holdings sit. |
+| **Universe** | — | The one persistent game instance (D-021), for up to 100 commanders. It runs in seasons of 8–12 weeks (D-020). |
+| **Galaxy** | — | The playable star map. Each Universe has exactly one galaxy (D-022). |
+| **Arm** | Orion Arm | Large region of the galaxy. Flavour only (D-022). |
+| **Sector** | Veil Sector | Group of systems; a gameplay layer. The scale of the SECTOR zoom tab (F3). |
+| **System** | Kestrel-7 | A star with orbits, a belt and gates; a gameplay layer, and the unit of **system control** that decides a season (D-020). The scale of the SYSTEM zoom tab (F2). The example has 7 holdings. Systems connect only through gates and lanes. |
+| **Orbit** | Orbit III | A position band around the star where holdings sit. Positioning only (D-022). |
 | **Holding** | KR-114 | A site a commander owns inside a system, built around a station. This is where the TACTICAL view (F1) plays. |
-| **Ops grid** | Ops grid 0 | The tactical reference plane of a holding (`z = 0`, voxel units), drawn as an infinite grid. The "0" suggests a holding could have more than one ops grid (Q4). |
+| **Ops grid** | Ops grid 0 | The tactical reference plane of a holding (`z = 0`, voxel units), drawn as an infinite grid. Each holding has exactly one (D-022). |
 
-**Inconsistency to resolve:** the phase-1 top bar says "SECTOR KESTREL-7", but the breadcrumb and the system panel treat Kestrel-7 as a *system*. Separately, the commanders list uses "SECTOR 3 / SECTOR 5". This document assumes Kestrel-7 is a system; Q4 asks for confirmation.
+**Resolved (D-022):** Kestrel-7 is a *system*. The phase-1 fixture's top bar now reads `SYSTEM KESTREL-7`; the reference render still shows the old label (see phase-1 doc 07). "SECTOR 3 / SECTOR 5" in the commanders list are sector names and stay as they are.
 
 ## Coordinate frames
 
@@ -43,16 +43,16 @@ Taken from the phase-1 breadcrumb `ORION ARM › VEIL SECTOR › KESTREL-7 › O
 |---|---|
 | **Player** | A person with an account in a Universe. |
 | **Commander** *(phase 1)* | The in-Universe identity that owns holdings and fleets. A commander is controlled by a human player, by their Deputy, or by an AI. The HUD shows "4 / 6 COMMANDERS". |
-| **Deputy** | The AI that runs a human commander's empire while the player is disconnected. It keeps the standard actions going and defends the commander's assets (R-03). Its exact authority is Q6. |
-| **AI commander** *(proposed)* | A commander that no human controls. The MVP has up to 9 (R-05). Proposal P-02: an AI commander is built from the Deputy plus a strategic layer. |
-| **Ally / hostile** *(phase 1)* | Diplomatic stance as seen from the local commander. Whether hostiles are players, NPC factions or both is Q5. |
-| **NPC faction** *(proposed)* | A non-commander actor such as raiders. It exists only if Q5 says so. |
+| **Deputy** | The AI layer that **always** executes a commander's doctrine (D-013). Online play adds direct control on top; while the player is offline, the Deputy runs the empire alone. Its authority is fixed in doc 12 §5.1 (D-016). |
+| **AI commander** | A commander that no human controls. The MVP has up to 9 (R-05). They play by the same rules with the same information, and simulate online and offline schedules (D-027). Proposal P-02 (still open): an AI commander is built from the Deputy plus a strategic layer. |
+| **Ally / hostile** *(phase 1)* | Diplomatic stance as seen from the local commander. Hostiles can be other commanders or NPC raiders (D-014). The MVP has no diplomacy, so every other commander is hostile (D-026, D-027). |
+| **NPC raiders** | Non-commander hostile factions that add pressure, especially when few players are online (D-014). The offline rules apply to them too. |
 
 ## Assets and structures
 
 | Term | Meaning |
 |---|---|
-| **Mother station** *(phase 1)* | The commander's core station, for example MS-01 "Aegis". What happens when it is lost is Q10. |
+| **Mother station** *(phase 1)* | The commander's core station, for example MS-01 "Aegis". It is never destroyed: if it falls in a siege it makes an **emergency jump** to a safe system and loses that site's other modules (D-017). Otherwise stations stay where they are built (D-018). |
 | **Station** | A structure assembled from modules on an ops grid. |
 | **Module** *(phase 1)* | A selectable station component: core spindle, shield pylon, factory, dry dock, solar array, truss. |
 | **Core spindle** *(phase 1)* | The centre module of a mother station: habitat ring, docking arms, sensor mast. |
@@ -79,7 +79,23 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 
 | Term | Meaning |
 |---|---|
-| **Online / offline** | Whether the human player is connected. When offline, the Deputy is in control. |
+| **Online / offline** | Whether the human player is connected. It changes only who issues direct orders; protection never depends on it (doc 12 PR-1). |
 | **Control state** *(phase 1)* | Who controls a system: CONTESTED, or held by you, a hostile or nobody (free). |
 | **Siege state** *(phase 1)* | A holding under sustained attack. |
 | **Station-keeping** *(phase 1)* | Holding position relative to a target. Aviation terms are banned (phase-1 rule). |
+
+## Offline play and sieges (doc 12)
+
+| Term | Meaning |
+|---|---|
+| **Doctrine** | The standing orders a commander writes for holdings, fleets and the economy. The Deputy executes it at all times (D-013). |
+| **Exposure window** | The one daily 4 h window, chosen per commander, in which their holdings' cores can be besieged (D-015). |
+| **Breach** | A shield sector reaching 0%. It triggers Reinforced. |
+| **Reinforced** | A hardened dome, immune to hostile fire, from the breach until the owner's next exposure window that starts at least 12 h later (D-015). |
+| **Siege** | The 60 min decisive phase after Reinforced (D-015). The phase-1 "Hold MS-01 for relief" objective is the siege clock. |
+| **Held / Fallen** | Siege outcomes. *Held* means the shield is restored, with 48 h immunity. *Fallen* means the holding is captured, or a mother station emergency-jumps (D-017). |
+| **Disabled** | A peripheral structure knocked offline outside the exposure window. It restores itself; it is never destroyed (doc 12 §3). |
+| **Vacation** | A limited absence mode: up to 7 days per season, activating 72 h after the request, with no offence and no Reinforced allowed (D-024). |
+| **Derelict** | The state of a commander's holdings after 14 days without a login. They have no exposure window, and the Deputy rebuilds nothing (D-023). |
+| **Season** | One 8–12 week run of the Universe, won by system control (D-020). |
+| **Storage cap** | The limit on stored resources, set so storage fills in about 8–12 h (D-025). |

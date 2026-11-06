@@ -1,10 +1,10 @@
 # Nomad
 
-*Working title (see Design Q18).*
+*Working title (Design D-018).*
 
-Nomad is a persistent multiplayer space RTS written in Rust. Each commander starts with a mother station and grows an empire of factories, shipyards and fleets. The Universe they share keeps evolving when they log off: while a player is away, their **Deputy** keeps the standard actions running and defends their holdings. The look is an isometric voxel diorama with a fixed-pitch camera, 4-way snap rotation and a military HUD.
+Nomad is a persistent multiplayer space RTS written in Rust. Each commander starts with a mother station and grows an empire of factories, shipyards and fleets. The Universe they share keeps evolving when they log off. Each commander's **Deputy** always executes their standing orders, and while the player is away it keeps the standard actions running and defends their holdings. The look is an isometric voxel diorama with a fixed-pitch camera, 4-way snap rotation and a military HUD.
 
-Targets: up to 100 players per Universe. The MVP is one human player against up to 9 AI commanders.
+Targets: one Universe of up to 100 commanders, played in seasons. The MVP is one human player against up to 9 AI commanders, running on a local headless server.
 
 ## Status
 
@@ -49,4 +49,4 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CODING_STANDARDS.md`](CODING_STA
 
 ## License
 
-Not decided yet. Until a license file is added, all rights are reserved.
+Proprietary. All rights reserved (Design D-031).

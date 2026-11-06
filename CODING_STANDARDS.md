@@ -78,6 +78,7 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
 
 - Declare versions once, in `[workspace.dependencies]` in the root `Cargo.toml`. Crates use `name = { workspace = true }`.
 - Justify every new dependency in the PR: what it does, why the standard library or an existing dependency is not enough, its maintenance status and its license.
+- The project is proprietary (D-031). Dependencies that ship in a binary must use permissive licences: MIT, Apache-2.0, BSD-2/3-Clause, ISC, Zlib, Unicode-3.0, or MPL-2.0 (file-level copyleft only). GPL, LGPL and AGPL are not allowed in shipped binaries. Build and dev tools are exempt.
 - No git or path dependencies outside this workspace on `main`.
 - Commit `Cargo.lock`. CI builds with `--locked`.
 - Do not commit third-party assets unless their license allows redistribution. The phase-1 fonts are OFL but deliberately not bundled.

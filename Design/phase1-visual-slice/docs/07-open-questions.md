@@ -8,3 +8,4 @@
 6. **Elevation tiers for building placement**: phase 2 must define which tiers a building type may use and how trusses are auto-generated.
 7. **Zoom-scale tabs** (System/Sector/Galaxy): visual only in phase 1; their views are a separate design.
 8. **True cubes vs z scale 0.8165**: kept behind a config flag; decide after seeing both in motion.
+9. **Top bar label (resolved, Design D-022)**: Kestrel-7 is a system. The fixture now reads `SYSTEM KESTREL-7 · OPS GRID 0`; `reference/renders/ops-grid-hud@2x.png` still shows `SECTOR KESTREL-7`. The spec wins (README ground rule 1).

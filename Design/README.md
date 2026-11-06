@@ -2,30 +2,30 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** design phase, round 2. The owner's requirements are captured. Doc 12 proposes a solution to the offline problem. Most other game-level design still waits on the questions in `02-open-questions.md`.
+**Status:** design phase, round 3. All round-1 and round-2 questions are answered (D-013 to D-031). Doc 12, offline play and the Deputy, is agreed. The next step is writing the planned documents below. Two minor questions are open (Q26, Q27).
 
 ## Documents
 
 | # | File | What it is | Status |
 |---|------|------------|--------|
-| 00 | [`00-glossary.md`](00-glossary.md) | Vocabulary and the Universe hierarchy. Read this first. | Draft |
-| 01 | [`01-game-concept.md`](01-game-concept.md) | Stated requirements, what they force, stress test, MVP framing | Draft |
-| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, each with its impact and a recommendation | Open |
+| 00 | [`00-glossary.md`](00-glossary.md) | Vocabulary and the Universe hierarchy. Read this first. | Draft (decisions applied) |
+| 01 | [`01-game-concept.md`](01-game-concept.md) | Stated requirements, what they force, stress test, MVP framing | Draft (decisions applied) |
+| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | Q26–Q27 open |
 | 03 | [`03-decision-log.md`](03-decision-log.md) | Decisions taken, with date and reason | Living |
-| 12 | [`12-offline-play-and-deputy.md`](12-offline-play-and-deputy.md) | Offline protection (stakes rule, shield lifecycle) and the Deputy (authority, doctrine, competence cap) | Proposed |
+| 12 | [`12-offline-play-and-deputy.md`](12-offline-play-and-deputy.md) | Offline protection (stakes rule, shield lifecycle, absence states) and the Deputy (authority, doctrine, competence cap) | Agreed |
 | — | [`phase1-visual-slice/`](phase1-visual-slice/README.md) | Owner's phase-1 package: client look, camera, HUD, renderer architecture, voxel assets | Agreed (owner) |
 
-Planned once the round-1 questions are answered (numbers reserved):
+Planned documents (numbers reserved). Their inputs are now decided:
 
-| # | Planned document | Depends on |
-|---|------------------|------------|
-| 10 | Universe structure: topology, scale, holdings, travel | Q1–Q4 |
-| 11 | Time and simulation: clocks, tick, offline behaviour, time scales | Q1, Q2, Q7 |
-| 13 | AI commanders (builds on the Deputy in doc 12) | Q12, Q15, Q22 |
-| 14 | Economy | Q1, Q12 |
-| 15 | Combat and defence (shield lifecycle from doc 12) | Q5, Q19–Q21 |
-| 20 | Technical architecture: server, client, persistence, networking | Q11, Q13, Q17 |
-| 30 | MVP scope, milestones and acceptance criteria | Q11–Q15 |
+| # | Planned document | Inputs |
+|---|------------------|--------|
+| 10 | Universe structure: galaxy layout, sectors, systems, holdings, gates and lanes, MVP Universe size, definition of system control | D-020, D-021, D-022 |
+| 11 | Time and simulation: tick, timer layers, time compression, persistence model | D-019, D-015, D-026 |
+| 13 | AI commanders: Strategist on top of the Deputy (P-02), schedules, difficulty | D-013, D-016, D-027 |
+| 14 | Economy: resource chain, storage caps, production, upkeep | D-019, D-025 |
+| 15 | Combat and defence: ships, shields, the siege lifecycle in detail, capture, emergency jump | D-014, D-015, D-017 |
+| 20 | Technical architecture: server, client, protocol, persistence, crates | D-026, D-029, D-030 |
+| 30 | MVP scope, milestones and acceptance criteria | D-026 to D-028 |
 
 ## Conventions
 

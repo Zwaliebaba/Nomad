@@ -1,6 +1,6 @@
 # 12 — Offline play and the Deputy
 
-Status: **Proposed (round 2).** Nothing here is agreed until it is recorded in `03-decision-log.md`. This document addresses W-01 (offline asymmetry) and W-02 (Deputy competence paradox) from `01-game-concept.md`. It is written for the hardest case, PvP (Q5). If the hostiles turn out to be NPC-only, the same rules still work, and some of them could be simplified.
+Status: **Agreed (round 2).** The principles, stakes rule, shield lifecycle, Deputy authority, absence states, and the window and timing values are agreed (D-013, D-015, D-016, D-017, D-023, D-024). Other values in §8 are proposed defaults to be tuned. This document addresses W-01 (offline asymmetry) and W-02 (Deputy competence paradox) from `01-game-concept.md`. Conflict is PvP plus NPC raiders (D-014), and the rules apply to both.
 
 ## 1. The problem in one paragraph
 
@@ -8,16 +8,16 @@ Players are offline about 85–95% of the time, attackers choose when to strike,
 
 ## 2. Principles
 
-**PR-1: Protection depends on the clock, never on connection status.** *(Proposed.)*
+**PR-1: Protection depends on the clock, never on connection status.** *(Agreed, D-015.)*
 Whether a holding can fall depends on the time of day relative to its owner's chosen window. It never depends on whether the owner is logged in. Any rule of the form "protected while the Deputy is in control" invites players to log off when attacked so they become protected; this is the classic combat-logging exploit. **This withdraws P-05 in `01-game-concept.md`,** which had exactly that flaw.
 
-**PR-2: Stakes are tiered.** *(Proposed.)*
+**PR-2: Stakes are tiered.** *(Agreed, D-015.)*
 At any moment, what a player can lose is bounded. Fleets and assets outside the shield are always at risk, and the player controls that exposure through doctrine. A holding's core can only be lost in a scheduled, time-limited battle.
 
-**PR-3: Only humans take the initiative.** *(Proposed; refines P-01.)*
+**PR-3: Only humans take the initiative.** *(Agreed, D-016; refines P-01.)*
 Attacking, expanding, claiming, diplomacy and changing doctrine are human-only actions. Offensive orders lapse when the attacking commander goes offline, so an attack needs its attacker to be present, at the start and at the decisive moment.
 
-**PR-4: The Deputy is always on.** *(Proposed; refines R-03, needs the owner's approval, see Q22.)*
+**PR-4: The Deputy is always on.** *(Agreed, D-013; refines R-03.)*
 The Deputy is not a mode that switches on at disconnect. It is the layer that always executes the commander's doctrine. Being online adds direct control on top of it. Going offline only removes that direct control. This avoids a handover discontinuity, lets players see and tune the Deputy every session, and means the offline experience is the same as the online one minus the human.
 
 **PR-5: Being offline must never be advantageous.** *(Derived from PR-1 and PR-4.)*
@@ -57,7 +57,7 @@ stateDiagram-v2
     Siege --> Held: no attacking commander online at siege start
     Siege --> Fallen: core destroyed before the clock runs out
     Held --> Nominal: shield restored, then 48 h immunity from a new Reinforced state
-    Fallen --> [*]: consequence per Q21
+    Fallen --> [*]: holding captured; a mother station emergency-jumps instead (D-017)
 ```
 
 **Reinforced**
@@ -80,7 +80,7 @@ stateDiagram-v2
 
 ### 5.1 Authority
 
-This is the proposed answer to Q6.
+Agreed (D-016).
 
 | Action | Deputy |
 |---|---|
@@ -128,6 +128,15 @@ Writing good doctrine becomes a strategic skill that pays off even while the pla
 
 The Deputy should be **competent and readable, not optimal**. It works as a utility or behaviour-tree executor of doctrine, with no strategic lookahead. Its reaction latency and command rate are capped at human levels, for example 300 ms reaction time and a bounded number of commands per second. This puts it below an engaged human at micro (PR-5). The same cap becomes the difficulty knob for the MVP's AI commanders (P-02).
 
+### 5.5 Absence states
+
+| State | How it starts | Effect | How it ends |
+|---|---|---|---|
+| **Vacation** (D-024) | The commander requests it; it activates 72 h later | Holdings cannot enter Reinforced. The commander cannot take offensive actions. The Deputy runs as normal. | The commander logs in and ends it, or 7 days per season are used up |
+| **Derelict** (D-023) | 14 days without a login | No exposure window: a breach exits Reinforced after the 12 h minimum notice, at any time of day. The Deputy defends but rebuilds nothing; the replacement list is suspended. | The commander logs in |
+
+Derelict holdings free up the Universe during a season without deleting anyone's work. With one Universe of up to 100 commanders (D-021), that matters.
+
 ## 6. Why this resolves the paradox
 
 The Deputy's quality only affects peripheral skirmishes. Peripheral losses are bounded by the player's own doctrine, and cores are decided in scheduled fights. A good Deputy is pleasant, a mediocre one is a tuning issue, and neither decides the game. Being online is worth something specific:
@@ -142,21 +151,21 @@ The Deputy's quality only affects peripheral skirmishes. Peripheral losses are b
 1. **Defender advantage and stagnation.** A well-organised defender with a good window and online allies may be nearly impossible to take. *Mitigation:* windows long enough to plan against; constant economic pressure; seasons (Q2) so the board resets. Watch this in playtests.
 2. **Time zones.** For some attackers, some targets fall in the middle of their night. That is accepted: the attacker chose the target. Expect time-zone clustering among allies.
 3. **Timer bureaucracy.** Games with scheduled vulnerability can turn into calendar management. At 100 players with a few holdings each, the timer load stays small. The away report and HUD must make timers obvious without becoming an event log, which phase 1 removed from the HUD.
-4. **Dogpiling.** Several holdings of one commander can come out of Reinforced at the start of the same window. *Option:* spread their exit times across the window. This is open, part of Q20.
+4. **Dogpiling.** Several holdings of one commander can come out of Reinforced at the start of the same window. *Open:* Q26 proposes spreading their exit times across the window.
 5. **Doctrine UX is new UI work.** Nothing in the phase-1 HUD covers writing doctrine except the PWR ROUTE toggle. Good presets matter more than a powerful editor.
 6. **Predictable Deputy behaviour can be learned and exploited.** That is accepted, because only peripheral, bounded assets are exposed.
 7. **The MVP has one human with irregular sessions.** A 4 h daily window and 12 h of notice are impractical to test in real time. All timings must be configuration values, with a time-compression setting per Universe for test runs.
-8. **Vacation.** A player who is away for days is defended only by the Deputy, including during their sieges. *Option:* a limited vacation mode (Q23).
+8. **Vacation.** A player who is away for days is defended only by the Deputy, including during their sieges. *Decided:* a limited vacation mode (D-024, §5.5).
 
 ## 8. Proposed defaults (all configurable, to be tuned)
 
 | Parameter | Value | Reason |
 |---|---|---|
-| Exposure window | 4 h per day, contiguous, chosen per commander | Attendable by the defender; plannable for attackers |
-| Window change delay | 48 h | Prevents dodging an attack that is already known |
-| Minimum notice from breach to siege | 12 h | Covers a night or a working day |
-| Siege clock | 60 min | One play session; enough time for relief to arrive |
-| Immunity after Held | 48 h | No permanent lockdown |
+| Exposure window | 4 h per day, contiguous, chosen per commander (agreed, D-015) | Attendable by the defender; plannable for attackers |
+| Window change delay | 48 h (agreed, D-015) | Prevents dodging an attack that is already known |
+| Minimum notice from breach to siege | 12 h (agreed, D-015) | Covers a night or a working day |
+| Siege clock | 60 min (agreed, D-015) | One play session; enough time for relief to arrive |
+| Immunity after Held | 48 h (agreed, D-015) | No permanent lockdown |
 | Disconnect grace | 120 s | Network blips do not cancel orders |
 | Disabled peripheral restore | 10 min after the last hostile leaves | Raids hurt, then heal |
 | Deputy reaction / command rate | 300 ms / human-level cap | PR-5 |
@@ -165,5 +174,5 @@ The Deputy's quality only affects peripheral skirmishes. Peripheral losses are b
 
 - **Phase 1:** no change. The HUD will later need a window indicator, a Reinforced countdown, the siege clock, Deputy and doctrine status, and the away report. These are not phase-1 scope.
 - **`01-game-concept.md`:** P-05 is withdrawn and P-01 is refined by PR-3 and PR-4.
-- **`02-open-questions.md`:** this document gives proposed answers to Q6, Q7 and Q8, and raises Q19–Q23.
-- **Assumption:** Q1 is answered with continuous real time. A strategic-tick model would still work with these rules, but the timings would change.
+- **`02-open-questions.md`:** Q6–Q8 and Q19–Q23 are answered. Q26 (staggered exits) is open.
+- **Time model:** continuous real time (D-019), so the timings above are wall-clock values.

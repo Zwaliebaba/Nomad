@@ -1,6 +1,6 @@
 # 01 — Game concept
 
-Status: **Draft, round 1.** This document separates what the owner has *stated*, what those statements *force*, where the concept is weakest, and what I *propose*. Nothing proposed here counts as decided until it is recorded in `03-decision-log.md`.
+Status: **Draft; round-2 decisions applied.** Sections 2–3 are kept as the original analysis. Section 4 shows each proposal's status, and section 5 reflects the agreed MVP. This document separates what the owner has *stated*, what those statements *force*, where the concept is weakest, and what I *propose*. Nothing proposed here counts as decided until it is recorded in `03-decision-log.md`.
 
 ## 1. Stated requirements
 
@@ -8,8 +8,8 @@ Status: **Draft, round 1.** This document separates what the owner has *stated*,
 |---|---|---|
 | R-01 | A multiplayer space RTS, implemented in Rust. | Owner |
 | R-02 | The **Universe** is persistent and keeps evolving while players are disconnected. | Owner |
-| R-03 | When a player is not connected, a **Deputy** takes over. It keeps the standard actions running and defends the player's assets. | Owner |
-| R-04 | The Universe is sized for **up to 100 players**, as a target for now. | Owner |
+| R-03 | When a player is not connected, a **Deputy** takes over. It keeps the standard actions running and defends the player's assets. | Owner; refined by D-013 (the Deputy is always on) |
+| R-04 | The Universe is sized for **up to 100 players**, as a target for now. | Owner; one Universe of up to 100 commanders (D-021) |
 | R-05 | **MVP:** limited scope, playable by **one human player with up to 9 AI players**. | Owner |
 | R-06 | Terminology: the total game space is called the **Universe**. *World* stays fine as a technical term. | Owner |
 | R-07 | Look and interaction follow the phase-1 package: an isometric voxel diorama with a fixed-pitch camera, 4-way snap rotation and a military HUD. The premise is that the player starts with a mother station and grows an empire of factories and shipyards. | Owner, `phase1-visual-slice/` |
@@ -111,32 +111,34 @@ The phase-1 fixture shows ALLOY 21,860 at +312/m. A player offline for 8 hours a
 
 ## 4. Proposals for the owner to accept or reject
 
-| ID | Proposal | Addresses |
-|---|---|---|
-| P-01 | **The Deputy executes doctrine; it does not strategise.** It runs owner-authored standing orders (build queues, convoy routes, patrols, power priorities, rules of engagement) plus a fixed defensive repertoire. It never starts offence, expansion or diplomacy. The same mechanism is available while the player is online, as delegation per holding or per fleet, so the Deputy is a feature that gets used and tested every session, not a fallback that is only discovered when it fails. | W-01, W-02 |
-| P-02 | **One AI stack.** AI commander = Deputy (operational and tactical) + Strategist (strategic). The MVP's 9 AI players use it. | W-06 |
-| P-03 | **The MVP is client–server from day one.** It has a headless authoritative server, localhost is fine, and the Universe keeps running when the client closes. | W-03, C-01 |
-| P-04 | **One authoritative simulation process for ≤100 players,** partitioned internally by system, with snapshots plus a command journal for durability. No sharding until measurements demand it. | W-05, C-05, C-06 |
-| P-05 | ~~**Offline protection through the shield.** When a Deputy-defended holding comes under siege, the shield enters a reinforced state, and the decisive phase is deferred to a window the defender can attend.~~ **Withdrawn (round 2):** tying protection to Deputy control is exploitable, because a defender could log off to become protected. Replaced by the clock-based stakes rule in `12-offline-play-and-deputy.md`. P-01 is refined there as well (PR-3, PR-4). | W-01 |
-| P-06 | **Seasonal Universes** with a win condition. Balance changes land between seasons. | W-04 |
+| ID | Proposal | Addresses | Status |
+|---|---|---|---|
+| P-01 | **The Deputy executes doctrine; it does not strategise.** It runs owner-authored standing orders (build queues, convoy routes, patrols, power priorities, rules of engagement) plus a fixed defensive repertoire. It never starts offence, expansion or diplomacy. The same mechanism is available while the player is online, as delegation per holding or per fleet, so the Deputy is a feature that gets used and tested every session, not a fallback that is only discovered when it fails. | W-01, W-02 | Accepted, refined (D-013, D-016) |
+| P-02 | **One AI stack.** AI commander = Deputy (operational and tactical) + Strategist (strategic). The MVP's 9 AI players use it. | W-06 | Open: to be detailed in doc 13 |
+| P-03 | **The MVP is client–server from day one.** It has a headless authoritative server, localhost is fine, and the Universe keeps running when the client closes. | W-03, C-01 | Accepted (D-026) |
+| P-04 | **One authoritative simulation process for ≤100 players,** partitioned internally by system, with snapshots plus a command journal for durability. No sharding until measurements demand it. | W-05, C-05, C-06 | Consistent with D-021 and D-030; to be decided in doc 20 |
+| P-05 | ~~**Offline protection through the shield.** When a Deputy-defended holding comes under siege, the shield enters a reinforced state, and the decisive phase is deferred to a window the defender can attend.~~ **Withdrawn (round 2):** tying protection to Deputy control is exploitable, because a defender could log off to become protected. Replaced by the clock-based stakes rule in `12-offline-play-and-deputy.md`. P-01 is refined there as well (PR-3, PR-4). | W-01 | Withdrawn |
+| P-06 | **Seasonal Universes** with a win condition. Balance changes land between seasons. | W-04 | Accepted (D-020) |
 
 ## 5. MVP framing
 
 **Stated:** one human, up to 9 AI players, limited scope (R-05).
 
+**Agreed (round 2):**
+
+- **Architecture:** a headless authoritative server keeps the Universe running when the client closes; localhost is fine (D-026). The server runs locally next to the Windows client and is built to be containerised for later hosting (D-029). Stack: `hecs`, `tokio` + `quinn`, SQLite (D-030).
+- **Loops:**
+  - economy and building, with storage caps (D-025);
+  - fleets and combat, including the shield and siege lifecycle (D-015);
+  - travel between systems through gates and lanes (D-022).
+  - Diplomacy is out (D-026).
+- **Opponents:** up to 9 fair AI commanders in a free-for-all, with simulated online and offline schedules, so the human meets Deputy-run empires and their own empire runs under its Deputy (D-027). NPC raiders are part of the Universe (D-014).
+- **Winning:** a season is won by system control (D-020). Commanders are never eliminated (D-017).
+- **Sequencing:** phase 1 first; the simulation, Deputy and server are designed in parallel (D-028).
+
 **Derived:**
 
-- Enough Universe for 10 commanders to have holdings.
-- AI commanders.
-- Everything in phase 1 that the play loop needs, such as the tactical view and HUD.
+- An MVP Universe big enough for 10 commanders plus NPC raiders, with several systems per commander so that capture and system control mean something. Sizing goes in doc 10.
+- All timings need a per-Universe time-compression setting, because a 4 h window and 12 h notice cannot be tested in real time with one human (doc 12 §7).
 
-**If P-03 is accepted, also derived:** a headless server, persistence and the Deputy.
-
-**Open, and blocking the MVP scope document (30):**
-
-- Which loops are in: economy, building, production, fleet control, combat, travel between systems, diplomacy.
-- The win and lose conditions.
-- Hosting and target platforms.
-- How the MVP is sequenced against the phase-1 visual slice (Q11–Q15).
-
-**Relationship to phase 1:** phase 1 is a client-only visual slice, and its fixture-driven HUD is the contract the simulation will later feed. Phase 1 can proceed as specified while the simulation and Deputy are designed in parallel. The one change to watch is that the fixture schema should grow into the server-to-client view-model, not be replaced by one.
+**Relationship to phase 1:** phase 1 is a client-only visual slice, and its fixture-driven HUD is the contract the simulation will later feed. The fixture schema should grow into the server-to-client view-model, not be replaced by one.

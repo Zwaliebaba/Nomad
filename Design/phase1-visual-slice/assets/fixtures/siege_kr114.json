@@ -3,7 +3,7 @@
  "scenario": "siege_kr114",
  "top_bar": {
   "holding": "HOLDING KR-114",
-  "sector": "SECTOR KESTREL-7 · OPS GRID 0",
+  "sector": "SYSTEM KESTREL-7 · OPS GRID 0",
   "mission": "T+02:31:40",
   "resources": [
    {
