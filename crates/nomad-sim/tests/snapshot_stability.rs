@@ -14,7 +14,7 @@
 //!
 //! The state carries the season's rules (D-104), so a deliberate change to the embedded rules
 //! file also changes these values without a format change: the schema stays readable. Last
-//! re-recorded for format 8 (ship combat state, S5 plan §4.9).
+//! re-recorded for format 9 (S4: modules and the economy, after S5a's format 8).
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
 use nomad_sim::snapshot::{self, state_hash};
@@ -30,15 +30,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0x3226_ae44_553e_87d5),
-    (1, 0xeb7e_bd77_580d_eea6),
-    (2, 0x347d_6732_ab4c_9363),
-    (7, 0xc23a_b1e2_9893_dba1),
-    (99, 0x066e_4b56_d39d_5d57),
+    (0, 0xee45_5704_54d0_cf85),
+    (1, 0x72bb_5f4c_c292_76dc),
+    (2, 0xd41c_b030_a1ff_fb95),
+    (7, 0x73c6_287d_e675_08f9),
+    (99, 0x7a8d_454f_09d5_50ff),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0xd774_c136_4317_bab6;
+const DIAGNOSTIC_RUN_HASH: u64 = 0x3828_7255_ab00_4e1e;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig {
@@ -49,7 +49,7 @@ fn season(seed: u64) -> SeasonConfig {
 
 #[test]
 fn snapshot_format_is_unchanged() {
-    assert_eq!(snapshot::FORMAT, 8);
+    assert_eq!(snapshot::FORMAT, 9);
 }
 
 #[test]

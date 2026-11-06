@@ -8,9 +8,10 @@ use nomad_protocol::{
     PROTOCOL_VERSION, RejectReason, ServerMessage, ViewChanges, ViewSnapshot,
 };
 use nomad_types::{
-    Command, CommanderId, ControlState, FactionId, FleetId, FleetOrder, HoldingId, HoldingOrder,
-    LaneKind, Owner, PositionMetres, Queueing, RulesOfEngagement, SeasonClock, ShipId, SimId,
-    SystemId, SystemKind, Tick, UniverseId,
+    BuildItem, Command, CommanderId, ControlState, EconomyCommand, FactionId, FleetId, FleetOrder,
+    HoldingId, HoldingOrder, LaneKind, ModuleKind, Owner, PositionMetres, PowerProfile, Queueing,
+    RulesOfEngagement, SeasonClock, ShipClass, ShipId, SimId, SiteId, Slot, SystemId, SystemKind,
+    Tick, UniverseId,
 };
 
 pub const YOU: CommanderId = CommanderId(1);
@@ -94,6 +95,50 @@ pub fn commands() -> Vec<Command> {
             fleet: FleetId(id(502)),
             into: FleetId(id(501)),
         },
+        Command::Economy(EconomyCommand::Build {
+            holding: HoldingId(id(16)),
+            item: BuildItem::Module {
+                kind: ModuleKind::Refinery,
+                slot: Slot::Inner(2),
+            },
+        }),
+        Command::Economy(EconomyCommand::Build {
+            holding: HoldingId(id(16)),
+            item: BuildItem::Ship {
+                class: ShipClass::Warden,
+            },
+        }),
+        Command::Economy(EconomyCommand::Build {
+            holding: HoldingId(id(16)),
+            item: BuildItem::CoreKit,
+        }),
+        Command::Economy(EconomyCommand::Cancel {
+            holding: HoldingId(id(16)),
+            item: id(700),
+        }),
+        Command::Economy(EconomyCommand::SetPowerProfile {
+            holding: HoldingId(id(16)),
+            profile: PowerProfile::ShieldsFirst,
+        }),
+        Command::Economy(EconomyCommand::SetRally {
+            holding: HoldingId(id(16)),
+            fleet: Some(FleetId(id(501))),
+        }),
+        Command::Economy(EconomyCommand::SetRepair {
+            holding: HoldingId(id(16)),
+            on: true,
+        }),
+        Command::Economy(EconomyCommand::Convoy {
+            fleet: FleetId(id(501)),
+            route: vec![HoldingId(id(17)), HoldingId(id(16))],
+        }),
+        Command::Economy(EconomyCommand::LoadCoreKit {
+            fleet: FleetId(id(501)),
+        }),
+        Command::Economy(EconomyCommand::DeployCoreKit {
+            fleet: FleetId(id(501)),
+            site: SiteId(id(40)),
+        }),
     ]
 }
 
@@ -422,8 +467,9 @@ pub const fn command_variant(command: &Command) -> usize {
         Command::Holding { .. } => 1,
         Command::CreateFleet { .. } => 2,
         Command::MergeFleets { .. } => 3,
+        Command::Economy(..) => 4,
     }
 }
 
 /// Number of [`Command`] variants.
-pub const COMMAND_VARIANTS: usize = 4;
+pub const COMMAND_VARIANTS: usize = 5;

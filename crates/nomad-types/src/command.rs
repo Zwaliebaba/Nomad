@@ -14,10 +14,12 @@
 //! rejects it.
 //!
 //! Commands are grouped by what they act on (doc 20 §5): a fleet, a holding, or fleet
-//! management. Economy and doctrine commands arrive with their work packages (docs 12–14).
+//! management, plus economy commands ([`EconomyCommand`], doc 14). Doctrine commands arrive
+//! with their work package (doc 12).
 
 use serde::{Deserialize, Serialize};
 
+use crate::economy::EconomyCommand;
 use crate::id::{FleetId, HoldingId, ShipId, SimId, SystemId};
 use crate::position::Location;
 
@@ -56,6 +58,9 @@ pub enum Command {
         /// The fleet that absorbs it.
         into: FleetId,
     },
+    /// An economy command: building, power, rally, repair, convoys and claims (doc 14;
+    /// S4 plan §4.7).
+    Economy(EconomyCommand),
 }
 
 /// How a fleet order relates to the orders the fleet already has (S3 plan §4.4).

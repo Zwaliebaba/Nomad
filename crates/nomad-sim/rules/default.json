@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@2",
+  "format": "nomad-rules@3",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -81,8 +81,60 @@
     "fleet": {
       "VX": 3,
       "MULE": 2
+    }
+  },
+  "economy": {
+    "core": { "mother_supply_mw": 520, "supply_mw": 120, "mother_hull": 600000, "hull": 300000, "deploy_s": 7200 },
+    "core_kit": { "alloy": 6000, "crystal": 500, "build_s": 900 },
+    "modules": {
+      "Pylon": { "cost": { "alloy": 2500, "crystal": 300, "build_s": 1800 }, "draw_mw": 40, "supply_mw": 0, "hull": 40000 },
+      "Solar": { "cost": { "alloy": 3000, "crystal": 0, "build_s": 1800 }, "draw_mw": 0, "supply_mw": 620, "hull": 20000 },
+      "Harvester": { "cost": { "alloy": 2000, "crystal": 0, "build_s": 1200 }, "draw_mw": 60, "supply_mw": 0, "hull": 15000 },
+      "Refinery": { "cost": { "alloy": 3500, "crystal": 0, "build_s": 2400 }, "draw_mw": 120, "supply_mw": 0, "hull": 40000 },
+      "Extractor": { "cost": { "alloy": 2500, "crystal": 0, "build_s": 1800 }, "draw_mw": 60, "supply_mw": 0, "hull": 15000 },
+      "Storage": { "cost": { "alloy": 1500, "crystal": 0, "build_s": 900 }, "draw_mw": 0, "supply_mw": 0, "hull": 20000 },
+      "Turret": { "cost": { "alloy": 2000, "crystal": 200, "build_s": 1200 }, "draw_mw": 40, "supply_mw": 0, "hull": 30000 },
+      "DryDock": { "cost": { "alloy": 5000, "crystal": 300, "build_s": 3600 }, "draw_mw": 150, "supply_mw": 0, "hull": 50000 }
     },
-    "mother_station_dry_docks": 1
+    "ships": {
+      "VX": { "cost": { "alloy": 1200, "crystal": 0, "build_s": 180 }, "command": 6 },
+      "LANCER": { "cost": { "alloy": 2000, "crystal": 100, "build_s": 300 }, "command": 10 },
+      "WARDEN": { "cost": { "alloy": 4000, "crystal": 600, "build_s": 1200 }, "command": 25 },
+      "MULE": { "cost": { "alloy": 1500, "crystal": 0, "build_s": 300 }, "command": 4 }
+    },
+    "production": { "harvester_ore_per_h": 600, "refinery_alloy_per_h": 900, "extractor_crystal_per_h": 60, "ore_buffer_h": 1 },
+    "power": { "regen_mw_per_sector": 120 },
+    "storage": { "base_alloy": 4000, "base_crystal": 600, "rack_alloy": 4000, "rack_crystal": 400, "buffer_h": 2 },
+    "logistics": { "mule_units": 2000, "stop_radius_m": 3000, "deploy_range_m": 5000, "max_route_stops": 8 },
+    "command_cap": { "base": 120, "per_holding": 10, "max": 300 },
+    "repair": { "free_percent_per_min": 1, "damage_grace_s": 60, "ability_alloy_per_s": 8, "ability_hull_per_s": 80 },
+    "queue": { "max_items": 24 },
+    "start": {
+      "alloy": 6000,
+      "crystal": 500,
+      "modules": [
+        { "kind": "Pylon", "slot": { "Pylon": 0 } },
+        { "kind": "Pylon", "slot": { "Pylon": 1 } },
+        { "kind": "Pylon", "slot": { "Pylon": 2 } },
+        { "kind": "Pylon", "slot": { "Pylon": 3 } },
+        { "kind": "Solar", "slot": "Solar" },
+        { "kind": "Harvester", "slot": { "Deposit": 0 } },
+        { "kind": "Refinery", "slot": { "Inner": 0 } },
+        { "kind": "Storage", "slot": { "Inner": 1 } },
+        { "kind": "DryDock", "slot": "Dock" }
+      ]
+    },
+    "slots": {
+      "dome_radius_voxels": 36,
+      "pylons": [[-18, -18], [18, -18], [18, 18], [-18, 18]],
+      "inner": [[-22, 0], [0, -22], [22, 0], [0, 22], [12, -12], [-12, -12]],
+      "mother_inner": 6,
+      "other_inner": 4,
+      "dock": [-12, 14],
+      "solar": [-40, -24],
+      "deposits": [[48, 18], [18, 48]],
+      "radius_voxels": { "core": 15, "pylon": 6, "inner": 10, "dock": 12, "solar": 20, "deposit": 10 }
+    }
   },
   "combat": {
     "engagement_s": 30,

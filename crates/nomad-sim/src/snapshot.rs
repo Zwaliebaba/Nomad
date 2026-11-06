@@ -27,8 +27,11 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   (S3 plan §4.2);
 /// - 7: the rules gain the combat section (S5 plan §4.1);
 /// - 8: ship combat state: damage, weapons, attackers, engagement deadlines and projectiles
-///   in flight (S5 plan §4.9).
-pub const FORMAT: u32 = 8;
+///   in flight (S5 plan §4.9);
+/// - 9: station modules as entities (module, hull, construction and disabled tables) and the
+///   economy: pools, holding economies, queues, convoys and cargo (S4); rules format 3, which
+///   holds both the combat and the economy sections.
+pub const FORMAT: u32 = 9;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

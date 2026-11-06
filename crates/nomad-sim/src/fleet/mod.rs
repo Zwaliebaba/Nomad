@@ -418,7 +418,11 @@ impl UniverseState {
         } else {
             docking.core_ships
         };
-        core.saturating_add(docking.dry_dock_ships.saturating_mul(h.dry_docks))
+        core.saturating_add(
+            docking
+                .dry_dock_ships
+                .saturating_mul(self.dry_docks(holding)),
+        )
     }
 
     /// Checks the ships and fleets for broken invariants and returns what is wrong, if

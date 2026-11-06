@@ -18,7 +18,8 @@
 //! | Formation spacing, neighbour cells | S3 plan §4.3 |
 //! | Gates | D-055: 2 km scatter, 5 s spool-up, 10 s shroud; S3 plan §4.4: within 2 km |
 //! | Docking | D-102 (Q93) |
-//! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE, one dry dock |
+//! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE; the station's modules and stock are in the economy section |
+//! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*) |
 //! | Cruise drop range | Doc 15 §3.3: a hostile within 20 km (a hook until S7) |
 //! | Combat: hull, weapons, multipliers, hit radii | [`combat`] (doc 15 §3–§4, §12; D-052, D-143) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
@@ -37,7 +38,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@2";
+pub const RULES_FORMAT: &str = "nomad-rules@3";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -80,6 +81,9 @@ pub struct Rules {
     pub docking: DockingRules,
     /// What each commander starts with.
     pub start_kit: StartKit,
+    /// The economy: modules, ships, production, power, storage, logistics and the start
+    /// station (doc 14; S4).
+    pub economy: crate::economy::rules::EconomyRules,
     /// The mother station's layout, for obstacles and the launch point.
     pub mother_station: StationLayout,
     /// Hull, weapons and the multiplier table (S5).
@@ -170,10 +174,9 @@ pub struct DockingRules {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StartKit {
-    /// The ships of the starting fleet, docked at the mother station.
+    /// The ships of the starting fleet, docked at the mother station. The station's modules
+    /// and stock are in [`crate::economy::rules::StartRules`].
     pub fleet: BTreeMap<ShipClass, u32>,
-    /// Dry docks of the mother station, for docking capacity.
-    pub mother_station_dry_docks: u32,
 }
 
 /// The mother station's layout in phase-1 grid voxels (phase-1 doc 03; doc 10 §8).
@@ -333,7 +336,17 @@ impl Rules {
                 ));
             }
         }
-        self.combat.check(&self.ship_classes)
+        self.combat.check(&self.ship_classes)?;
+        self.economy.check()?;
+        for class in self.economy.ships.keys() {
+            if self.class(*class).npc {
+                return Err(invalid(
+                    format!("economy.ships.{class:?}"),
+                    "NPC classes cannot be built",
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -370,6 +383,7 @@ fn non_negative(field: &str, value: f64) -> Result<(), RulesError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nomad_types::ModuleKind;
 
     #[test]
     #[expect(
@@ -415,6 +429,19 @@ mod tests {
             rules.start_kit.fleet,
             BTreeMap::from([(ShipClass::Vx, 3), (ShipClass::Mule, 2)])
         );
+        // Doc 14 §9.3–§9.4, §12 (D-112), D-129, D-133.
+        let economy = &rules.economy;
+        assert_eq!(economy.module(ModuleKind::Refinery).cost.alloy, 3_500);
+        assert_eq!(economy.module(ModuleKind::Solar).supply_mw, 620);
+        assert_eq!(economy.ship(ShipClass::Warden).map(|s| s.command), Some(25));
+        assert_eq!(economy.ship(ShipClass::HeavyCruiser), None);
+        assert_eq!((economy.start.alloy, economy.start.crystal), (6_000, 500));
+        assert_eq!(economy.start.modules.len(), 9);
+        assert_eq!(
+            (economy.command_cap.base, economy.command_cap.per_holding),
+            (120, 10)
+        );
+        assert_eq!(economy.logistics.mule_units, 2_000);
         // The slowest commander warship is the WARDEN (D-099 item 5), not the HSTL.
         assert_eq!(rules.slowest_commander_warship(), ShipClass::Warden);
         assert!((vx.turn_rate_rad_per_s() - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
@@ -427,8 +454,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@2", "nomad-rules@3"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@3"
+            swap("nomad-rules@3", "nomad-rules@2"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@2"
         ));
         assert!(matches!(
             swap("\"ops_area_radius_m\"", "\"ops_radius_m\""),

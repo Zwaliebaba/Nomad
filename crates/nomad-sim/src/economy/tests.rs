@@ -1,0 +1,1194 @@
+//! Economy tests (S4 plan §8 "Done when").
+
+use std::collections::BTreeSet;
+
+use nomad_types::{
+    BuildItem, Command, DepositKind, EconomyCommand, FleetOrder, ModuleKind, PowerProfile,
+    ShipClass, Slot,
+};
+
+use super::power::{self, Consumer};
+use super::*;
+use crate::command::CommandRejection as R;
+use crate::command::tests::economy_reasons;
+use crate::fleet::{Fleet, Motion, Place};
+use crate::snapshot::{decode, encode, state_hash};
+use crate::testkit::{commander, home, idle, kit_fleet, order, send, stage1};
+use crate::validate_command;
+
+const ONE_HOUR: u64 = 3_600 * TICKS_PER_SECOND;
+
+fn eco(command: EconomyCommand) -> Command {
+    Command::Economy(command)
+}
+
+fn events(outputs: &[crate::TickOutputs]) -> Vec<EconomyEvent> {
+    outputs
+        .iter()
+        .flat_map(|o| o.economy_events.iter().copied())
+        .collect()
+}
+
+fn check(state: &UniverseState, n: u32, command: EconomyCommand) -> Result<(), R> {
+    validate_command(state, commander(n), &eco(command))
+}
+
+/// The id of the queue item an `ItemQueued` event names, from one tick's outputs.
+fn queued(outputs: &crate::TickOutputs) -> SimId {
+    outputs
+        .economy_events
+        .iter()
+        .find_map(|e| match e {
+            EconomyEvent::ItemQueued { item, .. } => Some(*item),
+            _ => None,
+        })
+        .expect("the item was queued")
+}
+
+#[test]
+fn flows_are_exact_over_a_day() {
+    for rate in [600_000_u64, 900_000, 60_000, 333_333, 1] {
+        let mut flow = Flow::default();
+        let total: u64 = (0..86_400).map(|_| flow.second(rate)).sum();
+        assert_eq!(total, rate * 24, "rate {rate}");
+    }
+    // A rate change restarts the count without losing exactness from then on.
+    let mut flow = Flow::default();
+    let first: u64 = (0..1_800).map(|_| flow.second(600_000)).sum();
+    let second: u64 = (0..3_600).map(|_| flow.second(300_000)).sum();
+    assert_eq!((first, second), (300_000, 300_000));
+}
+
+#[test]
+fn the_start_station_is_the_start_kit() {
+    let state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let modules = state.modules_at(mother);
+    let kinds: Vec<ModuleKind> = modules.iter().map(|m| m.kind).collect();
+    assert_eq!(kinds.len(), 10, "{kinds:?}");
+    for kind in [
+        ModuleKind::Core,
+        ModuleKind::Solar,
+        ModuleKind::Harvester,
+        ModuleKind::Refinery,
+        ModuleKind::Storage,
+        ModuleKind::DryDock,
+    ] {
+        assert_eq!(kinds.iter().filter(|&&k| k == kind).count(), 1, "{kind:?}");
+    }
+    assert_eq!(kinds.iter().filter(|&&k| k == ModuleKind::Pylon).count(), 4);
+    assert!(
+        modules
+            .iter()
+            .all(|m| m.building_ms.is_none() && !m.disabled)
+    );
+    assert_eq!(state.pool(CommanderId(1)), Stock::units(6_000, 500));
+    assert_eq!(state.pool_cap(CommanderId(1)), Stock::units(8_000, 1_000));
+    assert_eq!(state.dry_docks(mother), 1);
+    assert_eq!(state.docking_capacity(mother), 30);
+    assert_eq!(state.pylons_per_sector(mother), [true; 4]);
+    assert_eq!(
+        (
+            state.command_cap(CommanderId(1)),
+            state.command_used(CommanderId(1))
+        ),
+        (120, 26)
+    );
+    assert!(state.is_depot(mother) && state.delivers_to_pool(mother));
+    assert!(
+        state.economy_problems().is_empty(),
+        "{:?}",
+        state.economy_problems()
+    );
+    // The mother site has exactly its standard ore field (D-098).
+    let site = state
+        .galaxy()
+        .site(state.holding(mother).unwrap().site)
+        .unwrap();
+    assert_eq!(site.deposits.len(), 1);
+    assert_eq!(site.deposits[0].kind, DepositKind::OreField);
+}
+
+#[test]
+fn the_start_kit_produces_600_alloy_an_hour_exactly() {
+    let mut state = stage1(7);
+    idle(&mut state, ONE_HOUR);
+    for n in 1..=4 {
+        let economy = state.economy_of(CommanderId(n));
+        assert_eq!(economy.produced, Stock::units(600, 0), "commander {n}");
+        assert_eq!(economy.income_last_hour, Stock::units(600, 0));
+        assert_eq!(economy.pool, Stock::units(6_600, 500));
+        assert_eq!(economy.lost, Stock::ZERO);
+    }
+    // Power at the start: 1,140 MW supply, 340 MW demand, all served.
+    let (mother, _) = home(&state, 1);
+    let power = state.power(mother).unwrap();
+    assert_eq!(
+        (power.supply_kw, power.demand_kw, power.allocated_kw),
+        (1_140_000, 340_000, 340_000)
+    );
+    assert_eq!(power.load_permille(), 298);
+}
+
+#[test]
+fn a_full_pool_clips_and_counts_the_overflow() {
+    let mut state = stage1(7);
+    let you = CommanderId(1);
+    let cap = state.pool_cap(you);
+    state.economy.pools.insert(
+        you,
+        Stock {
+            alloy: cap.alloy - 100,
+            crystal: 0,
+        },
+    );
+    let out = idle(&mut state, 100);
+    assert_eq!(state.pool(you).alloy, cap.alloy);
+    let lost = state.economy_of(you).lost;
+    assert!(lost.alloy > 0);
+    assert_eq!(
+        state.economy_of(you).produced.alloy,
+        100 + lost.alloy,
+        "everything produced is either kept or counted as lost"
+    );
+    assert!(
+        events(&out).iter().any(
+            |e| matches!(e, EconomyEvent::PoolOverflow { commander, .. } if *commander == you)
+        )
+    );
+}
+
+/// Places a completed holding of commander 1 on a free site with an ore field in another
+/// system than its mother station, with a harvester, a refinery and a solar array.
+fn remote_ore_holding(state: &mut UniverseState) -> HoldingId {
+    let (_, home_system) = home(state, 1);
+    let site = state
+        .galaxy()
+        .sites()
+        .find(|(id, s)| {
+            s.system != home_system
+                && state.holding_at(*id).is_none()
+                && s.deposits
+                    .first()
+                    .is_some_and(|d| d.kind == DepositKind::OreField)
+                && state
+                    .galaxy()
+                    .system(s.system)
+                    .is_some_and(|sys| crate::galaxy::is_claimable(sys.kind))
+        })
+        .map(|(id, _)| id)
+        .expect("a free ore site elsewhere");
+    let holding = state.insert_holding(site, CommanderId(1), true).unwrap();
+    spawn_module(state, holding, Slot::Core, ModuleKind::Core, None);
+    spawn_module(
+        state,
+        holding,
+        Slot::Deposit(0),
+        ModuleKind::Harvester,
+        None,
+    );
+    spawn_module(state, holding, Slot::Inner(0), ModuleKind::Refinery, None);
+    spawn_module(state, holding, Slot::Solar, ModuleKind::Solar, None);
+    holding
+}
+
+#[test]
+fn a_remote_buffer_fills_to_two_hours_and_stops() {
+    let mut state = stage1(7);
+    let remote = remote_ore_holding(&mut state);
+    assert!(!state.delivers_to_pool(remote));
+    let richness = state
+        .galaxy()
+        .site(state.holding(remote).unwrap().site)
+        .unwrap()
+        .deposits[0]
+        .richness;
+    let per_h = 600 * richness_permille(richness);
+    assert_eq!(
+        state.buffer_cap(remote),
+        Stock {
+            alloy: per_h * 2,
+            crystal: 0
+        }
+    );
+    state.economy.holdings.get_mut(&remote).unwrap().buffer = Stock {
+        alloy: per_h * 2 - 50,
+        crystal: 0,
+    };
+    let out = idle(&mut state, 100);
+    let view = state.holding_economy(remote).unwrap();
+    assert_eq!(view.buffer, view.buffer_cap);
+    assert!(
+        events(&out).iter().any(
+            |e| matches!(e, EconomyEvent::BufferOverflow { holding, .. } if *holding == remote)
+        )
+    );
+    // Remote production went to the buffer, not the pool.
+    assert_eq!(
+        state.pool(CommanderId(1)).alloy,
+        6_000_000 + 100 * 600_000 / 36_000
+    );
+}
+
+#[test]
+fn power_follows_each_profile_with_all_or_nothing_fixed_draws() {
+    let mut state = stage1(7);
+    let remote = remote_ore_holding(&mut state);
+    // Take the solar array away: 120 MW from the core only.
+    let solar = state.economy.holdings[&remote].slots[&Slot::Solar];
+    let mut ev = Vec::new();
+    assert!(destroy_module(&mut state, solar, &mut ev));
+    // Four turrets ask for 160 MW of fixed power: three get it, the fourth none.
+    for i in 1..=3 {
+        spawn_module(&mut state, remote, Slot::Inner(i), ModuleKind::Turret, None);
+    }
+    spawn_module(&mut state, remote, Slot::Pylon(0), ModuleKind::Turret, None);
+    let now = state.tick();
+    power::allocate(&mut state, remote, now);
+    let p = state.power(remote).unwrap().clone();
+    assert_eq!(p.supply_kw, 120_000);
+    let fixed: Vec<bool> = p
+        .consumers
+        .iter()
+        .filter(|c| c.demand_kw == 40_000)
+        .map(|c| c.allocated_kw == c.demand_kw)
+        .collect();
+    assert_eq!(fixed, [true, true, true, false]);
+    assert_eq!(p.headroom_kw, 0);
+
+    // Remove two turrets: 40 MW left after the fixed draw for scalable consumers.
+    for slot in [Slot::Inner(1), Slot::Inner(2)] {
+        let id = state.economy.holdings[&remote].slots[&slot];
+        destroy_module(&mut state, id, &mut ev);
+    }
+    let pylon_slot_turret = state.economy.holdings[&remote].slots[&Slot::Pylon(0)];
+    destroy_module(&mut state, pylon_slot_turret, &mut ev);
+    state
+        .economy
+        .holdings
+        .get_mut(&remote)
+        .unwrap()
+        .regen_demand_kw = [30_000, 0, 0, 0];
+    let harvester = state.economy.holdings[&remote].slots[&Slot::Deposit(0)];
+    let refinery = state.economy.holdings[&remote].slots[&Slot::Inner(0)];
+    let share = |state: &mut UniverseState, profile| {
+        state.economy.holdings.get_mut(&remote).unwrap().profile = profile;
+        let now = state.tick();
+        power::allocate(state, remote, now);
+        let p = state.power(remote).unwrap();
+        (
+            p.regeneration_kw(0),
+            p.share(Consumer::Module(harvester)).unwrap().0,
+            p.share(Consumer::Module(refinery)).unwrap().0,
+        )
+    };
+    // 80 MW left: regeneration 30 (capped at 25% without a pylon) + production 180.
+    // Balanced: one tier of 210 MW sharing 80 MW.
+    assert_eq!(
+        share(&mut state, PowerProfile::Balanced),
+        (11_428, 22_857, 45_714)
+    );
+    // Shields first: regeneration in full, production shares the rest.
+    assert_eq!(
+        share(&mut state, PowerProfile::ShieldsFirst),
+        (30_000, 16_666, 33_333)
+    );
+    // Production first: production takes everything; the rounding remainder (1 kW) flows on
+    // to the next tier.
+    assert_eq!(
+        share(&mut state, PowerProfile::ProductionFirst),
+        (1, 26_666, 53_333)
+    );
+}
+
+#[test]
+fn a_disabled_solar_array_lowers_regeneration_and_production() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    state
+        .economy
+        .holdings
+        .get_mut(&mother)
+        .unwrap()
+        .regen_demand_kw = [120_000; 4];
+    let now = state.tick();
+    power::allocate(&mut state, mother, now);
+    let full = state.power(mother).unwrap().clone();
+    assert_eq!(full.supply_kw, 1_140_000);
+    assert_eq!(full.regeneration_kw(0), 120_000);
+    let solar = state.economy.holdings[&mother].slots[&Slot::Solar];
+    let mut ev = Vec::new();
+    disable_module(&mut state, solar, now, &mut ev);
+    assert_eq!(ev, [EconomyEvent::ModuleDisabled { module: solar }]);
+    power::allocate(&mut state, mother, now);
+    let cut = state.power(mother).unwrap().clone();
+    assert_eq!(cut.supply_kw, 520_000);
+    assert!(cut.regeneration_kw(0) < 120_000);
+    let harvester = state.economy.holdings[&mother].slots[&Slot::Deposit(0)];
+    let (allocated, demand) = cut.share(Consumer::Module(harvester)).unwrap();
+    assert!(allocated < demand);
+    // Restored, it supplies again.
+    restore_module(&mut state, solar, &mut ev);
+    power::allocate(&mut state, mother, now);
+    assert_eq!(state.power(mother).unwrap().supply_kw, 1_140_000);
+}
+
+#[test]
+fn abilities_claim_fixed_power_only_if_it_fits() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let now = state.tick();
+    power::allocate(&mut state, mother, now);
+    let headroom = state.power(mother).unwrap().headroom_kw;
+    assert_eq!(headroom, 1_140_000 - 160_000);
+    let until = now.after(crate::time::Ticks::from_secs(10));
+    assert!(power::request_ability_power(
+        &mut state, mother, 200_000, now, until
+    ));
+    assert_eq!(state.power(mother).unwrap().headroom_kw, headroom - 200_000);
+    assert!(!power::request_ability_power(
+        &mut state, mother, 900_000, now, until
+    ));
+    // It ends on time.
+    power::allocate(&mut state, mother, until);
+    assert_eq!(state.power(mother).unwrap().headroom_kw, headroom);
+}
+
+#[test]
+fn queues_pay_at_start_wait_without_blocking_and_refund_on_cancel() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let you = CommanderId(1);
+    // A WARDEN needs 600 crystal; the pool has 500. It waits; the VX behind it starts.
+    let first = send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::Ship {
+                class: ShipClass::Warden,
+            },
+        }),
+    );
+    let warden = queued(&first);
+    let second = send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::Ship {
+                class: ShipClass::Vx,
+            },
+        }),
+    );
+    let vx = queued(&second);
+    let mut out = vec![first, second];
+    out.extend(idle(&mut state, 10));
+    let ev = events(&out);
+    assert!(ev.contains(&EconomyEvent::ItemWaiting {
+        holding: mother,
+        item: warden,
+        short: Shortage::Crystal
+    }));
+    assert!(ev.contains(&EconomyEvent::ItemStarted {
+        holding: mother,
+        item: vx
+    }));
+    assert!(command::waiting(&state, mother, warden));
+    assert!(state.pool(you).alloy < 6_000_000 - 1_200_000 + 1_000);
+
+    // Cancelling the waiting item refunds nothing (nothing was paid); cancelling the
+    // building VX refunds half.
+    let before = state.pool(you);
+    let out = send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Cancel {
+            holding: mother,
+            item: vx,
+        }),
+    );
+    assert!(out.economy_events.contains(&EconomyEvent::ItemCancelled {
+        holding: mother,
+        item: vx,
+        refund: Stock::units(600, 0)
+    }));
+    assert!(state.pool(you).alloy >= before.alloy + 600_000);
+    let out = send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Cancel {
+            holding: mother,
+            item: warden,
+        }),
+    );
+    assert!(out.economy_events.contains(&EconomyEvent::ItemCancelled {
+        holding: mother,
+        item: warden,
+        refund: Stock::ZERO
+    }));
+    assert!(state.holding_economy(mother).unwrap().queue.is_empty());
+}
+
+#[test]
+fn a_dry_dock_adds_a_parallel_ship_lane_and_ships_dock_when_done() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let dock = state.economy.holdings[&mother].slots[&Slot::Dock];
+    let a = queued(&send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::Ship {
+                class: ShipClass::Vx,
+            },
+        }),
+    ));
+    let b = queued(&send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::Ship {
+                class: ShipClass::Mule,
+            },
+        }),
+    ));
+    idle(&mut state, 10);
+    let queue = state.holding_economy(mother).unwrap().queue;
+    let lanes: Vec<Option<BuildLane>> = queue.iter().map(|q| q.building.map(|b| b.0)).collect();
+    assert_eq!(lanes, [Some(BuildLane::Main), Some(BuildLane::Dock(dock))]);
+    // The building dock draws 150 MW.
+    idle(&mut state, 10);
+    assert_eq!(
+        state.power(mother).unwrap().share(Consumer::Module(dock)),
+        Some((150_000, 150_000))
+    );
+    let docked_before = state.docked_ships(mother);
+    let out = idle(&mut state, 300 * TICKS_PER_SECOND);
+    let ev = events(&out);
+    assert!(ev.contains(&EconomyEvent::ItemCompleted {
+        holding: mother,
+        item: a
+    }));
+    assert!(ev.contains(&EconomyEvent::ItemCompleted {
+        holding: mother,
+        item: b
+    }));
+    assert_eq!(
+        ev.iter()
+            .filter(|e| matches!(e, EconomyEvent::ShipBuilt { .. }))
+            .count(),
+        2
+    );
+    assert_eq!(state.docked_ships(mother), docked_before + 2);
+    assert_eq!(state.command_used(CommanderId(1)), 26 + 6 + 4);
+    assert!(
+        state.fleet_problems().is_empty(),
+        "{:?}",
+        state.fleet_problems()
+    );
+}
+
+#[test]
+fn rally_fleets_take_new_ships() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let kit = kit_fleet(&state, 1);
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::SetRally {
+            holding: mother,
+            fleet: Some(kit),
+        }),
+    );
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::Ship {
+                class: ShipClass::Vx,
+            },
+        }),
+    );
+    let out = idle(&mut state, 190 * TICKS_PER_SECOND);
+    let built = events(&out).into_iter().find_map(|e| match e {
+        EconomyEvent::ShipBuilt { fleet, .. } => Some(fleet),
+        _ => None,
+    });
+    assert_eq!(built, Some(kit));
+    assert_eq!(state.fleet(kit).unwrap().ships.len(), 6);
+    assert!(state.fleet_problems().is_empty());
+}
+
+#[test]
+fn the_command_cap_blocks_starts_not_existing_ships() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    state.rules.economy.command_cap.base = 30;
+    assert_eq!(state.command_cap(CommanderId(1)), 30);
+    let first = send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::Ship {
+                class: ShipClass::Vx,
+            },
+        }),
+    );
+    let vx = queued(&first);
+    let mut out = vec![first];
+    out.extend(idle(&mut state, 20));
+    assert!(events(&out).contains(&EconomyEvent::ItemWaiting {
+        holding: mother,
+        item: vx,
+        short: Shortage::CommandCap
+    }));
+    // A MULE fits (26 + 4 = 30), and nothing was taken from the existing fleet.
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::Ship {
+                class: ShipClass::Mule,
+            },
+        }),
+    );
+    idle(&mut state, 20);
+    assert_eq!(state.command_used(CommanderId(1)), 30);
+    // Lowering the cap below what exists keeps the ships.
+    state.rules.economy.command_cap.base = 10;
+    idle(&mut state, 20);
+    assert_eq!(state.command_used(CommanderId(1)), 30);
+}
+
+#[test]
+fn modules_build_in_their_slot_and_count_when_complete() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let item = queued(&send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::Module {
+                kind: ModuleKind::Turret,
+                slot: Slot::Inner(2),
+            },
+        }),
+    ));
+    idle(&mut state, 10);
+    let turret = state.economy.holdings[&mother].slots[&Slot::Inner(2)];
+    let view = state.module(turret).unwrap();
+    assert_eq!((view.kind, view.hp), (ModuleKind::Turret, 30_000));
+    assert!(view.building_ms.is_some());
+    // Under construction it draws nothing.
+    assert_eq!(
+        state.power(mother).unwrap().share(Consumer::Module(turret)),
+        None
+    );
+    let out = idle(&mut state, 1_200 * TICKS_PER_SECOND);
+    assert!(events(&out).contains(&EconomyEvent::ItemCompleted {
+        holding: mother,
+        item
+    }));
+    assert_eq!(state.module(turret).unwrap().building_ms, None);
+    assert!(state.power(mother).unwrap().powered(turret));
+    assert_eq!(state.pool(CommanderId(1)).crystal, 300_000);
+    assert!(state.economy_problems().is_empty());
+    // Destroying it frees the slot.
+    let mut ev = Vec::new();
+    assert!(destroy_module(&mut state, turret, &mut ev));
+    assert!(
+        !state.economy.holdings[&mother]
+            .slots
+            .contains_key(&Slot::Inner(2))
+    );
+    assert!(state.economy_problems().is_empty());
+    // A core cannot be destroyed here (capture is S6's).
+    let core = state.economy.holdings[&mother].slots[&Slot::Core];
+    assert!(!destroy_module(&mut state, core, &mut ev));
+}
+
+#[test]
+fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
+    let mut state = stage1(7);
+    let (mother, home_system) = home(&state, 1);
+    let you = CommanderId(1);
+    let item = queued(&send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Build {
+            holding: mother,
+            item: BuildItem::CoreKit,
+        }),
+    ));
+    let out = idle(&mut state, 900 * TICKS_PER_SECOND + 10);
+    assert!(events(&out).contains(&EconomyEvent::ItemCompleted {
+        holding: mother,
+        item
+    }));
+    assert_eq!(state.holding_economy(mother).unwrap().kits, 1);
+    assert_eq!(state.pool(you).crystal, 0);
+
+    let kit = kit_fleet(&state, 1);
+    let out = send(
+        &mut state,
+        1,
+        eco(EconomyCommand::LoadCoreKit { fleet: kit }),
+    );
+    assert!(out.economy_events.contains(&EconomyEvent::KitLoaded {
+        fleet: kit,
+        holding: mother
+    }));
+    let fleet = state.entities.get::<Fleet>(kit.sim_id()).unwrap();
+    let carrier = logistics::kit_carrier(&state, &fleet).expect("a MULE carries the kit");
+    assert!(state.cargo(carrier).core_kit);
+
+    // Fly next to a free site of the home system (placed there for the test).
+    let site = state
+        .galaxy()
+        .system(home_system)
+        .unwrap()
+        .sites
+        .iter()
+        .copied()
+        .find(|&s| state.holding_at(s).is_none())
+        .unwrap();
+    let target = state.galaxy().site(site).unwrap().position;
+    send(&mut state, 1, order(kit, FleetOrder::Launch));
+    teleport(&mut state, kit, home_system, target);
+    let deploy = EconomyCommand::DeployCoreKit { fleet: kit, site };
+    let out = send(&mut state, 1, eco(deploy.clone()));
+    let outpost = out
+        .economy_events
+        .iter()
+        .find_map(|e| match e {
+            EconomyEvent::OutpostDeployed { holding, .. } => Some(*holding),
+            _ => None,
+        })
+        .expect("deployed");
+    assert!(!state.holding(outpost).unwrap().core_complete);
+    assert!(!state.cargo(carrier).core_kit);
+    let core = state.economy.holdings[&outpost].slots[&Slot::Core];
+    assert_eq!(state.module(core).unwrap().building_ms, Some(7_200_000));
+    // Outposts cannot build and do not raise the cap.
+    assert_eq!(
+        check(
+            &state,
+            1,
+            EconomyCommand::Build {
+                holding: outpost,
+                item: BuildItem::CoreKit
+            }
+        ),
+        Err(R::Outpost)
+    );
+    assert_eq!(state.command_cap(you), 120);
+    // Skip most of the 2 h deployment.
+    state
+        .entities
+        .get_mut::<Construction>(core)
+        .unwrap()
+        .remaining_ms = 2_000;
+    let out = idle(&mut state, 30);
+    assert!(events(&out).contains(&EconomyEvent::HoldingCompleted { holding: outpost }));
+    assert!(state.holding(outpost).unwrap().core_complete);
+    assert_eq!(state.command_cap(you), 130);
+    assert_eq!(state.docking_capacity(outpost), 8);
+}
+
+/// Puts `fleet` at rest at `at` in `system` (tests only).
+fn teleport(
+    state: &mut UniverseState,
+    fleet: FleetId,
+    system: crate::galaxy::SystemId,
+    at: crate::PositionMetres,
+) {
+    let members: Vec<_> = state
+        .entities
+        .get::<Fleet>(fleet.sim_id())
+        .unwrap()
+        .members
+        .keys()
+        .copied()
+        .collect();
+    if let Some(f) = state.entities.get_mut::<Fleet>(fleet.sim_id()) {
+        f.place = Place::InSystem(system);
+        f.active = None;
+        f.queue.clear();
+    }
+    for id in members.iter().map(|s| s.sim_id()).chain([fleet.sim_id()]) {
+        if let Some(m) = state.entities.get_mut::<Motion>(id) {
+            m.position = at;
+            m.velocity = crate::geometry::Vec2::ZERO;
+        }
+    }
+}
+
+#[test]
+fn convoys_empty_buffers_into_the_pool() {
+    let mut state = stage1(7);
+    let you = CommanderId(1);
+    let (mother, home_system) = home(&state, 1);
+    let remote = remote_ore_holding(&mut state);
+    state.economy.holdings.get_mut(&remote).unwrap().buffer = Stock::units(900, 0);
+    let kit = kit_fleet(&state, 1);
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Convoy {
+            fleet: kit,
+            route: vec![remote, mother],
+        }),
+    );
+    assert!(state.economy.convoys.contains_key(&kit));
+    // Stand at the remote stop: the next convoy second loads the buffer.
+    let remote_system = state
+        .galaxy()
+        .site(state.holding(remote).unwrap().site)
+        .unwrap()
+        .system;
+    let stop = state.launch_point(remote).unwrap();
+    teleport(&mut state, kit, remote_system, stop);
+    let out = idle(&mut state, 10);
+    let loaded = events(&out).into_iter().find_map(|e| match e {
+        EconomyEvent::ConvoyLoaded { amount, .. } => Some(amount),
+        _ => None,
+    });
+    assert!(loaded.is_some_and(|a| a.alloy >= 900_000), "{loaded:?}");
+    let carried: u64 = state.economy.cargo.values().map(|c| c.stock.alloy).sum();
+    assert!(carried >= 900_000);
+    // Now heading for the mother station: stand there instead.
+    let pool = state.pool(you).alloy;
+    let depot = state.launch_point(mother).unwrap();
+    teleport(&mut state, kit, home_system, depot);
+    let out = idle(&mut state, 10);
+    assert!(
+        events(&out)
+            .iter()
+            .any(|e| matches!(e, EconomyEvent::ConvoyUnloaded { .. }))
+    );
+    assert!(state.pool(you).alloy >= pool + carried);
+    assert!(state.economy.cargo.values().all(|c| c.stock.is_zero()));
+    // Any other order ends the route.
+    let out = send(
+        &mut state,
+        1,
+        order(kit, FleetOrder::StationKeep { relative_to: None }),
+    );
+    assert!(
+        out.economy_events
+            .contains(&EconomyEvent::ConvoyEnded { fleet: kit })
+    );
+    assert!(state.economy.convoys.is_empty());
+}
+
+#[test]
+fn convoys_travel_by_ordinary_orders() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let remote = remote_ore_holding(&mut state);
+    let kit = kit_fleet(&state, 1);
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Convoy {
+            fleet: kit,
+            route: vec![remote, mother],
+        }),
+    );
+    // Docked at the mother station, heading for the remote stop: launch, then jump.
+    idle(&mut state, 30);
+    let fleet = state.entities.get::<Fleet>(kit.sim_id()).unwrap();
+    assert!(!matches!(fleet.place, Place::Docked(_)));
+    assert!(fleet.active.is_some(), "the convoy gave the fleet an order");
+}
+
+#[test]
+fn repair_is_free_after_the_grace_period_and_faster_with_the_ability() {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let refinery = state.economy.holdings[&mother].slots[&Slot::Inner(0)];
+    let now = state.tick();
+    assert_eq!(
+        damage_module(&mut state, refinery, 10_000, now),
+        Some(30_000)
+    );
+    // Free repair: 1% (400) a minute once 60 s have passed since the damage.
+    idle(&mut state, 120 * TICKS_PER_SECOND);
+    let hp = state.module(refinery).unwrap().hp;
+    assert!((30_400..=30_800).contains(&hp), "{hp}");
+    // REPAIR: 80 hull a second for 8 alloy a second.
+    let pool = state.pool(CommanderId(1)).alloy;
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::SetRepair {
+            holding: mother,
+            on: true,
+        }),
+    );
+    idle(&mut state, 10 * TICKS_PER_SECOND);
+    let after = state.module(refinery).unwrap().hp;
+    assert!(after >= hp + 800, "{hp} → {after}");
+    assert!(state.pool(CommanderId(1)).alloy < pool + 2_000);
+    // It stops by itself when nothing is damaged.
+    let out = idle(&mut state, 200 * TICKS_PER_SECOND);
+    assert!(events(&out).contains(&EconomyEvent::RepairDone { holding: mother }));
+    assert_eq!(state.module(refinery).unwrap().hp, 40_000);
+    assert!(!state.holding_economy(mother).unwrap().repairing);
+}
+
+#[test]
+fn module_positions_follow_the_slot_template() {
+    let state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let site = state
+        .galaxy()
+        .site(state.holding(mother).unwrap().site)
+        .unwrap();
+    let dome = f64::from(state.rules.economy.slots.dome_radius_voxels)
+        * state.rules.mother_station.voxel_m;
+    for module in state.modules_at(mother) {
+        let (system, at, radius) = state.module_position(module.id).unwrap();
+        assert_eq!(system, site.system);
+        assert!(radius > 0.0);
+        let d = crate::geometry::distance_m(at, site.position);
+        match module.slot {
+            Slot::Core | Slot::Pylon(_) | Slot::Inner(_) | Slot::Dock => {
+                assert!(d < dome, "{:?} at {d}", module.slot);
+            }
+            Slot::Solar | Slot::Deposit(_) => assert!(d > dome, "{:?} at {d}", module.slot),
+        }
+    }
+}
+
+#[test]
+fn snapshot_and_restore_mid_production_and_mid_build_change_nothing() {
+    let mut reference = stage1(11);
+    let (mother, _) = home(&reference, 1);
+    let mut restored = None;
+    for t in 0..6_000_u64 {
+        let inputs = match t {
+            5 => crate::TickInputs {
+                operator: vec![],
+                commanders: vec![crate::CommanderInput {
+                    commander: CommanderId(1),
+                    client_seq: 1,
+                    kind: crate::CommanderInputKind::Command(eco(EconomyCommand::Build {
+                        holding: mother,
+                        item: BuildItem::Module {
+                            kind: ModuleKind::Turret,
+                            slot: Slot::Inner(3),
+                        },
+                    })),
+                }],
+            },
+            _ => crate::TickInputs::default(),
+        };
+        crate::step(&mut reference, &inputs);
+        if let Some(copy) = restored.as_mut() {
+            crate::step(copy, &inputs);
+        }
+        if t == 3_001 {
+            let bytes = encode(&reference).unwrap();
+            let copy = decode(&bytes).unwrap();
+            assert_eq!(encode(&copy).unwrap(), bytes, "re-encoding is identical");
+            restored = Some(copy);
+        }
+    }
+    let restored = restored.unwrap();
+    assert_eq!(
+        state_hash(&restored).unwrap(),
+        state_hash(&reference).unwrap()
+    );
+    assert!(reference.economy_problems().is_empty());
+}
+
+/// Collects the rejection reasons the scenarios below produce.
+#[derive(Default)]
+struct Seen(BTreeSet<R>);
+
+impl Seen {
+    fn expect(&mut self, state: &UniverseState, command: EconomyCommand, reason: R) {
+        let shown = format!("{command:?}");
+        assert_eq!(check(state, 1, command), Err(reason), "{shown}");
+        self.0.insert(reason);
+    }
+}
+
+fn build(holding: HoldingId, item: BuildItem) -> EconomyCommand {
+    EconomyCommand::Build { holding, item }
+}
+
+fn module(kind: ModuleKind, slot: Slot) -> BuildItem {
+    BuildItem::Module { kind, slot }
+}
+
+#[test]
+fn every_economy_rejection_reason_is_produced() {
+    let mut seen = Seen::default();
+    module_and_queue_reasons(&mut seen);
+    fleet_and_claim_reasons(&mut seen);
+    let economy = economy_reasons();
+    seen.0.retain(|r| economy.contains(r));
+    assert_eq!(seen.0, economy);
+}
+
+/// Building and the queue.
+fn module_and_queue_reasons(seen: &mut Seen) {
+    let mut state = stage1(7);
+    let (mother, _) = home(&state, 1);
+    let (theirs, _) = home(&state, 2);
+
+    seen.expect(
+        &state,
+        build(mother, module(ModuleKind::Core, Slot::Core)),
+        R::NotBuildable,
+    );
+    seen.expect(
+        &state,
+        build(
+            mother,
+            BuildItem::Ship {
+                class: ShipClass::HeavyCruiser,
+            },
+        ),
+        R::NotBuildable,
+    );
+    seen.expect(
+        &state,
+        build(mother, module(ModuleKind::Turret, Slot::Inner(9))),
+        R::NoSuchSlot,
+    );
+    seen.expect(
+        &state,
+        build(mother, module(ModuleKind::Turret, Slot::Deposit(1))),
+        R::NoSuchSlot,
+    );
+    seen.expect(
+        &state,
+        build(mother, module(ModuleKind::Turret, Slot::Solar)),
+        R::WrongSlot,
+    );
+    seen.expect(
+        &state,
+        build(mother, module(ModuleKind::Extractor, Slot::Deposit(0))),
+        R::WrongSlot,
+    );
+    seen.expect(
+        &state,
+        build(mother, module(ModuleKind::Refinery, Slot::Inner(0))),
+        R::SlotTaken,
+    );
+    seen.expect(
+        &state,
+        EconomyCommand::Cancel {
+            holding: mother,
+            item: SimId::from_raw(9_999_999),
+        },
+        R::UnknownItem,
+    );
+    seen.expect(&state, build(theirs, BuildItem::CoreKit), R::NotOwner);
+
+    // A full queue.
+    let max = state.rules.economy.queue.max_items;
+    for _ in 0..max {
+        send(
+            &mut state,
+            1,
+            eco(build(
+                mother,
+                BuildItem::Ship {
+                    class: ShipClass::Vx,
+                },
+            )),
+        );
+    }
+    seen.expect(&state, build(mother, BuildItem::CoreKit), R::QueueFull);
+    // A queued module reserves its slot.
+    let mut fresh = stage1(7);
+    send(
+        &mut fresh,
+        1,
+        eco(build(mother, module(ModuleKind::Turret, Slot::Inner(2)))),
+    );
+    seen.expect(
+        &fresh,
+        build(mother, module(ModuleKind::Storage, Slot::Inner(2))),
+        R::SlotTaken,
+    );
+}
+
+/// Fleets, core kits and claiming; then convoys on the same Universe.
+fn fleet_and_claim_reasons(seen: &mut Seen) {
+    let state = stage1(7);
+    let (mother, home_system) = home(&state, 1);
+    let (theirs, _) = home(&state, 2);
+    let kit = kit_fleet(&state, 1);
+    // Fleets: no MULE, no kit, a full hold, in space instead of docked.
+    let mut s = stage1(7);
+    let warriors: Vec<_> = s
+        .fleet(kit)
+        .unwrap()
+        .ships
+        .iter()
+        .copied()
+        .filter(|ship| s.ship(*ship).is_some_and(|v| v.class == ShipClass::Vx))
+        .collect();
+    let out = send(&mut s, 1, Command::CreateFleet { ships: warriors });
+    let vx_fleet = s
+        .fleet_ids()
+        .into_iter()
+        .find(|f| *f != kit && s.fleet(*f).is_some_and(|v| v.owner == commander(1)))
+        .expect("the VX fleet");
+    let _ = out;
+    seen.expect(
+        &s,
+        EconomyCommand::LoadCoreKit { fleet: vx_fleet },
+        R::NoMule,
+    );
+    seen.expect(
+        &s,
+        EconomyCommand::Convoy {
+            fleet: vx_fleet,
+            route: vec![mother],
+        },
+        R::NoMule,
+    );
+    seen.expect(&s, EconomyCommand::LoadCoreKit { fleet: kit }, R::NoKit);
+    seen.expect(
+        &s,
+        EconomyCommand::DeployCoreKit {
+            fleet: kit,
+            site: s.holding(mother).unwrap().site,
+        },
+        R::NoKit,
+    );
+    for ship in s.fleet(kit).unwrap().ships.clone() {
+        s.economy.cargo.insert(
+            ship,
+            Cargo {
+                stock: Stock::units(1, 0),
+                core_kit: false,
+            },
+        );
+    }
+    s.economy.holdings.get_mut(&mother).unwrap().kits = 1;
+    seen.expect(&s, EconomyCommand::LoadCoreKit { fleet: kit }, R::CargoFull);
+    claim_reasons(seen, &mut s, kit, theirs, home_system);
+    convoy_reasons(seen, &mut s, mother, kit);
+}
+
+/// Deploying a core kit.
+fn claim_reasons(
+    seen: &mut Seen,
+    s: &mut UniverseState,
+    kit: FleetId,
+    theirs: HoldingId,
+    home_system: crate::galaxy::SystemId,
+) {
+    // Deploying: unknown site, a raider haven, a taken site, too far away.
+    let carrier = s.fleet(kit).unwrap().ships[0];
+    s.economy.cargo.insert(
+        carrier,
+        Cargo {
+            stock: Stock::ZERO,
+            core_kit: true,
+        },
+    );
+    seen.expect(
+        s,
+        EconomyCommand::DeployCoreKit {
+            fleet: kit,
+            site: SiteId(SimId::from_raw(9_999_999)),
+        },
+        R::UnknownSite,
+    );
+    let taken = s.holding(theirs).unwrap().site;
+    seen.expect(
+        s,
+        EconomyCommand::DeployCoreKit {
+            fleet: kit,
+            site: taken,
+        },
+        R::SiteTaken,
+    );
+    let free = s
+        .galaxy()
+        .system(home_system)
+        .unwrap()
+        .sites
+        .iter()
+        .copied()
+        .find(|&site| s.holding_at(site).is_none())
+        .unwrap();
+    seen.expect(
+        s,
+        EconomyCommand::DeployCoreKit {
+            fleet: kit,
+            site: free,
+        },
+        R::TooFar,
+    );
+    // Raider havens have no sites (D-099 item 6), so a claimable flag decides: mark the
+    // home system unclaimable for the check.
+    let home_kind = s.galaxy.systems[&home_system].kind;
+    s.galaxy.systems.get_mut(&home_system).unwrap().kind = crate::galaxy::SystemKind::RaiderHaven;
+    seen.expect(
+        s,
+        EconomyCommand::DeployCoreKit {
+            fleet: kit,
+            site: free,
+        },
+        R::NotClaimable,
+    );
+    s.galaxy.systems.get_mut(&home_system).unwrap().kind = home_kind;
+}
+
+/// Convoy routes.
+fn convoy_reasons(seen: &mut Seen, s: &mut UniverseState, mother: HoldingId, kit: FleetId) {
+    // Convoy routes: too long, a stop twice, not ending at a depot, an outpost stop.
+    let remote = remote_ore_holding(s);
+    let long = vec![remote; s.rules.economy.logistics.max_route_stops + 1];
+    seen.expect(
+        s,
+        EconomyCommand::Convoy {
+            fleet: kit,
+            route: long,
+        },
+        R::RouteTooLong,
+    );
+    seen.expect(
+        s,
+        EconomyCommand::Convoy {
+            fleet: kit,
+            route: vec![remote, remote, mother],
+        },
+        R::DuplicateStop,
+    );
+    seen.expect(
+        s,
+        EconomyCommand::Convoy {
+            fleet: kit,
+            route: vec![mother, remote],
+        },
+        R::NotDepot,
+    );
+    s.holdings.get_mut(&remote).unwrap().core_complete = false;
+    seen.expect(
+        s,
+        EconomyCommand::Convoy {
+            fleet: kit,
+            route: vec![remote, mother],
+        },
+        R::Outpost,
+    );
+    seen.expect(s, build(remote, BuildItem::CoreKit), R::Outpost);
+}

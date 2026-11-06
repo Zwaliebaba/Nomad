@@ -1,8 +1,8 @@
 //! Holdings and system control (Design doc 10 §5–§6; D-041).
 //!
 //! A holding is a site owned by a commander. Only a holding whose core module is complete
-//! counts for control; until then the claim is an outpost (doc 10 §5, RK-09). Claiming,
-//! capture and the core module itself are doc 15 rules and are not modelled yet.
+//! counts for control; until then the claim is an outpost (doc 10 §5, RK-09). The core
+//! module and claiming are in [`crate::economy`] (D-135); capture is S6's.
 //!
 //! Holding identities and control states are public (doc 16 §2), so [`HoldingId`] and
 //! [`ControlState`] live in `nomad-types` (D-086, doc 20 §3) and are re-exported here. The
@@ -30,11 +30,9 @@ pub struct Holding {
     /// count for control (D-041).
     pub core_complete: bool,
     /// Whether its core is a mother-station core, with 24 docking places (D-102) and the
-    /// phase-1 station layout (S3 plan §4.3).
+    /// phase-1 station layout (S3 plan §4.3). Its modules, dry docks included, are economy
+    /// entities ([`crate::economy`]).
     pub mother_station: bool,
-    /// Dry docks, each adding 6 docking places and letting frigates dock (D-102). Set from
-    /// the start kit until modules are simulated (S4).
-    pub dry_docks: u32,
 }
 
 /// The number of completed holdings needed to control a system with `site_count` sites: a

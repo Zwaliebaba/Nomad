@@ -118,6 +118,57 @@ pub enum CommandRejection {
     /// Launch-ready at a holding where none of the issuer's fleets is docked.
     #[error("nothing to launch")]
     NothingToLaunch,
+    /// The holding is an outpost: its core is not complete yet (D-041).
+    #[error("the holding is an outpost")]
+    Outpost,
+    /// Cores and NPC classes cannot be built.
+    #[error("cannot be built")]
+    NotBuildable,
+    /// The holding has no such slot (D-130, D-131).
+    #[error("no such slot")]
+    NoSuchSlot,
+    /// The module kind does not go into that slot, or the deposit there does not suit it.
+    #[error("wrong slot for this module")]
+    WrongSlot,
+    /// The slot has a module, or one is queued for it.
+    #[error("the slot is taken")]
+    SlotTaken,
+    /// The holding's build queue is full.
+    #[error("the build queue is full")]
+    QueueFull,
+    /// No such item in the holding's queue.
+    #[error("no such queue item")]
+    UnknownItem,
+    /// The fleet has no MULE.
+    #[error("the fleet has no MULE")]
+    NoMule,
+    /// Every MULE of the fleet carries something.
+    #[error("no empty MULE")]
+    CargoFull,
+    /// No core kit to load or deploy.
+    #[error("no core kit")]
+    NoKit,
+    /// The site does not exist.
+    #[error("no such site")]
+    UnknownSite,
+    /// The site is in a system that cannot be claimed.
+    #[error("the site cannot be claimed")]
+    NotClaimable,
+    /// The site has a holding or an outpost.
+    #[error("the site is taken")]
+    SiteTaken,
+    /// The fleet is not close enough to the site.
+    #[error("too far away")]
+    TooFar,
+    /// A convoy route with more stops than the rules allow.
+    #[error("the route has too many stops")]
+    RouteTooLong,
+    /// A convoy route lists a holding twice.
+    #[error("a stop is listed twice")]
+    DuplicateStop,
+    /// A convoy route does not end at a depot (D-134).
+    #[error("the route must end at a depot")]
+    NotDepot,
 }
 
 /// Checks `command` from `issuer` against the current state (D-077).
@@ -137,6 +188,7 @@ pub fn validate_command(
         }
         Command::CreateFleet { ships } => validate_create(state, issuer, ships),
         Command::MergeFleets { fleet, into } => validate_merge(state, issuer, *fleet, *into),
+        Command::Economy(command) => crate::economy::validate(state, issuer, command),
     }
 }
 
@@ -146,6 +198,7 @@ pub(crate) fn execute(
     issuer: Owner,
     command: &Command,
     events: &mut Vec<FleetEvent>,
+    economy_events: &mut Vec<crate::economy::EconomyEvent>,
 ) -> Result<(), CommandRejection> {
     validate_command(state, issuer, command)?;
     match command {
@@ -153,7 +206,11 @@ pub(crate) fn execute(
             fleet,
             order,
             queue,
-        } => crate::fleet::orders::give(state, *fleet, order.clone(), *queue, events),
+        } => {
+            // An order to a convoy fleet ends its route (D-134).
+            crate::economy::end_convoy(state, *fleet, economy_events);
+            crate::fleet::orders::give(state, *fleet, order.clone(), *queue, events);
+        }
         Command::Holding {
             holding,
             order: HoldingOrder::LaunchReady,
@@ -166,6 +223,7 @@ pub(crate) fn execute(
             crate::fleet::create_fleet(state, issuer, ships);
         }
         Command::MergeFleets { fleet, into } => crate::fleet::merge_fleets(state, *fleet, *into),
+        Command::Economy(command) => crate::economy::execute(state, command, economy_events),
     }
     Ok(())
 }
@@ -311,7 +369,7 @@ pub(crate) fn dock_check(
     if fleet.owner != Owner::Commander(h.owner) {
         return Err(CommandRejection::HoldingNotOwned);
     }
-    if has_frigate(state, fleet) && h.dry_docks == 0 {
+    if has_frigate(state, fleet) && state.dry_docks(holding) == 0 {
         return Err(CommandRejection::NoDryDock);
     }
     let size = u32::try_from(fleet.members.len()).unwrap_or(u32::MAX);
@@ -741,4 +799,4 @@ fn validate_merge(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

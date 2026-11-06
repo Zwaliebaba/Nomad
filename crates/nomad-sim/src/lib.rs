@@ -40,6 +40,7 @@
 
 pub mod combat;
 mod command;
+pub mod economy;
 mod entities;
 pub mod fleet;
 pub mod galaxy;
@@ -61,6 +62,10 @@ mod util;
 
 pub use combat::{CombatEvent, ProjectileId};
 pub use command::{CommandRejection, validate_command};
+pub use economy::{
+    BuildLane, Cargo, CommanderEconomy, EconomyEvent, HoldingEconomyView, ModuleView,
+    PowerAllocation, QueueItemView, Shortage, Stock,
+};
 pub use fleet::{
     FleetEvent, FleetId, FleetView, MotionMode, Place, ShipClass, ShipId, ShipView, TravelStage,
 };
@@ -73,7 +78,10 @@ pub use holding::{
 };
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
-pub use nomad_types::{Command, FleetOrder, HoldingOrder, Owner, Queueing, RulesOfEngagement};
+pub use nomad_types::{
+    BuildItem, Command, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner, PowerProfile,
+    Queueing, RulesOfEngagement, Slot,
+};
 pub use nomad_types::{Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};

@@ -221,14 +221,13 @@ pub fn generate_stage1_with_rules(
     let mother_sites: Vec<_> = homes
         .filter_map(|home| state.galaxy.system(home)?.sites.get(MOTHER_SITE).copied())
         .collect();
-    let dry_docks = state.rules.start_kit.mother_station_dry_docks;
     for (site, commander) in mother_sites.into_iter().zip(commanders) {
         let id = state.insert_holding(site, commander, true)?;
         if let Some(holding) = state.holdings.get_mut(&id) {
             holding.mother_station = true;
-            holding.dry_docks = dry_docks;
         }
     }
+    crate::economy::spawn_start_stations(&mut state);
     crate::fleet::spawn_start_kits(&mut state);
 
     let report = validate(state.galaxy(), &InvariantLimits::from_rules(&state.rules));

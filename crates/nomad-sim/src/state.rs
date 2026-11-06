@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::combat::Projectiles;
+use crate::economy::Economy;
 use crate::entities::Entities;
 use crate::fleet::FleetId;
 use crate::galaxy::{Galaxy, SiteId, SystemId};
@@ -66,6 +67,8 @@ pub struct UniverseState {
     pub(crate) transits: TimerQueue<FleetId>,
     /// Projectiles in flight (doc 15 §4; S5 plan §4.3).
     pub(crate) projectiles: Projectiles,
+    /// Pools, holding economies, convoys and cargo (doc 14; S4). Modules are entities.
+    pub(crate) economy: Economy,
 }
 
 impl UniverseState {
@@ -97,6 +100,7 @@ impl UniverseState {
             entities: Entities::default(),
             transits: TimerQueue::default(),
             projectiles: Projectiles::default(),
+            economy: Economy::default(),
         }
     }
 
@@ -169,8 +173,8 @@ impl UniverseState {
     }
 
     /// Places a holding, or an outpost if `core_complete` is false, on a free, claimable
-    /// site. Claim costs and timing are doc 15 rules; callers here are the generator and
-    /// tests.
+    /// site. Callers are the generator, claims ([`crate::economy`], D-135) and tests; the
+    /// economy adds the core module.
     pub(crate) fn insert_holding(
         &mut self,
         site: SiteId,
@@ -186,7 +190,6 @@ impl UniverseState {
                 owner,
                 core_complete,
                 mother_station: false,
-                dry_docks: 0,
             },
         )
     }
