@@ -10,11 +10,12 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 |---|------|------------|--------|
 | 00 | [`00-glossary.md`](00-glossary.md) | Vocabulary and the Universe hierarchy. Read this first. | Draft (decisions applied) |
 | 01 | [`01-game-concept.md`](01-game-concept.md) | Stated requirements, what they force, stress test, MVP framing | Draft (decisions applied) |
-| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | All answered |
+| 02 | [`02-open-questions.md`](02-open-questions.md) | Questions for the owner, with answers and a summary table | Q71–Q78 open |
 | 03 | [`03-decision-log.md`](03-decision-log.md) | Decisions taken, with date and reason | Living |
 | 04 | [`04-design-review.md`](04-design-review.md) | Ranked risk register for the agreed design (RK-01 to RK-11) | Decided |
 | 10 | [`10-universe-structure.md`](10-universe-structure.md) | Hierarchy, scale, topology and travel, sites and holdings, system control, season start and late joiners, coordinate frames | Agreed |
 | 11 | [`11-time-and-simulation.md`](11-time-and-simulation.md) | Clocks, timer layers, tick phases, determinism, journal, catch-up after downtime, persistence, crate boundary | Agreed |
+| 13 | [`13-ai-commanders.md`](13-ai-commanders.md) | AI stack (Deputy, Strategist, raider director), Deputy rules, Strategist goals, AI schedules, difficulty, doctrine presets, AI acceptance criteria | Proposed (Q71–Q77) |
 | 14 | [`14-economy.md`](14-economy.md) | Resources, pooled stockpile with convoys, deposits, harvesting and refining, power, command cap, build slots and queues, costs, repair, start kit, pacing targets | Agreed |
 | 16 | [`16-information-model.md`](16-information-model.md) | Information classes, sensors and detection, transit visibility, last-known memory, what the server sends, AI fairness via `CommanderView` | Agreed |
 | 15 | [`15-combat-and-defence.md`](15-combat-and-defence.md) | Ships, orders, weapons and damage, dome and power, siege and capture mechanics, outposts, gates, raider limits, TTK targets, starting values | Agreed |
@@ -25,7 +26,6 @@ Planned documents (numbers reserved). Their inputs are now decided:
 
 | # | Planned document | Inputs |
 |---|------------------|--------|
-| 13 | AI commanders: Strategist on top of the Deputy (P-02), schedules, difficulty | D-013, D-016, D-027 |
 | 17 | Strategic map views: SYSTEM and SECTOR views, fleet travel commands (phase-1 doc 07, item 7) | D-022, D-026 |
 | 20 | Technical architecture: server, client, protocol, persistence, crates | D-026, D-029, D-030 |
 | 30 | MVP scope, milestones and acceptance criteria, including the `nomad-sim` track | D-026 to D-028, D-037, D-038 |

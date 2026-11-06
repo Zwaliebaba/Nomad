@@ -174,3 +174,13 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Lane traffic** | Observed departures through a gate the commander covers, with destination and arrival time. |
 | **`CommanderView`** | The read-only projection of what one commander knows. It is the only input AI commanders and Deputies get. |
 | **Announcement** | Siege information addressed to the owner and the commanders with breach credit. |
+
+## AI (doc 13, proposed)
+
+| Term | Meaning |
+|---|---|
+| **Strategist** | The layer that plays an AI commander while it is "online": utility-scored goals turned into plans of ordinary commands. |
+| **Raider director** | The layer that launches and controls NPC raid groups. |
+| **Goal / plan** | A scored intention (expand, defend, siege…) and the sequence of ordinary commands that carries it out. |
+| **Personality** | Seeded parameters (aggression, expansion appetite, risk tolerance, preferred composition) that make AI commanders play differently. |
+| **Doctrine preset** | Fortress, Balanced or Trader: a ready-made set of Deputy parameters. |

@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q70) on 2026-11-06.**
+Status: **Q1–Q70 answered on 2026-11-06. Open: Q71–Q78 (section N).**
 
 ## Answer summary
 
@@ -356,3 +356,44 @@ Also: should a commander's holdings come out of Reinforced at staggered times, s
 
 **✅ Q70 — Last-known memory (doc 16 §5).** Kept on the server per commander and included in snapshots. Fleets expire after 24 h without a sighting; structures stay until seen again or until ownership changes. Strategic views show the age of each entry.
 *Recommendation:* adopt.
+
+## N. Open (round 9, from `13-ai-commanders.md`, plus one client question)
+
+**Q71 — AI architecture (doc 13 §3; adopts P-02).** Three layers:
+- the Deputy, for every commander;
+- the Strategist, for AI commanders only, playing through the same commands a human sends and writing its Deputy's doctrine before going offline;
+- the raider director.
+
+All three read only `CommanderView` and run inside the deterministic step.
+*Recommendation:* adopt.
+
+**Q72 — How the Strategist decides (doc 13 §5).**
+- Utility-scored goals, re-evaluated every 10 s: expand, build out, logistics, compose fleet, defend, raid, breach and siege, scout, retake.
+- Each goal runs as a plan of ordinary commands.
+- It commits to a siege only if it will be online at the siege start.
+- Seeded personalities vary its play; it has no bias for or against the human.
+
+*Recommendation:* adopt.
+
+**Q73 — Difficulty (doc 13 §7).** Easy, Normal and Hard change only competence: reaction time 1.0 / 0.6 / 0.3 s, command rate 1 / 2 / 4 per second, evaluation interval, decision noise, build-order quality and scouting. Never resource or information bonuses.
+*Recommendation:* adopt, with Normal as the default.
+
+**Q74 — AI online schedules (doc 13 §6).** Seeded sessions, 2–3 a day and 1.5–4 h in total, at consistent times. While offline, only the Deputy runs. During catch-up, every AI commander is offline.
+*Recommendation:* adopt.
+
+**Q75 — Raider director (doc 13 §8).**
+- One raid per haven every 2–4 h.
+- Raid strength is 30–50% of the target's fleet value in that system.
+- Targets: peripheral assets, outposts and ships outside docks. No commander is raided twice within 6 h.
+- Raids withdraw after 10 min or 50% losses. None start during catch-up.
+
+*Recommendation:* adopt.
+
+**Q76 — Doctrine presets (doc 13 §9).** Fortress, Balanced and Trader, with the parameter values in the table. Balanced is the default.
+*Recommendation:* adopt as starting values.
+
+**Q77 — AI acceptance criteria (doc 13 §10).** Determinism; at least 90% of income spent; 4 or more holdings by day 3 when unopposed; at least 60% of battles won using the counter triangle; at least 3 sieges and 1 capture in 14 days; nothing stuck; within budget; fairness enforced by build-time and runtime checks.
+*Recommendation:* adopt.
+
+**Q78 — Windows graphics backend for the client.** wgpu is built with DX12, Vulkan and OpenGL ES. On Windows it will most likely choose Vulkan when a Vulkan driver exists, unless `WGPU_BACKEND` says otherwise.
+*Recommendation:* make DX12 the default on Windows, falling back to Vulkan and then OpenGL ES. It is the platform's native API, it works with PIX, and it is closest to the owner's own DX12 work. Linux keeps Vulkan first.
