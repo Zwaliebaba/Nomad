@@ -6,6 +6,7 @@
 
 use thiserror::Error;
 
+use crate::rules::RulesError;
 use crate::state::UniverseState;
 use crate::util::fnv1a64;
 
@@ -49,6 +50,10 @@ pub enum SnapshotError {
     /// Deserialisation failed.
     #[error("snapshot decoding failed: {0}")]
     Decode(postcard::Error),
+    /// The rules stored in the snapshot are out of range (D-104). A snapshot comes from
+    /// outside the process, so its rules are checked like a rules file.
+    #[error("snapshot rules are invalid: {0}")]
+    InvalidRules(#[source] RulesError),
 }
 
 /// Encodes the full Universe state.
@@ -76,7 +81,9 @@ pub fn decode(bytes: &[u8]) -> Result<UniverseState, SnapshotError> {
             expected: FORMAT,
         });
     }
-    let (state, remaining) = postcard::take_from_bytes(body).map_err(SnapshotError::Decode)?;
+    let (state, remaining): (UniverseState, _) =
+        postcard::take_from_bytes(body).map_err(SnapshotError::Decode)?;
+    state.rules.check().map_err(SnapshotError::InvalidRules)?;
     if remaining.is_empty() {
         Ok(state)
     } else {
@@ -181,6 +188,16 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn rejects_snapshots_with_invalid_rules() {
+        let mut state = universe();
+        state.rules.ship_classes.clear();
+        assert!(matches!(
+            decode(&encode(&state).unwrap()),
+            Err(SnapshotError::InvalidRules(_))
+        ));
     }
 
     #[test]

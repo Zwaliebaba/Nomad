@@ -455,8 +455,8 @@ fn separation(
     let separation_m = rules.movement.separation_m;
     let (cx, cy) = cell(position, rules.movement.neighbour_cell_m);
     let mut push = Vec2::ZERO;
-    for x in cx - 1..=cx + 1 {
-        for y in cy - 1..=cy + 1 {
+    for x in cx.saturating_sub(1)..=cx.saturating_add(1) {
+        for y in cy.saturating_sub(1)..=cy.saturating_add(1) {
             for &(other, at) in grid.get(&(system, (x, y))).into_iter().flatten() {
                 if other == ship {
                     continue;
