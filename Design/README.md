@@ -35,6 +35,7 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 |---|---|---|
 | S3 | [`plans/S3-movement-and-orders.md`](plans/S3-movement-and-orders.md) | Built (D-101 to D-105; gaps decided as D-112 to D-115) |
 | N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Built except D-109 and D-110 (journal checkpoints, 48 h journal); open gaps Q105, Q106 |
+| N3 | [`plans/N3-transport-and-sessions.md`](plans/N3-transport-and-sessions.md) | Planned; questions Q109–Q114 open |
 
 ## Conventions
 
