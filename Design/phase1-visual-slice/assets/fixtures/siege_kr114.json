@@ -1,0 +1,405 @@
+{
+ "format": "voxel-rts/fixture@1",
+ "scenario": "siege_kr114",
+ "top_bar": {
+  "holding": "HOLDING KR-114",
+  "sector": "SECTOR KESTREL-7 · OPS GRID 0",
+  "mission": "T+02:31:40",
+  "resources": [
+   {
+    "id": "ALLOY",
+    "value": "21 860",
+    "rate": "+312/m"
+   },
+   {
+    "id": "CRYSTAL",
+    "value": "7 402",
+    "rate": "+84/m"
+   },
+   {
+    "id": "POWER",
+    "value": "1 140 / 1 400 MW",
+    "rate": "81% LOAD"
+   },
+   {
+    "id": "COMMAND",
+    "value": "148 / 200",
+    "rate": "FLEET CAP"
+   }
+  ],
+  "alert": "SIEGE · HOSTILE FLEET STATION-KEEPING AT 3 km",
+  "network": {
+   "commanders": "4 / 6 COMMANDERS",
+   "ping": "PING 38 ms"
+  }
+ },
+ "system_panel": {
+  "title": "System · Kestrel-7",
+  "state": "CONTESTED",
+  "breadcrumb": [
+   "ORION ARM",
+   "VEIL SECTOR",
+   "KESTREL-7",
+   "ORBIT III",
+   "KR-114"
+  ],
+  "tabs": [
+   [
+    "TACTICAL",
+    "F1",
+    true
+   ],
+   [
+    "SYSTEM",
+    "F2",
+    false
+   ],
+   [
+    "SECTOR",
+    "F3",
+    false
+   ],
+   [
+    "GALAXY",
+    "F4",
+    false
+   ]
+  ],
+  "lanes": [
+   {
+    "side": "ally",
+    "label": "RELIEF",
+    "detail": "VANTH · K-OST",
+    "eta": "04:00"
+   },
+   {
+    "side": "hostile",
+    "label": "HSTL WAVE 2",
+    "detail": "K-WEST",
+    "eta": "~09:30"
+   },
+   {
+    "side": "own",
+    "label": "ORE CONVOY",
+    "detail": "lane unsafe",
+    "eta": "HELD"
+   }
+  ],
+  "control": {
+   "holdings": 7,
+   "you": 3,
+   "hostile": 2,
+   "free": 2
+  },
+  "map": {
+   "orbits_rx": [
+    30,
+    52,
+    76,
+    100
+   ],
+   "belt_rx": 88,
+   "holding_orbit_rx": 76,
+   "holding_angle_deg": 40,
+   "gates": [
+    {
+     "name": "K-OST",
+     "pos": [
+      200,
+      22
+     ],
+     "side": "ally"
+    },
+    {
+     "name": "K-WEST",
+     "pos": [
+      10,
+      128
+     ],
+     "side": "hostile"
+    }
+   ]
+  }
+ },
+ "camera_widget": {
+  "label": "VIEW NE · 1/4"
+ },
+ "roster": {
+  "count": "15 / 22",
+  "groups": [
+   [
+    1,
+    "CAP WING",
+    "3 × VX",
+    "PATROL"
+   ],
+   [
+    2,
+    "INTERCEPT",
+    "4 × VX",
+    "ENGAGED"
+   ],
+   [
+    3,
+    "LOGISTICS",
+    "2 × MULE",
+    "HAULING"
+   ],
+   [
+    4,
+    "STRIKE WING",
+    "6 × LANCER",
+    "DOCKED"
+   ]
+  ],
+  "hostile_tracks": [
+   [
+    "HVY CRUISER",
+    "1 · STN-KEEP"
+   ],
+   [
+    "STRIKE · FORMATION",
+    "6"
+   ],
+   [
+    "STRIKE · ATTACKING",
+    "2"
+   ]
+  ]
+ },
+ "objectives": [
+  {
+   "state": "active",
+   "title": "Hold MS-01 for relief",
+   "sub": "VANTH ETA 04:00",
+   "value": "03:41"
+  },
+  {
+   "state": "ok",
+   "title": "Keep SOL-1 online",
+   "sub": "ARRAY 96% · FEEDS SHIELD",
+   "value": "OK"
+  },
+  {
+   "state": "optional",
+   "title": "Destroy HSTL-C1",
+   "sub": "OPTIONAL",
+   "value": "—"
+  }
+ ],
+ "commanders": [
+  [
+   "VANTH",
+   "RELIEF · EN ROUTE"
+  ],
+  [
+   "OKONKWO",
+   "SECTOR 3 · ECON"
+  ],
+  [
+   "LIND",
+   "SECTOR 5 · IDLE"
+  ]
+ ],
+ "chips": [
+  [
+   "IDLE 1",
+   ".",
+   "warn"
+  ],
+  [
+   "LAST ALERT",
+   "SPC",
+   "hostile"
+  ],
+  [
+   "PING",
+   "G",
+   "default"
+  ]
+ ],
+ "selection": {
+  "title": "Selected · Mother station MS-01",
+  "callsign": "AEGIS",
+  "hull": 0.94,
+  "shield_grid": 0.72,
+  "pylons": {
+   "N": 1.0,
+   "E": 0.38,
+   "S": 0.88,
+   "W": 0.92
+  },
+  "power_in": "SOL 620 · CORE 520",
+  "docked": "14 / 24",
+  "turrets": "4 · 2 FIRING",
+  "build_queue": [
+   [
+    "WARDEN FRIGATE",
+    0.74,
+    "74%"
+   ],
+   [
+    "FLAK BATTERY",
+    0.35,
+    "01:05"
+   ],
+   [
+    "SHIELD PYLON ×2",
+    0.0,
+    "QUEUED"
+   ]
+  ]
+ },
+ "command_card": {
+  "title": "Command card",
+  "sub": "MS-01 · 12 / 12",
+  "buttons": [
+   [
+    "REPAIR",
+    "R",
+    "8 A/s",
+    ""
+   ],
+   [
+    "LAUNCH",
+    "L",
+    "6 READY",
+    ""
+   ],
+   [
+    "RALLY",
+    "Y",
+    "SET POINT",
+    ""
+   ],
+   [
+    "ELEV REF",
+    "Z",
+    "REF +0",
+    ""
+   ],
+   [
+    "FRIGATE",
+    "F",
+    "400 A · 60 C",
+    ""
+   ],
+   [
+    "INTERCEPT",
+    "V",
+    "120 A · 6 CMD",
+    ""
+   ],
+   [
+    "MULE",
+    "M",
+    "150 A · 4 CMD",
+    ""
+   ],
+   [
+    "MODULES",
+    "B",
+    "BUILD MENU",
+    ""
+   ],
+   [
+    "SHLD SURGE",
+    "Q",
+    "CD 00:24",
+    "cooldown"
+   ],
+   [
+    "FLAK SCREEN",
+    "W",
+    "READY · 90 MW",
+    ""
+   ],
+   [
+    "PWR ROUTE",
+    "P",
+    "SHIELDS PRIO",
+    "active"
+   ],
+   [
+    "STOP",
+    "S",
+    "ALL TURRETS",
+    ""
+   ]
+  ]
+ },
+ "scene_labels": [
+  {
+   "id": "SOL-1 ARRAY",
+   "lines": [
+    "+620 MW · 96%"
+   ],
+   "anchor_module": "solar_array"
+  },
+  {
+   "id": "FA-1 FACTORY",
+   "lines": [
+    "ALLOY +188/m · ELEV +8"
+   ],
+   "anchor_module": "factory_fa1"
+  },
+  {
+   "id": "MS-01 AEGIS",
+   "lines": [
+    "HULL 94% · SHD 72%",
+    "PYLON E 38% · SHIELD 72%"
+   ],
+   "warn": "SIEGE STATE",
+   "anchor_module": "core_spindle"
+  },
+  {
+   "id": "SY-2 DRY DOCK",
+   "lines": [
+    "WARDEN FRIGATE 74%",
+    "ETA 01:12"
+   ],
+   "anchor_module": "dry_dock"
+  },
+  {
+   "id": "FB-2 FACTORY",
+   "lines": [
+    "MUNITIONS +40/m · ELEV +4"
+   ],
+   "anchor_module": "factory_fb2"
+  },
+  {
+   "id": "AST-1 ASTEROID FIELD",
+   "lines": [
+    "ORE +312/m · 1 HARVESTER"
+   ],
+   "anchor_module": "asteroid_1"
+  },
+  {
+   "id": "HSTL-C1 · HVY CRUISER",
+   "hostile": true,
+   "lines": [
+    "STATION-KEEPING · RNG 3.1 km",
+    "RANGING LASER ON MS-01"
+   ],
+   "anchor_ship": "hostile_heavy_cruiser"
+  }
+ ],
+ "pylon_tags": {
+  "pylon_n": "PYL-N 100%",
+  "pylon_w": "PYL-W 92%",
+  "pylon_e": "PYL-E 38%",
+  "pylon_s": "PYL-S 88%"
+ },
+ "lock": {
+  "target": "HSTL-K7",
+  "text": [
+   "LOCK 92% · HSTL-K7",
+   "RNG 0.9 km · TTI 1.1 s"
+  ]
+ },
+ "zone": {
+  "label": "STN-KEEP ZONE",
+  "center_ship": "hostile_heavy_cruiser",
+  "radius_voxels": 30
+ }
+}
