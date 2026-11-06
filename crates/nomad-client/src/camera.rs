@@ -537,16 +537,6 @@ impl ViewTransform {
         );
         Mat4::from_cols(row_x, row_y, row_z, Vec4::W).transpose()
     }
-
-    /// Ground distance from the pivot to the nearest screen edge. The grid reaches `alpha_far`
-    /// there (doc 01 §4).
-    pub fn screen_edge_distance_voxels(&self) -> f32 {
-        let a = self.anchor_px;
-        let v = self.viewport_px;
-        let across = a.x.min(v.x - a.x) / self.px_per_unit;
-        let along = a.y.min(v.y - a.y) / (self.px_per_unit * self.sin_pitch);
-        across.min(along).max(0.0)
-    }
 }
 
 #[cfg(test)]
@@ -931,12 +921,5 @@ mod tests {
         assert_close(t.anchor_px, Vec2::new(1940.0, 985.0), 1e-3, "4K anchor");
         // A wide window scales by height.
         assert!((camera_at(Vec2::new(2560.0, 1080.0)).layout_scale() - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn screen_edge_distance_at_home() {
-        let t = camera().transform();
-        // Nearest edge is the right one: 950 px at 5√2 px per voxel.
-        assert!((t.screen_edge_distance_voxels() - 950.0 / (5.0 * 2.0_f32.sqrt())).abs() < 1e-2);
     }
 }

@@ -60,16 +60,17 @@
    "color": "#6fd6ff",
    "width_px": 0.9,
    "alpha_far": 0.05,
-   "alpha_near": 0.22
+   "alpha_near": 0.26
   },
   "major": {
    "color": "#8fe2ff",
    "width_px": 1.2,
    "alpha_far": 0.09,
-   "alpha_near": 0.4
+   "alpha_near": 0.45
   },
-  "near_radius_voxels": 55,
-  "far": "infinite — never ends at screen edge; fade from alpha_near to alpha_far, never to zero"
+  "near_radius_voxels": 75,
+  "far_radius_voxels": 114,
+  "far": "infinite — never ends at screen edge; linear fade from alpha_near at near_radius_voxels to alpha_far at far_radius_voxels around the camera pivot, never to zero (D-059)"
  },
  "shield": {
   "center": [

@@ -2,14 +2,14 @@
 //
 // A full-screen pass: every pixel unprojects its view ray with the inverse view-projection and
 // intersects it with the ops-grid plane z = 0, so the grid reaches every screen edge at any zoom.
-// Lines are anti-aliased analytically from screen-space derivatives. Alpha fades from alpha_near
-// to alpha_far with distance from the camera pivot and never reaches zero.
+// Lines are anti-aliased analytically from screen-space derivatives. Alpha fades linearly from
+// alpha_near to alpha_far with ground distance from the camera pivot and never reaches zero.
 
 struct Grid {
     inv_view_proj: mat4x4<f32>,
     // xy: viewport size in pixels.
     viewport: vec4<f32>,
-    // xy: camera pivot on the plane; z: near radius; w: far radius (the nearest screen edge).
+    // xy: camera pivot on the plane; z: near radius; w: far radius, in voxels.
     pivot_fade: vec4<f32>,
     // rgb: colour; w: line width in pixels.
     minor_color: vec4<f32>,
@@ -88,7 +88,12 @@ fn fs_grid(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
         line_coverage(major_dist.y, u.major_color.w),
     );
 
-    let fade = smoothstep(u.pivot_fade.z, u.pivot_fade.w, distance(p, u.pivot_fade.xy));
+    // Linear, like the mockup's six equal steps (D-059; render/grid.rs). far > near is validated.
+    let fade = clamp(
+        (distance(p, u.pivot_fade.xy) - u.pivot_fade.z) / (u.pivot_fade.w - u.pivot_fade.z),
+        0.0,
+        1.0,
+    );
     // Each family is one stroke, so crossings take the union (max), not a double blend.
     let minor_a = mix(u.minor_params.x, u.minor_params.y, fade) * max(minor_cov.x, minor_cov.y);
     let major_a = mix(u.major_params.x, u.major_params.y, fade) * max(major_cov.x, major_cov.y);

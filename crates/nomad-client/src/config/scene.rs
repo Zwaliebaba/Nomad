@@ -94,8 +94,11 @@ pub struct OpsGridConfig {
     pub major_offset_xy: [f32; 2],
     pub minor: GridLineStyle,
     pub major: GridLineStyle,
-    /// Lines keep `alpha_near` within this distance of the camera pivot.
+    /// Lines keep `alpha_near` within this ground distance of the camera pivot.
     pub near_radius_voxels: f32,
+    /// Lines reach `alpha_far` at this ground distance from the camera pivot and keep it beyond;
+    /// the fade between the two radii is linear (D-059).
+    pub far_radius_voxels: f32,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -287,6 +290,14 @@ impl SceneConfig {
         }
         if !(grid.near_radius_voxels.is_finite() && grid.near_radius_voxels >= 0.0) {
             return Err(("ops_grid.near_radius_voxels", "must not be negative".into()));
+        }
+        // The shader divides by far − near.
+        if !(grid.far_radius_voxels.is_finite() && grid.far_radius_voxels > grid.near_radius_voxels)
+        {
+            return Err((
+                "ops_grid.far_radius_voxels",
+                "must be larger than near_radius_voxels".into(),
+            ));
         }
         for (field, style) in [
             ("ops_grid.minor", &grid.minor),
@@ -519,7 +530,7 @@ mod tests {
     #[test]
     fn missing_tuning_values_are_rejected() {
         type Edit = fn(&mut serde_json::Value);
-        let cases: [(&str, Edit); 3] = [
+        let cases: [(&str, Edit); 4] = [
             ("pan speed", |v| {
                 v["camera"]
                     .as_object_mut()
@@ -535,6 +546,12 @@ mod tests {
             ("stars", |v| {
                 v["background"].as_object_mut().unwrap().remove("stars");
             }),
+            ("far radius", |v| {
+                v["ops_grid"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("far_radius_voxels");
+            }),
         ];
         for (name, edit) in cases {
             assert!(
@@ -547,7 +564,7 @@ mod tests {
     #[test]
     fn invalid_values_are_rejected() {
         type Edit = fn(&mut serde_json::Value);
-        let cases: [(&str, Edit); 12] = [
+        let cases: [(&str, Edit); 13] = [
             ("alpha_far zero", |v| {
                 v["ops_grid"]["major"]["alpha_far"] = 0.0.into();
             }),
@@ -563,6 +580,9 @@ mod tests {
             ("pitch 90", |v| v["projection"]["pitch_deg"] = 90.0.into()),
             ("spacing zero", |v| {
                 v["ops_grid"]["minor_spacing"] = 0.into();
+            }),
+            ("far radius inside near radius", |v| {
+                v["ops_grid"]["far_radius_voxels"] = 10.into();
             }),
             ("pan speed zero", |v| {
                 v["camera"]["pan_speed_ref_px_per_s"] = 0.into();

@@ -1,4 +1,18 @@
 //! Infinite ops grid pass (phase-1 doc 01 §4, doc 05 "Grid"). The shader is `shaders/grid.wgsl`.
+//!
+//! # Fade (D-059)
+//!
+//! Line alpha fades linearly from `alpha_near` at `near_radius_voxels` to `alpha_far` at
+//! `far_radius_voxels`, measured on the ground from the camera pivot, and stays at `alpha_far`
+//! beyond (never zero). D-059 makes the reference render the target here, as an exception to
+//! "the spec wins". The mockup behind `ops-grid-scene-no-hud.png` draws every line at `alpha_far`
+//! and stacks near segments over it in six steps, clipped to a square around the origin. The
+//! shipped values reproduce the result: `alpha_near` is the stacked effective alpha
+//! (`far + near·(1 − far)` of the mockup's 0.22 and 0.40, so 0.26 and 0.45), and 75 → 114 voxels
+//! is the least-squares fit of a linear ramp to the line contrast measured in the reference by
+//! distance from the pivot. The radii are world distances: at zoom 1 the fade ends inside the
+//! screen edge, as in the reference; zooming out shows more `alpha_far` grid, zooming in fills
+//! the screen with near-alpha lines.
 
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -22,13 +36,10 @@ pub struct GridUniforms {
 }
 
 impl GridUniforms {
-    /// Uniforms for one frame. The fade runs from `near_radius_voxels` around the pivot to the
-    /// nearest screen edge, so every edge shows `alpha_far` (doc 01 §4: "`alpha_near` within ~55
-    /// voxels → `alpha_far` at the screen edge and beyond").
+    /// Uniforms for one frame (fade: see the module docs).
     pub fn new(grid: &OpsGridConfig, view: &ViewTransform) -> Self {
-        let near = grid.near_radius_voxels;
-        // smoothstep needs far > near; on very small or narrow windows the edge can be closer.
-        let far = view.screen_edge_distance_voxels().max(near + 1.0);
+        // SceneConfig::validate guarantees far > near.
+        let (near, far) = (grid.near_radius_voxels, grid.far_radius_voxels);
         // Widths are 1080p pixels and scale with the window like every spec value (phase-1
         // README, ground rule 2), but not with zoom: the lines stay hairlines.
         let style = |s: &GridLineStyle, spacing: f32, offset: [f32; 2]| {
@@ -136,23 +147,35 @@ mod tests {
     use crate::camera::{Camera, Projection};
     use crate::config::{default_asset_root, load_scene_config, scene_config_path};
 
+    /// The fade radii are world distances from the config, the same at every zoom and window
+    /// size (D-059).
     #[test]
-    fn fade_runs_from_near_radius_to_the_nearest_edge() {
+    fn fade_radii_come_from_the_config() {
         let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
-        let mut camera = Camera::new(Projection::from_config(&config), Vec2::new(1920.0, 1080.0));
-        let near = config.ops_grid.near_radius_voxels;
-        for zoom_index in 0..config.camera.zoom_levels.len() {
-            camera.set_zoom_index(zoom_index);
-            let view = camera.transform();
-            let (r_near, r_far) = GridUniforms::new(&config.ops_grid, &view).fade_radii();
-            assert!((r_near - near).abs() < 1e-6);
-            assert!(r_far > r_near);
-            assert!((r_far - view.screen_edge_distance_voxels().max(near + 1.0)).abs() < 1e-4);
+        let grid = &config.ops_grid;
+        let projection = Projection::from_config(&config);
+        for size in [Vec2::new(1920.0, 1080.0), Vec2::new(40.0, 1080.0)] {
+            let mut camera = Camera::new(projection.clone(), size);
+            for zoom_index in 0..config.camera.zoom_levels.len() {
+                camera.set_zoom_index(zoom_index);
+                let (near, far) = GridUniforms::new(grid, &camera.transform()).fade_radii();
+                assert!((near - grid.near_radius_voxels).abs() < 1e-6);
+                assert!((far - grid.far_radius_voxels).abs() < 1e-6);
+            }
         }
-        // A sliver of a window still gets a valid fade range.
-        camera.set_viewport(Vec2::new(40.0, 1080.0));
-        let (r_near, r_far) = GridUniforms::new(&config.ops_grid, &camera.transform()).fade_radii();
-        assert!(r_far > r_near);
+    }
+
+    /// At zoom 1 the whole screen edge shows `alpha_far`, as in the reference render (doc 01 §4:
+    /// "`alpha_far` at the screen edge and beyond").
+    #[test]
+    fn fade_ends_inside_the_screen_at_zoom_1() {
+        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let view =
+            Camera::new(Projection::from_config(&config), Vec2::new(1920.0, 1080.0)).transform();
+        // The nearest edge is the right one, 950 px from the pivot anchor.
+        let edge_voxels = (1920.0 - view.anchor_px.x) / view.px_per_unit;
+        let far = config.ops_grid.far_radius_voxels;
+        assert!(far < edge_voxels, "far {far}, edge {edge_voxels}");
     }
 
     #[test]

@@ -40,7 +40,8 @@ sy =  490 + 2.5 * (x + y) - 5 * z        (z is the bottom of a voxel; a voxel sp
 ## 4. Ops grid
 
 - Infinite plane at `z = 0`. Minor lines every **6** voxels (offset x≡4, y≡0 mod 6), major lines every **24** (offset x≡22, y≡18 mod 24).
-- Minor: `#6fd6ff`, ~0.9 px; major: `#8fe2ff`, ~1.2 px. Alpha fades with distance from the camera pivot: `alpha_near` within ~55 voxels → `alpha_far` at the screen edge and beyond. **The grid must never stop at the screen edge** (design requirement: the playing field must read as vast).
+- Minor: `#6fd6ff`, ~0.9 px; major: `#8fe2ff`, ~1.2 px. Alpha fades with ground distance from the camera pivot: `alpha_near` within `near_radius_voxels` (75), then linearly down to `alpha_far` at `far_radius_voxels` (114) and beyond, never to zero. At zoom 1 the fade ends inside the screen edge, so the edge shows `alpha_far`. **The grid must never stop at the screen edge** (design requirement: the playing field must read as vast).
+- The fade is tuned to match `reference/renders/ops-grid-scene-no-hud.png` (Design D-059, an exception to README ground rule 1). The mockup draws every line at `alpha_far` and stacks near segments on top, so `alpha_near` in `scene_config.json` is the effective stacked alpha: 0.26 minor, 0.45 major (from the mockup's 0.22 and 0.40). The two radii are a least-squares fit to the line contrast measured in the reference. They are world distances, so zooming out shows more of the grid at `alpha_far` and zooming in fills the screen with near-alpha lines.
 - Implement as a full-screen pass that intersects the view ray with `z = 0` and computes anti-aliased lines analytically (fwidth-based). It is drawn before the voxels, depth-tested so voxels occlude it.
 
 ## 5. Station modules (from `station_scene.json`)
