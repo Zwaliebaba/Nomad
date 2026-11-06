@@ -48,9 +48,10 @@ const HAVEN: usize = RING + 1;
 // - The widest span is gate to gate across the system: at most 2 × 195 km = 390 km, which
 //   takes 13 min at the slowest warship cruise speed of 500 m/s (doc 15 §12). That keeps
 //   every in-system trip within 15 min (doc 10 §4.1).
-// - The worst case of invariant 3 is then at most 4 × 70 min of transit plus two
-//   site-to-gate legs (≤ 325 km each) and three gate-to-gate legs (≤ 390 km each), about
-//   5.7 h, inside the 6 h limit (doc 10 §4.3).
+// - The worst case of invariant 3 is then at most 4 × 70 min of transit and 4 × 5 s of
+//   spool-up, plus two site-to-gate legs (≤ 325 km each, the first and last 20 km at
+//   110 m/s) and three gate-to-gate legs (≤ 390 km each), about 5.8 h, inside the 6 h limit
+//   (doc 10 §4.3, D-099 item 4). Over 200 seeds the worst case is about 4.9 h.
 
 /// Inner orbit radius range, m (55–65 km). Keeps sites well clear of the star.
 const INNER_ORBIT_M: (f64, f64) = (55_000.0, 65_000.0);
@@ -230,7 +231,7 @@ pub fn generate_stage1_with_rules(
     }
     crate::fleet::spawn_start_kits(&mut state);
 
-    let report = validate(state.galaxy(), &InvariantLimits::default());
+    let report = validate(state.galaxy(), &InvariantLimits::from_rules(&state.rules));
     if report.is_valid() {
         Ok(state)
     } else {

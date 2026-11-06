@@ -33,7 +33,7 @@ pub fn print(out: &mut impl Write, seed: u64, rules: Rules) -> Result<(), String
         rules,
     )
     .map_err(|e| e.to_string())?;
-    let limits = InvariantLimits::default();
+    let limits = InvariantLimits::from_rules(state.rules());
     let report = validate(state.galaxy(), &limits);
     let hash = state_hash(&state).map_err(|e| e.to_string())?;
     Summary {
@@ -197,12 +197,15 @@ impl Summary<'_> {
             if let Some(trip) = sector.worst_trip {
                 writeln!(
                     out,
-                    "worst-case trip {:.2} h, {} to {} (limit {} h at {} m/s)",
+                    "worst-case trip {:.2} h, {} to {} (limit {} h; {} m/s cruise, {} m/s in \
+                     ops areas, {} s spool-up per jump)",
                     trip.duration_s / 3_600.0,
                     self.site(trip.from),
                     self.site(trip.to),
                     limits.max_sector_trip.get() / Ticks::from_hours(1).get(),
                     limits.slowest_warship_cruise_m_per_s,
+                    limits.slowest_warship_tactical_m_per_s,
+                    limits.gate_spool_up.get() / Ticks::from_secs(1).get(),
                 )?;
             }
         }
