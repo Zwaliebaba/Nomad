@@ -95,7 +95,7 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
 - Unit tests live next to the code in `#[cfg(test)] mod tests`. Integration tests go in each crate's `tests/`.
 - Tests are deterministic: no sleeps, no network, no dependence on wall-clock time. Seed any randomness.
 - Every bug fix comes with a regression test.
-- CI runs tests in the Debug profile, so keep the suite fast in debug. Mark slow tests `#[ignore]` with a reason, and do not leave them unrun indefinitely.
+- CI runs tests in the Debug profile, so keep the suite fast in debug. Network tests and long simulations are `#[ignore]` with a reason (D-190); run them locally with `cargo test --workspace -- --ignored` before merging work that touches them, and do not leave them unrun indefinitely.
 - Rendering uses golden-image tests with a perceptual tolerance, as described in phase-1 doc 05.
 
 ## 12. Documentation and comments

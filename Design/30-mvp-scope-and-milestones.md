@@ -75,7 +75,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | Milestone | Contents | Acceptance |
 |---|---|---|
 | **MVP-α — Headless game** | S2–S8, A1, A2, A3, harness | AI commanders with economy, plus raiders and Deputies, play seasons headlessly. Determinism holds (D-049). The economy pacing targets can be measured, and are within ±50% at this stage. Raids happen. Sieges run end to end when driven by scripted commands. |
-| **MVP-β — Playable slice** | N1–N5, C7, C8, U1–U3, U7, plus phase-1 M3–M6 | A human plays in the stage-1 sector against raiders and one economy AI, from the client against the local server. The client–server integration test runs in CI. A 3-day playtest with server restarts and PC shutdowns loses no state beyond the 1 s journal window, and catch-up works. |
+| **MVP-β — Playable slice** | N1–N5, C7, C8, U1–U3, U7, plus phase-1 M3–M6 | A human plays in the stage-1 sector against raiders and one economy AI, from the client against the local server. The client–server integration test passes on both operating systems (run locally, D-190). A 3-day playtest with server restarts and PC shutdowns loses no state beyond the 1 s journal window, and catch-up works. |
 | **MVP-γ — Stage 1 (MVP acceptance, D-038)** | A4, A5, A6, U4–U6; siege, window and away-report UI | **1 human, 3 AI and raiders, for a full season.** See §5. |
 | **MVP-δ — Stage 2** | Up to 9 AI commanders, two sectors (doc 10 §3) | The AI acceptance criteria hold with 10 commanders. Tick and AI budgets hold at stage-2 scale. A stage-2 playtest. |
 
@@ -99,7 +99,7 @@ The streams meet at β (a playable slice) and γ (acceptance). Each package ends
 2. **The AI** meets D-083 in harness runs with 4 commanders.
 3. **Pacing:** the time-to-kill targets (D-058) and economy targets (D-070) are within **±25%** in harness measurements.
 4. **The offline experience** works: the away report is accurate; no holding core is lost outside its window (D-015); catch-up after PC shutdowns is correct.
-5. **Engineering:** CI is green on both operating systems. The determinism and client–server integration tests pass. Tick and AI budgets hold at stage-1 scale (doc 11 §4.3, D-083). The README covers installing, running and controls. The design documents match what was built.
+5. **Engineering:** CI is green on both operating systems. The determinism tests pass in CI, and the client–server integration and other ignored tests pass locally (D-190). Tick and AI budgets hold at stage-1 scale (doc 11 §4.3, D-083). The README covers installing, running and controls. The design documents match what was built.
 
 ## 6. Out of scope for the MVP
 

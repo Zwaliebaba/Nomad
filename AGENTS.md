@@ -46,13 +46,14 @@ cargo build --workspace
 cargo test --workspace
 ```
 
-After changing render code, also run the GPU tests, which CI cannot run: `cargo test -p nomad-client -- --ignored`.
+CI runs only fast tests (D-190). Network tests and long simulations are `#[ignore]` with a reason. Run them before merging work that touches the server, the network or the simulation's long-run behaviour: `cargo test --workspace -- --ignored` (the GPU tests among them need a GPU adapter or a software Vulkan driver). After changing render code, run the GPU tests: `cargo test -p nomad-client -- --ignored`.
 
 ## CI rules
 
 - CI builds the **Debug** profile only (D-010). Do not add `--release` builds or a build-configuration matrix.
 - CI runs on Linux and Windows (D-011). Code must build on both. Put platform-specific code behind `cfg`.
 - Never weaken lints, skip tests or remove CI steps to get a green build. Fix the code instead. A local suppression must use `#[expect(lint, reason = "...")]` on the smallest possible scope.
+- A test leaves CI only by D-190's rule (it opens a socket, or simulates long enough to take more than a few seconds in Debug): `#[ignore = "reason"]`, and it still has to pass locally. Never ignore a failing test to get a green build.
 
 ## Coding rules (summary)
 

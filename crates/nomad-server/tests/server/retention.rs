@@ -12,6 +12,7 @@ use crate::common::{
 };
 
 #[test]
+#[ignore = "long simulation: 72 h of ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn after_three_days_only_the_doc_11_snapshots_remain() {
     let dir = TestDir::new("retention");
     let clock = FakeClock::new(T0);

@@ -129,6 +129,7 @@ fn universe_dir(data: &Path, id: &str) -> PathBuf {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn a_client_plays_survives_a_crash_and_reconnects() {
     let dir = TestDir::new("client-server");
     let id = create(dir.path(), &[]);

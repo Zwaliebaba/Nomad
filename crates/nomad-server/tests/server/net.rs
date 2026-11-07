@@ -113,6 +113,7 @@ fn result(message: ServerMessage) -> (u64, CommandOutcome) {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn handshake_welcome_and_ping() {
     let dir = TestDir::new("net-welcome");
     let clock = FakeClock::new(T0);
@@ -156,6 +157,7 @@ fn handshake_welcome_and_ping() {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn a_version_mismatch_and_a_wrong_token_are_refused() {
     let dir = TestDir::new("net-refused");
     let clock = FakeClock::new(T0);
@@ -203,6 +205,7 @@ fn a_version_mismatch_and_a_wrong_token_are_refused() {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn commands_get_their_outcomes() {
     let dir = TestDir::new("net-commands");
     let clock = FakeClock::new(T0);
@@ -270,6 +273,7 @@ fn commands_get_their_outcomes() {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn the_rate_limit_and_protocol_violations_are_enforced() {
     let dir = TestDir::new("net-limits");
     let clock = FakeClock::new(T0);
@@ -347,6 +351,7 @@ fn frame(message: &ClientMessage) -> Vec<u8> {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn garbage_and_silence_never_hurt_the_server() {
     let dir = TestDir::new("net-fuzz");
     let clock = FakeClock::new(T0);
@@ -413,6 +418,7 @@ fn garbage_and_silence_never_hurt_the_server() {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn a_new_session_replaces_the_old_one_and_the_journal_shows_one_connection() {
     let dir = TestDir::new("net-replace");
     let clock = FakeClock::new(T0);
@@ -478,6 +484,7 @@ fn a_new_session_replaces_the_old_one_and_the_journal_shows_one_connection() {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn after_the_season_end_commands_are_refused_and_the_session_stays() {
     let dir = TestDir::new("net-season-end");
     let clock = FakeClock::new(T0);
@@ -533,6 +540,7 @@ fn after_the_season_end_commands_are_refused_and_the_session_stays() {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn a_restart_disconnects_commanders_restored_as_connected() {
     let dir = TestDir::new("net-restart");
     let clock = FakeClock::new(T0);
@@ -596,6 +604,7 @@ fn info_after_restart(dir: &Path) -> ConnectInfo {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn the_connection_limit_refuses_extra_connections() {
     let dir = TestDir::new("net-cap");
     let clock = FakeClock::new(T0);

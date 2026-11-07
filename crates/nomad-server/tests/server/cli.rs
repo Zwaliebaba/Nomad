@@ -116,6 +116,7 @@ fn bad_arguments_are_refused() {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn run_is_refused_while_another_server_holds_the_universe() {
     let dir = TestDir::new("cli-lock");
     let id = create(dir.path(), &[]);
@@ -137,6 +138,7 @@ fn run_is_refused_while_another_server_holds_the_universe() {
 /// test cannot target without unsafe code; the shutdown path after the signal is the same.
 #[cfg(unix)]
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn run_stops_cleanly_on_sigint() {
     use std::io::{BufRead, BufReader};
     use std::process::Stdio;

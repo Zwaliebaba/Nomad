@@ -21,6 +21,7 @@ fn connect() -> Input {
 }
 
 #[test]
+#[ignore = "long simulation: hours of ticks with checkpoints; CI runs fast tests only (D-190), run with --ignored"]
 fn a_correct_run_replays_every_checkpoint_without_a_mismatch() {
     // An hour of catch-up, then live play with an input. Snapshots are daily, so a crash
     // replays the whole journal from the tick-0 snapshot, and the checkpoints written

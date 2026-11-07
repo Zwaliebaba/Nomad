@@ -27,7 +27,13 @@ cargo build --workspace
 cargo test --workspace
 ```
 
-CI cannot run the GPU tests. After changing render code, also run them locally (D-089):
+CI runs only fast tests (D-190). Network tests, long simulations and the GPU tests are `#[ignore]`. Before merging work that touches the server, the network or long-run simulation behaviour, run them all locally:
+
+```bash
+cargo test --workspace -- --ignored
+```
+
+After changing render code, run at least the GPU tests (they need a GPU adapter or a software Vulkan driver):
 
 ```bash
 cargo test -p nomad-client -- --ignored

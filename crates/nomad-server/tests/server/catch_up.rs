@@ -45,6 +45,7 @@ fn assert_offline_mid_catch_up(universe_dir: &std::path::Path, tick: u64) {
 }
 
 #[test]
+#[ignore = "long simulation: hours of catch-up ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn a_commander_connected_when_the_computer_slept_is_offline_during_catch_up() {
     const SEED: u64 = 27;
     let dir = TestDir::new("catch-up-sleep-offline");
@@ -95,6 +96,7 @@ fn a_commander_connected_when_the_computer_slept_is_offline_during_catch_up() {
 }
 
 #[test]
+#[ignore = "long simulation: hours of catch-up ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn a_commander_connected_at_a_crash_is_offline_during_the_catch_up_after_it() {
     const SEED: u64 = 28;
     let dir = TestDir::new("catch-up-crash-offline");
@@ -142,6 +144,7 @@ fn a_commander_connected_at_a_crash_is_offline_during_the_catch_up_after_it() {
 }
 
 #[test]
+#[ignore = "long simulation: hours of catch-up ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn a_season_that_started_six_hours_ago_catches_up_exactly() {
     const SEED: u64 = 21;
     let dir = TestDir::new("catch-up-start");
@@ -183,6 +186,7 @@ fn a_season_that_started_six_hours_ago_catches_up_exactly() {
 }
 
 #[test]
+#[ignore = "long simulation: hours of catch-up ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn catch_up_is_marked_in_the_journal() {
     let dir = TestDir::new("catch-up-markers");
     let clock = FakeClock::new(T0);
@@ -202,6 +206,7 @@ fn catch_up_is_marked_in_the_journal() {
 }
 
 #[test]
+#[ignore = "long simulation: hours of catch-up ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn a_universe_stopped_six_hours_ago_catches_up_exactly() {
     const SEED: u64 = 22;
     let dir = TestDir::new("catch-up-stopped");
@@ -240,6 +245,7 @@ fn a_universe_stopped_six_hours_ago_catches_up_exactly() {
 }
 
 #[test]
+#[ignore = "long simulation: hours of catch-up ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn an_interrupted_catch_up_resumes_and_ends_at_the_same_state() {
     const SEED: u64 = 23;
     let dir = TestDir::new("catch-up-interrupted");
@@ -281,6 +287,7 @@ fn an_interrupted_catch_up_resumes_and_ends_at_the_same_state() {
 }
 
 #[test]
+#[ignore = "long simulation: hours of catch-up ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn a_wall_clock_jump_while_live_is_caught_up() {
     // A computer that slept for an hour: the wall clock moved, the monotonic clock did
     // not (doc 11 §2: Universe time is UTC).
@@ -312,6 +319,7 @@ fn a_wall_clock_jump_while_live_is_caught_up() {
 }
 
 #[test]
+#[ignore = "long simulation: hours of catch-up ticks; CI runs fast tests only (D-190), run with --ignored"]
 fn a_wall_clock_set_back_does_not_stop_the_universe() {
     let dir = TestDir::new("catch-up-back");
     let clock = FakeClock::new(T0);
