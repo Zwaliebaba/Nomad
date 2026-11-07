@@ -64,6 +64,7 @@ fn script(state: &UniverseState) -> Script {
             fleet,
             order,
             queue,
+            retreat: false,
         };
         let launch = Command::Holding {
             holding,

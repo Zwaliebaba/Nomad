@@ -5,7 +5,10 @@
 //! presence, kind or doctrine (D-075, D-078; A1 plan §4.8).
 
 use nomad_ai::{InboxEntry, View};
-use nomad_types::{Owner, Tick};
+use nomad_types::{
+    DirectControl, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetId, HoldingDoctrine,
+    HoldingId, Owner, ReplacementEntry, Tick,
+};
 
 use crate::sensors::CommanderView;
 use crate::state::UniverseState;
@@ -40,5 +43,41 @@ impl View for AiView<'_> {
 
     fn inbox(&self) -> &[InboxEntry] {
         self.state().inbox(self.view.observer())
+    }
+
+    fn doctrine_preset(&self) -> Option<DoctrinePreset> {
+        let me = self.view.observer().commander()?;
+        Some(self.state().doctrine_preset(me))
+    }
+
+    fn preset_values(&self, preset: DoctrinePreset) -> DoctrineValues {
+        *self.view.rules().ai.preset(preset)
+    }
+
+    fn holding_doctrine(&self, holding: HoldingId) -> Option<HoldingDoctrine> {
+        let me = self.view.observer().commander()?;
+        let own = self.view.holding(holding).is_some_and(|h| h.owner == me);
+        if own {
+            self.state().holding_doctrine(holding)
+        } else {
+            None
+        }
+    }
+
+    fn fleet_doctrine(&self, fleet: FleetId) -> Option<FleetDoctrine> {
+        self.view.own_fleet(fleet)?;
+        self.state().fleet_doctrine(fleet)
+    }
+
+    fn replacement_list(&self) -> Vec<ReplacementEntry> {
+        self.view
+            .observer()
+            .commander()
+            .map(|me| self.state().doctrine(me).replacement)
+            .unwrap_or_default()
+    }
+
+    fn direct_control(&self, fleet: FleetId) -> Option<DirectControl> {
+        self.view.own_fleet(fleet)?.direct_control
     }
 }

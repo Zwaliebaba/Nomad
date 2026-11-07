@@ -266,6 +266,7 @@ impl Run {
             fleet,
             order: FleetOrder::Attack { target: core },
             queue: Queueing::Replace,
+            retreat: false,
         };
         if crate::validate_command(&self.state, owner, &command).is_ok() {
             crate::fleet::orders::give(

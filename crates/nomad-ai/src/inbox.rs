@@ -193,4 +193,6 @@ pub enum CommandOutcome {
 pub enum DropReason {
     /// It waited for the command rate longer than the expiry (10 s).
     Expired,
+    /// A Deputy command for a fleet under direct control (RK-10, D-200).
+    DirectControl,
 }

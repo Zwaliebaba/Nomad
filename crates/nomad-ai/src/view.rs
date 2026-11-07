@@ -7,7 +7,10 @@
 //! or what their doctrine is (D-075, D-078; A1 plan §4.8). Calls are monomorphised, so there
 //! is no dynamic dispatch, and the AI can be tested against a fake view.
 
-use nomad_types::{Owner, Tick};
+use nomad_types::{
+    DirectControl, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetId, HoldingDoctrine,
+    HoldingId, Owner, ReplacementEntry, Tick,
+};
 
 use crate::inbox::InboxEntry;
 
@@ -22,4 +25,24 @@ pub trait View {
 
     /// The observer's inbox, oldest first (D-202).
     fn inbox(&self) -> &[InboxEntry];
+
+    // --- Doctrine: the observer's own (doc 12 §5.2; D-075), and the public presets.
+
+    /// The observer's doctrine preset; `None` for an NPC faction.
+    fn doctrine_preset(&self) -> Option<DoctrinePreset>;
+
+    /// What a preset sets: rules data, the same for everyone (D-082, D-211).
+    fn preset_values(&self, preset: DoctrinePreset) -> DoctrineValues;
+
+    /// The doctrine that applies to an own holding: its override or the preset's.
+    fn holding_doctrine(&self, holding: HoldingId) -> Option<HoldingDoctrine>;
+
+    /// The doctrine that applies to an own fleet: its override or the preset's.
+    fn fleet_doctrine(&self, fleet: FleetId) -> Option<FleetDoctrine>;
+
+    /// The observer's replacement list, in order (D-208).
+    fn replacement_list(&self) -> Vec<ReplacementEntry>;
+
+    /// Whether an own fleet is under direct control (RK-10).
+    fn direct_control(&self, fleet: FleetId) -> Option<DirectControl>;
 }

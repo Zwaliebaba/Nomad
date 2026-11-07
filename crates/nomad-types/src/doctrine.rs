@@ -141,6 +141,16 @@ impl DoctrineValues {
     }
 }
 
+/// A fleet under direct control (RK-10; A1 plan §5.2): its commander's own client or
+/// Strategist gave it a fleet order, and until a release, the lapse after the disconnect
+/// grace (D-162) or its destruction the Deputy issues it no command. The HUD shows it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DirectControl {
+    /// The retreat opt-in of the last direct order: the doctrine's retreat threshold still
+    /// applies, and the Deputy may retreat the fleet.
+    pub retreat: bool,
+}
+
 /// Doctrine commands (doc 12 §5.2; A1 plan §5.1, §5.2). Changing doctrine is the
 /// commander's own initiative (PR-3): the validator refuses these from the Deputy.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

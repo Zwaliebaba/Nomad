@@ -535,6 +535,7 @@ mod tests {
                 },
             },
             queue: Queueing::Replace,
+            retreat: false,
         }
     }
 

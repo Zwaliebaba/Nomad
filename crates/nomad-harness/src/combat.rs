@@ -214,6 +214,7 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
                 target: target.sim_id(),
             },
             queue: Queueing::Replace,
+            retreat: false,
         }),
     };
     let first = TickInputs {

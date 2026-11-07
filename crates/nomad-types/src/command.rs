@@ -15,12 +15,13 @@
 //!
 //! Commands are grouped by what they act on (doc 20 §5): a fleet, a holding, or fleet
 //! management, plus economy commands ([`EconomyCommand`], doc 14) and the commander's own
-//! settings ([`Command::SetExposureWindow`], doc 12 §4). Doctrine commands arrive with their
-//! work package (doc 12).
+//! settings ([`Command::SetExposureWindow`], doc 12 §4), and doctrine commands
+//! ([`Command::Doctrine`], doc 12 §5.2; A1).
 
 use serde::{Deserialize, Serialize};
 
 use crate::commander::QuarterHour;
+use crate::doctrine::DoctrineCommand;
 use crate::economy::EconomyCommand;
 use crate::id::{FleetId, HoldingId, ShipId, SimId, SystemId};
 use crate::position::Location;
@@ -37,6 +38,9 @@ pub enum Command {
         /// Whether the order replaces the fleet's orders or joins the end of its queue
         /// (S3 plan §4.4).
         queue: Queueing,
+        /// The retreat opt-in (RK-10, A1 plan §5.2): while the fleet is under this direct
+        /// order, its doctrine's retreat threshold still applies.
+        retreat: bool,
     },
     /// An order to one holding (doc 15 §5.3).
     Holding {
@@ -70,6 +74,10 @@ pub enum Command {
         /// The new start.
         start: QuarterHour,
     },
+    /// A doctrine command: the preset, overrides per holding and per fleet, the replacement
+    /// list, and the release of a fleet from direct control (doc 12 §5.2; A1 plan §5.1,
+    /// §5.2).
+    Doctrine(DoctrineCommand),
 }
 
 /// How a fleet order relates to the orders the fleet already has (S3 plan §4.4).

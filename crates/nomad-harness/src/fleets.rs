@@ -204,6 +204,7 @@ fn scripted(state: &UniverseState, tick: u64, owner: Owner) -> Vec<Command> {
                     fleet: mules,
                     order: FleetOrder::Dock { at: holding },
                     queue: Queueing::Replace,
+                    retreat: false,
                 });
             }
             if owner == Owner::Commander(COMMANDERS[0])
@@ -214,6 +215,7 @@ fn scripted(state: &UniverseState, tick: u64, owner: Owner) -> Vec<Command> {
                     fleet: warships,
                     order: FleetOrder::Jump { system: hub },
                     queue: Queueing::Replace,
+                    retreat: false,
                 });
             }
             commands
@@ -332,6 +334,7 @@ fn random_command(state: &UniverseState, rng: &mut RngStreams, owner: Owner) -> 
             fleet,
             order,
             queue,
+            retreat: false,
         })
     };
     let system = match order_start(state, &view, queue)? {

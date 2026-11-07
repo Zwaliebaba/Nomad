@@ -17,7 +17,7 @@
 //! - **own:** own fleets (in transit or in an emergency jump too, with their arrival tick)
 //!   and ships in full, own holdings with their siege state, own fallen mother stations in
 //!   their emergency jump (D-166), the economy views of S4 §4.8, own defence views, the own
-//!   commander record;
+//!   commander record, the own doctrine and which own fleets are under direct control (A1);
 //! - **sensed:** per system, the detected fleets with only their detected ships (D-174) and
 //!   the detected holdings with their modules and dome (D-175): position, heading, velocity,
 //!   class, owner, hull, nothing private (no orders, cargo, doctrine or queues);
@@ -257,6 +257,12 @@ impl<'a> CommanderView<'a> {
     /// The observer's own commander record: presence, grace and window choice, private.
     pub fn own_record(&self) -> Option<CommanderRecord> {
         self.state.commander(self.commander()?)
+    }
+
+    /// The observer's own doctrine, private (doc 12 §5.2, D-075; A1 plan §5.1). Which own
+    /// fleets are under direct control is in their fleet views (RK-10).
+    pub fn own_doctrine(&self) -> Option<crate::doctrine::Doctrine> {
+        Some(self.state.doctrine(self.commander()?))
     }
 
     /// Every own fleet, in identity order, wherever it is: in space, docked or in lane

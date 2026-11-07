@@ -9,9 +9,10 @@
 //!   reconnect in the same tick change nothing.
 //! - **Going offline** starts the 120 s grace, a deadline (doc 12 §5.3). Coming back online
 //!   before it ends cancels it.
-//! - **When the grace ends** the commander's direct fleet orders lapse (D-162): each fleet
-//!   with an order or a queue drops them and station-keeps where it is, the doctrine until
-//!   the Deputy exists (A1). A fleet that already station-keeps where it is, with nothing
+//! - **When the grace ends** the commander's direct fleet orders lapse (D-162): every fleet
+//!   under direct control (A1 plan §5.2) leaves it, and each of them with an order or a queue
+//!   drops them and station-keeps where it is, until its doctrine role moves it (A1b). Orders
+//!   the Deputy gave are doctrine and stand. A fleet that already station-keeps where it is, with nothing
 //!   queued, is at that doctrine and has nothing to lose. A fleet in lane transit finishes its hop first (D-042) and
 //!   station-keeps on arrival; a docked fleet stays docked. Convoy routes are doctrine and
 //!   continue (doc 12 §5.2, D-162). Rules of engagement are a standing setting of the fleet,
@@ -20,7 +21,7 @@
 //! - **Counts as online for sieges** (D-160): online, or offline for less than the grace;
 //!   during catch-up nobody, so a siege that falls due then is Held (doc 11 §7, D-047).
 
-use nomad_types::{CommanderKind, FleetOrder, Owner, Queueing};
+use nomad_types::{CommanderKind, FleetOrder, Queueing};
 
 use super::{Deadline, Presence};
 use crate::announce::{Announcement, AnnouncementKind, Recipients};
@@ -128,29 +129,23 @@ pub(super) fn grace_ends(
     if record.presence.is_online() {
         return;
     }
-    let owner = Owner::Commander(commander);
+    // The fleets under direct control return to doctrine (D-162, RK-10); those with orders
+    // lose them.
     let mut lapsed = Vec::new();
-    for id in state.fleet_ids() {
+    for id in crate::doctrine::lapse_all(state, commander) {
         // Convoy routes are doctrine, not direct orders (doc 12 §5.2, D-162).
         if state.economy.convoys.contains_key(&id) {
             continue;
         }
-        let Some((owned, place, has_orders)) = state.entities.with::<Fleet, _>(id.sim_id(), |f| {
+        let Some((place, has_orders)) = state.entities.with::<Fleet, _>(id.sim_id(), |f| {
             let at_doctrine = f
                 .active
                 .as_ref()
                 .is_none_or(|active| active.order == FleetOrder::StationKeep { relative_to: None });
-            (
-                f.owner == owner,
-                f.place,
-                !at_doctrine || !f.queue.is_empty(),
-            )
+            (f.place, !at_doctrine || !f.queue.is_empty())
         }) else {
             continue;
         };
-        if !owned {
-            continue;
-        }
         if !has_orders {
             continue;
         }

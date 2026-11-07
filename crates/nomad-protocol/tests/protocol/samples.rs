@@ -8,10 +8,11 @@ use nomad_protocol::{
     PROTOCOL_VERSION, RejectReason, ServerMessage, ViewChanges, ViewSnapshot,
 };
 use nomad_types::{
-    BuildItem, Command, CommanderId, ControlState, EconomyCommand, FactionId, FleetId, FleetOrder,
-    HoldingId, HoldingOrder, InvalidReason, LaneKind, ModuleKind, Owner, PositionMetres,
-    PowerProfile, QuarterHour, Queueing, RulesOfEngagement, SeasonClock, ShipClass, ShipId, SimId,
-    SiteId, Slot, StationAbility, SystemId, SystemKind, Tick, UniverseId,
+    BuildItem, Command, CommanderId, ControlState, DoctrineCommand, DoctrinePreset, EconomyCommand,
+    FactionId, FleetDoctrine, FleetId, FleetOrder, FleetRole, HoldingDoctrine, HoldingId,
+    HoldingOrder, InvalidReason, LaneKind, ModuleKind, Owner, PositionMetres, PowerProfile,
+    QuarterHour, Queueing, ReplacementEntry, RulesOfEngagement, SeasonClock, ShipClass, ShipId,
+    SimId, SiteId, Slot, StationAbility, SystemId, SystemKind, Tick, UniverseId,
 };
 
 pub const YOU: CommanderId = CommanderId(1);
@@ -77,11 +78,18 @@ pub fn fleet_orders() -> Vec<FleetOrder> {
 
 /// One of every command, with every queueing mode.
 pub fn commands() -> Vec<Command> {
-    vec![
+    let mut commands = vec![
         Command::Fleet {
             fleet: FleetId(id(501)),
             order: FleetOrder::Launch,
             queue: Queueing::Append,
+            retreat: false,
+        },
+        Command::Fleet {
+            fleet: FleetId(id(501)),
+            order: FleetOrder::Retreat { to: None },
+            queue: Queueing::Replace,
+            retreat: true,
         },
         Command::Holding {
             holding: HoldingId(id(16)),
@@ -161,6 +169,82 @@ pub fn commands() -> Vec<Command> {
         Command::SetExposureWindow {
             start: QuarterHour::at(23, 45).expect("23:45 is a quarter hour"),
         },
+    ];
+    commands.extend(doctrine_commands());
+    commands
+}
+
+/// One of every doctrine command (A1 plan §5.1).
+fn doctrine_commands() -> Vec<Command> {
+    vec![
+        Command::Doctrine(DoctrineCommand::SetPreset {
+            preset: DoctrinePreset::Fortress,
+        }),
+        Command::Doctrine(DoctrineCommand::SetHolding {
+            holding: HoldingId(id(16)),
+            doctrine: Some(HoldingDoctrine {
+                zone_radius_m: 12_000,
+                zone_rules: RulesOfEngagement::ReturnFire,
+                alert_profile: PowerProfile::ShieldsFirst,
+                surge_below_permille: 350,
+                flak_light_hostiles: None,
+                evacuation_radius_m: 25_000,
+                rebuild_modules: false,
+            }),
+        }),
+        Command::Doctrine(DoctrineCommand::SetHolding {
+            holding: HoldingId(id(16)),
+            doctrine: None,
+        }),
+        Command::Doctrine(DoctrineCommand::SetFleet {
+            fleet: FleetId(id(501)),
+            doctrine: Some(FleetDoctrine {
+                role: Some(FleetRole::Patrol {
+                    route: vec![at(3, 1_000.0, 2_000.0), at(3, -1_000.0, 2_000.0)],
+                }),
+                leash_m: 9_000,
+                retreat_below_permille: 450,
+                repair_at_dock: true,
+            }),
+        }),
+        Command::Doctrine(DoctrineCommand::SetFleet {
+            fleet: FleetId(id(502)),
+            doctrine: Some(FleetDoctrine {
+                role: Some(FleetRole::Escort {
+                    fleet: FleetId(id(501)),
+                }),
+                leash_m: 6_000,
+                retreat_below_permille: 300,
+                repair_at_dock: false,
+            }),
+        }),
+        Command::Doctrine(DoctrineCommand::SetFleet {
+            fleet: FleetId(id(503)),
+            doctrine: None,
+        }),
+        Command::Doctrine(DoctrineCommand::SetReplacement {
+            entries: vec![
+                ReplacementEntry {
+                    fleet: FleetId(id(501)),
+                    class: ShipClass::Vx,
+                    count: 3,
+                    role: Some(FleetRole::Garrison {
+                        holding: HoldingId(id(16)),
+                    }),
+                },
+                ReplacementEntry {
+                    fleet: FleetId(id(502)),
+                    class: ShipClass::Warden,
+                    count: 1,
+                    role: Some(FleetRole::Reserve {
+                        holding: HoldingId(id(17)),
+                    }),
+                },
+            ],
+        }),
+        Command::Doctrine(DoctrineCommand::Release {
+            fleet: FleetId(id(501)),
+        }),
     ]
 }
 
@@ -184,6 +268,7 @@ pub fn client_messages() -> Vec<ClientMessage> {
                 fleet: FleetId(id(500 + seq)),
                 order,
                 queue: Queueing::Replace,
+                retreat: false,
             },
         });
     }
@@ -429,6 +514,15 @@ pub fn server_messages() -> Vec<ServerMessage> {
         RejectReason::Invalid {
             reason: InvalidReason::WindowLocked,
         },
+        RejectReason::Invalid {
+            reason: InvalidReason::InvalidDoctrine,
+        },
+        RejectReason::Invalid {
+            reason: InvalidReason::NotUnderDirectControl,
+        },
+        RejectReason::Invalid {
+            reason: InvalidReason::NotPermitted,
+        },
         RejectReason::SeasonOver,
     ]) {
         messages.push(ServerMessage::CommandResult {
@@ -511,8 +605,9 @@ pub const fn command_variant(command: &Command) -> usize {
         Command::MergeFleets { .. } => 3,
         Command::Economy(..) => 4,
         Command::SetExposureWindow { .. } => 5,
+        Command::Doctrine(..) => 6,
     }
 }
 
 /// Number of [`Command`] variants.
-pub const COMMAND_VARIANTS: usize = 6;
+pub const COMMAND_VARIANTS: usize = 7;

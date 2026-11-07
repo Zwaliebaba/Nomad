@@ -16,7 +16,8 @@
 //!   an exposure window starts at (doc 12 §4, D-155);
 //! - amounts of alloy and crystal ([`Stock`], milli-units, D-049);
 //! - doctrine ([`DoctrinePreset`], [`HoldingDoctrine`], [`FleetDoctrine`], [`FleetRole`],
-//!   [`ReplacementEntry`], the preset values [`DoctrineValues`] and [`DoctrineCommand`];
+//!   [`ReplacementEntry`], the preset values [`DoctrineValues`], [`DoctrineCommand`] and
+//!   [`DirectControl`];
 //!   doc 12 §5.2, D-082), which the wire carries and the AI reads (D-199);
 //! - the shape of [`Command`]s (doc 15 §3.4), shared by the protocol and the simulation's
 //!   validator, including economy commands and module shapes ([`EconomyCommand`],
@@ -53,8 +54,8 @@ pub use commander::{CommanderKind, Difficulty, QuarterHour};
 pub use control::ControlState;
 pub use deposit::{Deposit, DepositKind, DepositValue, Richness};
 pub use doctrine::{
-    DoctrineCommand, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetRole, HoldingDoctrine,
-    ReplacementEntry,
+    DirectControl, DoctrineCommand, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetRole,
+    HoldingDoctrine, ReplacementEntry,
 };
 pub use economy::{BuildItem, EconomyCommand, ModuleKind, PowerProfile, Slot};
 pub use galaxy::{LaneKind, SystemKind};

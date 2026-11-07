@@ -44,6 +44,7 @@ fn harmless(state: &UniverseState, n: u32) -> Command {
             rules: RulesOfEngagement::WeaponsFree,
         },
         queue: Queueing::Replace,
+        retreat: false,
     }
 }
 
@@ -157,6 +158,7 @@ fn an_invalid_command_is_rejected_alike_from_a_client_and_from_the_outbox() {
         fleet: rival,
         order: FleetOrder::Launch,
         queue: Queueing::Replace,
+        retreat: false,
     };
     let out = step(
         &mut state,
@@ -306,6 +308,7 @@ fn the_inbox_tells_the_owner_of_its_losses_and_forgets_after_60_s() {
             target: victim.sim_id(),
         },
         queue: Queueing::Replace,
+        retreat: false,
     };
     let out = crate::testkit::send(&mut state, 2, attack);
     assert_eq!(out.commands[0].outcome, Ok(()), "the attack is accepted");

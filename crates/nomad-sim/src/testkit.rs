@@ -63,6 +63,7 @@ pub(crate) fn order(fleet: FleetId, order: FleetOrder) -> Command {
         fleet,
         order,
         queue: Queueing::Replace,
+        retreat: false,
     }
 }
 
@@ -72,6 +73,7 @@ pub(crate) fn then(fleet: FleetId, order: FleetOrder) -> Command {
         fleet,
         order,
         queue: Queueing::Append,
+        retreat: false,
     }
 }
 

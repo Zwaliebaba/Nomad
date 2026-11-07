@@ -159,12 +159,14 @@ fn patrol(state: &UniverseState, c: CommanderId) -> Vec<Command> {
             fleet,
             order: FleetOrder::Launch,
             queue: Queueing::Replace,
+            retreat: false,
         });
     }
     commands.push(Command::Fleet {
         fleet,
         order: FleetOrder::Patrol { route },
         queue: Queueing::Replace,
+        retreat: false,
     });
     commands
 }

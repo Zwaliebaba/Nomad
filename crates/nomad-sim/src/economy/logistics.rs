@@ -155,6 +155,7 @@ fn convoy_second(
             fleet: id,
             order: order.clone(),
             queue: Queueing::Replace,
+            retreat: false,
         };
         if validate_command(state, fleet.owner, &command).is_err() {
             return false;

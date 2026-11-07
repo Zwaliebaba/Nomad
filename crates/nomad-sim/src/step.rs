@@ -4,7 +4,7 @@ use nomad_types::{Command, Owner};
 
 use crate::announce::Announcement;
 use crate::combat::CombatEvent;
-use crate::command::{CommandRejection, execute};
+use crate::command::{CommandRejection, CommandSource, execute};
 use crate::defence::DefenceEvent;
 use crate::economy::EconomyEvent;
 use crate::fleet::FleetEvent;
@@ -173,6 +173,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // Phase 9: the standings on a tick that changed holdings, then the early win and the
     // season's final tick (S8; D-191, D-192, D-195).
     crate::season::run(state, now, &mut out.announcements);
+    // Direct control and overrides of fleets and holdings that are gone (A1 plan §5.2).
+    crate::doctrine::prune(state);
     // What each owner may know of this tick, for its AI layers (D-202).
     crate::ai::inbox::collect(state, now, &out);
 
@@ -222,6 +224,7 @@ fn apply_command(
     execute(
         state,
         Owner::Commander(commander),
+        CommandSource::Client,
         command,
         &mut out.fleet_events,
         &mut out.economy_events,

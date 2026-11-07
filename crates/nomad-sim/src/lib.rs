@@ -64,6 +64,7 @@ pub mod combat;
 mod command;
 mod commander;
 pub mod defence;
+mod doctrine;
 pub mod economy;
 mod entities;
 pub mod fleet;
@@ -90,11 +91,12 @@ mod util;
 pub use ai::LayerCounters;
 pub use announce::{Announcement, AnnouncementKind, HeldReason, Recipients};
 pub use combat::{CombatEvent, ProjectileId};
-pub use command::{CommandRejection, validate_command};
+pub use command::{CommandRejection, CommandSource, validate_command, validate_command_from};
 pub use commander::{
     CommanderError, CommanderRecord, CommanderSetup, DEFAULT_WINDOW_START, ExposureWindow, Presence,
 };
 pub use defence::{DefenceEvent, DefenceView, LedgerView, SectorView};
+pub use doctrine::Doctrine;
 pub use economy::{
     BuildLane, Cargo, CommanderEconomy, EconomyEvent, HoldingEconomyView, ModuleView,
     PowerAllocation, QueueItemView, Shortage, Stock,
@@ -115,6 +117,10 @@ pub use nomad_ai::{CommandOutcome, DropReason, InboxEntry, InboxEvent, Layer};
 pub use nomad_types::{
     BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,
     PowerProfile, QuarterHour, Queueing, RulesOfEngagement, Slot, StationAbility,
+};
+pub use nomad_types::{
+    DirectControl, DoctrineCommand, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetRole,
+    HoldingDoctrine, ReplacementEntry,
 };
 pub use nomad_types::{FactionId, Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};

@@ -10,6 +10,9 @@
 //!   window of 10 consecutive ticks, across all its layers. Each goes through the same
 //!   `execute`, and so the same validator, as a client's command (D-077).
 //! - **Expiry:** a due command still waiting after 10 s is dropped and counted.
+//! - **Direct control wins** (RK-10): a Deputy command for a fleet under direct control is
+//!   dropped when it would apply, unless it is the retreat that fleet's direct order opted
+//!   into ([`crate::doctrine::blocks_deputy`]).
 //! - *Proposed:* a rejected command counts against the rate like an applied one: the
 //!   validator ran for it. A dropped one does not.
 //! - **Outcomes** go to the owner's inbox for the layer that issued them, and into the
@@ -23,7 +26,7 @@ use nomad_types::Owner;
 use serde::{Deserialize, Serialize};
 
 use super::{Queued, competence};
-use crate::command::{CommandRejection, execute};
+use crate::command::{CommandRejection, CommandSource, execute};
 use crate::state::UniverseState;
 use crate::step::TickOutputs;
 use crate::time::{Tick, Ticks};
@@ -119,6 +122,21 @@ pub(crate) fn apply_due(state: &mut UniverseState, now: Tick, out: &mut TickOutp
                 );
                 continue;
             }
+            // Direct control wins (RK-10, D-200): dropped when it would apply, without using
+            // the rate.
+            if queued.layer == Layer::Deputy
+                && crate::doctrine::blocks_deputy(state, &queued.command)
+            {
+                record(
+                    state,
+                    owner,
+                    now,
+                    queued,
+                    CommandOutcome::Dropped(DropReason::DirectControl),
+                    None,
+                );
+                continue;
+            }
             if outbox.applied.len() >= usize::try_from(rate).unwrap_or(usize::MAX) {
                 kept.push(queued);
                 continue;
@@ -126,6 +144,7 @@ pub(crate) fn apply_due(state: &mut UniverseState, now: Tick, out: &mut TickOutp
             let result = execute(
                 state,
                 owner,
+                CommandSource::Ai(queued.layer),
                 &queued.command,
                 &mut out.fleet_events,
                 &mut out.economy_events,

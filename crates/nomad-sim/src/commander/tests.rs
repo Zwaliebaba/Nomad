@@ -632,8 +632,8 @@ fn a_frozen_window_does_not_move() {
 }
 
 /// A stage-1 Universe where commanders 1–3 are connected, commander 1's start kit is
-/// launched and patrolling, commander 2's kit is docked with an order queued, and commander
-/// 3's kit runs a convoy.
+/// launched and patrolling, commander 2's kit is docked with a direct order queued, and
+/// commander 3's kit runs a convoy.
 fn lapse_scene() -> (UniverseState, FleetId, FleetId, FleetId) {
     let mut state = stage1(7);
     run(
@@ -654,6 +654,8 @@ fn lapse_scene() -> (UniverseState, FleetId, FleetId, FleetId) {
     if let Some(f) = state.entities.get_mut::<Fleet>(two.sim_id()) {
         f.queue.push_back(FleetOrder::Launch);
     }
+    // As a direct order of commander 2's client would leave it (RK-10).
+    crate::doctrine::take_control(&mut state, two, false);
     // Commander 3's kit runs a convoy route: doctrine, not a direct order (D-162).
     let three = kit_fleet(&state, 3);
     let (mother, _) = home(&state, 3);

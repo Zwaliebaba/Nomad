@@ -90,6 +90,7 @@ fn orders(b: &Battle) -> Vec<CommanderInput> {
             fleet,
             order,
             queue: Queueing::Replace,
+            retreat: false,
         }),
     };
     let at = |p: Vec2| Location {
