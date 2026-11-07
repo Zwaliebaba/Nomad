@@ -53,6 +53,8 @@ mod grant;
 mod jump;
 mod lifecycle;
 #[cfg(test)]
+mod stakes;
+#[cfg(test)]
 mod tests;
 
 use std::collections::{BTreeMap, BTreeSet};
