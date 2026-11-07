@@ -39,9 +39,28 @@ fn t(day: u64, hours: u64, minutes: u64) -> Tick {
 }
 
 /// The next step computes `tick`. Nothing in the Reinforced wait depends on the ticks
-/// skipped: deadlines that fall due meanwhile fire on that step, in order.
-fn skip_to(state: &mut UniverseState, tick: Tick) {
+/// skipped: every deadline that falls due meanwhile (window closes, grace ends, siege and
+/// jump deadlines, transits) still fires on its own tick, stepped on the way.
+pub(crate) fn skip_to(state: &mut UniverseState, tick: Tick) {
     assert!(tick > state.tick, "skips forward only");
+    loop {
+        let next = [
+            state.commanders.deadlines.next(),
+            state.sieges.deadlines.first().map(|&(t, _)| t),
+            state.transits.pending().map(|(t, _)| t).min(),
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|&t| t > state.tick)
+        .min();
+        match next {
+            Some(due) if due < tick => {
+                state.tick = Tick::new(due.get() - 1);
+                step(state, &TickInputs::default());
+            }
+            _ => break,
+        }
+    }
     state.tick = Tick::new(tick.get() - 1);
 }
 
@@ -364,10 +383,9 @@ fn the_siege_starts_at_the_exit_with_an_attacker_online_and_holds_by_the_clock()
             .iter()
             .all(|s| s.strength_milli * 2 >= s.max_milli)
     );
-    assert_eq!(
-        view.sectors[1].strength_milli,
-        view.sectors[1].max_milli / 2
-    );
+    // The weak one is raised to half, plus at most the tick's regeneration after it.
+    let half = view.sectors[1].max_milli / 2;
+    assert!((half..=half + 50 * MILLI).contains(&view.sectors[1].strength_milli));
     assert_eq!(view.sectors[2].strength_milli, view.sectors[2].max_milli);
     assert_eq!(s.view().state, DefenceState::Nominal);
     assert_eq!(s.view().breachable_from, ends.after(Ticks::from_hours(48)));
@@ -1024,4 +1042,96 @@ fn a_fallen_mother_station_goes_by_its_nearest_holding_or_waits_there_for_a_free
     step(&mut s.state, &TickInputs::default());
     assert_eq!(s.state.holding(s.target).unwrap().site, freed);
     assert!(s.state.station_jumps().is_empty());
+}
+
+/// Commander 1's mother station with a fleet of `owner` 2.4 km beyond its peripheral module
+/// in `slot`, attacking it, the module at `hull`.
+fn peripheral_scene(
+    owner: Owner,
+    class: ShipClass,
+    slot: Slot,
+    hull: u32,
+) -> (UniverseState, SimId) {
+    let mut state = stage1(7);
+    let (mother, system) = home(&state, DEFENDER);
+    idle(&mut state, TICKS_PER_SECOND);
+    let module = state.economy.holdings[&mother].slots[&slot];
+    let site = state.holding(mother).unwrap().site;
+    let centre = Vec2::from(state.galaxy().site(site).unwrap().position);
+    let (_, at, _) = state.module_position(module).unwrap();
+    let at = Vec2::from(at);
+    let out = (at - centre).normalized().unwrap();
+    let fleet = spawn_fleet(&mut state, owner, system, at + out * 2_400.0, &[class; 2]);
+    crate::fleet::orders::give(
+        &mut state,
+        fleet,
+        FleetOrder::Attack { target: module },
+        Queueing::Replace,
+        &mut Vec::new(),
+    );
+    state.entities.get_mut::<Hull>(module).unwrap().hp = hull;
+    (state, module)
+}
+
+fn module_events(outputs: &[TickOutputs], module: SimId) -> Vec<economy::EconomyEvent> {
+    outputs
+        .iter()
+        .flat_map(|o| o.economy_events.iter().copied())
+        .filter(|e| match *e {
+            economy::EconomyEvent::ModuleDisabled { module: m }
+            | economy::EconomyEvent::ModuleDestroyed { module: m, .. } => m == module,
+            _ => false,
+        })
+        .collect()
+}
+
+#[test]
+fn a_peripheral_structure_is_disabled_outside_the_window_and_destroyed_inside_it() {
+    // Doc 12 §3, D-138, D-169: the default window is 19:00–23:00 UTC.
+    let (mut state, solar) = peripheral_scene(commander(ATTACKER), LANCER, Slot::Solar, 200);
+    skip_to(&mut state, t(1, 10, 0));
+    let out = idle(&mut state, 300);
+    assert_eq!(
+        module_events(&out, solar),
+        [economy::EconomyEvent::ModuleDisabled { module: solar }]
+    );
+    assert!(state.module(solar).unwrap().disabled);
+    // Still under fire when the window opens: the next hit destroys it (D-169).
+    skip_to(&mut state, t(1, 19, 30));
+    let out = idle(&mut state, 300);
+    assert!(matches!(
+        module_events(&out, solar).as_slice(),
+        [economy::EconomyEvent::ModuleDestroyed {
+            kind: ModuleKind::Solar,
+            ..
+        }]
+    ));
+    assert!(state.module(solar).is_none());
+    // A harvester brought to 0 inside the window is destroyed at once.
+    let (mut state, harvester) =
+        peripheral_scene(commander(ATTACKER), LANCER, Slot::Deposit(0), 200);
+    skip_to(&mut state, t(1, 20, 0));
+    let out = idle(&mut state, 300);
+    assert!(matches!(
+        module_events(&out, harvester).as_slice(),
+        [economy::EconomyEvent::ModuleDestroyed {
+            kind: ModuleKind::Harvester,
+            ..
+        }]
+    ));
+}
+
+#[test]
+fn raiders_only_disable_peripheral_structures_even_inside_the_window() {
+    // D-223.
+    let raiders = Owner::Npc(nomad_types::FactionId(1));
+    let (mut state, harvester) =
+        peripheral_scene(raiders, ShipClass::RaiderStrikeCraft, Slot::Deposit(0), 200);
+    skip_to(&mut state, t(1, 20, 0));
+    let out = idle(&mut state, 400);
+    assert_eq!(
+        module_events(&out, harvester),
+        [economy::EconomyEvent::ModuleDisabled { module: harvester }]
+    );
+    assert!(state.module(harvester).unwrap().disabled);
 }

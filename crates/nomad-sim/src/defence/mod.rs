@@ -22,8 +22,9 @@
 //!    reaching 0 under a hostile hit is a **breach**: [`DefenceEvent::SectorBreached`], once,
 //!    if [`hooks::breach_may_occur`] allows it. While the dome is `immune` (S6's Reinforced)
 //!    it takes no damage. A module at 0 hull is disabled, destroyed or (the core) reported
-//!    down, as [`hooks::structure_outcome_at_zero`] decides; until S6 a peripheral module is
-//!    disabled (doc 12 §3). Every hit goes into the holding's damage [`ledger`] (D-057).
+//!    down, as [`hooks::structure_outcome_at_zero`] decides: a peripheral module is destroyed
+//!    inside its owner's window and disabled outside it, and raiders only disable (doc 12 §3,
+//!    D-169, D-223). Every hit goes into the holding's damage [`ledger`] (D-057).
 //! 5. **Settling** ([`settle`]), once a second per holding in its economy slot: each
 //!    sector's regeneration demand for S4's allocation, the recovery of disabled structures
 //!    (D-149, [`recovery`]) and pruning.

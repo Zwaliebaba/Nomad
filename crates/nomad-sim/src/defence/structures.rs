@@ -604,7 +604,7 @@ fn damage_module(
     if after > 0 {
         return;
     }
-    match hooks::structure_outcome_at_zero(state, module, now) {
+    match hooks::structure_outcome_at_zero(state, module, hit.owner, now) {
         StructureOutcome::Disabled => economy::disable_module(state, module, now, economy_events),
         StructureOutcome::Destroyed => {
             if economy::destroy_module(state, module, economy_events) {

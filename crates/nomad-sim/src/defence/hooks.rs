@@ -1,10 +1,9 @@
 //! The two decisions S6 takes over (S5 plan §4.6; S6 plan §4.4, §4.7).
 //!
-//! S5b calls these functions and follows their answer; S6 replaces their bodies with its
-//! rules (the owner's exposure window, protection, the siege state) and keeps their
-//! signatures. Until then they give the S5 plan's defaults.
+//! S5b calls these functions and follows their answer; S6b gives their rules (the owner's
+//! exposure window, the attacker, protection, the siege state; [`crate::siege`]).
 
-use nomad_types::{ModuleKind, Slot};
+use nomad_types::{ModuleKind, Owner, Slot};
 
 use crate::economy::Module;
 use crate::holding::HoldingId;
@@ -24,30 +23,31 @@ pub(crate) enum StructureOutcome {
     CoreDown,
 }
 
-/// The outcome for module `module` at 0 hull on tick `now` (S5 plan §4.6).
-///
-/// **Default until S6** (S5 plan §4.6, doc 12 §3, doc 15 §6):
+/// The outcome for module `module` at 0 hull on tick `now`, under a hit of `by` (S5 plan §4.6;
+/// S6 plan §4.7):
 ///
 /// - a peripheral structure (the solar array, a harvester or an extractor, D-138) is
-///   **disabled**: the outside-the-window rule, which is the safe default;
-/// - an inner module is **destroyed**: it can only be hit through a sector that S6 opened
-///   for a siege, where destroyed modules are lost (doc 15 §6);
-/// - the core is **down**.
-///
-/// S6 replaces this with the window rule: a peripheral structure inside its owner's window
-/// is destroyed (doc 12 §3, D-169), and an outpost under construction is destroyed at any
-/// time (D-054).
+///   **destroyed** if `now` lies inside its owner's exposure window and **disabled**
+///   otherwise (doc 12 §3), disabled ones hit again included (D-169); NPC raiders only ever
+///   disable (D-223) — see [`crate::siege::peripheral_outcome`];
+/// - an inner module is **destroyed**: it can only be hit through a sector opened for a
+///   siege, where destroyed modules are lost (doc 15 §6);
+/// - the core is **down**: during a siege the holding falls; an outpost under construction
+///   is destroyed, at any time (D-054). S6b acts on [`super::DefenceEvent::CoreDown`].
 pub(crate) fn structure_outcome_at_zero(
     state: &UniverseState,
     module: SimId,
-    _now: Tick,
+    by: Owner,
+    now: Tick,
 ) -> StructureOutcome {
     let Some(m) = state.entities.get::<Module>(module) else {
         return StructureOutcome::Disabled;
     };
     match (m.kind, m.slot) {
         (ModuleKind::Core, _) => StructureOutcome::CoreDown,
-        (_, Slot::Solar | Slot::Deposit(_)) => StructureOutcome::Disabled,
+        (_, Slot::Solar | Slot::Deposit(_)) => {
+            crate::siege::peripheral_outcome(state, m.holding, by, now)
+        }
         (_, Slot::Core | Slot::Pylon(_) | Slot::Inner(_) | Slot::Dock) => {
             StructureOutcome::Destroyed
         }

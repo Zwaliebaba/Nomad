@@ -36,6 +36,10 @@
 //!   0 during it, without a breach; the next hostile hit after it is one (D-159).
 //! - **Outposts** under construction are destroyed when their core reaches 0, at any time
 //!   (D-054).
+//! - **Peripheral structures** (solar arrays, harvesters, extractors; D-138) at 0 hull are
+//!   destroyed inside their owner's window and disabled outside it (doc 12 §3); a disabled
+//!   one hit again inside the window is destroyed (D-169); NPC raiders only disable, at any
+//!   time (D-223). [`peripheral_outcome`] is the rule S5b's `structure_outcome_at_zero` asks.
 //! - **The window freeze** (D-156): [`defence_pending`] answers S6a's question.
 //!
 //! **Phases** (doc 11 §4.1): deadlines (exits, siege ends, emergency-jump arrivals) fire in
@@ -55,8 +59,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use nomad_types::Owner;
+
 use crate::announce::Recipients;
 use crate::defence::DefenceEvent;
+use crate::defence::hooks::StructureOutcome;
 use crate::fleet::FleetId;
 use crate::galaxy::SiteId;
 use crate::holding::HoldingId;
@@ -264,6 +271,30 @@ pub(crate) fn breachable(state: &UniverseState, holding: HoldingId, now: Tick) -
         .holdings
         .get(&holding)
         .is_none_or(|h| h.state == DefenceState::Nominal && now >= h.breachable_from)
+}
+
+/// What becomes of a peripheral structure of `holding` at 0 hull under a hit of `by` on `now`
+/// (doc 12 §3; D-138, D-169, D-223): destroyed inside the owner's exposure window, disabled
+/// outside it; NPC raiders only disable.
+pub(crate) fn peripheral_outcome(
+    state: &UniverseState,
+    holding: HoldingId,
+    by: Owner,
+    now: Tick,
+) -> StructureOutcome {
+    if matches!(by, Owner::Npc(_)) {
+        return StructureOutcome::Disabled;
+    }
+    let inside = state
+        .holdings
+        .get(&holding)
+        .and_then(|h| state.exposure_window(h.owner))
+        .is_some_and(|window| window.is_open(now));
+    if inside {
+        StructureOutcome::Destroyed
+    } else {
+        StructureOutcome::Disabled
+    }
 }
 
 /// Whether any of `commander`'s holdings is Reinforced or under siege, which freezes their
