@@ -486,8 +486,8 @@ mod tests {
             (6_000, 500)
         );
         assert_eq!(economy.core_kit_growth_permille, 250);
-        // D-217: the diminishing yield starts at F = 2.
-        assert_eq!(economy.diminishing_yield_permille, 2_000);
+        // D-217 and D-282: the diminishing yield, F = 2.5.
+        assert_eq!(economy.diminishing_yield_permille, 2_500);
         // Doc 12 §8, D-015, D-032, D-155, D-157: the S6a values.
         let sieges = &rules.sieges;
         assert_eq!(sieges.disconnect_grace_s, 120);
@@ -689,19 +689,19 @@ mod tests {
         };
         // D-217's F: required, and never zero, which would stop all remote production.
         assert!(matches!(
-            swap("\"diminishing_yield_permille\": 2000,", ""),
+            swap("\"diminishing_yield_permille\": 2500,", ""),
             Err(RulesError::Parse(_))
         ));
         assert!(matches!(
             swap(
-                "\"diminishing_yield_permille\": 2000",
+                "\"diminishing_yield_permille\": 2500",
                 "\"diminishing_yield_permille\": 0"
             ),
             Err(RulesError::Invalid { field, .. }) if field == "economy.diminishing_yield_permille"
         ));
         assert!(matches!(
             swap(
-                "\"diminishing_yield_permille\": 2000",
+                "\"diminishing_yield_permille\": 2500",
                 "\"diminishing_yield_permille\": -2000"
             ),
             Err(RulesError::Parse(_))

@@ -474,4 +474,20 @@ mod tests {
         assert_eq!(Set::parse("core"), Ok(Set::Core));
         assert_eq!(Set::parse("triangle"), Ok(Set::Triangle));
     }
+
+    #[test]
+    #[ignore = "seven fleet engagements of up to 30 ships: several seconds in Debug (D-190)"]
+    fn the_counter_triangle_holds_at_equal_value() {
+        // D-052 and D-284: each class beats the one it counters at equal value.
+        let rules = Rules::embedded();
+        for scenario in triangle() {
+            let outcome = run_scenario(&scenario, 1, &rules).unwrap();
+            let won = match scenario.winner {
+                Some(Side::A) => outcome.survivors.0 > 0 && outcome.survivors.1 == 0,
+                Some(Side::B) => outcome.survivors.1 > 0 && outcome.survivors.0 == 0,
+                None => true,
+            };
+            assert!(won, "{}: survivors {:?}", scenario.name, outcome.survivors);
+        }
+    }
 }

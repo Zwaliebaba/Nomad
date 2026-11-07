@@ -84,7 +84,8 @@ fn the_start_station_is_the_start_kit() {
             .all(|m| m.building_ms.is_none() && !m.disabled)
     );
     assert_eq!(state.pool(CommanderId(1)), Stock::units(6_000, 500));
-    assert_eq!(state.pool_cap(CommanderId(1)), Stock::units(8_000, 1_000));
+    // D-282: base 5,000 A / 600 C plus one rack's 1,500 A / 400 C.
+    assert_eq!(state.pool_cap(CommanderId(1)), Stock::units(6_500, 1_000));
     assert_eq!(state.dry_docks(mother), 1);
     assert_eq!(state.docking_capacity(mother), 30);
     assert_eq!(state.pylons_per_sector(mother), [true; 4]);
@@ -118,8 +119,9 @@ fn the_start_kit_produces_600_alloy_an_hour_exactly() {
         let economy = state.economy_of(CommanderId(n));
         assert_eq!(economy.produced, Stock::units(600, 0), "commander {n}");
         assert_eq!(economy.income_last_hour, Stock::units(600, 0));
-        assert_eq!(economy.pool, Stock::units(6_600, 500));
-        assert_eq!(economy.lost, Stock::ZERO);
+        // D-282: the 6,500 A start cap is full 50 min in if nothing is spent.
+        assert_eq!(economy.pool, Stock::units(6_500, 500));
+        assert_eq!(economy.lost, Stock::units(100, 0));
     }
     // Power at the start: 1,140 MW supply, 340 MW demand, all served.
     let (mother, _) = home(&state, 1);
@@ -997,7 +999,9 @@ fn convoys_empty_buffers_into_the_pool() {
     assert!(loaded.is_some_and(|a| a.alloy >= 900_000), "{loaded:?}");
     let carried: u64 = state.economy.cargo.values().map(|c| c.stock.alloy).sum();
     assert!(carried >= 900_000);
-    // Now heading for the mother station: stand there instead.
+    // Now heading for the mother station: stand there instead, with room in the pool for
+    // the cargo under D-282's 6,500 A start cap.
+    state.economy.pools.insert(you, Stock::ZERO);
     let pool = state.pool(you).alloy;
     let depot = state.launch_point(mother).unwrap();
     teleport(&mut state, kit, home_system, depot);
@@ -1619,6 +1623,8 @@ fn diminishing_yield_scales_remote_producers_but_never_the_mother_station() {
     for &remote in &remotes {
         state.economy.holdings.get_mut(&remote).unwrap().buffer = Stock::ZERO;
     }
+    // Room in the pool for the hour's income (D-282's 6,500 A start cap).
+    state.economy.pools.insert(you, Stock::ZERO);
     let pool = state.pool(you);
     idle(&mut state, ONE_HOUR);
     for &remote in &remotes {

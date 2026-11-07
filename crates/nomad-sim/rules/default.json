@@ -94,7 +94,7 @@
     "core": { "mother_supply_mw": 520, "supply_mw": 120, "mother_hull": 600000, "hull": 300000, "deploy_s": 7200, "deploy_start_hull_percent": 10 },
     "core_kit": { "alloy": 6000, "crystal": 500, "build_s": 900 },
     "core_kit_growth_permille": 250,
-    "diminishing_yield_permille": 2000,
+    "diminishing_yield_permille": 2500,
     "modules": {
       "Pylon": { "cost": { "alloy": 2500, "crystal": 300, "build_s": 1800 }, "draw_mw": 40, "supply_mw": 0, "hull": 40000 },
       "Solar": { "cost": { "alloy": 3000, "crystal": 0, "build_s": 1800 }, "draw_mw": 0, "supply_mw": 620, "hull": 20000 },
@@ -113,7 +113,7 @@
     },
     "production": { "harvester_ore_per_h": 600, "refinery_alloy_per_h": 900, "extractor_crystal_per_h": 60, "ore_buffer_h": 1 },
     "power": { "regen_mw_per_sector": 120 },
-    "storage": { "base_alloy": 4000, "base_crystal": 600, "rack_alloy": 4000, "rack_crystal": 400, "buffer_h": 2 },
+    "storage": { "base_alloy": 5000, "base_crystal": 600, "rack_alloy": 1500, "rack_crystal": 400, "buffer_h": 2 },
     "logistics": { "mule_units": 2000, "stop_radius_m": 3000, "deploy_range_m": 5000, "max_route_stops": 8 },
     "command_cap": { "base": 120, "per_holding": 10, "max": 300 },
     "repair": { "free_percent_per_min": 1, "damage_grace_s": 60, "ability_alloy_per_s": 8, "ability_hull_per_s": 80 },
@@ -168,7 +168,7 @@
         ]
       },
       "LANCER": {
-        "hull": 800,
+        "hull": 1400,
         "size": "LIGHT",
         "hit_radius_m": 120,
         "lock_ms": 4000,
