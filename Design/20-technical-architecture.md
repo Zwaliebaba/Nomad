@@ -185,7 +185,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 | **Client–server integration** | Start `nomad-server` on localhost, connect a headless test client, run commands, check acknowledgements, replication and catch-up after a restart | `#[ignore]`, run locally on both OS before merging network work (D-190 supersedes D-089's CI part) |
 | GPU | Golden images, offscreen render tests | `#[ignore = "needs a GPU adapter"]`, run locally |
 | AI acceptance and pacing | D-083, D-058, D-070 over simulated days | `#[ignore]`, long runs in the harness, run manually; no scheduled CI job in the MVP |
-| Long simulations and network tests | Multi-hour catch-up, retention and recovery runs; anything that opens a socket | `#[ignore]` with a reason; `cargo test --workspace -- --ignored` locally (D-190) |
+| Long simulations and network tests | Multi-hour catch-up runs and the full checkpoint replay; anything that opens a socket (retention is tested in scaled time and stays in CI) | `#[ignore]` with a reason; `cargo test --workspace -- --ignored` locally (D-190) |
 
 ## 12. New dependencies
 
