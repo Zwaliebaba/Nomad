@@ -12,6 +12,8 @@ A client on the same PC can connect to the running `nomad-server` over QUIC on 1
 
 A headless test client drives all of it in CI on both operating systems (D-089). What the commander *sees* (the view snapshot and deltas) is N4.
 
+> *Note (2026-11-07):* D-190 later took network tests out of CI. The integration tests of §7 are `#[ignore]`d and run locally with `cargo test --workspace -- --ignored`, on Linux and on Windows. Since N3 the protocol has moved on to version 4 (S5b and S6a; doc 20 §5).
+
 ## 2. Inputs
 
 - **Architecture:** doc 20 §2 (processes, localhost only), §4 (threads), §5 (protocol, including "As built in N1"), §7 (lifecycle), §8 (client architecture), §9 (security), §10 (observability), §11 (testing).

@@ -1,6 +1,6 @@
 # Work package A1 — The Deputy, and the AI architecture
 
-Status: **Planned and decided** (Q200–Q212 → D-199 to D-211). Written together with `A2-strategist-economy.md` and `A3-raider-director.md`, which build on the architecture in §4: the `nomad-ai` crate, the command outbox, the competence gate, the event inbox, phases and budgets, determinism, and presence before A5. Builds on S4 (built), S5a (built), S5b (abilities, turrets, sectors; being built), S6a (presence, grace, order lapse; being built) and S7 (`CommanderView`; planned). This plan is also the brief for whoever builds A1. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q200–Q212 → D-199 to D-211). Written together with `A2-strategist-economy.md` and `A3-raider-director.md`, which build on the architecture in §4: the `nomad-ai` crate, the command outbox, the competence gate, the event inbox, phases and budgets, determinism, and presence before A5. Builds on S4 (built), S5a (built), S5b (abilities, turrets, sectors; built), S6a (presence, grace, order lapse; built) and S7 (`CommanderView`; planned). This plan is also the brief for whoever builds A1. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -241,6 +241,8 @@ Proposed order towards α (Q206):
 | α runs (A3 §5) | A1b, A2, A3, S8 | — |
 
 The two longest chains are S5b → S6b → A3 and S6a → S7 → A1b → A2.
+
+> *Note (2026-11-07):* the owner adopted this order as D-205. S5b, S6a and S8 are built, so S6b, S7 and A1a come next.
 
 - **A1a**, which needs no sensing, starts after S6a, in parallel with S6b and S7. It covers:
   - the crate, view trait and memory;

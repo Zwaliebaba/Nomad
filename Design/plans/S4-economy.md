@@ -1,6 +1,6 @@
 # Work package S4 — Economy
 
-Status: **Built** (Q115–Q127 → D-126 to D-138). Code in `crates/nomad-sim/src/economy/`; `nomad-harness --economy` reports the D-070 measures. Written together with `S5-combat.md`, because power, modules and module damage are shared between the two. Builds on S3 (entities, rules file, holdings, validator). This plan is also the brief for whoever builds S4.
+Status: **Built** (Q115–Q127 → D-126 to D-138). Code in `crates/nomad-sim/src/economy/`; `nomad-harness --economy` reports the D-070 measures. Two later rule changes are built too: the core-kit price grows with the commander's size (D-189), and remote production follows a diminishing yield (D-217). D-228 moves the peripheral slots wholly outside the dome; that fix comes with S6b. Written together with `S5-combat.md`, because power, modules and module damage are shared between the two. Builds on S3 (entities, rules file, holdings, validator). This plan is also the brief for whoever builds S4.
 
 ## 1. Goal
 
@@ -8,7 +8,7 @@ Holdings produce, store, spend and build. Every commander has a pool of alloy an
 
 ## 2. Inputs
 
-- **Economy:** doc 14 in full. Agreed: §3 resources (D-065), §4 pool and convoys (D-064), §5 deposits (D-066, D-098), §9.1 placement (D-067), §9.2 queues (D-068), §10 repair (D-071), §11 no control bonus (D-069), §12 start kit (D-112), §13 pacing targets (D-070). Still *Proposed*: §6 harvesting and refining, §7 power, §8 command cap. The §9.3–§9.4 costs, and the numbers in §6–§8, are starting values (D-070).
+- **Economy:** doc 14 in full. Agreed: §3 resources (D-065), §4 pool and convoys (D-064), §5 deposits (D-066, D-098), §9.1 placement (D-067), §9.2 queues (D-068), §10 repair (D-071), §11 no control bonus (D-069), §12 start kit (D-112), §13 pacing targets (D-070). Still *Proposed*: §6 harvesting and refining, §7 power, §8 command cap. The §9.3–§9.4 costs, and the numbers in §6–§8, are starting values (D-070). *(Since agreed: §6 as D-126, §7 as D-127 and D-128, §8 as D-129.)*
 - **Combat side:** doc 15 §5.2 power routing (D-053), §5.3 abilities, §12 module hull values. Shared interfaces with S5 are in §4.6.
 - **Placement:** D-067 and D-119 (slot geometry is designed here), D-100 (dome globe; solar outside), D-046 (pylon azimuths), doc 10 §8 (grid frame, 1 voxel ≈ 35 m).
 - **Simulation:** doc 11 §4.1 (economy phase 8 at 1 Hz, staggered), §5 (determinism), D-049 (integer milli-units, `SimId` order), D-104 (rules file copied into the Universe), D-099 item 9 (format changes without migration before β).
@@ -137,6 +137,7 @@ Holdings produce, store, spend and build. Every commander has a pool of alloy an
 - **One queue per holding** for modules and ships, plus one parallel ship lane per completed dry dock. Frigates need a dry dock; small craft build at any core.
 - **Payment in full when an item starts.** If the pool is short, the item waits and later affordable items may start. Cancelling refunds 100% before the start and 50% after.
 - **Module construction** reserves its slot when queued. The module exists from the start as `Construction` with full hull, draws no power and produces nothing. It completes on a deadline timer (doc 11 phase 2).
+  > *Note (2026-11-07), as built:* construction and an outpost's deployment are counted down in the holding's economy second (phase 8), not fired from a phase-2 deadline timer. A dry-dock lane advances by the dock's power share, so its finish tick is not known in advance. That differs from doc 11 §3 and `CODING_STANDARDS.md` §8 (absolute deadline ticks) and is open for the owner.
 - **Ships** spawn docked at the holding when done, or at the rally point if docking is full (D-102 capacity). They join a new fleet, or the rally fleet. The command cap is checked when an item **starts** (D-068 timing); a fleet over the cap after losing holdings keeps its ships (doc 14 §8).
 - **The validator** gains build, cancel, power-profile, repair, rally, convoy and (with Q124) claim commands, each with rejection reasons and tests, as S3 did.
 
@@ -167,6 +168,8 @@ Holdings produce, store, spend and build. Every commander has a pool of alloy an
 
 - **Power** at the start: supply 1,140 MW against demand 340 MW (pylons, harvester, refinery), 490 MW with the dock building, and 970 MW with full regeneration. FLAK SCREEN fits (90 MW); a SHLD SURGE (200 MW) needs the regeneration tier squeezed.
 - **Remote holdings:** a core's 120 MW cannot run a harvester and a refinery (180 MW), so every productive remote holding also needs a solar array. A standard ore holding then costs 14,500 A + 500 C for +600 A/h, which pays back in about 24 h.
+
+> *Note (2026-11-07):* these estimates assume a flat kit price and full output at every holding. The 7-day harness run showed income at 9.5× start and 16 holdings for one builder, so D-189 made the kit price grow with the commander's size. A kit price alone cannot bound late income, so D-217 also scales each remote producer by min(1, F ÷ the producing holdings other than the mother station), F = 2 to start. Both are built; the harness reports kit prices and the factor.
 
 ## 6. Questions
 

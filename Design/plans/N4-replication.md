@@ -1,6 +1,6 @@
 # Work package N4 — Replication with interest management
 
-Status: **Planned and decided** (Q175–Q180 → D-182–D-187). Written together with `S7-sensors.md`, because N4 sends each client exactly what S7 decides its commander can see. Builds on N3 (sessions, the state stream N3 opens empty, `nomad-link`, protocol version 2) and on S7's `CommanderView`. This plan is also the brief for whoever builds N4. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q175–Q180 → D-182–D-187). Written together with `S7-sensors.md`, because N4 sends each client exactly what S7 decides its commander can see. Builds on N3 (sessions, the state stream N3 opens empty, `nomad-link`, protocol version 2) and on S7's `CommanderView`. *Note (2026-11-07):* S5b and S6a have since used protocol versions 3 and 4, so N4's messages take the next free version, not the version 3 that §3, §4.7, §6, §9 and D-184 name. D-190 also moved the client–server integration test of §1, §6 and §7 out of CI: it is `#[ignore]`d and runs locally on both operating systems. This plan is also the brief for whoever builds N4. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -14,7 +14,7 @@ A connected client receives its commander's view: a full snapshot when the sessi
 - **Strategic views:** doc 17 §3–§4 (TACTICAL, SYSTEM, SECTOR and GALAXY contents: sites, gates with lane traffic, own, sensed and last-known fleets with age, siege and Reinforced markers, the season summary), §6 (notifications).
 - **Plans:** `S7-sensors.md` (`CommanderView`, visibility sets, memory, lane traffic), `N3-transport-and-sessions.md` (§4.1 threads and the bridge, §4.3 streams, §4.4 lifecycle, §4.7 version 2, §4.8 `nomad-link`), the S4 plan §4.8 (own economy views), the S5 plan §4.3 (projectiles live in per-system lists, not as entities).
 - **Code:** `crates/nomad-protocol` (`ViewSnapshot`, `ViewDelta`, `ViewChanges`, `EntityChanges`, `EntityEntry`, `Announcement`, `Notification`, the 16 MiB server frame limit), `crates/nomad-server` (`ServerHandle`, the simulation thread, the subscriber channels).
-- **Work in flight:** N3 is being built now; S7 is planned with this plan. N4 relies on their plans, not on their exact names.
+- **Work in flight:** N3 is being built now; S7 is planned with this plan. *(N3 has since been built.)* N4 relies on their plans, not on their exact names.
 
 ## 3. Scope
 

@@ -1,6 +1,6 @@
 # Work package S5 — Combat
 
-Status: **Built** (Q128–Q138 → D-139 to D-149; S5a details D-188). S5a (ship combat, tasks 1–7) is built in `crates/nomad-sim/src/combat/` and `nomad-harness --combat skirmish|battle|stress`; S5b (station combat, tasks 8–13) in `crates/nomad-sim/src/defence/` and `nomad-harness --combat breach|core`. Measured as D-147 says (seed 1): a full sector breaches in 7.5 min with the Deputy's default SHLD SURGE (4.7 min without abilities), and the core dies in 12.8 min through an open sector with turrets absent, matching the §5 hand calculations. Written together with `S4-economy.md`, because power, modules and module damage are shared between the two. Builds on S3 (ships, fleets, orders, the cruise-drop hook) and, for its second half, on S4 (modules and power). This plan is also the brief for whoever builds S5.
+Status: **Built** (Q128–Q138 → D-139 to D-149; S5a details D-188; S5b readings D-227; D-228, decided from S5b, moves the peripheral slots outside the dome with S6b). S5a (ship combat, tasks 1–7) is built in `crates/nomad-sim/src/combat/` and `nomad-harness --combat skirmish|battle|stress`; S5b (station combat, tasks 8–13) in `crates/nomad-sim/src/defence/` and `nomad-harness --combat breach|core`. Measured as D-147 says (seed 1): a full sector breaches in 7.5 min with the Deputy's default SHLD SURGE (4.7 min without abilities), and the core dies in 12.8 min through an open sector with turrets absent, matching the §5 hand calculations. Written together with `S4-economy.md`, because power, modules and module damage are shared between the two. Builds on S3 (ships, fleets, orders, the cruise-drop hook) and, for its second half, on S4 (modules and power). This plan is also the brief for whoever builds S5.
 
 ## 1. Goal
 
@@ -86,6 +86,7 @@ S5 is built in two parts (Q128).
 *Agreed* rule (D-114); implementation *Derived*.
 
 - **A fleet becomes engaged** when it takes fire, or when a hostile is within 20 km (everything counts as visible until S7). Each trigger refreshes an `engaged_until` deadline 30 s ahead.
+  > *Note (2026-11-07), as built:* "everything" means every hostile ship in space. Docked ships and fleets in lane transit are not in space, so they neither trigger nor can be hit. Shrouded hostiles trigger engagement but cannot be targeted or hit (D-188). Auto-targeting picks only ships; domes and modules need an explicit Attack (D-227).
 - **While engaged** the fleet cannot cruise (S3's hook). Once the deadline passes it may cruise again.
 - **"Taking fire"** means one of the fleet's ships was hit. These events also feed the Deputy's alert (doc 13 §4, A1).
 

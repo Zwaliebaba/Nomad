@@ -1,6 +1,6 @@
 # Work package A2 — The Strategist: economy
 
-Status: **Planned and decided** (Q213–Q219 → D-212 to D-218). (and Q205 in `A1-deputy.md`, which moves AI schedules into A2). Written together with `A1-deputy.md`, whose §4 holds the shared architecture A2 runs on, and `A3-raider-director.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate, doctrine), S4 (economy, built), S6a (presence, grace, lapse) and S7 (`CommanderView`); reads S8's standings. This plan is also the brief for whoever builds A2. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q213–Q219 → D-212 to D-218, and Q205 in `A1-deputy.md` → D-204, which moves AI schedules into A2). Written together with `A1-deputy.md`, whose §4 holds the shared architecture A2 runs on, and `A3-raider-director.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate, doctrine), S4 (economy, built; the D-217 diminishing yield built with it), S6a (presence, grace, lapse; built) and S7 (`CommanderView`); reads S8's standings (built). This plan is also the brief for whoever builds A2. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -309,6 +309,7 @@ Numbered Q213–Q219; A1 has Q200–Q212 and A3 Q220–Q226. Each has a recommen
 6. **Garrison** stand-in (Q213) and the replacement list.
 7. **Sign-off** (Q215).
 8. **Pacing:** if Q218 adopts a diminishing yield, the economy rule with its rules value and view field, as an S4 amendment. Harness `--season` pacing report and the comparison with the scripted builder (Q219).
+   > *Note (2026-11-07):* the D-217 rule, its rules value and the view field are built, ahead of A2, in `crates/nomad-sim/src/economy/`, and `nomad-harness --economy` reports the factor. S8 built `nomad-harness --season` with scripted claims; the pacing report with real AI is still A2's.
 9. **Docs:** doc 13 §5 notes for Q213–Q217; doc 14 §13 (and §6 if Q218); doc 30's A2 row; this plan's status.
 
 ## 9. Done when

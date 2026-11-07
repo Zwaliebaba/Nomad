@@ -1,6 +1,6 @@
 # Work package A3 — The raider director
 
-Status: **Planned and decided** (Q220–Q226 → D-219 to D-225). Written together with `A1-deputy.md`, whose §4 holds the shared architecture, and `A2-strategist-economy.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate), S5a (built), S5b (module damage), S6b (the outpost exception, peripheral outcomes by window) and S7 (NPC observers). A3 completes MVP-α, so §5 also defines the α acceptance runs shared by S8, A1, A2 and A3. This plan is also the brief for whoever builds A3. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q220–Q226 → D-219 to D-225). Written together with `A1-deputy.md`, whose §4 holds the shared architecture, and `A2-strategist-economy.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate), S5a (built), S5b (module damage; built), S6b (the outpost exception, peripheral outcomes by window) and S7 (NPC observers). A3 completes MVP-α, so §5 also defines the α acceptance runs shared by S8, A1, A2 and A3. This plan is also the brief for whoever builds A3. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 

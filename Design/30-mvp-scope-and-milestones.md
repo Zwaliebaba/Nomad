@@ -1,6 +1,6 @@
 # 30 — MVP scope, milestones and acceptance
 
-Status: **Agreed (round 10).** Q88–Q91 were decided as D-094 to D-097. Built on R-05, D-026, D-028, D-037, D-038, D-051, D-058, D-070 and D-083, and docs 10–17 and 20. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 10).** Q88–Q91 were decided as D-094 to D-097. D-135, D-139, D-172 and D-205 later amended the packages and the order of work (§2, §4); D-190 moved the integration test out of CI (§3, §5). Built on R-05, D-026, D-028, D-037, D-038, D-051, D-058, D-070 and D-083, and docs 10–17 and 20. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. What the MVP is
 
@@ -31,7 +31,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | **Simulation rules** | S1 ✅ | Simulation core (doc 11) | — |
 | | S2 ✅ | Universe structure, deposits, generator invariants (doc 10, D-066, D-098, D-099) | M |
 | | S3 ✅ | Movement, fleets, orders, cruise mode, jump transit (doc 15 §3, D-042; plan in `plans/S3-movement-and-orders.md`) | M |
-| | S4 ✅ | Economy: harvesting and refining, pool, buffers and convoys, power, slots and queues, command cap, repair, start kit, claiming (doc 14; D-135; plan in `plans/S4-economy.md`) | L |
+| | S4 ✅ | Economy: harvesting and refining, pool, buffers and convoys, power, slots and queues, command cap, repair, start kit, claiming (doc 14; D-135; plan in `plans/S4-economy.md`); the core-kit price (D-189) and the diminishing yield (D-217) | L |
 | | S5 ✅ | Combat (doc 15 §4–5; plan in `plans/S5-combat.md`). S5a ✅: weapons, lock, projectiles, multipliers, targeting, engagement. S5b ✅: dome sectors and regeneration, turrets, abilities, module damage, after S4 (D-139) | L |
 | | S6 ⏳ | Offline and siege rules (docs 12, 15; plan in `plans/S6-offline-and-sieges.md`). S6a ✅: commander records, activity and windows, presence, grace and order lapse, alongside S5b. S6b: breach, Reinforced, siege, Held and Fallen, capture, emergency jump, outpost combat, protections, after S5b (D-172; claiming moved to S4, D-135) | L |
 | | S7 | Sensors: visibility sets, signatures, lane traffic, last-known memory, `CommanderView` (doc 16; plan in `plans/S7-sensors.md`) | M |
@@ -67,6 +67,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | Pull request | Merged | Contents |
 |---|---|---|
 | Zwaliebaba/Nomad#1 | 2026-11-06 | The complete MVP design (D-001 to D-107); repository standards and CI; S1 simulation core; S2 Universe structure; N1 `nomad-types` and `nomad-protocol`; phase-1 M1 and M2; the WebGL preview tool |
+| Zwaliebaba/Nomad#2 | 2026-11-06 | S3 movement, fleets and orders (the rules file, D-104; `nomad-harness --fleets`); the N2 server shell (`create`, `run` and `status`; SQLite journal and snapshots, recovery, catch-up, with the simulation's journaled catch-up mode); phase-1 M3 (bloom, elevation cues, hover tag) and the borderless fullscreen default (D-108); the station spread (D-111, `tools/station-spread`); the round-13 decisions D-112 to D-119 |
 
 ## 3. Milestones
 
@@ -81,11 +82,17 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 
 ## 4. Order of work
 
-*Agreed (D-095).* Three streams run in parallel:
+*Agreed (D-095; the rules-and-AI order amended by D-139, D-172 and D-205).* Three streams run in parallel:
 
-1. **Rules and AI (the critical path):** S3 → S4 and S5a → S5b and S6a → S8, then S7, A1a and S6b in parallel → A1b → A2 and A3 in parallel (D-205 amends this order; see the A1 plan) → A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist.
-2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send.
-3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7.
+1. **Rules and AI (the critical path):** S3 → S4 and S5a in parallel (D-139) → S5b, S6a and S8 in parallel (D-172, D-205). Towards α, D-205 sets the rest by dependency:
+   - **S6b** after S5b (D-172); **S7** after S6a, in parallel with S6b;
+   - **A1a** (the `nomad-ai` crate, outbox, competence gate, inbox, doctrine, direct control, rebuilding, convoy rerouting) after S6a;
+   - **A1b** (threat, alert, engagement, abilities, convoy evacuation) after S7 and S5b;
+   - **A2** after A1a and S7; **A3** after S6b, S7 and A1a, in parallel with A2.
+
+   After α: A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2):* S3, S4, S5a, S5b, S6a and S8 are built; S6b, S7 and A1a are next.
+2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send. *Status:* N1–N3 are built; N4 builds on S7's `CommanderView` (D-182).
+3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7. *Status:* M1–M4 are built; M5 and M6 are next.
 
 The streams meet at β (a playable slice) and γ (acceptance). Each package ends merged on the working branch with green CI, as M1 and the simulation core did.
 

@@ -40,7 +40,7 @@ Two consequences follow:
 
 **What attackers can never do** is take a core while the owner sleeps, or without warning.
 
-*Clarified after the S4/S5 plans:* harvester and extractor modules follow the peripheral rule; "harvesters" in the first row means harvesting craft, of which the MVP has none (D-138). A disabled structure comes back online once no hostile has been inside its holding's 20 km ops area for 10 min, at 10% hull; REPAIR restores it at once (D-149).
+*Clarified after the S4/S5 plans:* harvester and extractor modules follow the peripheral rule; "harvesters" in the first row means harvesting craft, of which the MVP has none (D-138). A disabled structure comes back online once no hostile has been inside its holding's 20 km ops area for 10 min, at 10% hull; REPAIR restores it at once (D-149). *Settled with the A3 plan:* NPC raiders only ever disable peripheral structures, inside the window too (D-223).
 
 The disabled-not-destroyed rule keeps the phase-1 reason for defending SOL-1 (D-003): losing its power weakens the shield sectors. At the same time it prevents an offline player from losing their infrastructure outright.
 
@@ -128,6 +128,8 @@ The player writes doctrine. It applies whether the player is online or offline (
 
 Writing good doctrine becomes a strategic skill that pays off even while the player is offline. Offline outcomes then follow from the player's decisions, not from the quality of the AI.
 
+> **Settled with the A1 plan (D-206 to D-210):** doc 13 §4 is the Deputy's rule set (D-206). New ships join the garrison of the holding that built them; a garrison docks, launches on alert and docks again 60 s after it; patrol and escort run as `Patrol` and `Guard` orders (D-207). The replacement list covers listed ships and destroyed modules, within the preset's share of the last 24 h of income (D-208). Convoys dock at the nearest own holding on their route while a hostile is within the evacuation radius (D-210).
+
 ### 5.3 Connection rules
 
 - **Disconnect grace (120 s).** Direct orders stay valid during a network blip. After the grace period the orders lapse, and the units fall back to their fleet doctrine.
@@ -138,6 +140,8 @@ Writing good doctrine becomes a strategic skill that pays off even while the pla
 ### 5.4 Competence target
 
 The Deputy should be **competent and readable, not optimal**. It works as a utility or behaviour-tree executor of doctrine, with no strategic lookahead. Its reaction latency and command rate are capped at human levels, for example 300 ms reaction time and a bounded number of commands per second. This puts it below an engaged human at micro (PR-5). The same cap becomes the difficulty knob for the MVP's AI commanders (P-02).
+
+> **Settled with the A1 plan (D-201):** a human's Deputy acts 3 ticks (300 ms) after the triggering event and issues at most 4 commands in any 10 consecutive ticks. AI commanders use their difficulty's latency (10, 6 or 3 ticks) and rate (1, 2 or 4 commands in any 10 ticks). The rate is shared by all of a commander's AI layers, and waiting commands expire after 10 s.
 
 ### 5.5 Absence states
 
@@ -187,5 +191,5 @@ The Deputy's quality only affects peripheral skirmishes. Peripheral losses are b
 
 - **Phase 1:** no change. The HUD will later need a window indicator, a Reinforced countdown, the siege clock, Deputy and doctrine status, and the away report. These are not phase-1 scope.
 - **`01-game-concept.md`:** P-05 is withdrawn and P-01 is refined by PR-3 and PR-4.
-- **`02-open-questions.md`:** Q6–Q8 and Q19–Q23 are answered. Q26 (staggered exits) is open.
+- **`02-open-questions.md`:** Q6–Q8 and Q19–Q23 are answered. Q26 (staggered exits) is open. *(Since answered: Q26 as D-033, detailed by D-158.)*
 - **Time model:** continuous real time (D-019), so the timings above are wall-clock values.

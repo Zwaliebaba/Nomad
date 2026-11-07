@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** the MVP design is complete. All questions Q1–Q226 are answered (D-001 to D-229), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
+**Status:** the MVP design is complete. All questions Q1–Q226 are answered (D-001 to D-229), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097), in the order of doc 30 §4 as D-205 amended it. Built so far (doc 30 §2): S1–S5, S6a and S8 in the simulation; N1–N3 on the server side; phase-1 M1–M4 in the client. Next towards α: S6b, S7 and A1a, then A1b, A2 and A3.
 
 ## Documents
 
@@ -36,8 +36,8 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 | S3 | [`plans/S3-movement-and-orders.md`](plans/S3-movement-and-orders.md) | Built (D-101 to D-105; gaps decided as D-112 to D-115) |
 | N2 | [`plans/N2-server-shell.md`](plans/N2-server-shell.md) | Built (D-106, D-107, D-109, D-110; season end D-116, sleep catch-up D-117) |
 | N3 | [`plans/N3-transport-and-sessions.md`](plans/N3-transport-and-sessions.md) | Built (D-120 to D-125, D-150, D-151) |
-| S4 | [`plans/S4-economy.md`](plans/S4-economy.md) | Built (D-126 to D-138) |
-| S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Built (D-139 to D-149; S5a details D-188) |
+| S4 | [`plans/S4-economy.md`](plans/S4-economy.md) | Built (D-126 to D-138; core-kit price D-189 and diminishing yield D-217, both built) |
+| S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Built, S5a and S5b (D-139 to D-149; S5a details D-188; S5b readings D-227; slot geometry D-228 follows with S6b) |
 | S7 | [`plans/S7-sensors.md`](plans/S7-sensors.md) | Planned and decided (D-173 to D-181) |
 | N4 | [`plans/N4-replication.md`](plans/N4-replication.md) | Planned and decided (D-182 to D-187) |
 | S6 | [`plans/S6-offline-and-sieges.md`](plans/S6-offline-and-sieges.md) | Planned and decided (D-154 to D-172); S6a built, S6b next |

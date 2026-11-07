@@ -167,11 +167,13 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 - **Held:** every sector instantly restores to 50% and regenerates normally afterwards; 48 h of immunity follows (D-015).
 - **Fallen:** capture, or an emergency jump (§7).
 
+> **Settled with the S6 plan (D-158 to D-168):** the Reinforced exit is the earliest stagger slot at least 12 h after the breach (D-158), and a sector worn to 0 during protection is no breach (D-159). Online at the siege start includes the 120 s grace (D-160). Any commander hostile to the owner can damage modules through the open sector, and capture goes to the most core damage among all of them; NPC raiders deal no damage inside the dome (D-163). A fallen mother station's destination, journey and comeback grant are D-164 to D-167, superseding D-034's destination; what a capture cancels and keeps is D-168.
+
 ## 7. Capture and the emergency jump
 
 *Agreed (D-057), detailing D-017 and D-034.*
 
-- **Who captures:** the attacker who dealt the most core damage during the siege. Ties go to the larger total damage dealt to the holding, then to the lower `CommanderId`. This deters a third party from sniping the core in the final second.
+- **Who captures:** the attacker who dealt the most core damage during the siege. Ties go to the larger total damage dealt to the holding, then to the lower `CommanderId`. This deters a third party from sniping the core in the final second. *(D-229: the last tie-break is a draw from the season's seeded random streams instead of the lower `CommanderId`, so no rule favours the human.)*
 - **Normal holding:**
   - The core changes owner and restores to 25% hull; the dome sectors restore to 25%.
   - Surviving modules transfer to the new owner. Build queues are cancelled.
@@ -189,6 +191,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 - A **MULE** carries a **core kit** (cost in doc 14) to a free site and deploys it. The site becomes an **outpost**, and its construction takes **2 h**. When complete, the site becomes a holding with a minimal dome (§5.1).
 - **An outpost under construction can be destroyed at any time.** This is an exception to doc 12's disable-only rule. Without it, nobody could contest a land grab outside the claimant's window. The claimant chose to expose the kit.
 - Only one outpost can exist on a site at a time. Outposts do not count for control (D-041).
+- *Settled since:* claiming is built in S4 (D-135), and a core kit's price grows with the commander's size (D-189). A core under construction has a hull that grows from 10% to 100% of its maximum over the 2 h (D-224).
 
 ## 9. Gates
 
@@ -211,9 +214,10 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 - Raider havens send out raid groups: strike craft, and sometimes a heavy cruiser.
 - **Raiders do zero damage to domes, so they can never breach or siege.** This is guaranteed mechanically, not left to AI behaviour.
-- Raiders target convoys, ships outside docks, outposts, and peripheral structures. Peripheral structures can only be disabled, as for anyone (doc 12).
+- Raiders target convoys, ships outside docks, outposts, and peripheral structures. Peripheral structures can only be disabled, as for anyone (doc 12). *(D-223: raiders only disable them, inside the owner's window too, where a commander's hit destroys one, D-169.)*
 - Raid strength scales with the target commander's fleet strength (doc 13).
 - No new raids start during catch-up (D-047).
+- *Settled with the A3 plan:* a raid's launch, target and strength are a simulation rule, and the director AI only steers the spawned group (D-219). Strength comes from the target's fleet value, with a floor of 2 strike craft (D-220); each raid spawns a fresh group (D-221); its 10 minutes start on arrival (D-222).
 
 ## 11. Time-to-kill targets
 

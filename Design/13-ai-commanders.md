@@ -23,7 +23,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 - **Same rules, same information** (D-027). AI code reads only a `CommanderView` (doc 16 §7) and **acts only through the same commands a human client sends**. No resource bonuses, no map hacks.
 - **Deterministic:** the AI runs inside the simulation step, with seeded per-commander streams (doc 11 §4.1, D-049). Its decisions are never journaled; replaying the journal reproduces them.
-- **Evaluation rates:** the Deputy runs at 2 Hz per holding and fleet, staggered. The Strategist runs every 10 s per commander, staggered (doc 11 §4.1).
+- **Evaluation rates:** the Deputy runs at 2 Hz per holding and fleet, staggered. The Strategist runs every 10 s per commander, staggered (doc 11 §4.1). *(10 s is Hard's interval; Normal's is 15 s, §7, D-229. Phases and budgets: D-203.)*
 - **The Deputy is always on, and its authority is limited** (D-013, D-016). Its tactical competence is capped below an engaged human (doc 12 §5.4).
 - **The MVP is a free-for-all with no diplomacy** (D-026, D-027). Stage 1 has 3 AI commanders plus raiders (D-038).
 - **Raiders never breach** (D-056). No new raids start during catch-up (D-047).
@@ -46,6 +46,8 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 | **Deputy** | Every commander, human or AI | Always, at 2 Hz | Executes doctrine within D-016: defence, abilities, power profile, evacuation, rebuilding from the replacement list, convoy routes |
 | **Strategist** | AI commanders | Only while that AI is "online" (§6), every 10 s | Everything a human decides: expansion, build orders, fleet composition, raids, breaches and sieges, scouting. Writes its own Deputy's doctrine before going "offline". |
 | **Raider director** | NPC raider factions | Always, except that no new raids start during catch-up | Launches and controls raid groups (§8) |
+
+> **Settled with the A1 plan (D-199 to D-203):** all AI logic lives in a `nomad-ai` crate that reads the Universe only through a `View` trait over `CommanderView`, so it cannot name `UniverseState` (D-199). AI commands go through a per-owner outbox into phase 1 of a later tick (D-200), within the competence cap of D-201; events reach the AI through a per-owner inbox (D-202); D-203 places each layer in the tick phases and sets its budget. D-219 makes a raid's launch, target and strength a simulation rule, so the raider director only steers the raid groups (§8).
 
 **One command interface.** The Strategist and the raider director issue the same command types as a human client (doc 15 §3.4 orders, plus build, claim and doctrine commands). This makes fairness checkable, and it means one test suite covers every source of commands.
 
@@ -123,6 +125,8 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 The difficulty is set per AI commander when the Universe is created. The MVP default is Normal.
 
+> **D-201:** latency is counted in ticks from the triggering event (10, 6 or 3; 3 for a human's Deputy), and the command rate holds in any 10 consecutive ticks (4 for a human's Deputy). AI parameters live in the rules file's `ai` section (D-211). As built, `nomad-server create --difficulty` sets one difficulty for every AI commander.
+
 ## 8. NPC raider director
 
 > **Settled with the A3 plan (D-219 to D-225):** a raid's launch, target and strength are a simulation rule; the director AI only steers spawned raid groups through the NPC view (D-219, reconciling D-081 with D-077). Fleet value is alloy + 3 × crystal cost, with at least 2 strike craft (D-220). Groups are spawned per raid and removed on return (D-221); the 10 minutes start on arrival (D-222). Raiders only ever disable structures (D-223). An outpost's hull grows from 10% to 100% while it is built (D-224). D-225 defines "raids happen" for α.
@@ -170,7 +174,7 @@ The difficulty is set per AI commander when the Universe is created. The MVP def
 
 ## 11. Build order
 
-*Proposed; input for doc 30.*
+*Proposed; input for doc 30.* *(Decided as D-205: A1a after S6a, A1b after S7 and S5b, A2 after A1a and S7, A3 after S6b, S7 and A1a, in parallel with A2; doc 30 §4.)*
 
 1. **Deputy:** defence, abilities, retreat, rebuilding, convoys. Every commander needs it, the human included.
 2. **Strategist economy:** expand, build out, logistics. This gives a "builder AI" to test economy pacing with (D-070).
@@ -199,5 +203,5 @@ Each step is measured in the harness against §10 before the next one starts.
 
 - **Doc 12:** the Deputy rules in §4 and the presets in §9 make §5 concrete.
 - **Doc 17:** the doctrine editor exposes the §9 parameters and presets.
-- **Doc 20:** AI modules sit inside `nomad-sim`, behind `CommanderView`, with a single command validator.
+- **Doc 20:** AI modules sit inside `nomad-sim`, behind `CommanderView`, with a single command validator. *(Amended by D-199: the AI is the separate `nomad-ai` crate, behind a `View` trait that `nomad-sim` implements over `CommanderView`; the validator stays single.)*
 - **Doc 30:** §10 and §11 become milestones and acceptance criteria.

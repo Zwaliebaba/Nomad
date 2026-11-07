@@ -124,7 +124,7 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
   > **D-228:** peripheral slots lie wholly outside the dome, so their hit circles never overlap it.
   > **Superseded in part by D-130 and D-131:** every core has the same dome and template: 4 pylon slots; inner slots 6 standard + 1 dock at the mother station, 4 + 1 elsewhere; one solar slot plus one deposit slot per deposit. Details in `plans/S4-economy.md` §4.2.
 - Trusses are generated automatically between modules and are cosmetic.
-- A **blueprint** (D-035) is a saved assignment of modules to slots plus a build order.
+- A **blueprint** (D-035) is a saved assignment of modules to slots plus a build order. The AI's built-in blueprints, one per site kind, are rules data (D-215).
 - *Why slots rather than free placement:* free placement needs collision and adjacency rules, tier rules for every module type (phase-1 doc 07, item 6), placement UI and an AI that lays out stations. Slots keep the phase-1 diorama look at a fraction of that cost.
 
 ### 9.2 Build queues
@@ -142,7 +142,7 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
 |---|---|---|---|---|---|---|
 | Core, mother station | — | — (start kit) | — | +520 MW | 600,000 | Dome, base storage 4,000 A / 600 C, 120 command, docking for 24 ships (D-102) |
 | Core, other holdings | — | Core kit: 6,000 A + 500 C, × (1 + 0.25 × further holdings; D-189) | 15 min to build the kit, plus 2 h deployment (D-054) | +120 MW | 300,000 | Minimal dome (D-053), base storage for a buffer, +10 command, docking for 8 ships (D-102) |
-| Shield pylon | Pylon | 2,500 A + 300 C | 30 min | 40 MW | 40,000 | +25% strength in its sector (D-053) |
+| Shield pylon | Pylon | 2,500 A + 300 C | 30 min | 40 MW | 40,000 | +75% of full strength in its sector, on top of the core's 25% (D-140, superseding D-053's +25%) |
 | Solar array | Peripheral | 3,000 A | 30 min | +620 MW | 20,000 | Disabled, never destroyed, outside the window (doc 12) |
 | Harvester | Peripheral | 2,000 A | 20 min | 60 MW | 15,000 | 600 ore/h × richness |
 | Refinery | Inner | 3,500 A | 40 min | 120 MW | 40,000 | Up to 900 alloy/h |
@@ -206,6 +206,8 @@ Control already decides the season (D-020) and gives sensor coverage (D-041). Ad
 - A cap fleet of about 200 command (4 WARDEN, 6 LANCER, 6 VX) costs about 35,000 A and 3,000 C. That is roughly 20–24 h of income.
 - **Storage:** the start cap of 8,000 A (core plus one rack) fills in about 13 h at the starting income of 600 A/h. With two more racks (16,000 A), it fills in about 8.5 h at mid-season income of 1,900 A/h. Both stay close to the 8–12 h target.
 - The start cap of 8,000 A must hold the largest single cost, a 6,000 A core kit. It does.
+
+> **Settled since:** build-out is read against the holding's own output (D-136), and deviations are measured at α before numbers are tuned (D-137). S4's harness run led to the growing kit price (D-189) and the diminishing yield (§6, D-217). α measures these targets with real AI through `nomad-harness --season`, 3 seeds over 8 weeks plus 7-day runs on 10 seeds, passing when each median is within ±50% (D-218).
 
 ## 14. Stress test
 

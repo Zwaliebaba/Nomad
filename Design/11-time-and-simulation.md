@@ -1,6 +1,6 @@
 # 11 — Time and simulation
 
-Status: **Agreed (round 5).** Q41–Q44 were decided as D-047 to D-050. Built on D-019, D-026, D-029, D-030, D-036, D-037 and P-04, on C-02, C-03, C-05 and C-06 from doc 01, and on `CODING_STANDARDS.md` §8. D-109 and D-110 later amended §5, §6, §8, §10 and §11. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 5).** Q41–Q44 were decided as D-047 to D-050. Built on D-019, D-026, D-029, D-030, D-036, D-037 and P-04, on C-02, C-03, C-05 and C-06 from doc 01, and on `CODING_STANDARDS.md` §8. D-109 and D-110 later amended §5, §6, §8, §10 and §11; D-117 and D-116 extend §7; D-199 settles §9's AI crate; D-173, D-191 and D-200 to D-203 place work in the §4.1 phases. The "As built" notes record what S1–S5, S6a, S8 and N2 implemented. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -67,6 +67,24 @@ Network replication and interest management belong to docs 16 and 20.
 
 *Derived:* the Deputy and the AI commanders run **inside** the deterministic step. They are functions of the state and a seeded random-number generator, so they never have to be journaled. Replaying the journal reproduces their decisions.
 
+> **Placed by later decisions:** the sensors phase runs for every observer at once on every fifth tick (D-173). The standings are recomputed in phase 9 on any tick where completed holdings or their owners changed (D-191). AI commands wait in a per-owner outbox and are applied in phase 1 of a later tick, after the external inputs, in `(owner, layer, sequence)` order (D-200). The Strategist runs in phase 3, staggered by commander over its interval, which depends on the difficulty (D-079; "every 10 s" is Hard's, D-229). Deputies and raid-group control run in phase 4 at 2 Hz, staggered by `SimId`, and raid launches fire from a phase-2 timer (D-203).
+>
+> **As built (as of 2026-11-07, `crates/nomad-sim/src/step.rs`):**
+>
+> | # | What runs |
+> |---|---|
+> | 1 | Operator inputs in journal order, then commander inputs (commands, connect, disconnect) in `(commander, client_seq)` order, each command through the single validator (D-077); then presence is brought up to date (S6a) |
+> | 2 | Due timers in `(deadline, SimId)` order (so far only the harness's diagnostic timers), then commander deadlines: window closes and grace ends (S6a) |
+> | 3, 4 | Not built yet: the AI and the Deputy (A1, A2) |
+> | 5 | Ship and fleet movement and the jump-transit queue, including arrivals at their deadline tick (S3) |
+> | 6 | Not built yet: sensors (S7). Until then every entity in space counts as visible |
+> | 7 | Ship combat (S5a), then station combat: domes, turrets, abilities, module damage (S5b) |
+> | 8 | The economy, each holding once a second in its own slot of the 10 ticks: construction (counted down once a second, a dry dock's lane by its power share, rather than a deadline timer in phase 2; an open point against §3), power, production and delivery, queued items, repair; convoys in their fleet's slot (S4) |
+> | 9 | Activity samples once a minute per commander (D-154); the standings, the early win and the season's final tick (S8; D-191, D-192, D-195). Siege eligibility arrives with S6b |
+> | 10 | `TickOutputs`: command results, fleet, combat, economy and defence events, and announcements. The state-hash checkpoint is taken by the server shell after the step (D-109), not inside it |
+>
+> Once the season's result is fixed, `step` changes nothing and counts every input as rejected (D-116; the S8 plan §11 lists this as *Proposed*).
+
 ### 4.2 Partitioning
 
 *Proposed (P-04).* All spatial work runs per star system, in `SystemId` order. Star systems interact only through jump transit, which is handled as a separate, ordered merge step. That makes star systems natural units for parallel work later, for example with `rayon` across systems, without breaking determinism. The MVP runs on a single thread.
@@ -92,7 +110,7 @@ Network replication and interest management belong to docs 16 and 20.
 | Random numbers come from per-purpose, per-system streams derived from `(season_seed, SystemId, purpose)` (ChaCha8 via `rand_chacha`). | Results do not depend on the order in which systems are processed. |
 | No wall clock, I/O, threads or environment reads inside the simulation. | All non-determinism enters as journaled input. |
 
-**CI check** *(Proposed):* a headless test runs N ticks twice from the same seed and compares state hashes. It is cheap enough for the Debug-only CI (D-010).
+**CI check** *(Proposed):* a headless test runs N ticks twice from the same seed and compares state hashes. It is cheap enough for the Debug-only CI (D-010). *As built:* `nomad-sim`'s `determinism`, `fleet_determinism`, `combat_determinism` and `snapshot_stability` tests do this, including snapshot and restore mid-run and pinned snapshot hashes, and D-190 keeps them in CI.
 
 **Replay check** *(Agreed, D-109):* every 600 ticks (60 s, configurable) the server appends that tick's state hash to the journal, after the tick's inputs. Replay recomputes the hash at each checkpoint. A mismatch is logged as an `error` with the tick and both hashes, and recovery continues, because the diverged state is still a valid Universe. *Derived:* journal batches are written in order, so a checkpoint that survives a crash never covers inputs that were lost.
 
@@ -104,9 +122,11 @@ Network replication and interest management belong to docs 16 and 20.
 - **Connect and disconnect events.** These are real inputs: they drive the 120 s grace period (doc 12 §5.3), the rule that a siege fails without an online attacker (doc 12 §4), and the activity-derived window (D-032).
 - **Operator commands:** freeze, configuration changes, season start.
 
-*Derived:* AI commanders' online and offline schedules (D-027) are generated from the seed. They are not journaled.
+*Derived:* AI commanders' online and offline schedules (D-027) are generated from the seed. They are not journaled. *D-204:* the seeded schedule generator runs in the simulation from A2 on; until then the harness sets AI presence with a `SetPresence` operator input, which stays as an override.
 
 *Agreed (D-109):* the journal also holds state-hash checkpoints (§5). They are checks, not inputs, and the simulation never reads them.
+
+*As built (N2, S6a):* the operator inputs so far are the journaled catch-up markers `CatchUpStart` and `CatchUpEnd` (§7), `SetPresence`, and the harness's diagnostic timers. Freeze, configuration changes and season start as operator commands are not built; freeze is hosting work (D-047), and `create` starts the season.
 
 ## 7. Running live, catching up, fast-forward
 
@@ -117,6 +137,10 @@ stateDiagram-v2
     Replaying --> CatchingUp: journal after the snapshot replayed
     CatchingUp --> Live: tick has reached the wall clock
     Live --> Live: one tick every 100 ms
+    Live --> CatchingUp: more than 1 min behind UTC after a sleep (D-117)
+    Live --> SeasonOver: the season's result is fixed (D-116)
+    CatchingUp --> SeasonOver: the season's result is fixed (D-116)
+    SeasonOver --> [*]: clean shutdown
     Live --> [*]: clean shutdown (final snapshot)
     Live --> [*]: crash
 ```
@@ -135,6 +159,11 @@ stateDiagram-v2
   - The MVP server runs on your PC, so the Universe only advances while that PC is on.
   - After the PC has been off, the server catches up when it starts. At the stage-1 target of 500× or more, a night off (8 h) takes about a minute and a week off about 20 minutes. The client shows the progress.
   - The local MVP server runs on Windows, next to the client. The hosted server targets Linux (D-029).
+- **As built (N2, N3; D-117, D-116):**
+  - Overruns run back to back, and the server logs a warning when it is more than 10 ticks behind. More than 1 minute behind UTC, as after the PC slept, counts as downtime and is caught up like a restart (D-117).
+  - Catch-up is marked in the journal: the first catch-up tick carries `CatchUpStart`, and the target tick carries `CatchUpEnd`, so the simulation knows the mode and replay is identical. The first catch-up tick also carries a journaled `Disconnected` for every commander who still counts as connected (D-047).
+  - Clients may hold a session during catch-up and receive its progress, but their commands are refused until the server is live (doc 20 §7). No commander counts as online.
+  - The season ends at its final tick or on an early win (D-192, D-195). The server then stops stepping, also in catch-up, and serves the final state until it is shut down (D-116).
 
 ## 8. Persistence and recovery
 
@@ -150,6 +179,13 @@ stateDiagram-v2
 | **Upgrades** | The snapshot schema is versioned and migrated forward by newer builds. Until the first real Universe exists (milestone β), a format change may simply reject older snapshots (D-099). A journal is replayable only by the build that wrote it. A server upgrade therefore always goes clean shutdown → final snapshot → new build loads that snapshot. |
 | **Read models** | Leaderboards, season history and account data are separate projections, not the authoritative state. |
 
+*As built (N2, S8):*
+
+- **Snapshots** are `magic | format | postcard(UniverseState)`, canonical so that equal states give equal bytes and the state hash compares across runs. They are written at ticks that are multiples of 3,000, so retention's hours and days line up, and they are not migrated before β (D-099); the format is 14 at the time of writing.
+- **The journal** holds one row per input, `(tick, seq, kind, payload, build)`, and every 600 ticks a state-hash checkpoint (D-109). Batches commit at least once per 10 ticks while rows are pending, with `synchronous = FULL`.
+- **Retention:** the latest 2 snapshots; the first snapshot of each hour for the 48 h before the latest snapshot; before that, the first of each day. The journal is kept from the kept snapshot that opens the 48 h window (D-110), so it covers 48 to 49 h, and recovery can fall back to any snapshot in it. Hours and days count from tick 0. The rules are tested in scaled time in CI.
+- **Read models:** `standings_history` and `season_result` (D-196), re-synced with the recovered state at every start.
+
 *Why not a row per entity?* At 10 Hz with about 10⁴ entities, relational writes would dominate the tick budget. A deterministic simulation makes snapshots plus a journal both cheaper and more reliable.
 
 ## 9. Crate boundary
@@ -159,11 +195,13 @@ stateDiagram-v2
 | Crate | Owns | Must not |
 |---|---|---|
 | `nomad-sim` | `UniverseState`, `step(&mut state, &TickInputs) -> TickOutputs`, the Deputy and the AI (as modules or a sibling `nomad-ai` crate), snapshot (de)serialisation | Read the clock, do I/O, use threads or `tokio`, use the network |
-| `nomad-server` (later) | Wall-clock pacing, the network (`quinn`), persistence (SQLite), the journal, catch-up, operator tools | Contain game rules |
+| `nomad-server` (built in N2, N3) | Wall-clock pacing, the network (`quinn`), persistence (SQLite), the journal, catch-up, operator tools | Contain game rules |
 | Headless harness | Fast-forward runs, pacing experiments (D-037), the determinism test | — |
 | `nomad-client` | Rendering, input, interpolation between received ticks | Advance the simulation |
 
 *Derived:* the same `nomad-sim` core runs in the server, the tests and the pacing tool. That is exactly why D-037 can be the seed of the server.
+
+> **D-199:** the AI is the sibling crate `nomad-ai`. It depends only on `nomad-types` and defines a `View` trait, which `nomad-sim` implements over `CommanderView`; `nomad-sim` calls it from its phases. Cargo's ban on dependency cycles then keeps AI code from naming `UniverseState`.
 
 ## 10. Stress test
 
@@ -180,7 +218,7 @@ stateDiagram-v2
 | Parameter | Value |
 |---|---|
 | Tick | 100 ms (10 Hz) |
-| Rate groups | 10 Hz (movement, combat), 2 Hz (sensors, Deputy), 1 Hz (economy), every 10 s (AI strategy), every 60 s (activity sampling) |
+| Rate groups | 10 Hz (movement, combat), 2 Hz (sensors, Deputy), 1 Hz (economy), every 10 s (AI strategy; Hard's interval, Normal 15 s, D-229), every 60 s (activity sampling) |
 | Command latency | Applied on the next tick (≤ 100 ms plus network round trip) |
 | Snapshot interval | 5 min, plus on clean shutdown |
 | Journal flush | ≤ 1 s |
