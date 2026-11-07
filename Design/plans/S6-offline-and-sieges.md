@@ -245,7 +245,7 @@ Nominal ──breach──► Reinforced{exit} ──exit, attacker online──
 
 *Derived* from the agreed values; the AI behaviour is assumed.
 
-**A siege against an offline defender.** Defender D (human) has a window of 19:00–23:00 UTC. Attacker A (AI) has sessions at 08:00–09:30 and 18:00–20:00.
+**A siege against an offline defender.** Defender D (human) has a window of 19:00–23:00 UTC. Attacker A (AI) has sessions at 08:00–09:30, 14:00–14:30 on day 1 and 18:00–20:00. *Corrected after S6b:* the example first had A offline at its 14:20 breach, which PR-3 does not allow; the harness's `capture` scenario uses these sessions.
 
 | Universe time | Event | Rule |
 |---|---|---|
@@ -262,7 +262,7 @@ The core was lost inside D's window, 28 h 56 min after the breach, while D was o
 
 On the local MVP, a switched-off PC therefore protects every holding, the AI's included, while it is off. The AI windows then drift towards the hours the PC is on (Q159). That self-corrects within days, but it is a risk for AI-against-AI sieges in the 14-day playtest (§9).
 
-**Stagger.** D's holdings H2–H6 are breached between 10:00 and 11:00 on day 1. Day 1 19:00 is less than 12 h away, so the slots on day 2 are H2 19:00, H3 20:00, H4 21:00 and H5 22:00. H6 rolls over to day 3 19:00. The 22:00 siege ends at 23:00, the end of the window (D-033).
+**Stagger.** D's holdings H2–H6 are breached between 10:05 and 11:00 on day 1 (*corrected after S6b:* a breach at 10:00 exactly is 12 h before 22:00, so it would get day 1 22:00 under D-158). Day 1 19:00 is less than 12 h away, so the slots on day 2 are H2 19:00, H3 20:00, H4 21:00 and H5 22:00. H6 rolls over to day 3 19:00. The 22:00 siege ends at 23:00, the end of the window (D-033).
 
 ## 6. Questions
 
@@ -346,7 +346,7 @@ Numbered Q142–Q160 (Q161–Q165 unused). Each has a recommendation and alterna
 
 ## 10. As built in S6a
 
-*Derived* unless marked; the *Proposed* items need the owner's approval.
+*Derived* unless marked. The owner approved the *Proposed* items as D-252; the D-224 balance note under **Outposts** is left to α tuning.
 
 - **Records and presence** (§4.1): `UniverseState` holds a record per commander, made at creation from the roster (`generate_stage1_roster`; the server's `create` names commander 1 human). Presence reads exactly the journaled `Connected` and `Disconnected` inputs, which the server sends from its sessions, at catch-up start and at a restart; `SetPresence` stands in for A5's AI schedules and is refused by the server. A `Connected` input for an AI commander, which only tests send, counts as online too. Commander deadlines (window closes, grace ends) are keyed by `(tick, CommanderId, kind)`, so they take no `SimId` and leave every other identity unchanged.
 - **Grace and lapse** (§4.2): a return before the deadline cancels it; a disconnect and reconnect in one tick change nothing. A fleet already station-keeping where it is with nothing queued, the doctrine until A1, has nothing to lapse. *Proposed:* rules of engagement are a standing setting of the fleet and stay through the lapse; D-162 does not say. The owner is told which fleets lapsed (`OrdersLapsed`, for the away report). During catch-up nobody counts as online for siege rules, even inside the grace (doc 11 §7, D-047).
@@ -359,7 +359,7 @@ Numbered Q142–Q160 (Q161–Q165 unused). Each has a recommendation and alterna
 
 ## 11. As built in S6b
 
-*Derived* unless marked; the *Proposed* items need the owner's approval.
+*Derived* unless marked. The owner approved the *Proposed* items as D-252; the D-224 balance note under **Outposts** is left to α tuning.
 
 - **Where:** `crates/nomad-sim/src/siege/` holds the defence states, protections, fallen mother stations in transit and their deadlines (snapshot format 15, after S8's 14). Deadlines fire in phase 2 after the Universe's timers and before the commanders', so a siege that ends as its window closes is over before the window may move; breaches and cores down are handled in phase 7 right after the combat that caused them. S5b's two hooks now carry the rules: `breach_may_occur` is "Nominal and not protected" (D-159), and `structure_outcome_at_zero` takes the attacker, for D-223.
 - **Breach and exit** (§4.4): attackers are the commanders in the ledger with a dome hit in the 10 minutes before (`sieges.breach_credit_s`, which must fit in the ledger's window). A damaging hit on a sector already at 0 counts as a dome hit, so the commander whose hit breaches after a protection gets credit. The exit is the earliest stagger slot at least 12 h on and later than the owner's other pending exits (D-158). §5's stagger example holds for breaches after 10:00: one at 10:00 exactly gets day 1 22:00, 12 h later.
