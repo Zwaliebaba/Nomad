@@ -1,6 +1,6 @@
 # Work package A1 — The Deputy, and the AI architecture
 
-Status: **Planned and decided** (Q200–Q212 → D-199 to D-211). Written together with `A2-strategist-economy.md` and `A3-raider-director.md`, which build on the architecture in §4: the `nomad-ai` crate, the command outbox, the competence gate, the event inbox, phases and budgets, determinism, and presence before A5. Builds on S4 (built), S5a (built), S5b (abilities, turrets, sectors; built), S6a (presence, grace, order lapse; built) and S7 (`CommanderView`; planned). This plan is also the brief for whoever builds A1. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q200–Q212 → D-199 to D-211). **A1a built** (tasks 1–4: the `nomad-ai` crate, outbox, gate, inbox, doctrine, direct control, rebuilding, convoy rerouting and holding); A1b (tasks 5–9) is next. Written together with `A2-strategist-economy.md` and `A3-raider-director.md`, which build on the architecture in §4: the `nomad-ai` crate, the command outbox, the competence gate, the event inbox, phases and budgets, determinism, and presence before A5. Builds on S4 (built), S5a (built), S5b (abilities, turrets, sectors; built), S6a (presence, grace, order lapse; built) and S7 (`CommanderView`; planned). This plan is also the brief for whoever builds A1. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 

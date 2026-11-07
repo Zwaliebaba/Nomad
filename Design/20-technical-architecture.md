@@ -45,13 +45,13 @@ Most of it puts together decisions already taken; the new choices are marked *Pr
 
 | Crate | Owns | Depends on | Status |
 |---|---|---|---|
-| `nomad-types` | Shared primitives: `SimId`, `CommanderId`, `Tick`, `Ticks`, units, size classes, small enums, command shapes, standings | `serde` | Built (N1); data only |
-| `nomad-sim` | `UniverseState`, `step`, rules (docs 10–16), the single command validator, snapshots; it calls the AI from its phases and implements `nomad-ai`'s `View` over `CommanderView` (D-077, D-199) | `nomad-types`; `nomad-ai` from A1a | Built: S1–S5, S6a, S8 |
-| `nomad-protocol` | Wire messages, framing, protocol version, connection details | `nomad-types` | Built (N1; version 4, §5) |
+| `nomad-types` | Shared primitives: `SimId`, `CommanderId`, `Tick`, `Ticks`, units, `Stock`, size classes, small enums, command shapes, doctrine shapes, standings | `serde` | Built (N1); data only |
+| `nomad-sim` | `UniverseState`, `step`, rules (docs 10–16), the single command validator, snapshots; it calls the AI from its phases and implements `nomad-ai`'s `View` over `CommanderView` (D-077, D-199) | `nomad-types`, `nomad-ai` | Built: S1–S8, A1a |
+| `nomad-protocol` | Wire messages, framing, protocol version, connection details | `nomad-types` | Built (N1; version 5, §5) |
 | `nomad-server` | Wall-clock pacing, network, sessions, replication, journal and snapshots (SQLite), recovery, catch-up, operator commands | `nomad-sim`, `nomad-protocol`, `nomad-types` | Built (N2, N3); replication is N4 |
 | `nomad-client` | Renderer, input, UI, network client, view-model store | `nomad-protocol`, `nomad-types`, `nomad-link` | Phase 1 (M1–M4) on fixtures; the dependencies arrive with C7 |
 | `nomad-harness` | Headless fast-forward runs, pacing and AI acceptance runs | `nomad-sim` | Built; modes in the root `README.md` |
-| `nomad-ai` *(D-199)* | All AI logic (Deputy, Strategist, raider director) behind a `View` trait that `nomad-sim` implements over `CommanderView`; it cannot name `UniverseState` | `nomad-types` | Planned (A1a) |
+| `nomad-ai` *(D-199)* | All AI logic (Deputy, Strategist, raider director) behind a `View` trait that `nomad-sim` implements over `CommanderView`; it cannot name `UniverseState`, and a manifest test fails if it lists `nomad-sim`, `nomad-server` or `nomad-protocol` | `nomad-types`, `serde` | Built (A1a): the `View`, AI memory, the Deputy's rebuilding and convoy rerouting; the Strategist is an empty entry until A2 |
 | `nomad-link` *(D-125)* | The client side of the connection: connect, pinning, handshake, channels, reconnect; used by the client and the integration tests | `nomad-protocol`, `nomad-types` | Built (N3) |
 
 - **The client never depends on `nomad-sim`.** That keeps the client from simulating anything (C-03), and keeps rules code out of the shipped client.

@@ -37,7 +37,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | S7 ✅ | Sensors: visibility sets, signatures, lane traffic, last-known memory, `CommanderView`; the validator, targeting, lock, the cruise drop and engagement read detection (doc 16; plan in `plans/S7-sensors.md`, D-173 to D-181) | M |
 | | S8 ✅ | Season standings, win, season end (D-020, D-041; plan in `plans/S8-season-end.md`, D-191 to D-198) | S |
 | | S9 | *Agreed (D-277):* the slot template from the station kit in the rules file (positions and hit radii, D-130, D-131, D-228) and pylons outside the dome on the peripheral rule (D-255): pylon slot check, pylon targeting, raiders excluded, the time-to-kill retune; the S5 hit tests, the station-layout test and the station obstacles follow | M |
-| **AI** | A1 | Deputy (doc 13 §4; plan in `plans/A1-deputy.md`, D-199 to D-211; A1a and A1b, D-205) | M |
+| **AI** | A1 ⏳ | Deputy (doc 13 §4; plan in `plans/A1-deputy.md`, D-199 to D-211; A1a and A1b, D-205). A1a ✅: the `nomad-ai` crate and `View`, AI memory, outbox and competence gate, inbox, per-layer counters, the rules' AI section, doctrine and its commands, direct control and release, rebuilding within the budget, convoy rerouting and holding at contested gates (with D-055's contested-gate flag). A1b next: threat, alert, abilities, engagement, roles, convoy evacuation, harness `--deputy` | M |
 | | A2 | Strategist economy (plan in `plans/A2-strategist-economy.md`, D-212 to D-218) | L |
 | | A3 | Raider director (plan in `plans/A3-raider-director.md`, D-219 to D-225; also the α acceptance runs) | M |
 | | A4 | Strategist military | XL |
@@ -96,7 +96,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
    - **A1b** (threat, alert, engagement, abilities, convoy evacuation) after S7 and S5b;
    - **A2** after A1a and S7; **A3** after S6b, S7 and A1a, in parallel with A2.
 
-   After α: **S9** (D-277), before β, then A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2):* S2–S8 are built; A1a is next, then A1b, A2 and A3 (D-205).
+   After α: **S9** (D-277), before β, then A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2):* S2–S8 and A1a are built; A1b is next, with A2 and A3 (D-205).
 2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send. *Status:* N1–N3 are built; N4 builds on S7's `CommanderView` (D-182).
 3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7. **K1** follows S9 and comes before C8 (D-278): it builds the scene from fixture slot data first, then from C7's live store. *Status:* M1–M4 are built; M5 and M6 are next.
 
