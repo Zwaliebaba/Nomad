@@ -16,6 +16,10 @@
 //! §7 task 13): a mid-size fleet breaches a full mother-station sector, or kills the core
 //! through an open sector, measured as D-147 says.
 //!
+//! With `--windows` it runs the exposure-window scenario (S6 plan §8 "Windows"): the four
+//! stage-1 commanders on scripted AI presence for 30 simulated days by default, reporting
+//! each window move, choice and lapse of orders, and checking D-155 on every tick.
+//!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
 //!
@@ -27,6 +31,7 @@
 //!               [--restore-at N] [--rules PATH]
 //! nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] [--rules PATH]
 //! nomad-harness --economy [--seed N] [--days N] [--rules PATH]
+//! nomad-harness --windows [--seed N] [--days N] [--rules PATH]
 //! ```
 
 mod combat;
@@ -34,6 +39,7 @@ mod economy;
 mod fleets;
 mod galaxy;
 mod station;
+mod windows;
 
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -45,6 +51,10 @@ use nomad_sim::{
     OperatorInput, Rules, SeasonConfig, TICKS_PER_SECOND, TickInputs, Ticks, UniverseState, step,
 };
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one flag per mode, as given on the command line"
+)]
 struct Args {
     seed: u64,
     ticks: Option<u64>,
@@ -57,7 +67,8 @@ struct Args {
     galaxy: bool,
     combat: Option<combat::Set>,
     economy: bool,
-    days: u64,
+    windows: bool,
+    days: Option<u64>,
     rules: Option<PathBuf>,
 }
 
@@ -75,7 +86,8 @@ impl Default for Args {
             galaxy: false,
             combat: None,
             economy: false,
-            days: 7,
+            windows: false,
+            days: None,
             rules: None,
         }
     }
@@ -98,7 +110,8 @@ fn parse_args() -> Result<Args, String> {
             "--galaxy" => args.galaxy = true,
             "--combat" => args.combat = Some(combat::Set::parse(&value()?)?),
             "--economy" => args.economy = true,
-            "--days" => args.days = parse(&value()?)?,
+            "--windows" => args.windows = true,
+            "--days" => args.days = Some(parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--help" | "-h" => {
                 return Err(
@@ -109,7 +122,8 @@ fn parse_args() -> Result<Args, String> {
                             [--order-interval-secs N] [--restore-at N] [--rules PATH]\n       \
                      nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] \
                             [--rules PATH]\n       \
-                     nomad-harness --economy [--seed N] [--days N] [--rules PATH]"
+                     nomad-harness --economy [--seed N] [--days N] [--rules PATH]\n       \
+                     nomad-harness --windows [--seed N] [--days N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -148,7 +162,17 @@ fn run() -> Result<(), String> {
             &mut io::stdout().lock(),
             economy::EconomyRun {
                 seed: args.seed,
-                days: args.days,
+                days: args.days.unwrap_or(7),
+                rules,
+            },
+        );
+    }
+    if args.windows {
+        return windows::run(
+            &mut io::stdout().lock(),
+            windows::WindowRun {
+                seed: args.seed,
+                days: args.days.unwrap_or(30),
                 rules,
             },
         );
