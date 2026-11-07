@@ -61,6 +61,17 @@ pub(crate) fn commander_reasons() -> BTreeSet<R> {
         .collect()
 }
 
+/// The doctrine reasons (A1), produced by `doctrine::tests`.
+pub(crate) fn doctrine_reasons() -> BTreeSet<R> {
+    [
+        R::InvalidDoctrine,
+        R::NotUnderDirectControl,
+        R::DoctrineByDeputy,
+    ]
+    .into_iter()
+    .collect()
+}
+
 /// Every reason, by an exhaustive match: a new reason does not compile until it is listed,
 /// and the tests fail until a scenario produces it.
 pub(crate) fn all_reasons() -> BTreeSet<R> {
@@ -117,6 +128,10 @@ pub(crate) fn all_reasons() -> BTreeSet<R> {
         R::WindowLocked,
         // S7.
         R::NotVisible,
+        // A1.
+        R::InvalidDoctrine,
+        R::NotUnderDirectControl,
+        R::DoctrineByDeputy,
     ];
     assert!(every.into_iter().all(listed));
     every.into_iter().collect()
@@ -175,7 +190,10 @@ const fn listed(reason: R) -> bool {
         | R::UnknownCommander
         | R::InvalidWindow
         | R::WindowLocked
-        | R::NotVisible => true,
+        | R::NotVisible
+        | R::InvalidDoctrine
+        | R::NotUnderDirectControl
+        | R::DoctrineByDeputy => true,
     }
 }
 
@@ -625,6 +643,9 @@ fn every_rejection_reason_is_produced() {
         .copied()
         .collect::<BTreeSet<R>>()
         .difference(&commander_reasons())
+        .copied()
+        .collect::<BTreeSet<R>>()
+        .difference(&doctrine_reasons())
         .copied()
         .collect();
     assert_eq!(seen, fleet_reasons);

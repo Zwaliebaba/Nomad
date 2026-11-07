@@ -211,6 +211,7 @@ impl World {
                 fleet,
                 order: FleetOrder::Attack { target },
                 queue: Queueing::Replace,
+                retreat: false,
             }),
         );
     }

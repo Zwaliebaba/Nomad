@@ -16,7 +16,7 @@
 //! | `npc` | Doc 15 §3.1: raider classes, which are not commander warships (D-099 item 5) |
 //! | Ops-area radius | D-103 (Q94) |
 //! | Formation spacing, neighbour cells | S3 plan §4.3 |
-//! | Gates | D-055: 2 km scatter, 5 s spool-up, 10 s shroud; S3 plan §4.4: within 2 km |
+//! | Gates | D-055: 2 km scatter, 5 s spool-up, 10 s shroud, contested for convoys by armed hostiles within 5 km; S3 plan §4.4: within 2 km |
 //! | Docking | D-102 (Q93) |
 //! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE; the station's modules and stock are in the economy section |
 //! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*), the core kit's growth k = 0.25 (D-189), the diminishing yield F = 2 (D-217) |
@@ -27,11 +27,13 @@
 //! | Sieges: disconnect grace, exposure window, drift, activity history, free choice; notice, siege clock, stagger, breach credit, protections, restores, the comeback grant | [`sieges`] (doc 12 §4, §5.3, §8; doc 15 §6–§7; D-015, D-032 to D-034, D-057, D-155 to D-167) |
 //! | Season: the early-win share | [`season`] (doc 10 §6; D-020, D-192) |
 //! | Sensors: ranges per sensor kind (each class names its kind), signatures, memory and lane-traffic timings, the range rule | [`sensors`] (doc 16 §3–§5; D-072 to D-076, D-179; S7) |
+//! | AI: doctrine presets, the difficulty table, the human Deputy's competence, the Deputy's rate, inbox retention and command expiry | [`ai`] (doc 13 §7, §9; D-079, D-082, D-201 to D-203, D-211; A1) |
 //!
 //! Starting values adopted from this implementation (D-113): separation distance, obstacle
 //! margin, look-ahead time (D-105 fixes the behaviour, D-113 the numbers), the guard radius
 //! (S3 plan §4.4 names it without a value) and the launch point.
 
+pub mod ai;
 pub mod combat;
 pub mod defence;
 pub mod sensors;
@@ -48,7 +50,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@10";
+pub const RULES_FORMAT: &str = "nomad-rules@11";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -109,6 +111,9 @@ pub struct Rules {
     // S7: sensors and fog of war.
     /// Sensor ranges, signatures, memory and lane-traffic timings (doc 16 §3–§5; S7).
     pub sensors: sensors::SensorRules,
+    // A1: the AI.
+    /// Doctrine presets, competence by difficulty and the AI's timings (D-211; A1).
+    pub ai: ai::AiRules,
 }
 
 /// One ship class (doc 15 §3.3, §12; D-101).
@@ -179,6 +184,8 @@ pub struct GateRules {
     pub arrival_scatter_m: f64,
     /// Jump shroud after arrival: the ship cannot be targeted and cannot fire.
     pub shroud_s: u64,
+    /// Armed hostile ships within this distance make a gate contested for convoys (D-055).
+    pub contested_radius_m: f64,
 }
 
 /// Docking capacity in ships (D-102).
@@ -341,6 +348,7 @@ impl Rules {
         let g = &self.gates;
         positive("gates.jump_range_m", g.jump_range_m)?;
         positive("gates.arrival_scatter_m", g.arrival_scatter_m)?;
+        positive("gates.contested_radius_m", g.contested_radius_m)?;
 
         let layout = &self.mother_station;
         positive("mother_station.voxel_m", layout.voxel_m)?;
@@ -367,6 +375,7 @@ impl Rules {
         self.sieges.check_with(&self.defence)?;
         self.sensors
             .check(&self.ship_classes, &self.combat, &self.defence)?;
+        self.ai.check()?;
         for class in self.economy.ships.keys() {
             if self.class(*class).npc {
                 return Err(invalid(
@@ -572,8 +581,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@10", "nomad-rules@9"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@9"
+            swap("nomad-rules@11", "nomad-rules@10"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@10"
         ));
         // The sieges section (S6a): whole quarter hours, a window shorter than a day.
         for (from, to) in [

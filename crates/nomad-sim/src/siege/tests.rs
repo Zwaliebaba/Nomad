@@ -873,7 +873,8 @@ fn a_reserved_site_cannot_be_claimed_and_jumping_fleets_take_no_orders() {
                 &Command::Fleet {
                     fleet: kit,
                     order,
-                    queue: Queueing::Replace
+                    queue: Queueing::Replace,
+                    retreat: false,
                 }
             ),
             Err(R::InTransit)

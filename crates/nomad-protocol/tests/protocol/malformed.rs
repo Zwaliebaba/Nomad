@@ -149,6 +149,7 @@ fn oversized_messages_are_not_encoded() {
                 route: vec![at(2, 1.0, 2.0); 5_000],
             },
             queue: Queueing::Replace,
+            retreat: false,
         },
     };
     let mut out = vec![1, 2, 3];

@@ -16,6 +16,22 @@ pub enum CommanderKind {
     Ai,
 }
 
+/// How competent an AI commander is (D-079): reaction latency, command rate and the
+/// Strategist's interval, never resources or information (D-027). Normal is the default.
+/// Until A5, `create --difficulty` sets one difficulty for every AI commander (D-231).
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+pub enum Difficulty {
+    /// Slow reactions, few commands.
+    Easy,
+    /// The MVP default.
+    #[default]
+    Normal,
+    /// Close to the human command cap.
+    Hard,
+}
+
 /// A quarter hour of the UTC day: index 0 is 00:00–00:15 UTC and index 95 is 23:45–24:00
 /// UTC.
 ///

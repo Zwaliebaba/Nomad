@@ -970,6 +970,16 @@ fn convoys_empty_buffers_into_the_pool() {
     let remote = remote_ore_holding(&mut state);
     state.economy.holdings.get_mut(&remote).unwrap().buffer = Stock::units(900, 0);
     let kit = kit_fleet(&state, 1);
+    // Stand at the remote stop, in space: the first convoy second loads the buffer. (Given
+    // while docked at the mother station, a stop of the route, the route would start
+    // there, A1 plan §5.8.)
+    let remote_system = state
+        .galaxy()
+        .site(state.holding(remote).unwrap().site)
+        .unwrap()
+        .system;
+    let stop = state.launch_point(remote).unwrap();
+    teleport(&mut state, kit, remote_system, stop);
     send(
         &mut state,
         1,
@@ -979,14 +989,6 @@ fn convoys_empty_buffers_into_the_pool() {
         }),
     );
     assert!(state.economy.convoys.contains_key(&kit));
-    // Stand at the remote stop: the next convoy second loads the buffer.
-    let remote_system = state
-        .galaxy()
-        .site(state.holding(remote).unwrap().site)
-        .unwrap()
-        .system;
-    let stop = state.launch_point(remote).unwrap();
-    teleport(&mut state, kit, remote_system, stop);
     let out = idle(&mut state, 10);
     let loaded = events(&out).into_iter().find_map(|e| match e {
         EconomyEvent::ConvoyLoaded { amount, .. } => Some(amount),

@@ -1245,6 +1245,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nomad-ai"
+version = "0.1.0"
+dependencies = [
+ "nomad-types",
+ "serde",
+]
+
+[[package]]
 name = "nomad-client"
 version = "0.1.0"
 dependencies = [
@@ -1324,6 +1332,7 @@ version = "0.1.0"
 dependencies = [
  "hecs",
  "libm",
+ "nomad-ai",
  "nomad-types",
  "postcard",
  "rand_chacha",

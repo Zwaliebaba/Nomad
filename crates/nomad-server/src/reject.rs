@@ -74,6 +74,11 @@ pub fn wire_reason(rejection: CommandRejection) -> InvalidReason {
         C::NoPower => W::NoPower,
         C::InvalidWindow => W::InvalidWindow,
         C::WindowLocked => W::WindowLocked,
+        // Doctrine and direct control (A1).
+        C::InvalidDoctrine => W::InvalidDoctrine,
+        C::NotUnderDirectControl => W::NotUnderDirectControl,
+        // Only the Deputy is refused this; a client never sees it.
+        C::DoctrineByDeputy => W::NotPermitted,
     }
 }
 
@@ -85,7 +90,7 @@ mod tests {
 
     /// Every validator reason. The guard below has no wildcard, so a new reason fails to
     /// compile until it is listed.
-    const ALL: [CommandRejection; 50] = [
+    const ALL: [CommandRejection; 53] = [
         CommandRejection::UnknownFleet,
         CommandRejection::UnknownShip,
         CommandRejection::UnknownHolding,
@@ -136,6 +141,9 @@ mod tests {
         CommandRejection::InvalidWindow,
         CommandRejection::WindowLocked,
         CommandRejection::NotVisible,
+        CommandRejection::InvalidDoctrine,
+        CommandRejection::NotUnderDirectControl,
+        CommandRejection::DoctrineByDeputy,
     ];
 
     const fn listed(rejection: CommandRejection) -> bool {
@@ -189,7 +197,10 @@ mod tests {
             | CommandRejection::UnknownCommander
             | CommandRejection::InvalidWindow
             | CommandRejection::WindowLocked
-            | CommandRejection::NotVisible => true,
+            | CommandRejection::NotVisible
+            | CommandRejection::InvalidDoctrine
+            | CommandRejection::NotUnderDirectControl
+            | CommandRejection::DoctrineByDeputy => true,
         }
     }
 

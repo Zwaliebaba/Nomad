@@ -212,12 +212,46 @@ pub enum CommandRejection {
     /// detect (D-039, D-174, D-175).
     #[error("the target is not seen")]
     NotVisible,
+
+    // A1: doctrine and direct control.
+    /// A doctrine value is out of range, the replacement list is too long, or it names a
+    /// fleet and class twice (A1 plan §5.1).
+    #[error("invalid doctrine")]
+    InvalidDoctrine,
+    /// Release of a fleet that is not under direct control (RK-10).
+    #[error("the fleet is not under direct control")]
+    NotUnderDirectControl,
+    /// A doctrine command from the Deputy: changing doctrine is the commander's own
+    /// initiative (PR-3, doc 12 §5.1).
+    #[error("the Deputy may not change doctrine")]
+    DoctrineByDeputy,
 }
 
-/// Checks `command` from `issuer` against the current state (D-077).
+/// Who sends a command (D-077: one validator for every source). A client is the commander's
+/// own; an AI layer issues through the outbox (D-200).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum CommandSource {
+    /// The commander's own client, or the harness and tests in its place.
+    Client,
+    /// An AI layer of the commander or faction.
+    Ai(nomad_ai::Layer),
+}
+
+/// Checks `command` from `issuer`'s client against the current state (D-077).
 pub fn validate_command(
     state: &UniverseState,
     issuer: Owner,
+    command: &Command,
+) -> Result<(), CommandRejection> {
+    validate_command_from(state, issuer, CommandSource::Client, command)
+}
+
+/// Checks `command` from `issuer`, sent by `source`, against the current state (D-077). The
+/// source matters only for doctrine, which the Deputy may not change (PR-3).
+pub fn validate_command_from(
+    state: &UniverseState,
+    issuer: Owner,
+    source: CommandSource,
     command: &Command,
 ) -> Result<(), CommandRejection> {
     match command {
@@ -225,6 +259,7 @@ pub fn validate_command(
             fleet,
             order,
             queue,
+            ..
         } => validate_order(state, issuer, *fleet, order, *queue),
         Command::Holding { holding, order } => {
             validate_holding_order(state, issuer, *holding, *order)
@@ -235,27 +270,35 @@ pub fn validate_command(
         Command::SetExposureWindow { start } => {
             crate::commander::validate_window_choice(state, issuer, *start)
         }
+        Command::Doctrine(command) => crate::doctrine::validate(state, issuer, source, command),
     }
 }
 
-/// Validates `command` and, if it is valid, carries it out.
+/// Validates `command` from `source` and, if it is valid, carries it out.
 pub(crate) fn execute(
     state: &mut UniverseState,
     issuer: Owner,
+    source: CommandSource,
     command: &Command,
     events: &mut Vec<FleetEvent>,
     economy_events: &mut Vec<crate::economy::EconomyEvent>,
 ) -> Result<(), CommandRejection> {
-    validate_command(state, issuer, command)?;
+    validate_command_from(state, issuer, source, command)?;
     match command {
         Command::Fleet {
             fleet,
             order,
             queue,
+            retreat,
         } => {
             // An order to a convoy fleet ends its route (D-134).
             crate::economy::end_convoy(state, *fleet, economy_events);
             crate::fleet::orders::give(state, *fleet, order.clone(), *queue, events);
+            // The commander's own orders put it under direct control; the Deputy's are
+            // doctrine (RK-10, A1 plan §5.2).
+            if source != CommandSource::Ai(nomad_ai::Layer::Deputy) {
+                crate::doctrine::take_control(state, *fleet, *retreat);
+            }
         }
         Command::Holding {
             holding,
@@ -268,13 +311,26 @@ pub(crate) fn execute(
         // Station orders (S5b).
         Command::Holding { holding, order } => crate::defence::execute(state, *holding, *order),
         Command::CreateFleet { ships } => {
-            crate::fleet::create_fleet(state, issuer, ships);
+            // A split inherits direct control (A1 plan §5.2).
+            let control = crate::doctrine::control_of_ship(state, ships.first().copied());
+            if let Some(fleet) = crate::fleet::create_fleet(state, issuer, ships) {
+                crate::doctrine::inherit_control(state, fleet, control);
+            }
         }
         Command::MergeFleets { fleet, into } => crate::fleet::merge_fleets(state, *fleet, *into),
-        Command::Economy(command) => crate::economy::execute(state, command, economy_events),
+        Command::Economy(command) => {
+            crate::economy::execute(state, command, economy_events);
+            // A convoy route is doctrine (D-162): the fleet leaves direct control.
+            if let nomad_types::EconomyCommand::Convoy { fleet, route } = command
+                && !route.is_empty()
+            {
+                crate::doctrine::release(state, *fleet);
+            }
+        }
         Command::SetExposureWindow { start } => {
             crate::commander::choose_window(state, issuer, *start);
         }
+        Command::Doctrine(command) => crate::doctrine::execute(state, issuer, command),
     }
     Ok(())
 }
@@ -714,6 +770,24 @@ fn validate_order(
 
 /// A point the fleet is ordered to: in its system, finite, inside the system and outside
 /// every obstacle footprint.
+/// A point of a doctrine patrol route in `system` (A1 plan §5.1): as [`check_point`] checks
+/// an order's point.
+pub(crate) fn check_route_point(
+    state: &UniverseState,
+    system: SystemId,
+    to: &Location,
+) -> Result<(), CommandRejection> {
+    check_point(
+        state,
+        Context {
+            system,
+            docked: None,
+            position: None,
+        },
+        to,
+    )
+}
+
 fn check_point(state: &UniverseState, ctx: Context, to: &Location) -> Result<(), CommandRejection> {
     use CommandRejection as R;
     let radius = system_radius_m(state, to.system).ok_or(R::UnknownSystem)?;

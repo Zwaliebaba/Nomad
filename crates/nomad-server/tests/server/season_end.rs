@@ -265,7 +265,10 @@ fn create_scripted(
             final_tick: Tick::new(end),
             ..SeasonConfig::new(seed, created.meta.season_start_unix_ms)
         },
-        stage1_roster(CreateParams::default().window_start),
+        stage1_roster(
+            CreateParams::default().window_start,
+            CreateParams::default().difficulty,
+        ),
         rules,
     )
     .expect("generate");

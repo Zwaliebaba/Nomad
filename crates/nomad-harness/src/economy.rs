@@ -413,6 +413,7 @@ fn fleet_order(fleet: FleetId, order: FleetOrder) -> Command {
         fleet,
         order,
         queue: Queueing::Replace,
+        retreat: false,
     }
 }
 

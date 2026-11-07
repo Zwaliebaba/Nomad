@@ -14,7 +14,7 @@ use super::Stock;
 use crate::rules::RulesError;
 
 /// Milli-units per unit (D-049).
-pub const MILLI: u64 = 1_000;
+pub const MILLI: u64 = nomad_types::MILLI;
 /// kW per MW.
 pub const KW_PER_MW: u64 = 1_000;
 

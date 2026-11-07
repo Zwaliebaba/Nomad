@@ -133,7 +133,8 @@ fn daily(script: &mut Script, n: u32, from: QuarterHour, to: QuarterHour, days: 
 }
 
 /// Runs a Universe without ships or holdings until `until`, computing only the ticks on
-/// which something can happen in it: a scripted input, an activity sample or a deadline.
+/// which something can happen in it: a scripted input, an activity sample, a deadline or
+/// the Deputy's hourly ledger sample (A1 plan §5.7).
 /// Every other tick of such a Universe changes nothing but the tick counter, so this equals
 /// stepping every tick (`fast_forward_equals_stepping_every_tick` checks it).
 ///
@@ -161,9 +162,12 @@ fn fast_forward(state: &mut UniverseState, until: Tick, script: &Script) -> Vec<
         })
         .collect();
     let mut outputs = Vec::new();
+    let hour = Ticks::from_hours(1).get();
     loop {
+        let next_hour = Tick::new((state.tick().get() / hour + 1) * hour);
         let next = [
             samples.values().min().copied(),
+            Some(next_hour),
             state.commanders.deadlines.next(),
             state.timers.next_deadline(),
             script.range(state.tick().next()..).next().map(|(&t, _)| t),
@@ -632,8 +636,8 @@ fn a_frozen_window_does_not_move() {
 }
 
 /// A stage-1 Universe where commanders 1–3 are connected, commander 1's start kit is
-/// launched and patrolling, commander 2's kit is docked with an order queued, and commander
-/// 3's kit runs a convoy.
+/// launched and patrolling, commander 2's kit is docked with a direct order queued, and
+/// commander 3's kit runs a convoy.
 fn lapse_scene() -> (UniverseState, FleetId, FleetId, FleetId) {
     let mut state = stage1(7);
     run(
@@ -654,6 +658,8 @@ fn lapse_scene() -> (UniverseState, FleetId, FleetId, FleetId) {
     if let Some(f) = state.entities.get_mut::<Fleet>(two.sim_id()) {
         f.queue.push_back(FleetOrder::Launch);
     }
+    // As a direct order of commander 2's client would leave it (RK-10).
+    crate::doctrine::take_control(&mut state, two, false);
     // Commander 3's kit runs a convoy route: doctrine, not a direct order (D-162).
     let three = kit_fleet(&state, 3);
     let (mother, _) = home(&state, 3);
@@ -662,6 +668,7 @@ fn lapse_scene() -> (UniverseState, FleetId, FleetId, FleetId) {
         crate::economy::Convoy {
             route: vec![mother],
             next: 0,
+            held: None,
         },
     );
     if let Some(f) = state.entities.get_mut::<Fleet>(three.sim_id()) {

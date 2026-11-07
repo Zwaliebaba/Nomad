@@ -195,7 +195,7 @@ pub(super) fn destroy_outpost(
         return;
     };
     if let Some(e) = state.economy.holdings.remove(&holding) {
-        for (_, module) in e.slots {
+        for (slot, module) in e.slots {
             let kind = state
                 .entities
                 .get::<Module>(module)
@@ -206,6 +206,7 @@ pub(super) fn destroy_outpost(
                 module,
                 holding,
                 kind,
+                slot,
             });
         }
     }

@@ -4,7 +4,7 @@ use nomad_types::{Command, Owner};
 
 use crate::announce::Announcement;
 use crate::combat::CombatEvent;
-use crate::command::{CommandRejection, execute};
+use crate::command::{CommandRejection, CommandSource, execute};
 use crate::defence::DefenceEvent;
 use crate::economy::EconomyEvent;
 use crate::fleet::FleetEvent;
@@ -44,6 +44,11 @@ pub struct TickOutputs {
     /// What came into and went out of each observer's view, and observed departures
     /// (S7 plan §4.3, §4.5).
     pub visibility_events: Vec<VisibilityEvent>,
+
+    // A1: the AI.
+    /// What each commander's Deputy reports for the away report: deferred replacements
+    /// (doc 12 §5.3; A1 plan §5.7, §5.8).
+    pub deputy_events: Vec<(CommanderId, nomad_ai::DeputyEvent)>,
 }
 
 /// The outcome of one command input.
@@ -65,9 +70,10 @@ pub struct CommandResult {
 /// transit) runs ships and fleets (S3), phase 6 the sensors on every fifth tick and observed
 /// departures on every tick (S7), phase 7 ship and station combat (S5a, S5b) and then the
 /// breaches and cores down it caused (S6b), phase 8 the economy (S4) and phase 9 the activity
-/// samples (S6a) and the standings, the early win and the season end (S8). Phases 3–4 (AI,
-/// Deputy) and the rest of phase 9 arrive with their work packages (D-051). Once the season's
-/// result is fixed, `step` changes nothing (D-116).
+/// samples (S6a) and the standings, the early win and the season end (S8), then the inbox
+/// (A1). Phase 1 applies due AI commands after the external inputs, and phases 3–4 run the
+/// Strategists and the Deputies (A1; D-200, D-203). The rest of phase 9 arrives with its work
+/// package (D-051). Once the season's result is fixed, `step` changes nothing (D-116).
 pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // The season is over (D-116): no tick follows the final one. Nothing changes, and every
     // input counts as rejected (S8 plan §4.4).
@@ -123,6 +129,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     if presence_inputs {
         crate::commander::sync_presence(state, now);
     }
+    // Due AI commands, after the external inputs, within each owner's rate (D-200, D-201).
+    crate::ai::gate::apply_due(state, now, &mut out);
 
     // Phase 2: fire every timer due at or before this tick, in (deadline, SimId) order.
     while let Some((_id, _deadline, event)) = state.timers.pop_due(now) {
@@ -134,6 +142,10 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     crate::siege::fire_due(state, now, &mut out);
     // Commander deadlines: window closes and grace ends (S6 plan §4.2, §4.3).
     crate::commander::fire_due(state, now, &mut out);
+
+    // Phases 3–4: the Strategists of online AI commanders, then every Deputy (D-203). What
+    // they issue waits in the outbox for a later tick (D-200).
+    crate::ai::run(state, now, &mut out.deputy_events);
 
     // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4). On a sensors tick,
     // where fleets were before it moves them: what observers last saw (S7 plan §4.4).
@@ -166,6 +178,10 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // Phase 9: the standings on a tick that changed holdings, then the early win and the
     // season's final tick (S8; D-191, D-192, D-195).
     crate::season::run(state, now, &mut out.announcements);
+    // Direct control and overrides of fleets and holdings that are gone (A1 plan §5.2).
+    crate::doctrine::prune(state);
+    // What each owner may know of this tick, for its AI layers (D-202).
+    crate::ai::inbox::collect(state, now, &out);
 
     state.tick = now;
     out
@@ -213,6 +229,7 @@ fn apply_command(
     execute(
         state,
         Owner::Commander(commander),
+        CommandSource::Client,
         command,
         &mut out.fleet_events,
         &mut out.economy_events,

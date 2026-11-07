@@ -11,6 +11,7 @@ repository = "https://github.com/Zwaliebaba/Nomad"
 
 # Shared dependency versions. Crates opt in with `name = { workspace = true }`.
 [workspace.dependencies]
+nomad-ai = { path = "crates/nomad-ai" }
 nomad-link = { path = "crates/nomad-link" }
 nomad-protocol = { path = "crates/nomad-protocol" }
 nomad-sim = { path = "crates/nomad-sim" }

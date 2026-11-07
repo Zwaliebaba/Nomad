@@ -33,7 +33,16 @@
 //!   D-138, D-158 to D-170, D-223, D-229), see [`UniverseState::siege`].
 //! - sensors and fog of war ([`sensors`], S7; doc 16): visibility per observer every fifth
 //!   tick, last-known memory, lane traffic, and [`CommanderView`], the read-only projection
-//!   through which the AI and replication see the Universe (D-077, D-199, D-182).
+//!   through which the AI and replication see the Universe (D-077, D-199, D-182);
+//! - the AI inside the step (A1a; D-199 to D-203): phases 3–4 call `nomad-ai`'s Strategist
+//!   (an empty entry until A2) and every commander's Deputy through its `View`, implemented
+//!   over [`CommanderView`]; what they issue waits in a per-owner outbox and applies in phase
+//!   1 of a later tick through the same validator, within the competence gate's latency and
+//!   command rate; each owner's inbox holds 60 s of what it may know; per-layer counters
+//!   ([`UniverseState::ai_counters`]); the AI's memory is part of the state;
+//! - doctrine and direct control (A1a; doc 12 §5.2, RK-10, D-082, D-162): presets and
+//!   overrides, the replacement list, the fleets under direct control, see
+//!   [`UniverseState::doctrine`]; and convoys holding at gates armed hostiles contest (D-055).
 //!
 //! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
@@ -50,19 +59,23 @@
 //! (doc 10), deposit data and values (doc 14 §5, D-066), system control (D-041), and
 //! movement, fleets and orders (doc 15 §3, §9; D-101 to D-105), the economy with claims
 //! (doc 14; S4, D-126 to D-138, D-189, D-217), the season standings (S8) and sensors (doc 16;
-//! D-072 to D-077, D-173 to D-181). The AI (A1–A3) follows. Ship combat is ([`combat`], S5a:
-//! weapons, lock, projectiles, the multiplier table, engagement), and so is station combat
+//! D-072 to D-077, D-173 to D-181). The AI's foundation and the Deputy's first half are here
+//! (A1a: doctrine, direct control, rebuilding, convoys at contested gates); A1b to A3
+//! follow. Ship combat is ([`combat`], S5a: weapons, lock, projectiles, the multiplier
+//! table, engagement), and so is station combat
 //! ([`defence`], S5b: dome sectors, regeneration, breaches, damage to modules and its
 //! recovery, turrets, SHLD SURGE and FLAK SCREEN, the damage ledger). Commands, orders,
 //! targeting, lock and engagement go only by what the issuer's sensors detect (S7). The
 //! offline rules (doc 12) are here: presence, the disconnect grace and exposure windows
 //! (S6a), and the siege lifecycle (S6b).
 
+mod ai;
 mod announce;
 pub mod combat;
 mod command;
 mod commander;
 pub mod defence;
+mod doctrine;
 pub mod economy;
 mod entities;
 pub mod fleet;
@@ -86,13 +99,15 @@ mod time;
 mod timers;
 mod util;
 
+pub use ai::LayerCounters;
 pub use announce::{Announcement, AnnouncementKind, HeldReason, Recipients};
 pub use combat::{CombatEvent, ProjectileId};
-pub use command::{CommandRejection, validate_command};
+pub use command::{CommandRejection, CommandSource, validate_command, validate_command_from};
 pub use commander::{
     CommanderError, CommanderRecord, CommanderSetup, DEFAULT_WINDOW_START, ExposureWindow, Presence,
 };
 pub use defence::{DefenceEvent, DefenceView, LedgerView, SectorView};
+pub use doctrine::Doctrine;
 pub use economy::{
     BuildLane, Cargo, CommanderEconomy, EconomyEvent, HoldingEconomyView, ModuleView,
     PowerAllocation, QueueItemView, Shortage, Stock,
@@ -109,9 +124,16 @@ pub use holding::{
 };
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
+pub use nomad_ai::{
+    CommandOutcome, DeferReason, DeputyEvent, DropReason, InboxEntry, InboxEvent, Layer, Rebuild,
+};
 pub use nomad_types::{
     BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,
     PowerProfile, QuarterHour, Queueing, RulesOfEngagement, Slot, StationAbility,
+};
+pub use nomad_types::{
+    DirectControl, DoctrineCommand, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetRole,
+    HoldingDoctrine, ReplacementEntry,
 };
 pub use nomad_types::{FactionId, Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};

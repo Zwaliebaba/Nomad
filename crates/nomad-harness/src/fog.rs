@@ -484,6 +484,7 @@ fn order_for(state: &UniverseState, rng: &mut RngStreams, fleet: FleetId) -> Opt
         fleet,
         order,
         queue: Queueing::Replace,
+        retreat: false,
     })
 }
 
@@ -628,6 +629,7 @@ fn stress(seed: u64, rules: &Rules) -> Result<Stress, String> {
                         },
                     },
                     queue: Queueing::Replace,
+                    retreat: false,
                 }),
             });
         }
@@ -723,6 +725,7 @@ fn approach(
                 },
             },
             queue: Queueing::Replace,
+            retreat: false,
         }),
     };
     let mut first = TickInputs {

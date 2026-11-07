@@ -266,6 +266,7 @@ impl Run {
             fleet,
             order: FleetOrder::Attack { target: core },
             queue: Queueing::Replace,
+            retreat: false,
         };
         if crate::validate_command(&self.state, owner, &command).is_ok() {
             crate::fleet::orders::give(
@@ -358,6 +359,7 @@ fn run_seed(seed: u64, rules: &Rules) -> Tally {
     let roster: [CommanderSetup; STAGE1_COMMANDERS] = std::array::from_fn(|i| CommanderSetup {
         id: CommanderId(u32::try_from(i).unwrap() + 1),
         kind: CommanderKind::Ai,
+        difficulty: nomad_types::Difficulty::Normal,
         window_start: quarter(&mut rng),
     });
     let start_ms = i64::try_from(rng.below(SCRIPT, 86_400_000)).unwrap();

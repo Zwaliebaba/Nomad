@@ -225,6 +225,8 @@ pub struct FleetView {
     pub queued: Vec<FleetOrder>,
     /// How far the current hop of a jump or retreat route has got.
     pub travel: Option<TravelStage>,
+    /// Whether it is under direct control, which the HUD shows (RK-10; A1 plan §5.2).
+    pub direct_control: Option<nomad_types::DirectControl>,
 }
 
 /// What a ship looks like from outside the simulation: a copy of its state.
@@ -342,6 +344,7 @@ impl UniverseState {
             order: fleet.active.map(|a| a.order),
             queued: fleet.queue.into_iter().collect(),
             travel,
+            direct_control: self.direct_control(id),
         })
     }
 

@@ -112,6 +112,13 @@ pub struct UniverseState {
     /// Each observer's picture from the last sensors pass, last-known memory and lane
     /// traffic (doc 16 §3–§5; S7).
     pub(crate) sensors: Sensors,
+    // A1: the AI.
+    /// Every commander's doctrine, and the fleets under direct control (A1 plan §5.1, §5.2).
+    pub(crate) doctrine: crate::doctrine::Doctrines,
+    /// The memory of every AI layer (A1 plan §4.2; D-199).
+    pub(crate) ai: nomad_ai::Memory,
+    /// Outboxes, inboxes and per-layer counters (D-200 to D-202).
+    pub(crate) ai_runtime: crate::ai::Runtime,
 }
 
 impl UniverseState {
@@ -149,6 +156,9 @@ impl UniverseState {
             season_record: SeasonRecord::default(),
             sieges: Sieges::default(),
             sensors: Sensors::default(),
+            doctrine: crate::doctrine::Doctrines::default(),
+            ai: nomad_ai::Memory::default(),
+            ai_runtime: crate::ai::Runtime::default(),
         }
     }
 

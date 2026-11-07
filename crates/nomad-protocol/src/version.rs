@@ -31,7 +31,11 @@ use crate::error::{MalformedBody, ProtocolError};
 ///   (S5b; doc 15 §5.3). N4's messages follow in the next version.
 /// - 4: the `SetExposureWindow` command and the `InvalidWindow` and `WindowLocked`
 ///   rejection reasons (S6a; D-157).
-pub const PROTOCOL_VERSION: u32 = 4;
+/// - 5: fleet commands carry the retreat opt-in (RK-10); the `Doctrine` command with
+///   `SetPreset`, `SetHolding`, `SetFleet`, `SetReplacement` and `Release`; the
+///   `InvalidDoctrine`, `NotUnderDirectControl` and `NotPermitted` rejection reasons (A1a;
+///   A1 plan §5.1, §5.2; D-233: the next free version).
+pub const PROTOCOL_VERSION: u32 = 5;
 
 /// The variant index of `ClientMessage::Hello` (frozen).
 const HELLO_VARIANT: u32 = 0;

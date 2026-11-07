@@ -173,6 +173,8 @@ pub enum CombatEvent {
     ShipDestroyed {
         /// The ship.
         ship: ShipId,
+        /// The fleet it was in, for the Deputy's replacement list (A1 plan §5.7).
+        fleet: FleetId,
         /// Its class.
         class: ShipClass,
         /// Its owner.
@@ -401,6 +403,7 @@ fn destroy(state: &mut UniverseState, ship: ShipId, by: Owner, events: &mut Vec<
     state.entities.despawn(ship.sim_id());
     events.push(CombatEvent::ShipDestroyed {
         ship,
+        fleet: s.fleet,
         class: s.class,
         owner: s.owner,
         by,

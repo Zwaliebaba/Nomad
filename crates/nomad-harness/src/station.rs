@@ -216,6 +216,7 @@ fn orders(
                     } else {
                         Queueing::Append
                     },
+                    retreat: false,
                 },
             )
         })

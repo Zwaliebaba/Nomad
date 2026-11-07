@@ -103,4 +103,12 @@ pub enum InvalidReason {
     /// The free choice of the exposure window is over: the commander's first 7 days have
     /// passed, and only activity moves the window now (D-157).
     WindowLocked,
+    /// A doctrine value is out of range, or the replacement list is too long or names a
+    /// fleet and class twice (A1 plan §5.1).
+    InvalidDoctrine,
+    /// Release of a fleet that is not under direct control (RK-10).
+    NotUnderDirectControl,
+    /// The command may not come from this source: the Deputy may not change doctrine
+    /// (PR-3). A client never sees it.
+    NotPermitted,
 }

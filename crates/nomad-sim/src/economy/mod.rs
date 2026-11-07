@@ -35,10 +35,12 @@ mod tests;
 
 pub(crate) use command::{end_convoy, execute, validate};
 pub(crate) use power::{ability_power_available, request_ability_power};
+pub(crate) use queue::price as item_price;
 pub(crate) use tick::run;
 
 use std::collections::{BTreeMap, VecDeque};
 
+pub use nomad_types::Stock;
 use nomad_types::{BuildItem, DepositKind, ModuleKind, PowerProfile, Richness, Slot};
 use serde::{Deserialize, Serialize};
 
@@ -83,84 +85,6 @@ pub(crate) struct Construction {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Disabled {
     pub(crate) since: Tick,
-}
-
-/// Alloy and crystal, in milli-units (D-049).
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
-pub struct Stock {
-    /// Alloy, milli-units.
-    pub alloy: u64,
-    /// Crystal, milli-units.
-    pub crystal: u64,
-}
-
-impl Stock {
-    /// Nothing.
-    pub const ZERO: Self = Self {
-        alloy: 0,
-        crystal: 0,
-    };
-
-    /// Whole units, as rules files and costs give them.
-    pub const fn units(alloy: u64, crystal: u64) -> Self {
-        Self {
-            alloy: alloy.saturating_mul(MILLI),
-            crystal: crystal.saturating_mul(MILLI),
-        }
-    }
-
-    /// Whether `self` holds at least `other` of each.
-    pub const fn covers(self, other: Self) -> bool {
-        self.alloy >= other.alloy && self.crystal >= other.crystal
-    }
-
-    /// Both added.
-    #[must_use]
-    pub const fn plus(self, other: Self) -> Self {
-        Self {
-            alloy: self.alloy.saturating_add(other.alloy),
-            crystal: self.crystal.saturating_add(other.crystal),
-        }
-    }
-
-    /// `other` taken away, at most down to zero.
-    #[must_use]
-    pub const fn minus(self, other: Self) -> Self {
-        Self {
-            alloy: self.alloy.saturating_sub(other.alloy),
-            crystal: self.crystal.saturating_sub(other.crystal),
-        }
-    }
-
-    /// Half of each, rounded down.
-    #[must_use]
-    pub const fn half(self) -> Self {
-        Self {
-            alloy: self.alloy / 2,
-            crystal: self.crystal / 2,
-        }
-    }
-
-    /// Both amounts together.
-    pub const fn total(self) -> u64 {
-        self.alloy.saturating_add(self.crystal)
-    }
-
-    /// Whether both are zero.
-    pub const fn is_zero(self) -> bool {
-        self.alloy == 0 && self.crystal == 0
-    }
-
-    /// Each capped at `cap`'s, with what did not fit.
-    pub(crate) fn clip(self, cap: Self) -> (Self, Self) {
-        let kept = Self {
-            alloy: self.alloy.min(cap.alloy),
-            crystal: self.crystal.min(cap.crystal),
-        };
-        (kept, self.minus(kept))
-    }
 }
 
 /// An exact production flow (S4 plan §4.1): over `s` whole seconds at `rate` milli-units per
@@ -276,6 +200,8 @@ pub(crate) struct Convoy {
     pub(crate) route: Vec<HoldingId>,
     /// The stop it is heading for.
     pub(crate) next: usize,
+    /// The contested gate it holds for, if it is holding at its last stop (D-055).
+    pub(crate) held: Option<crate::galaxy::GateId>,
 }
 
 /// What a MULE carries (D-133).
@@ -391,6 +317,8 @@ pub enum EconomyEvent {
         holding: HoldingId,
         /// What it was.
         kind: ModuleKind,
+        /// The slot it was in, for the Deputy's rebuild in the same slot (D-208).
+        slot: Slot,
     },
     /// A core kit was deployed: the site is now an outpost (D-054).
     OutpostDeployed {
@@ -430,6 +358,14 @@ pub enum EconomyEvent {
         amount: Stock,
         /// What did not fit into the pool and was lost.
         lost: Stock,
+    },
+    /// A convoy holds at its last stop: the next leg's route passes a gate armed hostiles
+    /// contest (D-055; S4 plan §4.4). Sent when the hold starts.
+    ConvoyHeld {
+        /// The fleet.
+        fleet: FleetId,
+        /// The contested gate.
+        gate: crate::galaxy::GateId,
     },
     /// A convoy route ended: replaced by an order, its fleet gone, or a stop lost.
     ConvoyEnded {
@@ -1268,6 +1204,7 @@ pub(crate) fn destroy_module(
         module: id,
         holding: module.holding,
         kind: module.kind,
+        slot: module.slot,
     });
     true
 }
