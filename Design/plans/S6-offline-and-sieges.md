@@ -1,6 +1,6 @@
 # Work package S6 — Offline and siege rules
 
-Status: **Planned and decided** (Q142–Q160 → D-154–D-172). Builds on S3 (fleets, orders, routes), S4 (modules, outposts, pool, command cap) and S5b (dome, breach event, `immune` and `open` switches, damage ledger, module damage). This plan is also the brief for whoever builds S6. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **S6a built; S6b planned** (Q142–Q160 → D-154–D-172). S6a (tasks 1–4) is built in `crates/nomad-sim/src/commander/` and `announce.rs`, the server's `create --window` and `nomad-harness --windows`; §10 lists how it was built. S6b follows S5b (D-172). Builds on S3 (fleets, orders, routes), S4 (modules, outposts, pool, command cap) and S5b (dome, breach event, `immune` and `open` switches, damage ledger, module damage). This plan is also the brief for whoever builds S6. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -343,3 +343,16 @@ Numbered Q142–Q160 (Q161–Q165 unused). Each has a recommendation and alterna
 4. **Window gaming:** a player can leave the client open at chosen hours to steer the window (Q142). The drift cap and the 14-day history bound it, and a window in hours the player is absent exposes the player.
 5. **S6b sits on the critical path** after S4 and S5b (doc 30 §4). S6a in parallel (Q160) keeps the window and presence work off it.
 6. **Timer bureaucracy** (doc 12 §7.3): every exit and protection is a deadline on the holding, sent as a deadline. U5 and the HUD must keep them readable.
+
+## 10. As built in S6a
+
+*Derived* unless marked; the *Proposed* items need the owner's approval.
+
+- **Records and presence** (§4.1): `UniverseState` holds a record per commander, made at creation from the roster (`generate_stage1_roster`; the server's `create` names commander 1 human). Presence reads exactly the journaled `Connected` and `Disconnected` inputs, which the server sends from its sessions, at catch-up start and at a restart; `SetPresence` stands in for A5's AI schedules and is refused by the server. A `Connected` input for an AI commander, which only tests send, counts as online too. Commander deadlines (window closes, grace ends) are keyed by `(tick, CommanderId, kind)`, so they take no `SimId` and leave every other identity unchanged.
+- **Grace and lapse** (§4.2): a return before the deadline cancels it; a disconnect and reconnect in one tick change nothing. A fleet already station-keeping where it is with nothing queued, the doctrine until A1, has nothing to lapse. *Proposed:* rules of engagement are a standing setting of the fleet and stay through the lapse; D-162 does not say. The owner is told which fleets lapsed (`OrdersLapsed`, for the away report). During catch-up nobody counts as online for siege rules, even inside the grace (doc 11 §7, D-047).
+- **Windows** (§4.3): the record holds the occurrence open now or next as deadline ticks. At creation it is the one open at that moment, else the next; after a close it is the first that opens at or after the close, so a window moved later does not reopen at once (without this, a window moved 1 h at its close would be open again and move again within the hour). History rows are UTC days, today included. Activity drift applies from the first day; a start chosen in the first 7 days replaces that day's drift at the next close, as §4.3 reads; a choice of the current start withdraws an earlier one. The freeze (D-156) reads `defence_pending`, which S6b answers from holding states.
+- ***Proposed* tie-breaks** where D-155 leaves it open: "the earliest" of equally near starts is the one earlier in the UTC day, and a target exactly 12 h away is approached by moving earlier.
+- ***Proposed* defaults:** AI commanders and the harness start at 19:00 UTC until A5. `create --window` takes `HH:MM` (local), `HH:MMZ` (UTC) or `HH:MM±hh:mm`; without it the window starts at local 19:00, or at 19:00 UTC with a warning where the system cannot tell its offset.
+- **Announcements** are `TickOutputs::announcements`: tick, recipients (public or named commanders) and kind; `WindowMoved` carries the next occurrence's deadlines.
+- **Rejections:** `UnknownCommander` (wire `NotFound`), `InvalidWindow` and `WindowLocked`; protocol version 3, so N4, which doc 16 expects at version 3 (D-182 to D-187), takes the next one. Snapshot format 11, rules format 5.
+- **For S6b:** `defence_pending` (the freeze), `counts_as_online` (D-160), `exposure_window` (the slot rule's window at the breach), `Recipients::Commanders` for the siege kinds, and the `sieges` rules section for the siege values.
