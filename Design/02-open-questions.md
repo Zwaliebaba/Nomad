@@ -901,9 +901,40 @@ The owner's direction is agreed as D-235 (the browser is the player's client), D
 - **✅ Q242** (D-250) — Build, CI and tests.
 - **✅ Q243** (D-251) — Where MP-1 sits.
 
-## X. Round 19, from the station-kit art pass
+## X. Round 19, from the β boards, the C7 inventory and the station kit (answered)
 
-Raised while bringing the scene into line with the slot template (D-119). Q244–Q254 are proposed in `plans/C7-view-model-inventory.md` and listed here once the owner has reviewed them.
+Q244–Q254 come from the view-model inventory (`plans/C7-view-model-inventory.md`, which has their full text), Q255 from the station-kit art pass, and Q256–Q265 from the β client UI boards (`plans/U-beta-ui.md`). All were answered as recommended, Q255 in its capped-sector form.
 
 **✅ Q255** → D-255: **Pylons outside the dome.** Should pylons sit outside the shield, where attackers can reach them, so that defending the rim matters? *Recommendation:* yes, on the peripheral rule (disabled outside the owner's window, destroyable inside), with a lost pylon capping its sector at 25% (D-140) and raiders not targeting pylons. *Alternatives:* a destroyed pylon zeroes its sector and breaches it (bypasses the dome's strength and, outside the window, the stakes rule); pylons stay inside and untargetable (doc 15 §5.1 as written).
 
+- **✅ Q244** (D-264): Names of systems, sites, sectors and commanders.
+- **✅ Q245** (D-265): How the client gets the rules.
+- **✅ Q246** (D-266): How the topology reaches the client.
+- **✅ Q247** (D-267): Fleet names.
+- **✅ Q248** (D-268): Per-holding output.
+- **✅ Q249** (D-269): The pool's fill estimate.
+- **✅ Q250** (D-270): Route preview.
+- **✅ Q251** (D-271): Alert lifecycle.
+- **✅ Q252** (D-272): The start screen's API.
+- **✅ Q253** (D-273): Reordering the build queue.
+- **✅ Q254** (D-274): STOP on the fleet card.
+
+**✅ Q256** → D-256: **The β HUD's right-hand panel.** The question: what replaces phase-1's Objectives and Commanders, which have no MVP data. *Recommendation:* a holding panel: window, dome sectors, Reinforced and siege timers, Deputy deferred decisions. *Alternatives:* keep an objectives panel (needs an objective design); drop the panel.
+
+**✅ Q257** → D-257: **NETWORK in the top bar.** The question: commanders online and ping mean nothing for one player on localhost. *Recommendation:* server status (live or catching up, tick rate, D-245's clock check) plus the Deputy chip. *Alternatives:* keep the network readout for MP-1.
+
+**✅ Q258** → D-258: **ELEV REF on the positional card.** The question: D-093's 12-button grid has no room for ELEV REF beside BUILD. *Recommendation:* ELEV REF becomes a camera-widget toggle; BUILD takes R. *Alternatives:* keep ELEV REF on the card and move another button to a submenu.
+
+**✅ Q259** → D-259: **Build buttons when the pool is short.** The question: D-068 lets an unaffordable item queue and wait. *Recommendation:* enabled, showing the shortfall. *Alternatives:* disabled until affordable.
+
+**✅ Q260** → D-260: **Switching to a strategic view.** The question: the scene is wgpu and the strategic views are SVG. *Recommendation:* a cut, with the canvas paused. *Alternatives:* a short cross-fade.
+
+**✅ Q261** → D-261: **F4 until δ.** The question: with one sector a minimal GALAXY map repeats SECTOR. *Recommendation:* a full-screen season view. *Alternatives:* a minimal galaxy map as doc 17 §3 has it.
+
+**✅ Q262** → D-262: **The cancel key.** The question: the browser reserves Esc in fullscreen. *Recommendation:* right-click on empty space or Backspace; Esc in a window. *Alternatives:* leave it to U7.
+
+**✅ Q263** → D-263: **Where the start screen sits.** The question: doc 30 has it in U6 (γ), but β needs it (D-245). *Recommendation:* a minimal start screen in β; U6 completes it in γ. *Alternatives:* keep it in γ and create Universes from the command line in β.
+
+**✅ Q264** → D-275: **The HUD below 1600 px.** The question: D-247's 1280×720 minimum with uniform scaling gives about 8 px text. *Recommendation:* a compact layout, text at 11 px or more. *Alternatives:* raise the minimum to 1600×900; keep uniform scaling.
+
+**✅ Q265** → D-276: **Who draws the strategic views.** The question: doc 21 keeps the scene in wgpu and the UI in HTML, but does not say where SYSTEM and SECTOR belong. *Recommendation:* HTML/SVG. *Alternatives:* wgpu, which allows a continuous zoom from TACTICAL; mock both first.

@@ -165,7 +165,7 @@ This matches the phase-1 system panel: in Kestrel-7, "YOU 3 · HSTL 2 · FREE 2"
 
 ## 9. Naming
 
-*Proposed:* sectors take names from a word list (Veil Sector). A system is a name plus a number (Kestrel-7). A site ID is a two-letter system code plus a number (KR-114). A holding keeps its site ID when captured. Arms are flavour names (Orion Arm).
+*Agreed (D-264):* sectors take names from a word list (Veil Sector). A system is a name plus a number (Kestrel-7). A site ID is a two-letter system code plus a number (KR-114). A holding keeps its site ID when captured. Arms are flavour names (Orion Arm). Names are a pure function of the seed and the id, in `nomad-types`, shared by client and server; AI commanders are named the same way (D-264).
 
 ## 10. Data model sketch
 

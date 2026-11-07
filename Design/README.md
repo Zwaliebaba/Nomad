@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** the MVP design is complete. All questions Q1–Q243 are answered (D-001 to D-251). Round 18 (doc 21) agreed the browser as the player's client, the server in Docker Desktop and the MP-1 milestone (D-235 to D-237), and its questions became D-238 to D-251: a Rust/wasm client with a Leptos HTML UI, one WebSocket, `axum` serving the client, a Host and Origin guard, a compose file, and MP-1 after δ. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097), in the order of doc 30 §4 as D-205 amended it. Built so far (doc 30 §2): S1–S5, S6a and S8 in the simulation; N1–N3 on the server side; phase-1 M1–M4 in the client. Next towards α: S6b, S7 and A1a, then A1b, A2 and A3.
+**Status:** the MVP design is complete. All questions Q1–Q265 are answered (D-001 to D-276). Round 18 (doc 21) agreed the browser as the player's client, the server in Docker Desktop and the MP-1 milestone (D-235 to D-237), and its questions became D-238 to D-251: a Rust/wasm client with a Leptos HTML UI, one WebSocket, `axum` serving the client, a Host and Origin guard, a compose file, and MP-1 after δ. Round 19 decided the β client screens, the view-model contract for C7 and pylons outside the dome (D-255 to D-276; `plans/U-beta-ui.md`, `plans/C7-view-model-inventory.md`). Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097), in the order of doc 30 §4 as D-205 amended it. Built so far (doc 30 §2): S1–S5, S6a and S8 in the simulation; N1–N3 on the server side; phase-1 M1–M4 in the client. Next towards α: S6b, S7 and A1a, then A1b, A2 and A3.
 
 ## Documents
 
@@ -46,6 +46,8 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 | A1 | [`plans/A1-deputy.md`](plans/A1-deputy.md) | Planned and decided (D-199 to D-211) (also the shared AI architecture for A1–A3) |
 | A2 | [`plans/A2-strategist-economy.md`](plans/A2-strategist-economy.md) | Planned and decided (D-212 to D-218) |
 | A3 | [`plans/A3-raider-director.md`](plans/A3-raider-director.md) | Planned and decided (D-219 to D-225) (also the α acceptance runs) |
+| C7 | [`plans/C7-view-model-inventory.md`](plans/C7-view-model-inventory.md) | Inventory decided (D-264 to D-274); amends N4 §4.5 |
+| W2, M6, U1–U3 | [`plans/U-beta-ui.md`](plans/U-beta-ui.md) | β screens decided (D-256 to D-263, D-275, D-276) |
 
 ## Conventions
 
