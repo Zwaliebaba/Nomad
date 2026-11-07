@@ -12,7 +12,8 @@
 //!
 //! With `--combat skirmish|battle|stress` it runs the time-to-kill scenarios of D-058 (S5
 //! plan §7 task 7): two fleets attack each other, and it reports the time to kill against
-//! the target and the tick time. `--combat breach|core` runs the station scenarios (S5 plan
+//! the target and the tick time. `--combat triangle` checks the counter triangle at equal
+//! value (D-052, D-284). `--combat breach|core` runs the station scenarios (S5 plan
 //! §7 task 13): a mid-size fleet breaches a full mother-station sector, or kills the core
 //! through an open sector, measured as D-147 says.
 //!
@@ -43,8 +44,8 @@
 //! nomad-harness --galaxy [--seed N] [--rules PATH]
 //! nomad-harness --fleets [--seed N] [--hours N | --ticks N] [--order-interval-secs N]
 //!               [--restore-at N] [--rules PATH]
-//! nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] [--rules PATH]
-//! nomad-harness --economy [--seed N] [--days N] [--rules PATH]
+//! nomad-harness --combat skirmish|battle|triangle|stress|breach|core [--seed N] [--rules PATH]
+//! nomad-harness --economy [--seed N] [--days N] [--csv PATH] [--rules PATH]
 //! nomad-harness --windows [--seed N] [--days N] [--rules PATH]
 //! nomad-harness --season [--seed N] [--days N] [--claim-hours N] [--early-win]
 //!               [--restore-at N] [--rules PATH]
@@ -57,6 +58,7 @@ mod economy;
 mod fleets;
 mod fog;
 mod galaxy;
+mod pacing;
 mod season;
 mod siege;
 mod station;
@@ -94,6 +96,7 @@ struct Args {
     fog: bool,
     days: Option<u64>,
     rules: Option<PathBuf>,
+    csv: Option<PathBuf>,
     // S8: `--season`.
     season: bool,
     claim_hours: u64,
@@ -120,6 +123,7 @@ impl Default for Args {
             fog: false,
             days: None,
             rules: None,
+            csv: None,
             season: false,
             claim_hours: 12,
             early_win: false,
@@ -152,6 +156,7 @@ fn parse_args() -> Result<Args, String> {
             "--fog" => args.fog = true,
             "--days" => args.days = Some(parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
+            "--csv" => args.csv = Some(PathBuf::from(value()?)),
             "--season" => args.season = true,
             "--claim-hours" => args.claim_hours = parse(&value()?)?,
             "--early-win" => args.early_win = true,
@@ -162,9 +167,9 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --galaxy [--seed N] [--rules PATH]\n       \
                      nomad-harness --fleets [--seed N] [--hours N | --ticks N] \
                             [--order-interval-secs N] [--restore-at N] [--rules PATH]\n       \
-                     nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] \
+                     nomad-harness --combat skirmish|battle|triangle|stress|breach|core [--seed N] \
                             [--rules PATH]\n       \
-                     nomad-harness --economy [--seed N] [--days N] [--rules PATH]\n       \
+                     nomad-harness --economy [--seed N] [--days N] [--csv PATH] [--rules PATH]\n       \
                      nomad-harness --windows [--seed N] [--days N] [--rules PATH]\n       \
                      nomad-harness --season [--seed N] [--days N] [--claim-hours N] \
                             [--early-win] [--restore-at N] [--rules PATH]\n       \
@@ -210,6 +215,7 @@ fn run() -> Result<(), String> {
                 seed: args.seed,
                 days: args.days.unwrap_or(7),
                 rules,
+                csv: args.csv,
             },
         );
     }

@@ -8,9 +8,14 @@
 //! of the first hit is reported too.
 //!
 //! - `skirmish`: the D-058 small-group target (6 against 6, 30–90 s) for the counter
-//!   pairings and a mixed mirror;
-//! - `battle`: the fleet-battle target (20 against 20, 3–8 min), a mirror and an asymmetric
-//!   pair;
+//!   pairings, count for count, and a mixed mirror;
+//! - `battle`: the fleet-battle target (20 against 20, 3–8 min) for a mirror, and a counter
+//!   test: 12/8/0 against 8/4/8, whose sides differ in value and one is counter-loaded, is
+//!   not a time-to-kill target (D-284);
+//! - `triangle`: the counter triangle (D-052) at equal value, as doc 13 §10 and D-083 test it
+//!   (D-284): each pairing reports whether the side the triangle favours wins. Value is
+//!   counted in alloy at the rules file's ship costs; equal-command pairings are shown
+//!   alongside;
 //! - `stress`: 100 against 100, for the tick time of a large battle (doc 15 §13).
 //!
 //! Every scenario reports the tick time (mean, p99, max) and the most projectiles in
@@ -45,6 +50,8 @@ pub enum Set {
     Battle,
     /// 100 against 100, for tick time.
     Stress,
+    /// The counter triangle at equal value (D-052, D-284).
+    Triangle,
     /// Breaching a full mother-station sector (D-058: 5–10 min; S5b).
     Breach,
     /// Killing the core in a siege (D-058: 15–25 min; S5b).
@@ -52,16 +59,17 @@ pub enum Set {
 }
 
 impl Set {
-    /// Parses `skirmish`, `battle`, `stress`, `breach` or `core`.
+    /// Parses `skirmish`, `battle`, `triangle`, `stress`, `breach` or `core`.
     pub fn parse(text: &str) -> Result<Self, String> {
         match text {
             "skirmish" => Ok(Self::Skirmish),
             "battle" => Ok(Self::Battle),
             "stress" => Ok(Self::Stress),
+            "triangle" => Ok(Self::Triangle),
             "breach" => Ok(Self::Breach),
             "core" => Ok(Self::Core),
             other => Err(format!(
-                "--combat takes skirmish, battle, stress, breach or core, not {other}"
+                "--combat takes skirmish, battle, triangle, stress, breach or core, not {other}"
             )),
         }
     }
@@ -76,8 +84,19 @@ struct Scenario {
     target_s: Option<(u64, u64)>,
     /// The S5 plan §5 hand estimate, if there is one.
     estimate: Option<&'static str>,
+    /// For a counter test, the side that should win.
+    winner: Option<Side>,
     /// Give up after this long.
     cap_s: u64,
+}
+
+/// A side of a scenario.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Side {
+    /// The first fleet.
+    A,
+    /// The second fleet.
+    B,
 }
 
 fn repeat(class: ShipClass, n: usize) -> Vec<ShipClass> {
@@ -104,6 +123,7 @@ fn scenarios(set: Set) -> Vec<Scenario> {
                 b: repeat(VX, 6),
                 target_s: skirmish,
                 estimate: Some("about 19 s + 2 s lock (S5 plan §5)"),
+                winner: None,
                 cap_s: 600,
             },
             Scenario {
@@ -112,6 +132,7 @@ fn scenarios(set: Set) -> Vec<Scenario> {
                 b: repeat(LANCER, 6),
                 target_s: skirmish,
                 estimate: None,
+                winner: None,
                 cap_s: 600,
             },
             Scenario {
@@ -120,6 +141,7 @@ fn scenarios(set: Set) -> Vec<Scenario> {
                 b: repeat(WARDEN, 6),
                 target_s: skirmish,
                 estimate: None,
+                winner: None,
                 cap_s: 900,
             },
             Scenario {
@@ -128,6 +150,7 @@ fn scenarios(set: Set) -> Vec<Scenario> {
                 b: repeat(VX, 6),
                 target_s: skirmish,
                 estimate: None,
+                winner: None,
                 cap_s: 900,
             },
             Scenario {
@@ -136,6 +159,7 @@ fn scenarios(set: Set) -> Vec<Scenario> {
                 b: mixed(2, 2, 2),
                 target_s: skirmish,
                 estimate: None,
+                winner: None,
                 cap_s: 900,
             },
         ],
@@ -146,17 +170,20 @@ fn scenarios(set: Set) -> Vec<Scenario> {
                 b: mixed(8, 8, 4),
                 target_s: battle,
                 estimate: Some("not estimated by hand (S5 plan §5)"),
+                winner: None,
                 cap_s: 1_800,
             },
             Scenario {
                 name: "12/8/0 v 8/4/8 (VX/LANCER/WARDEN)",
                 a: mixed(12, 8, 0),
                 b: mixed(8, 4, 8),
-                target_s: battle,
-                estimate: None,
+                target_s: None,
+                estimate: Some("a counter test, not a time-to-kill target (D-284)"),
+                winner: Some(Side::B),
                 cap_s: 1_800,
             },
         ],
+        Set::Triangle => triangle(),
         // The station scenarios are crate::station's.
         Set::Breach | Set::Core => vec![],
         Set::Stress => vec![Scenario {
@@ -165,9 +192,69 @@ fn scenarios(set: Set) -> Vec<Scenario> {
             b: mixed(40, 40, 20),
             target_s: None,
             estimate: None,
+            winner: None,
             cap_s: 1_800,
         }],
     }
+}
+
+/// The counter pairings at equal value in alloy (D-284: VX 1,200, LANCER 2,000, WARDEN
+/// 4,000 A at the rules file's costs) and, for comparison, at equal command (VX 6, LANCER 10,
+/// WARDEN 25).
+fn triangle() -> Vec<Scenario> {
+    let pair = |name, a, b, winner| Scenario {
+        name,
+        a,
+        b,
+        target_s: None,
+        estimate: None,
+        winner: Some(winner),
+        cap_s: 1_200,
+    };
+    vec![
+        pair(
+            "value: 10 VX v 6 LANCER",
+            repeat(VX, 10),
+            repeat(LANCER, 6),
+            Side::A,
+        ),
+        pair(
+            "value: 12 LANCER v 6 WARDEN",
+            repeat(LANCER, 12),
+            repeat(WARDEN, 6),
+            Side::A,
+        ),
+        pair(
+            "value: 8 LANCER v 4 WARDEN",
+            repeat(LANCER, 8),
+            repeat(WARDEN, 4),
+            Side::A,
+        ),
+        pair(
+            "value: 6 WARDEN v 20 VX",
+            repeat(WARDEN, 6),
+            repeat(VX, 20),
+            Side::A,
+        ),
+        pair(
+            "command: 10 VX v 6 LANCER",
+            repeat(VX, 10),
+            repeat(LANCER, 6),
+            Side::A,
+        ),
+        pair(
+            "command: 15 LANCER v 6 WARDEN",
+            repeat(LANCER, 15),
+            repeat(WARDEN, 6),
+            Side::A,
+        ),
+        pair(
+            "command: 6 WARDEN v 25 VX",
+            repeat(WARDEN, 6),
+            repeat(VX, 25),
+            Side::A,
+        ),
+    ]
 }
 
 /// What a scenario run measured.
@@ -271,7 +358,7 @@ pub fn run(out: &mut impl Write, set: Set, seed: u64, rules: &Rules) -> Result<(
     match set {
         Set::Breach => return crate::station::breach(out, seed, rules),
         Set::Core => return crate::station::core(out, seed, rules),
-        Set::Skirmish | Set::Battle | Set::Stress => {}
+        Set::Skirmish | Set::Battle | Set::Triangle | Set::Stress => {}
     }
     let w = |out: &mut dyn Write, line: String| writeln!(out, "{line}").map_err(|e| e.to_string());
     w(
@@ -309,6 +396,17 @@ pub fn run(out: &mut impl Write, set: Set, seed: u64, rules: &Rules) -> Result<(
             (Some((lo, hi)), _, _) => format!("target {lo}–{hi} s"),
             (None, _, _) => "no D-058 target".to_owned(),
         };
+        let counter = scenario.winner.map(|side| {
+            let won = match side {
+                Side::A => outcome.survivors.0 > 0 && outcome.survivors.1 == 0,
+                Side::B => outcome.survivors.1 > 0 && outcome.survivors.0 == 0,
+            };
+            if won {
+                format!(" | counter holds: {side:?} wins")
+            } else {
+                format!(" | COUNTER FAILS: {side:?} should win")
+            }
+        });
         let mut micros = outcome.micros;
         micros.sort_by(f64::total_cmp);
         let percentile = |per_mille: usize| {
@@ -319,12 +417,13 @@ pub fn run(out: &mut impl Write, set: Set, seed: u64, rules: &Rules) -> Result<(
         w(
             out,
             format!(
-                "{:<38} | first hit {:>5.1} s | TTK {ttk} ({verdict}) | survivors {} v {} | \
+                "{:<38} | first hit {:>5.1} s | TTK {ttk} ({verdict}) | survivors {} v {}{} | \
                  peak projectiles {} | tick mean {mean:.0} µs, p99 {:.0} µs, max {:.0} µs",
                 scenario.name,
                 outcome.first_hit_tick.map_or(0.0, secs),
                 outcome.survivors.0,
                 outcome.survivors.1,
+                counter.unwrap_or_default(),
                 outcome.peak_projectiles,
                 percentile(990),
                 percentile(1_000),
@@ -373,5 +472,6 @@ mod tests {
         assert!(Set::parse("dome").is_err());
         assert_eq!(Set::parse("breach"), Ok(Set::Breach));
         assert_eq!(Set::parse("core"), Ok(Set::Core));
+        assert_eq!(Set::parse("triangle"), Ok(Set::Triangle));
     }
 }
