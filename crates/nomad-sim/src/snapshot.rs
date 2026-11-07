@@ -51,7 +51,10 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   last-known memory and lane traffic; an Attack task keeps where its target was last
 ///   seen, and a new task follows a lost target there (D-180); the rules gain the sensors
 ///   section and a sensor kind per ship class, rules format 10.
-pub const FORMAT: u32 = 16;
+/// - 17: the AI (A1a): the `nomad-ai` memory, the AI outboxes, inboxes and per-layer
+///   counters; commander records keep an AI's difficulty; the rules gain the AI section,
+///   rules format 11.
+pub const FORMAT: u32 = 17;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

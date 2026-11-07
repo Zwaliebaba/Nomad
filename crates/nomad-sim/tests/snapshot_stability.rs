@@ -14,9 +14,9 @@
 //!
 //! The state carries the season's rules (D-104), so a deliberate change to the embedded rules
 //! file also changes these values without a format change: the schema stays readable. Last
-//! re-recorded for format 16 (S7's pictures, last-known memory and lane traffic, with the
-//! first sensors pass at tick 0, after S6b's format 15), with rules format 10 (S7's sensors
-//! section). The harness's seasons are 8 weeks long ([`SeasonConfig::new`], D-106).
+//! re-recorded for format 17 (A1a's AI memory, outboxes, inboxes and counters, after S7's
+//! format 16), with rules format 11 (A1a's AI section). The harness's seasons are 8 weeks
+//! long ([`SeasonConfig::new`], D-106).
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
 use nomad_sim::snapshot::{self, state_hash};
@@ -32,15 +32,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0xaa56_9be9_9c16_094b),
-    (1, 0xef28_5b92_d243_318c),
-    (2, 0x45cc_d89e_6cee_ce67),
-    (7, 0x0606_6e27_8a25_7203),
-    (99, 0x6fd9_c4eb_c9d1_1c35),
+    (0, 0xe148_1bd1_ca7e_26ad),
+    (1, 0xd353_aa23_29f7_f9fe),
+    (2, 0xb291_ac01_28f8_fbb9),
+    (7, 0x0209_9e2b_d752_27fb),
+    (99, 0x09c2_9427_690d_6fed),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0xa183_2e3b_38e9_43dd;
+const DIAGNOSTIC_RUN_HASH: u64 = 0x0242_55f1_91c7_0139;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig::new(seed, 0)
@@ -48,7 +48,7 @@ fn season(seed: u64) -> SeasonConfig {
 
 #[test]
 fn snapshot_format_is_unchanged() {
-    assert_eq!(snapshot::FORMAT, 16);
+    assert_eq!(snapshot::FORMAT, 17);
 }
 
 #[test]

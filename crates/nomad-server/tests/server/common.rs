@@ -202,7 +202,10 @@ fn reference_hash_with(season: SeasonConfig, script: &[(u64, Input)], until: u64
     // The roster `create` uses: commander 1 is the human (S6a).
     let mut state = generate_stage1_roster(
         season,
-        stage1_roster(CreateParams::default().window_start),
+        stage1_roster(
+            CreateParams::default().window_start,
+            CreateParams::default().difficulty,
+        ),
         Rules::embedded(),
     )
     .expect("generate");

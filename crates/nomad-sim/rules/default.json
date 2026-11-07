@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@10",
+  "format": "nomad-rules@11",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -293,5 +293,68 @@
     "fleet_memory_s": 86400,
     "memory_sweep_s": 60,
     "lane_traffic_after_arrival_s": 600
+  },
+  "ai": {
+    "presets": {
+      "Fortress": {
+        "holding": {
+          "zone_radius_m": 15000,
+          "zone_rules": "WeaponsFree",
+          "alert_profile": "ShieldsFirst",
+          "surge_below_permille": 400,
+          "flak_light_hostiles": 6,
+          "evacuation_radius_m": 30000,
+          "rebuild_modules": true
+        },
+        "leash_m": 8000,
+        "retreat_below_permille": 500,
+        "repair_at_dock": true,
+        "replacement_budget_permille": 500,
+        "garrison_share_permille": 700
+      },
+      "Balanced": {
+        "holding": {
+          "zone_radius_m": 10000,
+          "zone_rules": "WeaponsFree",
+          "alert_profile": "ShieldsFirst",
+          "surge_below_permille": 300,
+          "flak_light_hostiles": 8,
+          "evacuation_radius_m": 20000,
+          "rebuild_modules": true
+        },
+        "leash_m": 12000,
+        "retreat_below_permille": 400,
+        "repair_at_dock": true,
+        "replacement_budget_permille": 300,
+        "garrison_share_permille": 500
+      },
+      "Trader": {
+        "holding": {
+          "zone_radius_m": 8000,
+          "zone_rules": "ReturnFire",
+          "alert_profile": "Balanced",
+          "surge_below_permille": 200,
+          "flak_light_hostiles": null,
+          "evacuation_radius_m": 10000,
+          "rebuild_modules": true
+        },
+        "leash_m": 6000,
+        "retreat_below_permille": 300,
+        "repair_at_dock": true,
+        "replacement_budget_permille": 150,
+        "garrison_share_permille": 300
+      }
+    },
+    "difficulty": {
+      "Easy": { "competence": { "latency_ticks": 10, "commands_per_window": 1 }, "strategist_interval_s": 30 },
+      "Normal": { "competence": { "latency_ticks": 6, "commands_per_window": 2 }, "strategist_interval_s": 15 },
+      "Hard": { "competence": { "latency_ticks": 3, "commands_per_window": 4 }, "strategist_interval_s": 10 }
+    },
+    "human_deputy": { "latency_ticks": 3, "commands_per_window": 4 },
+    "rate_window_ticks": 10,
+    "deputy_interval_ticks": 5,
+    "inbox_retention_s": 60,
+    "command_expiry_s": 10,
+    "max_replacement_entries": 32
   }
 }

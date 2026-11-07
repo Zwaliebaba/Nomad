@@ -122,7 +122,7 @@ pub fn create(
             season_start_unix_ms,
             final_tick,
         },
-        stage1_roster(params.window_start),
+        stage1_roster(params.window_start, params.difficulty),
         Rules::embedded(),
     )?;
     let hash = state_hash(&state)?;
@@ -176,14 +176,17 @@ pub fn create(
 
 /// The stage-1 roster `create` uses: the human, [`HUMAN_COMMANDER`], with its window starting
 /// at `human_window` UTC, then the AI commanders 2, 3 and 4 with the default window (S6 plan
-/// §4.1, §4.3; D-157).
-pub fn stage1_roster(human_window: QuarterHour) -> [CommanderSetup; STAGE1_COMMANDERS] {
+/// §4.1, §4.3; D-157), all at `difficulty` (D-079, D-231).
+pub fn stage1_roster(
+    human_window: QuarterHour,
+    difficulty: Difficulty,
+) -> [CommanderSetup; STAGE1_COMMANDERS] {
     std::array::from_fn(|index| {
         let id = CommanderId(HUMAN_COMMANDER.0 + u32::try_from(index).unwrap_or(u32::MAX));
         if id == HUMAN_COMMANDER {
             CommanderSetup::human(id, human_window)
         } else {
-            CommanderSetup::ai(id)
+            CommanderSetup::ai_at(id, difficulty.into())
         }
     })
 }

@@ -45,7 +45,7 @@ pub(crate) use window::{choose_window, sample_activity, validate_window_choice};
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use nomad_types::{CommanderKind, QuarterHour};
+use nomad_types::{CommanderKind, Difficulty, QuarterHour};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -121,6 +121,8 @@ impl Deadlines {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Commander {
     pub(crate) kind: CommanderKind,
+    /// An AI commander's competence (D-079); a human's Deputy has its own (D-201).
+    pub(crate) difficulty: Difficulty,
     /// When the commander joined: the season start in the MVP (late joiners are outside it).
     pub(crate) joined: Tick,
     /// An AI's schedule says it is online (D-080). Set by `SetPresence` until A5.
@@ -173,6 +175,8 @@ pub struct CommanderSetup {
     pub id: CommanderId,
     /// Human or AI.
     pub kind: CommanderKind,
+    /// An AI commander's difficulty (D-079); ignored for a human.
+    pub difficulty: Difficulty,
     /// The initial exposure window's start, UTC.
     pub window_start: QuarterHour,
 }
@@ -184,15 +188,23 @@ impl CommanderSetup {
         Self {
             id,
             kind: CommanderKind::Human,
+            difficulty: Difficulty::Normal,
             window_start,
         }
     }
 
-    /// An AI commander with [`DEFAULT_WINDOW_START`], until A5 gives AI schedules (D-157).
+    /// An AI commander at Normal difficulty with [`DEFAULT_WINDOW_START`], until A5 gives AI
+    /// schedules (D-157).
     pub const fn ai(id: CommanderId) -> Self {
+        Self::ai_at(id, Difficulty::Normal)
+    }
+
+    /// An AI commander at `difficulty` (D-079, D-231) with [`DEFAULT_WINDOW_START`].
+    pub const fn ai_at(id: CommanderId, difficulty: Difficulty) -> Self {
         Self {
             id,
             kind: CommanderKind::Ai,
+            difficulty,
             window_start: DEFAULT_WINDOW_START,
         }
     }
@@ -221,6 +233,8 @@ pub struct CommanderRecord {
     pub id: CommanderId,
     /// Human or AI.
     pub kind: CommanderKind,
+    /// An AI commander's difficulty (D-079), private like the kind.
+    pub difficulty: Difficulty,
     /// When the commander joined.
     pub joined: Tick,
     /// Online or offline, and since when.
@@ -276,6 +290,7 @@ pub(crate) fn add_commander(
         setup.id,
         Commander {
             kind: setup.kind,
+            difficulty: setup.difficulty,
             joined: now,
             scheduled_online: false,
             presence: Presence::Offline { since: now },
@@ -326,6 +341,7 @@ impl UniverseState {
         Some(CommanderRecord {
             id,
             kind: record.kind,
+            difficulty: record.difficulty,
             joined: record.joined,
             presence: record.presence,
             grace_until: record.grace_until,

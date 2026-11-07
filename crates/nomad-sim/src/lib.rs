@@ -58,6 +58,7 @@
 //! offline rules (doc 12) are here: presence, the disconnect grace and exposure windows
 //! (S6a), and the siege lifecycle (S6b).
 
+mod ai;
 mod announce;
 pub mod combat;
 mod command;
@@ -86,6 +87,7 @@ mod time;
 mod timers;
 mod util;
 
+pub use ai::LayerCounters;
 pub use announce::{Announcement, AnnouncementKind, HeldReason, Recipients};
 pub use combat::{CombatEvent, ProjectileId};
 pub use command::{CommandRejection, validate_command};
@@ -109,6 +111,7 @@ pub use holding::{
 };
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
+pub use nomad_ai::{CommandOutcome, DropReason, InboxEntry, InboxEvent, Layer};
 pub use nomad_types::{
     BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,
     PowerProfile, QuarterHour, Queueing, RulesOfEngagement, Slot, StationAbility,

@@ -476,6 +476,7 @@ fn damage_applies_in_target_then_projectile_order() {
     apply(&mut state, Tick::new(1), hits, &mut events);
     assert!(events.contains(&CombatEvent::ShipDestroyed {
         ship,
+        fleet: victim,
         class: VX,
         owner: commander(1),
         by: commander(3),
@@ -745,6 +746,7 @@ fn destroyed_ships_leave_and_an_attack_order_completes() {
     let combat = combat_events(&outputs);
     assert!(combat.contains(&CombatEvent::ShipDestroyed {
         ship: victim_ship,
+        fleet: victim,
         class: VX,
         owner: commander(2),
         by: commander(1),

@@ -314,6 +314,8 @@ pub enum EconomyEvent {
         holding: HoldingId,
         /// What it was.
         kind: ModuleKind,
+        /// The slot it was in, for the Deputy's rebuild in the same slot (D-208).
+        slot: Slot,
     },
     /// A core kit was deployed: the site is now an outpost (D-054).
     OutpostDeployed {
@@ -1191,6 +1193,7 @@ pub(crate) fn destroy_module(
         module: id,
         holding: module.holding,
         kind: module.kind,
+        slot: module.slot,
     });
     true
 }

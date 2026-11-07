@@ -98,6 +98,16 @@ impl Difficulty {
     }
 }
 
+impl From<Difficulty> for nomad_types::Difficulty {
+    fn from(difficulty: Difficulty) -> Self {
+        match difficulty {
+            Difficulty::Easy => Self::Easy,
+            Difficulty::Normal => Self::Normal,
+            Difficulty::Hard => Self::Hard,
+        }
+    }
+}
+
 impl fmt::Display for Difficulty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())

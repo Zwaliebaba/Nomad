@@ -142,6 +142,12 @@ impl<'a> CommanderView<'a> {
         self.observer
     }
 
+    /// The state the view borrows, for the AI's `View` implementation in this crate
+    /// ([`crate::ai`]), which answers only the observer's own, public and sensed queries.
+    pub(crate) const fn universe(&self) -> &'a UniverseState {
+        self.state
+    }
+
     /// The last completed tick.
     pub const fn tick(&self) -> Tick {
         self.state.tick

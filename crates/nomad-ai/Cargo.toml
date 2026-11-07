@@ -1,0 +1,17 @@
+[package]
+name = "nomad-ai"
+description = "Nomad's AI: the Deputy, the Strategist and the raider director, seeing the Universe only through the View trait (Design D-077, D-199; A1 plan §4)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+# nomad-types and serde only (D-199, A1 plan §4.1): nomad-sim depends on this crate, so the AI
+# can never name the simulation state. The manifest test in src/lib.rs keeps it that way.
+[dependencies]
+nomad-types = { workspace = true }
+serde = { workspace = true }
