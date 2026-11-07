@@ -96,7 +96,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
    - **A1b** (threat, alert, engagement, abilities, convoy evacuation) after S7 and S5b;
    - **A2** after A1a and S7; **A3** after S6b, S7 and A1a, in parallel with A2.
 
-   After α: **S9** (D-277), before β, then A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2):* S2–S8 and A1a are built; A1b is next, with A2 and A3 (D-205).
+   After α: **S9** (D-277), before β, then A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2), 2026-11-07:* S2–S8, A1a and the early tuning (D-279 to D-284) are built. A1b and A2 were started and paused before they were merged (their unmerged work is not on the branch); A3 has not started. The agent briefs for A1b, A2 and A3 are in `plans/briefs/`. Remaining for α: A1b, A2, A3, then the α acceptance runs (A3 plan §5, D-218, D-225) and the tuning rounds they lead to (D-280).
 2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send. *Status:* N1–N3 are built; N4 builds on S7's `CommanderView` (D-182).
 3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7. **K1** follows S9 and comes before C8 (D-278): it builds the scene from fixture slot data first, then from C7's live store. *Status:* M1–M4 are built; M5 and M6 are next.
 
