@@ -11,6 +11,7 @@ use crate::fleet::FleetEvent;
 use crate::id::CommanderId;
 use crate::input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 use crate::rng::{StreamKey, purpose};
+use crate::sensors::VisibilityEvent;
 use crate::state::{ScheduledEvent, UniverseState};
 use crate::time::{Tick, Ticks};
 
@@ -38,6 +39,11 @@ pub struct TickOutputs {
     /// What commanders are told: window moves and lapsed orders (S6 plan §4.8), and control,
     /// standings, the near-win warning and the season's end (S8 plan §4.5).
     pub announcements: Vec<Announcement>,
+
+    // S7: sensors and fog of war.
+    /// What came into and went out of each observer's view, and observed departures
+    /// (S7 plan §4.3, §4.5).
+    pub visibility_events: Vec<VisibilityEvent>,
 }
 
 /// The outcome of one command input.
@@ -56,11 +62,12 @@ pub struct CommandResult {
 /// Phase order follows Design doc 11 §4.1. Phase 1 ends by bringing commanders' presence up
 /// to date, phase 2 also fires siege deadlines (exits, siege ends, emergency-jump arrivals;
 /// S6b) and then commander deadlines (window closes, grace ends; S6a), phase 5 (movement and
-/// transit) runs ships and fleets (S3), phase 7 ship and station combat (S5a, S5b) and then
-/// the breaches and cores down it caused (S6b), phase 8 the economy (S4) and phase 9 the
-/// activity samples (S6a) and the standings, the early win and the season end (S8). Phases
-/// 3–4 and 6 (AI, Deputy, sensors) and the rest of phase 9 arrive with their work packages
-/// (D-051). Once the season's result is fixed, `step` changes nothing (D-116).
+/// transit) runs ships and fleets (S3), phase 6 the sensors on every fifth tick and observed
+/// departures on every tick (S7), phase 7 ship and station combat (S5a, S5b) and then the
+/// breaches and cores down it caused (S6b), phase 8 the economy (S4) and phase 9 the activity
+/// samples (S6a) and the standings, the early win and the season end (S8). Phases 3–4 (AI,
+/// Deputy) and the rest of phase 9 arrive with their work packages (D-051). Once the season's
+/// result is fixed, `step` changes nothing (D-116).
 pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // The season is over (D-116): no tick follows the final one. Nothing changes, and every
     // input counts as rejected (S8 plan §4.4).
@@ -128,8 +135,19 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // Commander deadlines: window closes and grace ends (S6 plan §4.2, §4.3).
     crate::commander::fire_due(state, now, &mut out);
 
-    // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4).
+    // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4). On a sensors tick,
+    // where fleets were before it moves them: what observers last saw (S7 plan §4.4).
+    let anchors = crate::sensors::before_movement(state, now);
     crate::fleet::movement::run(state, now, &mut out.fleet_events);
+
+    // Phase 6: sensors and visibility, 2 Hz (D-173), and departures seen (D-179).
+    crate::sensors::run(
+        state,
+        now,
+        anchors.as_ref(),
+        &out.fleet_events,
+        &mut out.visibility_events,
+    );
 
     // Phase 7: ship combat (S5 plan §4.2–§4.4) and station combat (§4.5–§4.8).
     crate::combat::run(

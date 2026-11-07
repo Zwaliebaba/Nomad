@@ -47,7 +47,10 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   deadline and credited attackers, its protection, fallen mother stations in their
 ///   emergency jump, and siege deadlines; fleets gain the emergency-jump place; rules format
 ///   9, which adds the siege values and the outpost's starting hull (D-224).
-pub const FORMAT: u32 = 15;
+/// - 16: sensors and fog of war (S7): each observer's picture from the last sensors pass,
+///   last-known memory and lane traffic; the rules gain the sensors section and a sensor
+///   kind per ship class, rules format 10.
+pub const FORMAT: u32 = 16;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

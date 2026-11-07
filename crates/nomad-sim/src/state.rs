@@ -16,6 +16,7 @@ use crate::id::{CommanderId, SimIdAllocator};
 use crate::rng::RngStreams;
 use crate::rules::{Rules, RulesError};
 use crate::season::SeasonRecord;
+use crate::sensors::Sensors;
 use crate::siege::Sieges;
 use crate::time::{SeasonClock, Tick, Ticks};
 use crate::timers::TimerQueue;
@@ -107,6 +108,10 @@ pub struct UniverseState {
     pub(crate) season_record: SeasonRecord,
     /// Defence states, protections and emergency jumps (doc 12 §4, doc 15 §6–§7; S6b).
     pub(crate) sieges: Sieges,
+    // S7: sensors and fog of war.
+    /// Each observer's picture from the last sensors pass, last-known memory and lane
+    /// traffic (doc 16 §3–§5; S7).
+    pub(crate) sensors: Sensors,
 }
 
 impl UniverseState {
@@ -143,6 +148,7 @@ impl UniverseState {
             commanders: Commanders::default(),
             season_record: SeasonRecord::default(),
             sieges: Sieges::default(),
+            sensors: Sensors::default(),
         }
     }
 

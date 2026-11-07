@@ -253,6 +253,8 @@ pub fn generate_stage1_roster(
     }
     // Every commander's standing from tick 0: one holding, no system (S8 plan §4.1).
     crate::season::initialize(&mut state);
+    // Tick 0 is a sensors tick (D-173): the Universe starts with every picture (S7).
+    crate::sensors::refresh(&mut state);
 
     let report = validate(state.galaxy(), &InvariantLimits::from_rules(&state.rules));
     if report.is_valid() {

@@ -20,12 +20,13 @@
 //! | Docking | D-102 (Q93) |
 //! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE; the station's modules and stock are in the economy section |
 //! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*), the core kit's growth k = 0.25 (D-189), the diminishing yield F = 2 (D-217) |
-//! | Cruise drop range | Doc 15 §3.3: a hostile within 20 km (a hook until S7) |
+//! | Cruise drop range | Doc 15 §3.3: a detected hostile within 20 km (D-114, S7) |
 //! | Combat: hull, weapons, multipliers, hit radii | [`combat`] (doc 15 §3–§4, §12; D-052, D-143) |
 //! | Defence: dome sectors, regeneration, turrets, abilities, recovery | [`defence`] (doc 15 §5, §12; D-140 to D-142, D-147 to D-149) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
 //! | Sieges: disconnect grace, exposure window, drift, activity history, free choice; notice, siege clock, stagger, breach credit, protections, restores, the comeback grant | [`sieges`] (doc 12 §4, §5.3, §8; doc 15 §6–§7; D-015, D-032 to D-034, D-057, D-155 to D-167) |
 //! | Season: the early-win share | [`season`] (doc 10 §6; D-020, D-192) |
+//! | Sensors: ranges per sensor kind (each class names its kind), signatures, memory and lane-traffic timings, the range rule | [`sensors`] (doc 16 §3–§5; D-072 to D-076, D-179; S7) |
 //!
 //! Starting values adopted from this implementation (D-113): separation distance, obstacle
 //! margin, look-ahead time (D-105 fixes the behaviour, D-113 the numbers), the guard radius
@@ -33,6 +34,7 @@
 
 pub mod combat;
 pub mod defence;
+pub mod sensors;
 pub mod sieges;
 
 // S8: season standings and the win.
@@ -46,7 +48,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@9";
+pub const RULES_FORMAT: &str = "nomad-rules@10";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -104,6 +106,9 @@ pub struct Rules {
     // S8: season standings and the win.
     /// The early win (S8; doc 10 §6, D-020, D-192).
     pub season: season::SeasonRules,
+    // S7: sensors and fog of war.
+    /// Sensor ranges, signatures, memory and lane-traffic timings (doc 16 §3–§5; S7).
+    pub sensors: sensors::SensorRules,
 }
 
 /// One ship class (doc 15 §3.3, §12; D-101).
@@ -125,6 +130,8 @@ pub struct ShipClassRules {
     pub frigate: bool,
     /// An NPC class, which is not a commander warship (D-099 item 5).
     pub npc: bool,
+    /// Its sensor kind, a key of `sensors.ranges_m` (D-073; S7 plan §4.1).
+    pub sensor: String,
 }
 
 impl ShipClassRules {
@@ -154,8 +161,8 @@ pub struct MovementRules {
     pub look_ahead_s: f64,
     /// A guarding fleet stays within this distance of what it guards (D-113).
     pub guard_radius_m: f64,
-    /// A hostile detected within this range drops a fleet out of cruise mode (doc 15 §3.3).
-    /// A hook for S7.
+    /// A hostile detected within this range drops a fleet out of cruise mode and engages it
+    /// (doc 15 §3.3, D-114); detection is the commander's visibility set (S7).
     pub cruise_drop_hostile_range_m: f64,
 }
 
@@ -358,6 +365,8 @@ impl Rules {
         self.sieges.check()?;
         self.season.check()?;
         self.sieges.check_with(&self.defence)?;
+        self.sensors
+            .check(&self.ship_classes, &self.combat, &self.defence)?;
         for class in self.economy.ships.keys() {
             if self.class(*class).npc {
                 return Err(invalid(
@@ -563,8 +572,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@9", "nomad-rules@8"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@8"
+            swap("nomad-rules@10", "nomad-rules@9"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@9"
         ));
         // The sieges section (S6a): whole quarter hours, a window shorter than a day.
         for (from, to) in [

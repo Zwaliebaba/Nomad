@@ -23,7 +23,8 @@ use crate::state::UniverseState;
 
 /// Places a new fleet of `classes` for `owner` at rest in space in `system`, its anchor at
 /// `centre`, in the default formation, facing `heading_rad` (counter-clockwise from east).
-/// The fleet has no orders and the default rules of engagement.
+/// The fleet has no orders and the default rules of engagement. Observers detect it from
+/// the next sensors pass, or at once after [`sense`].
 pub fn place_fleet(
     state: &mut UniverseState,
     owner: Owner,
@@ -74,6 +75,12 @@ pub fn place_fleet(
         ),
     );
     id
+}
+
+/// Runs a sensors pass now, as on a pass tick (S7), so fleets placed directly are in every
+/// picture that would detect them, as if they had been there at the last pass.
+pub fn sense(state: &mut UniverseState) {
+    crate::sensors::refresh(state);
 }
 
 /// Opens `sector` of `holding`'s dome, as S6's siege will (doc 15 §5.1, §6): it neither

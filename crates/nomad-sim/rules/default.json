@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@9",
+  "format": "nomad-rules@10",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -8,7 +8,8 @@
       "turn_rate_deg_per_s": 90,
       "weapon_range_m": 1500,
       "frigate": false,
-      "npc": false
+      "npc": false,
+      "sensor": "VX"
     },
     "LANCER": {
       "tactical_speed_m_per_s": 220,
@@ -17,7 +18,8 @@
       "turn_rate_deg_per_s": 60,
       "weapon_range_m": 3000,
       "frigate": false,
-      "npc": false
+      "npc": false,
+      "sensor": "LANCER"
     },
     "WARDEN": {
       "tactical_speed_m_per_s": 110,
@@ -26,7 +28,8 @@
       "turn_rate_deg_per_s": 20,
       "weapon_range_m": 3000,
       "frigate": true,
-      "npc": false
+      "npc": false,
+      "sensor": "WARDEN"
     },
     "MULE": {
       "tactical_speed_m_per_s": 120,
@@ -35,7 +38,8 @@
       "turn_rate_deg_per_s": 25,
       "weapon_range_m": null,
       "frigate": false,
-      "npc": false
+      "npc": false,
+      "sensor": "MULE"
     },
     "RAIDER_STRIKE_CRAFT": {
       "tactical_speed_m_per_s": 240,
@@ -44,7 +48,8 @@
       "turn_rate_deg_per_s": 75,
       "weapon_range_m": 2500,
       "frigate": false,
-      "npc": true
+      "npc": true,
+      "sensor": "RAIDER_STRIKE_CRAFT"
     },
     "HEAVY_CRUISER": {
       "tactical_speed_m_per_s": 70,
@@ -53,7 +58,8 @@
       "turn_rate_deg_per_s": 10,
       "weapon_range_m": 3500,
       "frigate": false,
-      "npc": true
+      "npc": true,
+      "sensor": "HSTL"
     }
   },
   "movement": {
@@ -278,5 +284,14 @@
   },
   "season": {
     "early_win_share_permille": 600
+  },
+  "sensors": {
+    "holding_core_range_m": 40000,
+    "ranges_m": { "VX": 15000, "LANCER": 10000, "WARDEN": 25000, "MULE": 8000, "RAIDER_STRIKE_CRAFT": 12000, "HSTL": 30000 },
+    "signature_permille": { "LIGHT": 600, "MEDIUM": 1000, "HEAVY": 1500 },
+    "structure_signature_permille": 1500,
+    "fleet_memory_s": 86400,
+    "memory_sweep_s": 60,
+    "lane_traffic_after_arrival_s": 600
   }
 }

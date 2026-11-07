@@ -31,6 +31,9 @@
 //!   ships and of a fallen mother station, the comeback grant, protections, the window rule
 //!   for peripheral structures and the outpost exception (D-015, D-033, D-034, D-054, D-057,
 //!   D-138, D-158 to D-170, D-223, D-229), see [`UniverseState::siege`].
+//! - sensors and fog of war ([`sensors`], S7; doc 16): visibility per observer every fifth
+//!   tick, last-known memory, lane traffic, and [`CommanderView`], the read-only projection
+//!   through which the AI and replication see the Universe (D-077, D-199, D-182).
 //!
 //! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
@@ -46,13 +49,14 @@
 //! **Game rules arrive as their design is agreed (D-051).** So far: the Universe structure
 //! (doc 10), deposit data and values (doc 14 §5, D-066), system control (D-041), and
 //! movement, fleets and orders (doc 15 §3, §9; D-101 to D-105), the economy with claims
-//! (doc 14; S4, D-126 to D-138, D-189, D-217) and the season standings (S8). Sensors (S7),
-//! the siege lifecycle (S6b) and the AI (A1–A3) follow. Ship combat is ([`combat`], S5a: weapons, lock,
-//! projectiles, the multiplier table, engagement), and so is station combat ([`defence`],
-//! S5b: dome sectors, regeneration, breaches, damage to modules and its recovery, turrets,
-//! SHLD SURGE and FLAK SCREEN, the damage ledger). Until sensors exist (S7) every entity
-//! counts as visible. The offline rules (doc 12) are here: presence, the disconnect grace and
-//! exposure windows (S6a), and the siege lifecycle (S6b).
+//! (doc 14; S4, D-126 to D-138, D-189, D-217), the season standings (S8) and sensors (doc 16;
+//! D-072 to D-077, D-173 to D-181). The AI (A1–A3) follows. Ship combat is ([`combat`], S5a:
+//! weapons, lock, projectiles, the multiplier table, engagement), and so is station combat
+//! ([`defence`], S5b: dome sectors, regeneration, breaches, damage to modules and its
+//! recovery, turrets, SHLD SURGE and FLAK SCREEN, the damage ledger). The validator and
+//! combat still count every entity as visible; S7's switch-over follows. The offline rules
+//! (doc 12) are here: presence, the disconnect grace and exposure windows (S6a), and the
+//! siege lifecycle (S6b).
 
 mod announce;
 pub mod combat;
@@ -71,6 +75,7 @@ mod rng;
 pub mod rules;
 pub mod scenario;
 pub mod season;
+pub mod sensors;
 mod siege;
 pub mod snapshot;
 mod state;
@@ -111,6 +116,11 @@ pub use nomad_types::{
 pub use nomad_types::{Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};
+pub use sensors::{
+    ClassSeen, CommanderView, DetectionStats, HoldingSighting, LaneTraffic, LastKnownFleet,
+    LastKnownHolding, ModuleSeen, PublicHolding, SectorSeen, SensedFleet, SensedShip,
+    VisibilityEvent,
+};
 pub use siege::{DefenceState, SiegeView, StationJumpView, StationLeg};
 pub use state::{ScheduledEvent, SeasonConfig, UniverseState, final_tick_after_weeks};
 
