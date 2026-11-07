@@ -84,6 +84,9 @@ pub struct CoreRules {
     pub hull: u32,
     /// Deployment of a core kit until the outpost becomes a holding (D-054).
     pub deploy_s: u64,
+    /// An outpost's core starts with this share of its hull, which grows linearly to the
+    /// full hull over the deployment (D-224).
+    pub deploy_start_hull_percent: u32,
 }
 
 /// One module kind (doc 14 §9.3).
@@ -255,6 +258,32 @@ pub struct SlotTemplate {
     pub radius_voxels: SlotRadii,
 }
 
+impl SlotTemplate {
+    /// D-228: peripheral hit circles lie wholly outside the dome circle.
+    fn check_peripheral(&self) -> Result<(), RulesError> {
+        let outside = |at: [i32; 2], radius: i32| {
+            let (grid_x, grid_y) = (i64::from(at[0]), i64::from(at[1]));
+            let reach = i64::from(self.dome_radius_voxels) + i64::from(radius.max(0));
+            grid_x * grid_x + grid_y * grid_y > reach * reach
+        };
+        let err = |field: &str| RulesError::Invalid {
+            field: field.to_owned(),
+            reason: "must lie wholly outside the dome (D-228)",
+        };
+        if !outside(self.solar, self.radius_voxels.solar) {
+            return Err(err("economy.slots.solar"));
+        }
+        if self
+            .deposits
+            .iter()
+            .any(|&d| !outside(d, self.radius_voxels.deposit))
+        {
+            return Err(err("economy.slots.deposits"));
+        }
+        Ok(())
+    }
+}
+
 /// Hit radius per slot type, in voxels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -387,6 +416,12 @@ impl EconomyRules {
                 "needs hull and a deployment time",
             ));
         }
+        if c.deploy_start_hull_percent == 0 || c.deploy_start_hull_percent > 100 {
+            return Err(err(
+                "economy.core.deploy_start_hull_percent".into(),
+                "must be 1 to 100",
+            ));
+        }
         if self.core_kit.build_s == 0 {
             return Err(err("economy.core_kit.build_s".into(), "must be > 0"));
         }
@@ -453,27 +488,7 @@ impl EconomyRules {
         if t.inner.len() > usize::from(u8::MAX) {
             return Err(err("economy.slots.inner".into(), "has too many positions"));
         }
-        // D-228: peripheral hit circles lie wholly outside the dome circle.
-        let outside = |at: [i32; 2], radius: i32| {
-            let (grid_x, grid_y) = (i64::from(at[0]), i64::from(at[1]));
-            let reach = i64::from(t.dome_radius_voxels) + i64::from(radius.max(0));
-            grid_x * grid_x + grid_y * grid_y > reach * reach
-        };
-        if !outside(t.solar, t.radius_voxels.solar) {
-            return Err(err(
-                "economy.slots.solar".into(),
-                "must lie wholly outside the dome (D-228)",
-            ));
-        }
-        if t.deposits
-            .iter()
-            .any(|&d| !outside(d, t.radius_voxels.deposit))
-        {
-            return Err(err(
-                "economy.slots.deposits".into(),
-                "must lie wholly outside the dome (D-228)",
-            ));
-        }
+        t.check_peripheral()?;
         for start in &self.start.modules {
             if start.kind == ModuleKind::Core {
                 return Err(err(

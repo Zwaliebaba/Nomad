@@ -13,12 +13,10 @@
 //!   loads it; deployed on a free site near the fleet, the site becomes an outpost whose core
 //!   builds for 2 h and then completes as a holding (D-054, D-135).
 
-use nomad_types::{
-    Command, FleetOrder, Location, ModuleKind, Owner, Queueing, ShipClass, SiteId, Slot,
-};
+use nomad_types::{Command, FleetOrder, Location, Owner, Queueing, ShipClass, SiteId};
 
 use super::rules::MILLI;
-use super::{Cargo, EconomyEvent, Stock, queue, spawn_module};
+use super::{Cargo, EconomyEvent, Stock, queue};
 use crate::command::validate_command;
 use crate::fleet::{Fleet, FleetEvent, FleetId, Motion, Place, Ship, ShipId, station};
 use crate::geometry::distance_m;
@@ -314,7 +312,7 @@ pub(crate) fn load_kit(state: &mut UniverseState, id: FleetId, events: &mut Vec<
 }
 
 /// Deploys the kit `fleet` carries on `site` (validated): an outpost whose core builds for
-/// the deployment time (D-054).
+/// the deployment time, its hull growing from 10% (D-054, D-224).
 pub(crate) fn deploy_kit(
     state: &mut UniverseState,
     id: FleetId,
@@ -334,14 +332,7 @@ pub(crate) fn deploy_kit(
         return;
     };
     state.economy.cargo.remove(&carrier);
-    let deploy_ms = state.rules.economy.core.deploy_s.saturating_mul(MILLI);
-    spawn_module(
-        state,
-        holding,
-        Slot::Core,
-        ModuleKind::Core,
-        Some(deploy_ms),
-    );
+    super::spawn_outpost_core(state, holding);
     events.push(EconomyEvent::OutpostDeployed { holding, site });
 }
 

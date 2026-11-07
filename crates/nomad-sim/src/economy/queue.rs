@@ -210,7 +210,9 @@ pub(crate) fn progress(
     }
 }
 
-/// Counts down an outpost's core deployment and completes the holding (D-054, D-135).
+/// Counts down an outpost's core deployment, grows its hull by the second's share (D-224:
+/// from 10% to 100% over the deployment; damage taken stays taken), and completes the
+/// holding (D-054, D-135).
 fn progress_core(state: &mut UniverseState, holding: HoldingId, events: &mut Vec<EconomyEvent>) {
     let Some(core) = state
         .economy
@@ -220,11 +222,27 @@ fn progress_core(state: &mut UniverseState, holding: HoldingId, events: &mut Vec
     else {
         return;
     };
+    let rules = state.rules.economy.core;
+    let total_ms = rules.deploy_s.saturating_mul(MILLI);
     let Some(c) = state.entities.get_mut::<Construction>(core) else {
         return;
     };
+    let before = c.remaining_ms;
     c.remaining_ms = c.remaining_ms.saturating_sub(MILLI);
-    if c.remaining_ms == 0 {
+    let remaining = c.remaining_ms;
+    if let Some(hull) = state.entities.get_mut::<super::Hull>(core) {
+        let grown = |left: u64| {
+            super::deploy_hull(
+                hull.max,
+                rules.deploy_start_hull_percent,
+                total_ms,
+                total_ms.saturating_sub(left),
+            )
+        };
+        let growth = grown(remaining).saturating_sub(grown(before));
+        hull.hp = hull.hp.saturating_add(growth).min(hull.max);
+    }
+    if remaining == 0 {
         state.entities.remove::<Construction>(core);
         if let Some(h) = state.holdings.get_mut(&holding) {
             h.core_complete = true;

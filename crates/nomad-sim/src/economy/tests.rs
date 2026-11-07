@@ -694,6 +694,8 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
     counts_once(&state, "outpost");
     let core = state.economy.holdings[&outpost].slots[&Slot::Core];
     assert_eq!(state.module(core).unwrap().building_ms, Some(7_200_000));
+    // D-224: the core starts at 10% of its hull.
+    assert_eq!(state.module(core).unwrap().hp, 30_000);
     // Outposts cannot build and do not raise the cap.
     assert_eq!(
         check(
@@ -719,6 +721,48 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
     assert_eq!(state.command_cap(you), 130);
     assert_eq!(state.docking_capacity(outpost), 8);
     counts_once(&state, "holding");
+}
+
+#[test]
+fn an_outposts_hull_grows_from_a_tenth_to_full_over_its_deployment() {
+    // D-224: linear from 10% to 100% over the 2 h deployment; damage taken stays taken.
+    let total = 7_200_000;
+    assert_eq!(deploy_hull(300_000, 10, total, 0), 30_000);
+    assert_eq!(deploy_hull(300_000, 10, total, total / 2), 165_000);
+    assert_eq!(deploy_hull(300_000, 10, total, total), 300_000);
+    assert_eq!(deploy_hull(300_000, 10, total, 2 * total), 300_000);
+    assert_eq!(deploy_hull(300_000, 100, total, 0), 300_000);
+    // The growth of every second sums to the full rise, with no drift.
+    let rise: u32 = (0..7_200_u64)
+        .map(|s| {
+            deploy_hull(300_000, 10, total, (s + 1) * 1_000)
+                - deploy_hull(300_000, 10, total, s * 1_000)
+        })
+        .sum();
+    assert_eq!(rise, 270_000);
+
+    let mut state = stage1(7);
+    let (_, system) = home(&state, 1);
+    let site = state
+        .galaxy()
+        .system(system)
+        .unwrap()
+        .sites
+        .iter()
+        .copied()
+        .find(|&s| state.holding_at(s).is_none())
+        .unwrap();
+    let outpost = state.insert_holding(site, CommanderId(1), false).unwrap();
+    let core = spawn_outpost_core(&mut state, outpost);
+    let hp = |state: &UniverseState| state.module(core).unwrap().hp;
+    assert_eq!(hp(&state), 30_000);
+    idle(&mut state, 10 * TICKS_PER_SECOND);
+    assert_eq!(hp(&state), deploy_hull(300_000, 10, total, 10_000));
+    assert_eq!(hp(&state), 30_375);
+    let now = state.tick();
+    damage_module(&mut state, core, 1_000, now);
+    idle(&mut state, 10 * TICKS_PER_SECOND);
+    assert_eq!(hp(&state), deploy_hull(300_000, 10, total, 20_000) - 1_000);
 }
 
 #[test]

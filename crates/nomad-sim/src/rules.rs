@@ -24,7 +24,7 @@
 //! | Combat: hull, weapons, multipliers, hit radii | [`combat`] (doc 15 §3–§4, §12; D-052, D-143) |
 //! | Defence: dome sectors, regeneration, turrets, abilities, recovery | [`defence`] (doc 15 §5, §12; D-140 to D-142, D-147 to D-149) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
-//! | Sieges: disconnect grace, exposure window, drift, activity history, free choice | [`sieges`] (doc 12 §4, §5.3, §8; D-015, D-032, D-155 to D-157) |
+//! | Sieges: disconnect grace, exposure window, drift, activity history, free choice; notice, siege clock, stagger, breach credit, protections, restores, the comeback grant | [`sieges`] (doc 12 §4, §5.3, §8; doc 15 §6–§7; D-015, D-032 to D-034, D-057, D-155 to D-167) |
 //! | Season: the early-win share | [`season`] (doc 10 §6; D-020, D-192) |
 //!
 //! Starting values adopted from this implementation (D-113): separation distance, obstacle
@@ -46,7 +46,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@8";
+pub const RULES_FORMAT: &str = "nomad-rules@9";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -98,7 +98,7 @@ pub struct Rules {
     pub combat: combat::CombatRules,
     /// Dome sectors, regeneration, turrets, abilities and recovery (S5b).
     pub defence: defence::DefenceRules,
-    /// Presence and exposure windows (S6a; doc 12 §4, §5.3).
+    /// Presence, exposure windows and the siege lifecycle (S6; doc 12 §4, §5.3; doc 15 §6–§7).
     pub sieges: sieges::SiegeRules,
 
     // S8: season standings and the win.
@@ -357,6 +357,7 @@ impl Rules {
         self.defence.check()?;
         self.sieges.check()?;
         self.season.check()?;
+        self.sieges.check_with(&self.defence)?;
         for class in self.economy.ships.keys() {
             if self.class(*class).npc {
                 return Err(invalid(
@@ -481,9 +482,78 @@ mod tests {
             (sieges.activity_history_days, sieges.free_choice_days),
             (14, 7)
         );
+        // D-015, D-033, D-034, D-057, D-167: the S6b values.
+        assert_eq!(
+            (
+                sieges.notice_minutes,
+                sieges.siege_minutes,
+                sieges.stagger_minutes,
+                sieges.slots_per_window()
+            ),
+            (720, 60, 60, 4)
+        );
+        assert_eq!(sieges.breach_credit_s, 600);
+        assert_eq!(
+            (
+                sieges.held_protection_hours,
+                sieges.capture_protection_hours,
+                sieges.jump_protection_hours
+            ),
+            (48, 48, 72)
+        );
+        assert_eq!(
+            (
+                sieges.held_restore_percent,
+                sieges.capture_core_percent,
+                sieges.capture_sector_percent
+            ),
+            (50, 25, 25)
+        );
+        assert_eq!((sieges.comeback_min_kits, sieges.comeback_max_kits), (1, 3));
+        // D-224: an outpost's core starts at 10% hull.
+        assert_eq!(economy.core.deploy_start_hull_percent, 10);
         // The slowest commander warship is the WARDEN (D-099 item 5), not the HSTL.
         assert_eq!(rules.slowest_commander_warship(), ShipClass::Warden);
         assert!((vx.turn_rate_rad_per_s() - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rejects_bad_siege_values() {
+        let swap = |from: &str, to: &str| {
+            assert!(DEFAULT_RULES_JSON.contains(from), "{from}");
+            Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
+        };
+        // S6b: the stagger divides the window; percentages and the grant are in range;
+        // breach credit fits in the ledger's window (D-015, D-033, D-057, D-167).
+        for (from, to) in [
+            ("\"stagger_minutes\": 60", "\"stagger_minutes\": 0"),
+            ("\"stagger_minutes\": 60", "\"stagger_minutes\": 75"),
+            ("\"notice_minutes\": 720", "\"notice_minutes\": 0"),
+            ("\"siege_minutes\": 60", "\"siege_minutes\": 0"),
+            (
+                "\"held_restore_percent\": 50",
+                "\"held_restore_percent\": 101",
+            ),
+            (
+                "\"capture_core_percent\": 25",
+                "\"capture_core_percent\": 0",
+            ),
+            ("\"comeback_min_kits\": 1", "\"comeback_min_kits\": 4"),
+            ("\"breach_credit_s\": 600", "\"breach_credit_s\": 601"),
+        ] {
+            assert!(
+                matches!(swap(from, to), Err(RulesError::Invalid { field, .. }) if field.starts_with("sieges.")),
+                "{to}"
+            );
+        }
+        // D-224: an outpost's starting hull is a share of its hull.
+        assert!(matches!(
+            swap(
+                "\"deploy_start_hull_percent\": 10",
+                "\"deploy_start_hull_percent\": 0"
+            ),
+            Err(RulesError::Invalid { field, .. }) if field == "economy.core.deploy_start_hull_percent"
+        ));
     }
 
     #[test]
@@ -493,8 +563,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@8", "nomad-rules@7"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@7"
+            swap("nomad-rules@9", "nomad-rules@8"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@8"
         ));
         // The sieges section (S6a): whole quarter hours, a window shorter than a day.
         for (from, to) in [

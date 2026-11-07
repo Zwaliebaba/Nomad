@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@8",
+  "format": "nomad-rules@9",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -84,7 +84,7 @@
     }
   },
   "economy": {
-    "core": { "mother_supply_mw": 520, "supply_mw": 120, "mother_hull": 600000, "hull": 300000, "deploy_s": 7200 },
+    "core": { "mother_supply_mw": 520, "supply_mw": 120, "mother_hull": 600000, "hull": 300000, "deploy_s": 7200, "deploy_start_hull_percent": 10 },
     "core_kit": { "alloy": 6000, "crystal": 500, "build_s": 900 },
     "core_kit_growth_permille": 250,
     "diminishing_yield_permille": 2000,
@@ -260,7 +260,21 @@
     "window_minutes": 240,
     "window_drift_minutes_per_day": 60,
     "activity_history_days": 14,
-    "free_choice_days": 7
+    "free_choice_days": 7,
+    "notice_minutes": 720,
+    "siege_minutes": 60,
+    "stagger_minutes": 60,
+    "breach_credit_s": 600,
+    "held_protection_hours": 48,
+    "capture_protection_hours": 48,
+    "jump_protection_hours": 72,
+    "held_restore_percent": 50,
+    "capture_core_percent": 25,
+    "capture_sector_percent": 25,
+    "landing_core_percent": 25,
+    "station_jump_speed_m_per_s": 500,
+    "comeback_min_kits": 1,
+    "comeback_max_kits": 3
   },
   "season": {
     "early_win_share_permille": 600

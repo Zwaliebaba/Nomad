@@ -1128,6 +1128,37 @@ pub(crate) fn spawn_module(
     id
 }
 
+/// Spawns the core of the outpost `holding`, under construction for the deployment time and
+/// at the start share of its hull, which grows linearly to the full hull as the deployment
+/// runs (D-054, D-224). For a core kit's claim (S4) and for the outpost a fallen mother
+/// station's site becomes (D-057, S6b).
+pub(crate) fn spawn_outpost_core(state: &mut UniverseState, holding: HoldingId) -> SimId {
+    let core = state.rules.economy.core;
+    let deploy_ms = core.deploy_s.saturating_mul(MILLI);
+    let id = spawn_module(
+        state,
+        holding,
+        Slot::Core,
+        ModuleKind::Core,
+        Some(deploy_ms),
+    );
+    if let Some(hull) = state.entities.get_mut::<Hull>(id) {
+        hull.hp = deploy_hull(hull.max, core.deploy_start_hull_percent, deploy_ms, 0);
+    }
+    id
+}
+
+/// The hull an outpost's core has grown to `elapsed_ms` into a deployment of `total_ms`:
+/// linearly from `start_percent` of `max` to `max` (D-224). Integer and exact, so a second's
+/// growth is the difference of two calls (D-049).
+pub(crate) fn deploy_hull(max: u32, start_percent: u32, total_ms: u64, elapsed_ms: u64) -> u32 {
+    let total = u128::from(total_ms.max(1));
+    let elapsed = u128::from(elapsed_ms).min(total);
+    let start = u128::from(start_percent.min(100));
+    let share = start * total + (100 - start) * elapsed;
+    u32::try_from(u128::from(max) * share / (100 * total)).unwrap_or(max)
+}
+
 /// A module's maximum hull (doc 14 §9.3).
 pub(crate) fn module_hull(state: &UniverseState, holding: HoldingId, kind: ModuleKind) -> u32 {
     let economy = &state.rules.economy;
