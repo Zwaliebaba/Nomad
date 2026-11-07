@@ -79,11 +79,11 @@ Combat mechanics stay in doc 15; AI economic behaviour belongs to doc 13.
 
 ## 6. Harvesting and refining
 
-*Agreed (D-126).* Harvester and extractor modules follow the peripheral rule of doc 12 §3 (D-138). **Diminishing yield (D-217):** each producing holding other than the mother station has its alloy and crystal output scaled by min(1, F ÷ the commander's producing holdings other than the mother station), with F a rules value starting at 2 and tuned at α, so late income stays near D-070's 3–4× start.
+*Agreed (D-126).* Harvester and extractor modules follow the peripheral rule of doc 12 §3 (D-138). **Diminishing yield (D-217, counted per resource by D-281):** each holding other than the mother station has its alloy output scaled by min(1, F ÷ the commander's alloy-producing holdings other than the mother station), and its crystal output by min(1, F ÷ its crystal-producing holdings other than the mother station), so late income stays near D-070's 3–4× start. F is a rules value, 2.5 since D-282 (it started at 2). A holding that does not produce a resource never lowers the commander's output of it, and each resource's remote output is bounded at about F holdings' worth. The economy view shows both factors.
 
 - A **harvester module** on a site with an ore field extracts ore at 600 ore/h × richness. There is one harvester per ore field.
 - A **refinery module** converts ore into alloy 1:1, up to 900 per hour. Ore that is not refined collects in a small ore buffer (1 h), then stops.
-- An **extractor module** on a crystal vein produces 60 crystal/h × richness.
+- An **extractor module** on a crystal vein produces 60 crystal/h × richness. *Derived:* D-282 had this rate re-measured under D-281 with the about-24 h rebuild as its goal, and 60 stayed (§13).
 - Production runs at 1 Hz with integer milli-unit remainders (D-049). When power is short, factories slow down in proportion to the power allocated to them under the active routing profile (doc 15 §5.2).
 
 ## 7. Power
@@ -140,14 +140,14 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
 
 | Module | Slot | Cost | Build time | Power | Hull | Effect |
 |---|---|---|---|---|---|---|
-| Core, mother station | — | — (start kit) | — | +520 MW | 600,000 | Dome, base storage 4,000 A / 600 C, 120 command, docking for 24 ships (D-102) |
+| Core, mother station | — | — (start kit) | — | +520 MW | 600,000 | Dome, base storage 5,000 A / 600 C (D-282; was 4,000 A), 120 command, docking for 24 ships (D-102) |
 | Core, other holdings | — | Core kit: 6,000 A + 500 C, × (1 + 0.25 × further holdings; D-189) | 15 min to build the kit, plus 2 h deployment (D-054) | +120 MW | 300,000 | Minimal dome (D-053), base storage for a buffer, +10 command, docking for 8 ships (D-102) |
 | Shield pylon | Pylon | 2,500 A + 300 C | 30 min | 40 MW | 40,000 | +75% of full strength in its sector, on top of the core's 25% (D-140, superseding D-053's +25%) |
 | Solar array | Peripheral | 3,000 A | 30 min | +620 MW | 20,000 | Disabled, never destroyed, outside the window (doc 12) |
 | Harvester | Peripheral | 2,000 A | 20 min | 60 MW | 15,000 | 600 ore/h × richness |
 | Refinery | Inner | 3,500 A | 40 min | 120 MW | 40,000 | Up to 900 alloy/h |
 | Crystal extractor | Peripheral | 2,500 A | 30 min | 60 MW | 15,000 | 60 C/h × richness |
-| Storage (container rack) | Inner | 1,500 A | 15 min | 0 | 20,000 | +4,000 A / +400 C to the pool cap; makes the holding a depot |
+| Storage (container rack) | Inner | 1,500 A | 15 min | 0 | 20,000 | +1,500 A / +400 C to the pool cap (D-282; was +4,000 A); makes the holding a depot |
 | Turret | Inner | 2,000 A + 200 C | 20 min | 40 MW | 30,000 | Doc 15 §12 turret |
 | Dry dock | Inner | 5,000 A + 300 C | 60 min | 150 MW while building | 50,000 | One parallel ship lane; frigates; +6 docking (D-102) |
 
@@ -207,7 +207,9 @@ Control already decides the season (D-020) and gives sensor coverage (D-041). Ad
 - **Storage:** the start cap of 8,000 A (core plus one rack) fills in about 13 h at the starting income of 600 A/h. With two more racks (16,000 A), it fills in about 8.5 h at mid-season income of 1,900 A/h. Both stay close to the 8–12 h target.
 - The start cap of 8,000 A must hold the largest single cost, a 6,000 A core kit. It does.
 
-> **Settled since:** build-out is read against the holding's own output (D-136), and deviations are measured at α before numbers are tuned (D-137). S4's harness run led to the growing kit price (D-189) and the diminishing yield (§6, D-217). α measures these targets with real AI through `nomad-harness --season`, 3 seeds over 8 weeks plus 7-day runs on 10 seeds, passing when each median is within ±50% (D-218).
+> **Tuned since (D-279 to D-283):** the rough check above predates D-217. *Derived* from the D-279 study: with a 4,000 A rack at every holding, the cap grew with each holding while D-217 bounded income, so storage took 26 h to fill at mid-season, and D-217's single count let ore-only holdings dilute crystal (about 30 C/h at mid-season), so the cap-fleet rebuild took about 95 h. D-281 counts the yield per resource; D-282 sets F = 2.5, a 5,000 A base and 1,500 A racks (start cap 6,500 A, 10.8 h at 600 A/h, still holding the first 6,000 A kit) and keeps the extractor at 60 C/h. Racks now gate kits: a rack adds what the next kit's price grows by (D-189, k × 6,000 A), so each kit waits for the newest holding's rack. Measured with the scripted builder under D-281 (`nomad-harness --economy`, 5 seeds, 21 days, the D-218 windows read from days 14–21 by stationarity): storage fills in 10.8 h at the start and 9.5 h at mid-season (range 7.4–12.8 h; crystal 44 h); the first kit starts at 0.04 h; 24 h per new holding over days 0–3 (14.4–24 h; 4 holdings by day 3, D-083's minimum); the cap-fleet rebuild takes 22.9 h (20–81 h; alloy 18.9 h, crystal 22.2 h, crystal binding for the commanders with one vein); late income is 3.50× start (3.08–4.02×). Build-out is measured directly from core completion (D-283) and fails; it is an α item for A2's build priorities. *Proposed:* the α runs confirm these with the full 8-week windows.
+
+> **Settled since:** build-out is read against the holding's own output (D-136; superseded by D-283, which measures it directly from core completion), and deviations are measured at α before numbers are tuned (D-137; storage fill, the fleet rebuild and the counter triangle were tuned before α under D-279). S4's harness run led to the growing kit price (D-189) and the diminishing yield (§6, D-217). α measures these targets with real AI through `nomad-harness --season`, 3 seeds over 8 weeks plus 7-day runs on 10 seeds, passing when each median is within ±50% (D-218).
 
 ## 14. Stress test
 

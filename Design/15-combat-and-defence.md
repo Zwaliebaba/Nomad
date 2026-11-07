@@ -238,7 +238,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 | Unit | Hull | Tactical / cruise (m/s) | Weapons | Range | Lock | Command |
 |---|---|---|---|---|---|---|
 | VX interceptor | 600 | 280 / 900 | Light cannon: 8 dmg, 4 shots/s, 800 m/s | 1.5 km | 2 s | 6 |
-| LANCER strike craft | 800 | 220 / 800 | Torpedo: 160 dmg every 4 s, 350 m/s | 3.0 km | 4 s | 10 |
+| LANCER strike craft | 1,400 (D-284; was 800) | 220 / 800 | Torpedo: 160 dmg every 4 s, 350 m/s | 3.0 km | 4 s | 10 |
 | WARDEN frigate | 7,500 | 110 / 500 | 2 × Battery: 60 dmg every 2 s; Flak: 30 dmg, radius 150 m, 1/s | 3.0 km / 2.0 km | 3 s | 25 |
 | MULE hauler | 2,500 | 120 / 600 | — | — | — | 4 |
 | Raider strike craft | 700 | 240 / 850 | Torpedo: 100 dmg every 4 s (0 against domes) | 2.5 km | 4 s | — |
@@ -248,6 +248,8 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 | Dome sector (4 pylons) | 150,000 | — | Regenerates up to 50/s at full power | — | — | — |
 
 Spread runs from 20 to 4 mrad for cannons and batteries, and from 30 to 6 mrad for torpedoes. Turret range (2.5 km) is deliberately shorter than torpedo range (3.0 km), so a covered strike group can out-range static defences.
+
+> **Tuned since (D-279, D-284):** LANCER hull rose from 800 to 1,400, so strike craft beat frigates at equal value; no ship cost changed. *Derived* from the D-279 study, seeds 1–3 of `nomad-harness --combat triangle`: 12 LANCER against 6 WARDEN now leaves 5 LANCER (before: 3 WARDEN left), 8 against 4 leaves 4 LANCER (before: 2 WARDEN), while 10 VX against 6 LANCER still leaves 9 VX and 6 WARDEN against 20 VX all 6 WARDEN. The triangle is tested at equal value (doc 13 §10, D-083), not count for count: count for count, 6 WARDEN still beat 6 LANCER, and no LANCER hull that wins there keeps VX ahead of LANCER (at 2,400, LANCER beat VX). The 12/8/0 against 8/4/8 battle is a counter test, not a time-to-kill target (D-284). The other §11 times: 6 VX mirror 36 s; 2/2/2 mirror 174 s (was 168 s, still over 90 s); 8/8/4 battle 186 s (was 152 s); station breach and core times unchanged (452 s and 767 s; S9 retunes them, D-277). *Derived:* a raider torpedo does 25 a hit against a LANCER, so a lone raider needs 56 hits to kill one; A3 rechecks raid strength against LANCER escorts.
 
 ## 13. Stress test
 
