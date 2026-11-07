@@ -32,15 +32,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0xf44a_fe23_97d9_98b5),
-    (1, 0x181e_f5c8_8f5f_43ae),
-    (2, 0x4452_9b76_4e87_5ba1),
-    (7, 0x4b01_e597_a591_f833),
-    (99, 0xec36_ec91_9d40_13f5),
+    (0, 0xd3be_849e_aecd_e942),
+    (1, 0x246f_47fa_31af_f699),
+    (2, 0x9424_206b_ee2b_36a6),
+    (7, 0x41e3_fa32_5812_4600),
+    (99, 0x1854_8111_b0b6_3446),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0x28df_d181_d166_bd21;
+const DIAGNOSTIC_RUN_HASH: u64 = 0x763a_f4b2_b7c6_c4fe;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig::new(seed, 0)

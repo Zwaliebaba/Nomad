@@ -5,8 +5,15 @@
 //!   proportion, up to its free cargo; at a depot it unloads into the pool, where what does
 //!   not fit is lost (D-134). It travels with ordinary orders (Launch, Jump, Move), checked
 //!   by the single validator (D-077), so it can be raided like any fleet. Any other order to
-//!   the fleet ends the route. Holding at a contested gate (D-055) arrives with the gate
-//!   rules (S6).
+//!   the fleet ends the route.
+//! - **Contested gates** (D-055; S4 plan §4.4, S6 plan §4.7): armed ships of another owner
+//!   within 5 km of a gate make it contested for a convoy. A convoy whose next leg would depart
+//!   from or arrive at a contested gate does not set out: it holds at its last stop, docked,
+//!   and reports [`EconomyEvent::ConvoyHeld`] once; it goes on when the gate is clear. Whether
+//!   to reroute instead is doctrine, the Deputy's (D-210). *Proposed:* the check runs when the
+//!   convoy would launch or jump, on its whole next leg; a convoy already on its way is the
+//!   Deputy's evacuation (A1b). A convoy route given to a fleet docked at one of its stops
+//!   starts at that stop.
 //! - **Cargo** is per MULE, so it follows ships through splits and merges, and is lost with
 //!   a destroyed MULE.
 //! - **Claims:** a finished core kit waits at its holding; a docked MULE with an empty hold
@@ -19,6 +26,7 @@ use super::rules::MILLI;
 use super::{Cargo, EconomyEvent, Stock, queue};
 use crate::command::validate_command;
 use crate::fleet::{Fleet, FleetEvent, FleetId, Motion, Place, Ship, ShipId, station};
+use crate::galaxy::GateId;
 use crate::geometry::distance_m;
 use crate::holding::HoldingId;
 use crate::state::UniverseState;
@@ -151,6 +159,21 @@ fn convoy_second(
         }
     };
     if let Some(order) = order {
+        // A contested gate on the next leg: hold at the last stop (D-055).
+        if matches!(order, FleetOrder::Launch | FleetOrder::Jump { .. }) {
+            let held = contested_on_leg(state, id, &fleet, system);
+            if let Some(c) = state.economy.convoys.get_mut(&id)
+                && c.held != held
+            {
+                c.held = held;
+                if let Some(gate) = held {
+                    events.push(EconomyEvent::ConvoyHeld { fleet: id, gate });
+                }
+            }
+            if held.is_some() {
+                return true;
+            }
+        }
         let command = Command::Fleet {
             fleet: id,
             order: order.clone(),
@@ -173,6 +196,70 @@ fn convoy_second(
         convoy.next = (convoy.next + 1) % convoy.route.len().max(1);
     }
     true
+}
+
+/// The first gate of the route from where `fleet` is to `system` that is contested for its
+/// owner, if any (D-055).
+fn contested_on_leg(
+    state: &UniverseState,
+    id: FleetId,
+    fleet: &Fleet,
+    system: crate::galaxy::SystemId,
+) -> Option<GateId> {
+    let (from, start) = match fleet.place {
+        Place::Docked(holding) => (
+            state
+                .holdings
+                .get(&holding)
+                .and_then(|h| state.galaxy.site(h.site))?
+                .system,
+            station::launch_point(state, holding)?,
+        ),
+        Place::InSystem(here) => (here, state.entities.get::<Motion>(id.sim_id())?.position),
+        Place::InTransit { .. } | Place::EmergencyJump { .. } => return None,
+    };
+    let route = crate::fleet::route::plan(
+        &state.galaxy,
+        from,
+        start.into(),
+        crate::fleet::route::RouteEnd::System(system),
+        crate::command::fleet_cruise_speed(state, fleet),
+        crate::time::Ticks::from_secs(state.rules.gates.spool_up_s),
+    )?;
+    route
+        .hops
+        .iter()
+        .flat_map(|hop| [hop.from_gate, hop.to_gate])
+        .find(|&gate| contested(state, gate, fleet.owner))
+}
+
+/// Whether `gate` is contested for `owner`'s convoys: an armed ship of another owner, in
+/// space in the gate's system, within the contested radius (D-055). No alliances in the MVP,
+/// so every other owner is hostile (D-040).
+pub(crate) fn contested(state: &UniverseState, gate: GateId, owner: Owner) -> bool {
+    let Some(g) = state.galaxy.gate(gate) else {
+        return false;
+    };
+    let radius = state.rules.gates.contested_radius_m;
+    state.entities.ids_with::<Fleet>().into_iter().any(|fleet| {
+        state
+            .entities
+            .with::<Fleet, _>(fleet, |f| {
+                f.owner != owner
+                    && f.place == Place::InSystem(g.system)
+                    && f.members.keys().any(|ship| {
+                        let armed = state.entities.with::<Ship, _>(ship.sim_id(), |s| {
+                            state.rules.class(s.class).weapon_range_m.is_some()
+                        }) == Some(true);
+                        armed
+                            && state
+                                .entities
+                                .get::<Motion>(ship.sim_id())
+                                .is_some_and(|m| distance_m(m.position, g.position) <= radius)
+                    })
+            })
+            .unwrap_or(false)
+    })
 }
 
 /// Loads `holding`'s buffer into the fleet's MULEs, alloy and crystal in proportion, up to

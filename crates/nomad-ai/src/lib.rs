@@ -25,7 +25,7 @@
 //! integer scores. The same `clippy.toml` rules as `nomad-sim` apply.
 //!
 //! **Layers.** The Deputy ([`deputy`], A1) runs for every commander, online or offline, at
-//! 2 Hz (D-203). The Strategist ([`strategist`], A2) runs only while its commander is online;
+//! 2 Hz (D-203); so far it rebuilds losses within the budget (D-208). The Strategist ([`strategist`], A2) runs only while its commander is online;
 //! until A2 it decides nothing. The raider director arrives with A3.
 
 pub mod deputy;
@@ -34,9 +34,13 @@ mod memory;
 pub mod strategist;
 mod view;
 
+pub use deputy::{DeferReason, DeputyEvent, Rebuild};
 pub use inbox::{CommandOutcome, DropReason, FleetHappening, InboxEntry, InboxEvent};
 pub use memory::{CommanderMemory, Memory};
-pub use view::View;
+pub use view::{
+    BuildCheck, FleetPlace, OwnConvoy, OwnFleet, OwnHolding, RouteHop, RouteQuery, RouteSpeed,
+    RouteSummary, RouteTo, View,
+};
 
 use nomad_types::{Command, Tick};
 use serde::{Deserialize, Serialize};
@@ -69,6 +73,8 @@ pub struct Issue {
 pub struct Output {
     /// Commands for the outbox, in the order issued.
     pub commands: Vec<Issue>,
+    /// What the Deputy reports for the away report (doc 12 §5.3).
+    pub events: Vec<DeputyEvent>,
 }
 
 #[cfg(test)]

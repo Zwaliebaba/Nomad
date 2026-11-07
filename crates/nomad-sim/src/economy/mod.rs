@@ -35,6 +35,7 @@ mod tests;
 
 pub(crate) use command::{end_convoy, execute, validate};
 pub(crate) use power::{ability_power_available, request_ability_power};
+pub(crate) use queue::price as item_price;
 pub(crate) use tick::run;
 
 use std::collections::{BTreeMap, VecDeque};
@@ -199,6 +200,8 @@ pub(crate) struct Convoy {
     pub(crate) route: Vec<HoldingId>,
     /// The stop it is heading for.
     pub(crate) next: usize,
+    /// The contested gate it holds for, if it is holding at its last stop (D-055).
+    pub(crate) held: Option<crate::galaxy::GateId>,
 }
 
 /// What a MULE carries (D-133).
@@ -355,6 +358,14 @@ pub enum EconomyEvent {
         amount: Stock,
         /// What did not fit into the pool and was lost.
         lost: Stock,
+    },
+    /// A convoy holds at its last stop: the next leg's route passes a gate armed hostiles
+    /// contest (D-055; S4 plan §4.4). Sent when the hold starts.
+    ConvoyHeld {
+        /// The fleet.
+        fleet: FleetId,
+        /// The contested gate.
+        gate: crate::galaxy::GateId,
     },
     /// A convoy route ended: replaced by an order, its fleet gone, or a stop lost.
     ConvoyEnded {

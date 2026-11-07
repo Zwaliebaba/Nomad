@@ -16,7 +16,7 @@
 //! | `npc` | Doc 15 §3.1: raider classes, which are not commander warships (D-099 item 5) |
 //! | Ops-area radius | D-103 (Q94) |
 //! | Formation spacing, neighbour cells | S3 plan §4.3 |
-//! | Gates | D-055: 2 km scatter, 5 s spool-up, 10 s shroud; S3 plan §4.4: within 2 km |
+//! | Gates | D-055: 2 km scatter, 5 s spool-up, 10 s shroud, contested for convoys by armed hostiles within 5 km; S3 plan §4.4: within 2 km |
 //! | Docking | D-102 (Q93) |
 //! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE; the station's modules and stock are in the economy section |
 //! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*), the core kit's growth k = 0.25 (D-189), the diminishing yield F = 2 (D-217) |
@@ -184,6 +184,8 @@ pub struct GateRules {
     pub arrival_scatter_m: f64,
     /// Jump shroud after arrival: the ship cannot be targeted and cannot fire.
     pub shroud_s: u64,
+    /// Armed hostile ships within this distance make a gate contested for convoys (D-055).
+    pub contested_radius_m: f64,
 }
 
 /// Docking capacity in ships (D-102).
@@ -346,6 +348,7 @@ impl Rules {
         let g = &self.gates;
         positive("gates.jump_range_m", g.jump_range_m)?;
         positive("gates.arrival_scatter_m", g.arrival_scatter_m)?;
+        positive("gates.contested_radius_m", g.contested_radius_m)?;
 
         let layout = &self.mother_station;
         positive("mother_station.voxel_m", layout.voxel_m)?;

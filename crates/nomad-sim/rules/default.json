@@ -76,6 +76,7 @@
     "jump_range_m": 2000,
     "spool_up_s": 5,
     "arrival_scatter_m": 2000,
+    "contested_radius_m": 5000,
     "shroud_s": 10
   },
   "docking": {

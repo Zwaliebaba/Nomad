@@ -44,6 +44,11 @@ pub struct TickOutputs {
     /// What came into and went out of each observer's view, and observed departures
     /// (S7 plan §4.3, §4.5).
     pub visibility_events: Vec<VisibilityEvent>,
+
+    // A1: the AI.
+    /// What each commander's Deputy reports for the away report: deferred replacements
+    /// (doc 12 §5.3; A1 plan §5.7, §5.8).
+    pub deputy_events: Vec<(CommanderId, nomad_ai::DeputyEvent)>,
 }
 
 /// The outcome of one command input.
@@ -140,7 +145,7 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
 
     // Phases 3–4: the Strategists of online AI commanders, then every Deputy (D-203). What
     // they issue waits in the outbox for a later tick (D-200).
-    crate::ai::run(state, now);
+    crate::ai::run(state, now, &mut out.deputy_events);
 
     // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4). On a sensors tick,
     // where fleets were before it moves them: what observers last saw (S7 plan §4.4).

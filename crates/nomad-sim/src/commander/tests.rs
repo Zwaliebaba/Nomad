@@ -133,7 +133,8 @@ fn daily(script: &mut Script, n: u32, from: QuarterHour, to: QuarterHour, days: 
 }
 
 /// Runs a Universe without ships or holdings until `until`, computing only the ticks on
-/// which something can happen in it: a scripted input, an activity sample or a deadline.
+/// which something can happen in it: a scripted input, an activity sample, a deadline or
+/// the Deputy's hourly ledger sample (A1 plan §5.7).
 /// Every other tick of such a Universe changes nothing but the tick counter, so this equals
 /// stepping every tick (`fast_forward_equals_stepping_every_tick` checks it).
 ///
@@ -161,9 +162,12 @@ fn fast_forward(state: &mut UniverseState, until: Tick, script: &Script) -> Vec<
         })
         .collect();
     let mut outputs = Vec::new();
+    let hour = Ticks::from_hours(1).get();
     loop {
+        let next_hour = Tick::new((state.tick().get() / hour + 1) * hour);
         let next = [
             samples.values().min().copied(),
+            Some(next_hour),
             state.commanders.deadlines.next(),
             state.timers.next_deadline(),
             script.range(state.tick().next()..).next().map(|(&t, _)| t),
@@ -664,6 +668,7 @@ fn lapse_scene() -> (UniverseState, FleetId, FleetId, FleetId) {
         crate::economy::Convoy {
             route: vec![mother],
             next: 0,
+            held: None,
         },
     );
     if let Some(f) = state.entities.get_mut::<Fleet>(three.sim_id()) {

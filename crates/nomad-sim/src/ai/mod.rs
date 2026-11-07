@@ -23,6 +23,8 @@
 //! AI decisions are not journaled: replaying the external inputs reproduces them (doc 13
 //! §2, doc 11 §6).
 
+#[cfg(test)]
+mod deputy_tests;
 pub(crate) mod gate;
 pub(crate) mod inbox;
 #[cfg(test)]
@@ -98,7 +100,11 @@ pub(crate) fn competence(state: &UniverseState, owner: Owner) -> Competence {
 }
 
 /// Phases 3 and 4: the Strategists, then the Deputies (doc 11 §4.1; D-203).
-pub(crate) fn run(state: &mut UniverseState, now: Tick) {
+pub(crate) fn run(
+    state: &mut UniverseState,
+    now: Tick,
+    events: &mut Vec<(CommanderId, nomad_ai::DeputyEvent)>,
+) {
     let mut memory = std::mem::take(&mut state.ai);
     let mut issued: Vec<(Owner, Layer, nomad_ai::Issue)> = Vec::new();
     let commanders = state.commander_ids();
@@ -138,6 +144,7 @@ pub(crate) fn run(state: &mut UniverseState, now: Tick) {
                     .into_iter()
                     .map(|issue| (Owner::Commander(id), Layer::Deputy, issue)),
             );
+            events.extend(out.events.into_iter().map(|event| (id, event)));
         }
     }
     state.ai = memory;

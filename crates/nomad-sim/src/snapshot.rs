@@ -53,7 +53,8 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   section and a sensor kind per ship class, rules format 10.
 /// - 17: the AI (A1a): the `nomad-ai` memory, the AI outboxes, inboxes and per-layer
 ///   counters; commander records keep an AI's difficulty; every commander's doctrine and the
-///   fleets under direct control; the rules gain the AI section, rules format 11.
+///   fleets under direct control; a convoy keeps the contested gate it holds for; the rules
+///   gain the AI section and the gates' contested radius, rules format 11.
 pub const FORMAT: u32 = 17;
 
 /// Why a snapshot could not be written or read.

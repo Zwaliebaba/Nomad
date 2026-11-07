@@ -274,11 +274,24 @@ pub(crate) fn execute(
                     events.push(EconomyEvent::ConvoyEnded { fleet: *fleet });
                 }
             } else {
+                // A fleet docked at one of its stops starts there, so a route given again
+                // after a detour resumes where the fleet is (*Proposed*, A1 plan §5.8).
+                let docked_at = state
+                    .entities
+                    .with::<Fleet, _>(fleet.sim_id(), |f| match f.place {
+                        Place::Docked(holding) => Some(holding),
+                        _ => None,
+                    })
+                    .flatten();
+                let next = docked_at
+                    .and_then(|h| route.iter().position(|&stop| stop == h))
+                    .unwrap_or(0);
                 state.economy.convoys.insert(
                     *fleet,
                     super::Convoy {
                         route: route.clone(),
-                        next: 0,
+                        next,
+                        held: None,
                     },
                 );
             }

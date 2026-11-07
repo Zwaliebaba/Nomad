@@ -11,7 +11,8 @@
 //! fleets fired is not in the simulation's events yet (A1b).
 
 use nomad_types::{
-    Command, FleetId, HoldingId, ModuleKind, Owner, ShipClass, ShipId, SimId, Slot, SystemId, Tick,
+    Command, FleetId, GateId, HoldingId, ModuleKind, Owner, ShipClass, ShipId, SimId, Slot,
+    SystemId, Tick,
 };
 use serde::{Deserialize, Serialize};
 
@@ -92,6 +93,8 @@ pub enum InboxEvent {
         holding: HoldingId,
         /// The ship.
         ship: ShipId,
+        /// Its class.
+        class: ShipClass,
         /// The fleet it joined.
         fleet: FleetId,
     },
@@ -126,6 +129,13 @@ pub enum InboxEvent {
         kind: ModuleKind,
         /// The slot it was in.
         slot: Slot,
+    },
+    /// An own convoy holds at its last stop for a contested gate (D-055).
+    ConvoyHeld {
+        /// The fleet.
+        fleet: FleetId,
+        /// The gate.
+        gate: GateId,
     },
     /// An own fleet's convoy route ended.
     ConvoyEnded {

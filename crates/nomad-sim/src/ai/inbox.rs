@@ -203,14 +203,25 @@ impl Collector<'_> {
                     holding,
                     ship,
                     fleet,
-                } => (
-                    holding,
-                    InboxEvent::ShipBuilt {
+                } => {
+                    let Some(class) = self
+                        .state
+                        .entities
+                        .get::<Ship>(ship.sim_id())
+                        .map(|s| s.class)
+                    else {
+                        continue;
+                    };
+                    (
                         holding,
-                        ship,
-                        fleet,
-                    },
-                ),
+                        InboxEvent::ShipBuilt {
+                            holding,
+                            ship,
+                            class,
+                            fleet,
+                        },
+                    )
+                }
                 EconomyEvent::ItemCompleted { holding, item } => {
                     (holding, InboxEvent::ItemCompleted { holding, item })
                 }
@@ -240,6 +251,13 @@ impl Collector<'_> {
                     if let Some(owner) = self.fleet_owner(fleet) {
                         self.entries
                             .push((owner, InboxEvent::ConvoyEnded { fleet }));
+                    }
+                    continue;
+                }
+                EconomyEvent::ConvoyHeld { fleet, gate } => {
+                    if let Some(owner) = self.fleet_owner(fleet) {
+                        self.entries
+                            .push((owner, InboxEvent::ConvoyHeld { fleet, gate }));
                     }
                     continue;
                 }

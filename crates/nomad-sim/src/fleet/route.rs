@@ -43,6 +43,28 @@ pub(crate) fn plan(
     speed_m_per_s: f64,
     spool_up: Ticks,
 ) -> Option<Route> {
+    plan_avoiding(
+        galaxy,
+        from,
+        start,
+        end,
+        speed_m_per_s,
+        spool_up,
+        &BTreeSet::new(),
+    )
+}
+
+/// Like [`plan`], but the route neither departs from nor arrives at a gate in `avoid`: the
+/// gate-avoiding query the Deputy reroutes convoys with (D-055, D-210; A1 plan §5.8).
+pub(crate) fn plan_avoiding(
+    galaxy: &Galaxy,
+    from: SystemId,
+    start: Vec2,
+    end: RouteEnd,
+    speed_m_per_s: f64,
+    spool_up: Ticks,
+    avoid: &BTreeSet<GateId>,
+) -> Option<Route> {
     if speed_m_per_s <= 0.0 || !speed_m_per_s.is_finite() {
         return None;
     }
@@ -66,6 +88,9 @@ pub(crate) fn plan(
     let mut came_by: BTreeMap<GateId, (GateId, Option<LaneId>)> = BTreeMap::new();
     let mut open: BTreeSet<(u64, GateId)> = BTreeSet::new();
     for &g in &galaxy.system(from)?.gates {
+        if avoid.contains(&g) {
+            continue;
+        }
         let Some(p) = gate_pos(g) else { continue };
         let cost = leg(start, p);
         best.insert(g, cost);
@@ -95,6 +120,9 @@ pub(crate) fn plan(
             }
         }
         let mut relax = |next: GateId, next_cost: f64, via: (GateId, Option<LaneId>)| {
+            if avoid.contains(&next) {
+                return;
+            }
             if best.get(&next).is_none_or(|&b| next_cost < b) {
                 best.insert(next, next_cost);
                 came_by.insert(next, via);
@@ -215,6 +243,44 @@ mod tests {
         assert_eq!(route.hops.len(), 1);
         assert_eq!(route.hops[0].from_gate, ab);
         assert!((route.duration_s - (200.0 + 5.0 + 3_000.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn an_avoided_gate_is_neither_departed_from_nor_arrived_at() {
+        let spool = Ticks::from_secs(5);
+        // The direct lane wins unless its gate is avoided (D-055, A1 plan §5.8).
+        let (g, [a, b, _], [ab, ac, ba, _, _, cb]) = triangle(50);
+        let avoid_ab = BTreeSet::from([ab]);
+        let route = plan_avoiding(
+            &g,
+            a,
+            Vec2::ZERO,
+            RouteEnd::System(b),
+            500.0,
+            spool,
+            &avoid_ab,
+        )
+        .unwrap();
+        let froms: Vec<GateId> = route.hops.iter().map(|h| h.from_gate).collect();
+        assert_eq!(froms, vec![ac, cb]);
+        // Avoiding the arrival gate in B also forces the detour.
+        let avoid_ba = BTreeSet::from([ba]);
+        let route = plan_avoiding(
+            &g,
+            a,
+            Vec2::ZERO,
+            RouteEnd::System(b),
+            500.0,
+            spool,
+            &avoid_ba,
+        )
+        .unwrap();
+        assert_eq!(route.hops.len(), 2);
+        // With both ways blocked there is no route.
+        let both = BTreeSet::from([ab, cb]);
+        assert!(
+            plan_avoiding(&g, a, Vec2::ZERO, RouteEnd::System(b), 500.0, spool, &both).is_none()
+        );
     }
 
     #[test]
