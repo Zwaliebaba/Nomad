@@ -30,6 +30,10 @@ pub struct EconomyRules {
     /// k of D-189, in per mille: each further holding, outpost under construction and core
     /// kit not yet deployed adds this share of the base price to the next core kit.
     pub core_kit_growth_permille: u32,
+    /// F of D-217, in per mille: each producing holding other than the mother station has
+    /// its alloy and crystal output scaled by min(1, F ÷ the commander's producing holdings
+    /// other than the mother station); see [`yield_factor`]. A starting value, tuned at α.
+    pub diminishing_yield_permille: u32,
     /// Every other module kind (doc 14 §9.3).
     pub modules: BTreeMap<ModuleKind, ModuleRules>,
     /// The ships a commander can build (doc 14 §9.4; doc 15 §12 command costs).
@@ -275,6 +279,30 @@ pub fn core_kit_price(base: Cost, growth_permille: u32, n: u64) -> Stock {
     Stock::units(whole_units(base.alloy), whole_units(base.crystal))
 }
 
+/// D-217's diminishing yield as an exact fraction `(numerator, denominator)`: min(1, F ÷
+/// `producing`), with F = `f_permille` / 1000 and `producing` the commander's producing
+/// holdings other than the mother station. A rate scaled by it stays integer (D-049).
+pub fn yield_factor(f_permille: u32, producing: u64) -> (u64, u64) {
+    let f = u64::from(f_permille);
+    let n = producing.saturating_mul(MILLI);
+    if n <= f { (1, 1) } else { (f, n) }
+}
+
+/// [`yield_factor`] in per mille, rounded down, as views show it.
+pub fn yield_permille(f_permille: u32, producing: u64) -> u32 {
+    let (numerator, denominator) = yield_factor(f_permille, producing);
+    u32::try_from(numerator.saturating_mul(MILLI) / denominator).unwrap_or(u32::MAX)
+}
+
+/// `rate` scaled by the fraction `(numerator, denominator)`, rounded down.
+pub(crate) fn scaled(rate: u64, (numerator, denominator): (u64, u64)) -> u64 {
+    if numerator == denominator {
+        return rate;
+    }
+    u64::try_from(u128::from(rate) * u128::from(numerator) / u128::from(denominator.max(1)))
+        .unwrap_or(u64::MAX)
+}
+
 impl EconomyRules {
     /// The rules of a module kind other than the core.
     pub fn module(&self, kind: ModuleKind) -> &ModuleRules {
@@ -360,6 +388,13 @@ impl EconomyRules {
         if self.core_kit_growth_permille == 0 {
             return Err(err(
                 "economy.core_kit_growth_permille".into(),
+                "must be > 0",
+            ));
+        }
+        // D-217: F = 0 would stop every holding but the mother station from producing.
+        if self.diminishing_yield_permille == 0 {
+            return Err(err(
+                "economy.diminishing_yield_permille".into(),
                 "must be > 0",
             ));
         }

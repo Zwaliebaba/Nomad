@@ -3,7 +3,9 @@
 //! Holdings produce, store, spend and build. Every commander has one **pool** of alloy and
 //! crystal (D-064), fed by harvesting, refining and extraction at holdings in a depot's
 //! system, and by convoys from the local buffers of other holdings. Each holding has power
-//! (D-127, D-128), build slots (D-130, D-131) and a build queue (D-068).
+//! (D-127, D-128), build slots (D-130, D-131) and a build queue (D-068). A commander's
+//! producing holdings other than the mother station share a diminishing yield (D-217), which
+//! the views show ([`CommanderEconomy::yield_permille`]).
 //!
 //! **Modules are entities** ([`crate::entities`]) with these components:
 //!
@@ -503,6 +505,10 @@ pub struct QueueItemView {
 
 /// One holding's economy as seen from outside (S4 plan §4.8).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a read-only view of independent facts, not a state machine"
+)]
 pub struct HoldingEconomyView {
     /// The holding.
     pub holding: HoldingId,
@@ -528,6 +534,12 @@ pub struct HoldingEconomyView {
     pub kits: u32,
     /// Whether REPAIR is on.
     pub repairing: bool,
+    /// Whether it counts as producing for D-217: its completed producers give it a nominal
+    /// alloy or crystal output.
+    pub producing: bool,
+    /// D-217's factor on its alloy and crystal output, per mille: 1,000 at the mother
+    /// station, otherwise its owner's [`CommanderEconomy::yield_permille`].
+    pub yield_permille: u32,
 }
 
 /// A commander's economy as seen from outside (S4 plan §4.8). S7 wraps it into the
@@ -550,6 +562,11 @@ pub struct CommanderEconomy {
     pub command_cap: u32,
     /// What a core kit queued now would cost (D-189).
     pub core_kit_price: Stock,
+    /// Producing holdings other than the mother station: D-217's n.
+    pub producing_holdings: u32,
+    /// D-217's diminishing yield on those holdings' alloy and crystal output, per mille,
+    /// rounded down: min(1, F ÷ n). The simulation applies the exact fraction.
+    pub yield_permille: u32,
     /// Every holding and outpost, in identity order.
     pub holdings: Vec<HoldingEconomyView>,
 }
@@ -582,8 +599,30 @@ impl UniverseState {
             command_used: self.command_used(commander),
             command_cap: self.command_cap(commander),
             core_kit_price: self.core_kit_price(commander),
+            producing_holdings: self.producing_holdings(commander),
+            yield_permille: self.yield_permille(commander),
             holdings,
         }
+    }
+
+    /// A commander's producing holdings other than the mother station: D-217's n.
+    pub fn producing_holdings(&self, commander: CommanderId) -> u32 {
+        let count = self
+            .holdings
+            .iter()
+            .filter(|(_, h)| h.owner == commander && !h.mother_station)
+            .filter(|&(&id, _)| tick::is_producing(self, id))
+            .count();
+        u32::try_from(count).unwrap_or(u32::MAX)
+    }
+
+    /// D-217's factor on the alloy and crystal output of a commander's producing holdings
+    /// other than the mother station, per mille, rounded down: min(1, F ÷ n).
+    pub fn yield_permille(&self, commander: CommanderId) -> u32 {
+        rules::yield_permille(
+            self.rules.economy.diminishing_yield_permille,
+            u64::from(self.producing_holdings(commander)),
+        )
     }
 
     /// One holding's economy, or `None` if it does not exist.
@@ -630,6 +669,12 @@ impl UniverseState {
             delivers_to_pool: self.delivers_to_pool(holding),
             kits: economy.map_or(0, |e| e.kits),
             repairing: economy.is_some_and(|e| e.repairing) && h.core_complete,
+            producing: tick::is_producing(self, holding),
+            yield_permille: if h.mother_station {
+                u32::try_from(MILLI).unwrap_or(u32::MAX)
+            } else {
+                self.yield_permille(h.owner)
+            },
         })
     }
 
@@ -884,13 +929,31 @@ impl UniverseState {
         })
     }
 
-    /// The local buffer's capacity: 2 h of the holding's nominal production (D-064).
+    /// The local buffer's capacity: 2 h of the holding's nominal production (D-064), after
+    /// D-217's diminishing yield (*Derived:* the buffer holds 2 h of that holding's
+    /// production, doc 14 §4, and D-217 scales the production).
     pub fn buffer_cap(&self, holding: HoldingId) -> Stock {
+        self.buffer_cap_at(holding, self.holding_yield_factor(holding))
+    }
+
+    /// [`UniverseState::buffer_cap`] with D-217's factor already known.
+    pub(crate) fn buffer_cap_at(&self, holding: HoldingId, factor: (u64, u64)) -> Stock {
         let hours = self.rules.economy.storage.buffer_h;
         let (alloy, crystal) = tick::nominal_output_per_h(self, holding);
         Stock {
-            alloy: alloy.saturating_mul(hours),
-            crystal: crystal.saturating_mul(hours),
+            alloy: rules::scaled(alloy, factor).saturating_mul(hours),
+            crystal: rules::scaled(crystal, factor).saturating_mul(hours),
+        }
+    }
+
+    /// D-217's factor on `holding`'s output: 1 at the mother station.
+    fn holding_yield_factor(&self, holding: HoldingId) -> (u64, u64) {
+        match self.holdings.get(&holding) {
+            Some(h) if !h.mother_station => rules::yield_factor(
+                self.rules.economy.diminishing_yield_permille,
+                u64::from(self.producing_holdings(h.owner)),
+            ),
+            _ => (1, 1),
         }
     }
 

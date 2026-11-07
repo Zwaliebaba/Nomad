@@ -1437,3 +1437,134 @@ fn destroyed_carriers_lose_their_cargo_and_end_their_routes() {
         state.economy_problems()
     );
 }
+
+// ------------------------------------------------------------ D-217: diminishing yield
+
+/// Places a completed holding of commander 1 with only its core on a free claimable site
+/// outside its home system: a holding that is not producing.
+fn bare_remote_holding(state: &mut UniverseState) -> HoldingId {
+    let (_, home_system) = home(state, 1);
+    let site = state
+        .galaxy()
+        .sites()
+        .find(|(id, s)| {
+            s.system != home_system
+                && state.holding_at(*id).is_none()
+                && state
+                    .galaxy()
+                    .system(s.system)
+                    .is_some_and(|sys| crate::galaxy::is_claimable(sys.kind))
+        })
+        .map(|(id, _)| id)
+        .expect("a free site elsewhere");
+    let holding = state.insert_holding(site, CommanderId(1), true).unwrap();
+    spawn_module(state, holding, Slot::Core, ModuleKind::Core, None);
+    holding
+}
+
+/// A remote ore holding's nominal alloy per hour, milli-units.
+fn nominal_alloy_per_h(state: &UniverseState, holding: HoldingId) -> u64 {
+    let site = state.holding(holding).unwrap().site;
+    let richness = state.galaxy().site(site).unwrap().deposits[0].richness;
+    600 * richness_permille(richness)
+}
+
+#[test]
+fn yield_factor_is_min_of_one_and_f_over_n() {
+    use super::rules::{scaled, yield_factor, yield_permille};
+    // F = 2 (D-217): up to two producing holdings yield in full.
+    for n in 0..=2 {
+        assert_eq!(yield_factor(2_000, n), (1, 1), "n {n}");
+        assert_eq!(yield_permille(2_000, n), 1_000);
+    }
+    assert_eq!(yield_factor(2_000, 3), (2_000, 3_000));
+    assert_eq!(yield_permille(2_000, 3), 666);
+    assert_eq!(yield_permille(2_000, 4), 500);
+    assert_eq!(yield_permille(2_000, 15), 133);
+    // F need not be whole.
+    assert_eq!(yield_factor(2_500, 2), (1, 1));
+    assert_eq!(yield_permille(2_500, 3), 833);
+    // Exact integer scaling, rounded down.
+    assert_eq!(scaled(600_000, (2_000, 3_000)), 400_000);
+    assert_eq!(scaled(1, (2_000, 3_000)), 0);
+    assert_eq!(scaled(u64::MAX, (1, 1)), u64::MAX);
+    assert_eq!(scaled(u64::MAX, (2_000, 4_000)), u64::MAX / 2);
+}
+
+#[test]
+fn diminishing_yield_scales_remote_producers_but_never_the_mother_station() {
+    let mut state = stage1(7);
+    let you = CommanderId(1);
+    let (mother, _) = home(&state, 1);
+    let mut remotes: Vec<HoldingId> = (0..2).map(|_| remote_ore_holding(&mut state)).collect();
+    // A holding without producers is not counted (D-217's n).
+    let bare = bare_remote_holding(&mut state);
+    let economy = state.economy_of(you);
+    assert_eq!(
+        (economy.producing_holdings, economy.yield_permille),
+        (2, 1_000)
+    );
+    idle(&mut state, ONE_HOUR);
+    for &remote in &remotes {
+        let view = state.holding_economy(remote).unwrap();
+        assert!(view.producing);
+        assert_eq!(view.yield_permille, 1_000);
+        assert_eq!(
+            view.buffer.alloy,
+            nominal_alloy_per_h(&state, remote),
+            "two producing holdings are within F = 2: full yield"
+        );
+    }
+
+    // A third producer: n = 3, and every remote producer yields exactly 2/3.
+    remotes.push(remote_ore_holding(&mut state));
+    for &remote in &remotes {
+        state.economy.holdings.get_mut(&remote).unwrap().buffer = Stock::ZERO;
+    }
+    let pool = state.pool(you);
+    idle(&mut state, ONE_HOUR);
+    for &remote in &remotes {
+        let view = state.holding_economy(remote).unwrap();
+        let nominal = nominal_alloy_per_h(&state, remote);
+        assert_eq!(view.buffer.alloy, nominal * 2 / 3, "{remote:?}");
+        assert_eq!(view.yield_permille, 666);
+        // The buffer holds 2 h of the scaled production (D-064).
+        assert_eq!(view.buffer_cap.alloy, nominal * 2 / 3 * 2);
+    }
+    // The mother station is never scaled: 600 A an hour into the pool.
+    assert_eq!(state.pool(you).alloy - pool.alloy, 600_000);
+    let mother_view = state.holding_economy(mother).unwrap();
+    assert_eq!(mother_view.yield_permille, 1_000);
+    assert!(mother_view.producing);
+    let bare_view = state.holding_economy(bare).unwrap();
+    assert!(!bare_view.producing);
+    assert_eq!(bare_view.buffer, Stock::ZERO);
+    let economy = state.economy_of(you);
+    assert_eq!(
+        (economy.producing_holdings, economy.yield_permille),
+        (3, 666)
+    );
+    // Other commanders are not affected.
+    assert_eq!(state.economy_of(CommanderId(2)).yield_permille, 1_000);
+}
+
+#[test]
+fn diminishing_yield_follows_the_rules_value() {
+    let mut rules = Rules::embedded();
+    rules.economy.diminishing_yield_permille = 1_000;
+    let mut state = crate::galaxy::generate_stage1_with_rules(
+        stage1(7).season(),
+        crate::testkit::COMMANDERS,
+        rules,
+    )
+    .unwrap();
+    let remotes: Vec<HoldingId> = (0..2).map(|_| remote_ore_holding(&mut state)).collect();
+    assert_eq!(state.economy_of(CommanderId(1)).yield_permille, 500);
+    idle(&mut state, ONE_HOUR);
+    for &remote in &remotes {
+        assert_eq!(
+            state.holding_economy(remote).unwrap().buffer.alloy,
+            nominal_alloy_per_h(&state, remote) / 2
+        );
+    }
+}

@@ -19,7 +19,7 @@
 //! | Gates | D-055: 2 km scatter, 5 s spool-up, 10 s shroud; S3 plan §4.4: within 2 km |
 //! | Docking | D-102 (Q93) |
 //! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE; the station's modules and stock are in the economy section |
-//! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*), the core kit's growth k = 0.25 (D-189) |
+//! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*), the core kit's growth k = 0.25 (D-189), the diminishing yield F = 2 (D-217) |
 //! | Cruise drop range | Doc 15 §3.3: a hostile within 20 km (a hook until S7) |
 //! | Combat: hull, weapons, multipliers, hit radii | [`combat`] (doc 15 §3–§4, §12; D-052, D-143) |
 //! | Defence: dome sectors, regeneration, turrets, abilities, recovery | [`defence`] (doc 15 §5, §12; D-140 to D-142, D-147 to D-149) |
@@ -42,7 +42,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@6";
+pub const RULES_FORMAT: &str = "nomad-rules@7";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -458,6 +458,8 @@ mod tests {
             (6_000, 500)
         );
         assert_eq!(economy.core_kit_growth_permille, 250);
+        // D-217: the diminishing yield starts at F = 2.
+        assert_eq!(economy.diminishing_yield_permille, 2_000);
         // Doc 12 §8, D-015, D-032, D-155, D-157: the S6a values.
         let sieges = &rules.sieges;
         assert_eq!(sieges.disconnect_grace_s, 120);
@@ -482,8 +484,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@6", "nomad-rules@5"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@5"
+            swap("nomad-rules@7", "nomad-rules@6"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@6"
         ));
         // The sieges section (S6a): whole quarter hours, a window shorter than a day.
         for (from, to) in [
@@ -571,5 +573,32 @@ mod tests {
             class.weapon_range_m = None;
         }
         assert!(matches!(rules.check(), Err(RulesError::Invalid { .. })));
+    }
+
+    #[test]
+    fn the_diminishing_yield_is_required_and_positive() {
+        let swap = |from: &str, to: &str| {
+            assert!(DEFAULT_RULES_JSON.contains(from), "{from}");
+            Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
+        };
+        // D-217's F: required, and never zero, which would stop all remote production.
+        assert!(matches!(
+            swap("\"diminishing_yield_permille\": 2000,", ""),
+            Err(RulesError::Parse(_))
+        ));
+        assert!(matches!(
+            swap(
+                "\"diminishing_yield_permille\": 2000",
+                "\"diminishing_yield_permille\": 0"
+            ),
+            Err(RulesError::Invalid { field, .. }) if field == "economy.diminishing_yield_permille"
+        ));
+        assert!(matches!(
+            swap(
+                "\"diminishing_yield_permille\": 2000",
+                "\"diminishing_yield_permille\": -2000"
+            ),
+            Err(RulesError::Parse(_))
+        ));
     }
 }

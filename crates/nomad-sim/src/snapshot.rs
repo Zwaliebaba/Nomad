@@ -39,7 +39,8 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// - 12: commander records with presence, the disconnect grace, the activity history and
 ///   the exposure window, and their deadlines (S6a); the rules gain the sieges section,
 ///   rules format 6.
-pub const FORMAT: u32 = 12;
+/// - 13: the economy rules gain D-217's diminishing yield F; rules format 7.
+pub const FORMAT: u32 = 13;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

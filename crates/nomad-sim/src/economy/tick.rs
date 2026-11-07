@@ -4,11 +4,23 @@
 //! ([`super::economy_slot`]): construction progress, power allocation, production and
 //! delivery, starting queued items, and repair. Convoys run once a second in their fleet's
 //! slot.
+//!
+//! **Diminishing yield (D-217):** a producing holding other than the mother station has its
+//! alloy and crystal output scaled by min(1, F ÷ n), n being its owner's producing holdings
+//! other than the mother station. *Derived:* a holding is producing when its completed
+//! producers give it a nominal alloy or crystal output (doc 14 §6: an extractor on a crystal
+//! vein, or a harvester on an ore field with a refinery), whatever its power or damage, so a
+//! raid on one holding does not raise the others' yield. n is counted once per tick, before
+//! any holding's second, so the order in which holdings run does not matter. The factor
+//! scales the harvesting, refining and extraction rates, so refined alloy, limited by both,
+//! scales by it too, and every flow stays exact in milli-units ([`super::Flow`]).
+
+use std::collections::BTreeMap;
 
 use nomad_types::{DepositKind, ModuleKind, Slot};
 
 use super::power::{self, Consumer};
-use super::rules::MILLI;
+use super::rules::{MILLI, scaled, yield_factor};
 use super::{
     Construction, EconomyEvent, Hull, Stock, economy_slot, logistics, queue, richness_permille,
 };
@@ -33,10 +45,43 @@ pub(crate) fn run(
         .copied()
         .filter(|&h| economy_slot(h) == slot)
         .collect();
+    // D-217's n, counted only on ticks where a holding it applies to produces.
+    let scaled_due = due.iter().any(|h| {
+        state
+            .holdings
+            .get(h)
+            .is_some_and(|h| h.core_complete && !h.mother_station)
+    });
+    let producing = if scaled_due {
+        producing_counts(state)
+    } else {
+        BTreeMap::new()
+    };
     for holding in due {
-        holding_second(state, holding, now, events, fleet_events);
+        holding_second(state, holding, now, &producing, events, fleet_events);
     }
     logistics::run(state, now, slot, events, fleet_events);
+}
+
+/// Whether `holding` is producing for D-217: its completed producers give it a nominal
+/// alloy or crystal output.
+pub(crate) fn is_producing(state: &UniverseState, holding: HoldingId) -> bool {
+    state
+        .holdings
+        .get(&holding)
+        .is_some_and(|h| h.core_complete)
+        && nominal_output_per_h(state, holding) != (0, 0)
+}
+
+/// Each commander's producing holdings other than the mother station (D-217).
+pub(crate) fn producing_counts(state: &UniverseState) -> BTreeMap<CommanderId, u64> {
+    let mut counts: BTreeMap<CommanderId, u64> = BTreeMap::new();
+    for (&id, holding) in &state.holdings {
+        if !holding.mother_station && is_producing(state, id) {
+            *counts.entry(holding.owner).or_default() += 1;
+        }
+    }
+    counts
 }
 
 /// Drops what refers to ships and fleets that are gone, most often destroyed in combat
@@ -84,16 +129,30 @@ fn holding_second(
     state: &mut UniverseState,
     holding: HoldingId,
     now: Tick,
+    producing: &BTreeMap<CommanderId, u64>,
     events: &mut Vec<EconomyEvent>,
     fleet_events: &mut Vec<FleetEvent>,
 ) {
-    let Some(owner) = state.holdings.get(&holding).map(|h| h.owner) else {
+    let Some((owner, mother)) = state
+        .holdings
+        .get(&holding)
+        .map(|h| (h.owner, h.mother_station))
+    else {
         return;
+    };
+    // D-217: the mother station is never scaled.
+    let factor = if mother {
+        (1, 1)
+    } else {
+        yield_factor(
+            state.rules.economy.diminishing_yield_permille,
+            producing.get(&owner).copied().unwrap_or(0),
+        )
     };
     state.economy.holdings.entry(holding).or_default();
     queue::progress(state, holding, now, events, fleet_events);
     power::allocate(state, holding, now);
-    produce(state, holding, owner, now, events);
+    produce(state, holding, owner, factor, now, events);
     queue::start_items(state, holding, events);
     repair(state, holding, owner, now, events);
 }
@@ -159,11 +218,12 @@ pub(crate) fn nominal_output_per_h(state: &UniverseState, holding: HoldingId) ->
 }
 
 /// One second of harvesting, refining and extraction at `holding`, delivered to the pool or
-/// the local buffer (doc 14 §4, §6; D-126).
+/// the local buffer (doc 14 §4, §6; D-126), with the rates scaled by D-217's `factor`.
 fn produce(
     state: &mut UniverseState,
     holding: HoldingId,
     owner: CommanderId,
+    factor: (u64, u64),
     now: Tick,
     events: &mut Vec<EconomyEvent>,
 ) {
@@ -204,6 +264,13 @@ fn produce(
         }
     }
     let ore_cap = ore_cap.saturating_mul(state.rules.economy.production.ore_buffer_h);
+    // D-217: scaling harvesting and refining alike scales the refined alloy, which is
+    // limited by both; the ore buffer keeps its nominal size.
+    let (harvest, refine, extract) = (
+        scaled(harvest, factor),
+        scaled(refine, factor),
+        scaled(extract, factor),
+    );
     let Some(e) = state.economy.holdings.get_mut(&holding) else {
         return;
     };
@@ -234,23 +301,25 @@ fn produce(
     {
         stats.minutes.pop_front();
     }
-    deliver(state, holding, owner, output, events);
+    deliver(state, holding, owner, output, factor, events);
 }
 
 /// Puts production into the pool if `holding` is in a depot's system, otherwise into its
-/// buffer; what does not fit is lost and counted (D-025, D-064).
+/// buffer, which holds 2 h of its production after D-217's `factor`; what does not fit is
+/// lost and counted (D-025, D-064).
 fn deliver(
     state: &mut UniverseState,
     holding: HoldingId,
     owner: CommanderId,
     output: Stock,
+    factor: (u64, u64),
     events: &mut Vec<EconomyEvent>,
 ) {
     if state.delivers_to_pool(holding) {
         queue::credit_pool(state, owner, output, events);
         return;
     }
-    let cap = state.buffer_cap(holding);
+    let cap = state.buffer_cap_at(holding, factor);
     let Some(e) = state.economy.holdings.get_mut(&holding) else {
         return;
     };

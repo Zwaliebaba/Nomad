@@ -14,6 +14,9 @@
 //! price. It flags a kit priced above the commander's pool cap when it was queued: until
 //! storage raises the cap, the pool cannot hold its price, so it cannot be bought (doc 14
 //! §13).
+//!
+//! Remote producers share D-217's diminishing yield, min(1, F ÷ producing holdings other
+//! than the mother station); each commander's line gives the factor and that count.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
@@ -690,11 +693,13 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
         }
         writeln!(
             out,
-            "  C{}: {holdings} holdings (completions at {} h) | income {:.0} A/h {:.0} C/h | pool {:.0} A {:.0} C of {:.0}/{:.0} | lost {:.0} A {:.0} C | command {}/{} | first kit {} | first remote build-out {}",
+            "  C{}: {holdings} holdings (completions at {} h) | income {:.0} A/h {:.0} C/h | D-217 yield {}‰ over {} producing | pool {:.0} A {:.0} C of {:.0}/{:.0} | lost {:.0} A {:.0} C | command {}/{} | first kit {} | first remote build-out {}",
             c.0,
             b.completions.iter().map(|&t| format!("{:.1}", hours(t))).collect::<Vec<_>>().join(", "),
             units(income.alloy),
             units(income.crystal),
+            e.yield_permille,
+            e.producing_holdings,
             units(e.pool.alloy),
             units(e.pool.crystal),
             units(e.cap.alloy),
