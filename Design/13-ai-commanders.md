@@ -51,7 +51,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 4. The Deputy
 
-*Proposed. These are the concrete rules behind doc 12 §5 (D-016).*
+*Agreed (D-206), with the details of `plans/A1-deputy.md` (D-199 to D-211). These are the concrete rules behind doc 12 §5 (D-016).*
 
 1. **Threat assessment** for each holding, every 0.5 s:
    - A holding is on *alert* when a hostile is detected inside the defended zone, or anything fires on the commander's assets.
@@ -74,6 +74,8 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 5. The Strategist
 
+> **Settled with the A2 plan (D-212 to D-218):** goals Expand, Build out, Logistics and a Garrison stand-in until A4 (D-212); Expand weighs payback within the season's time left, control and risk, crystal first (D-213); plans fit the online session (D-214); built-in blueprints per site kind (D-215); a depot in every system (D-216). D-078's "every 10 s" is Hard's interval (D-229).
+
 *Agreed (D-078).*
 
 **Utility-scored goals.** Every 10 s, the Strategist scores a fixed set of goals from features of its `CommanderView`. It keeps a plan for each of the best few, as long as resources and fleets allow.
@@ -95,6 +97,8 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 - **No identity bias:** target scoring never looks at whether a commander is human or AI. The human is neither focused nor spared.
 
 ## 6. AI online and offline schedules
+
+> **Settled with the A1 plan (D-204):** D-080's seeded schedules run in the simulation from A2 on, with the harness `SetPresence` kept as an override.
 
 *Agreed (D-080), detailing D-027.*
 
@@ -120,6 +124,8 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 The difficulty is set per AI commander when the Universe is created. The MVP default is Normal.
 
 ## 8. NPC raider director
+
+> **Settled with the A3 plan (D-219 to D-225):** a raid's launch, target and strength are a simulation rule; the director AI only steers spawned raid groups through the NPC view (D-219, reconciling D-081 with D-077). Fleet value is alloy + 3 × crystal cost, with at least 2 strike craft (D-220). Groups are spawned per raid and removed on return (D-221); the 10 minutes start on arrival (D-222). Raiders only ever disable structures (D-223). An outpost's hull grows from 10% to 100% while it is built (D-224). D-225 defines "raids happen" for α.
 
 *Agreed (D-081); this is the behaviour behind doc 15 §10.*
 

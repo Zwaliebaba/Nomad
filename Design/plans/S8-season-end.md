@@ -1,6 +1,6 @@
 # Work package S8 — Season standings and the season end
 
-Status: **Planned; questions Q190–Q197 open.** Builds on S2 (galaxy, holdings and the D-041 control rule, built), S4 (claiming and holding completion, built), N2 (the season-end freeze of D-116, built) and S6b (capture and emergency jumps change ownership). It feeds S6b's comeback grant (D-167), S7's `CommanderView` (standings are public), N4's `standings` collection, the AI (A2–A4), and the away report (U5) and season panel (U6). This plan is also the brief for whoever builds S8. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q190–Q197 → D-191 to D-198). Builds on S2 (galaxy, holdings and the D-041 control rule, built), S4 (claiming and holding completion, built), N2 (the season-end freeze of D-116, built) and S6b (capture and emergency jumps change ownership). It feeds S6b's comeback grant (D-167), S7's `CommanderView` (standings are public), N4's `standings` collection, the AI (A2–A4), and the away report (U5) and season panel (U6). This plan is also the brief for whoever builds S8. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -180,21 +180,21 @@ C1 and C3 tie on systems and holdings; deposit value decides. The *since* tie-br
 
 Numbered Q190–Q197 (Q198–Q199 unused). Each has a recommendation and alternatives.
 
-- **Q190 — Where standings are computed, and when.**
+- **✅ Q190 (D-191) — Where standings are computed, and when.**
   *Recommendation:* in the simulation state, recomputed in phase 9 on any tick where completed holdings or their owners changed, with the control map cached there. The *since* tie-break needs this tick precision, and S6b and the AI need the standings inside the step. *Alternatives:* recompute every second (the same results, with *since* rounded to a second); compute only at the season end (no live standings, and the third tie-break needs a separate change log); a server read model only (outside the deterministic state, so neither the AI nor S6b's comeback grant can read it).
-- **Q191 — When the early win triggers.** D-020 says "reaching" the threshold wins early.
+- **✅ Q191 (D-192) — When the early win triggers.** D-020 says "reaching" the threshold wins early.
   *Recommendation:* the season ends on the first tick on which a commander controls at least ⌈60% × claimable systems⌉ (6 of 9), and that tick is the final tick (D-116). Control only changes through visible, slow events (2 h outposts, scheduled sieges), so there is time to react before the decisive tick. *Alternatives:* the threshold must be held for 24 h; for 48 h, about one counter-siege cycle; no early win before week 4.
-- **Q192 — "Whoever reached the final count first" (D-041's third tie-break).**
+- **✅ Q192 (D-193) — "Whoever reached the final count first" (D-041's third tie-break).**
   *Recommendation:* among commanders tied on systems, holdings and deposit value, the one whose triple has been unchanged since the earliest tick wins: they reached the tied position first. *Alternatives:* the first tick the commander ever reached its final system count, even if it later fell and recovered; the tick its system count last changed, ignoring holdings and value.
-- **Q193 — A tie after every tie-break** (same triple since the same tick).
+- **✅ Q193 (D-194) — A tie after every tie-break** (same triple since the same tick).
   *Recommendation:* joint winners. *Alternatives:* the lower `CommanderId`, as in D-057's capture tie-break (the human is `CommanderId(1)`, so this would systematically favour the human, against D-078); a seeded draw from the season stream.
-- **Q194 — The final tick in the simulation.** Today only the server knows when the season ends.
+- **✅ Q194 (D-195) — The final tick in the simulation.** Today only the server knows when the season ends.
   *Recommendation:* `SeasonConfig` carries the final tick, set at creation from the season length (D-106). The step that computes it fixes the result, views show the season clock, and the server stops when the simulation reports a result, at the full length or at an early win. *Alternatives:* the server keeps the end tick and calls a pure `final_standings(state)` after the last tick (the simulation still detects early wins, but the AI cannot see the end); a journaled operator input `EndSeason` at the final tick.
-- **Q195 — The read model** (doc 20 §6).
+- **✅ Q195 (D-196) — The read model** (doc 20 §6).
   *Recommendation:* an append-only `standings_history` (a row per commander per change) and a `season_result` written once, both projections that are re-synced after recovery; `status` prints them. Changes are rare, so the history is tiny, and it serves the season panel and the away report's rank changes. *Alternatives:* only `season_result`; a `standings` table of current values, overwritten on each change.
-- **Q196 — A warning one system before the early win.**
+- **✅ Q196 (D-197) — A warning one system before the early win.**
   *Recommendation:* a public announcement when a commander reaches threshold − 1, and another when they drop back. It reveals nothing new (control is public, D-075), but it makes the threat visible. An offline player then learns of it from the away report and notifications instead of finding the season over. *Alternatives:* no announcement, with the season panel showing progress only; announce at threshold − 2 as well.
-- **Q197 — When S8 is built.** Doc 30 lists S8 in α's contents, but D-095's critical path does not place it.
+- **✅ Q197 (D-198) — When S8 is built.** Doc 30 lists S8 in α's contents, but D-095's critical path does not place it.
   *Recommendation:* now, in parallel with S5b and S6a. It needs only built code (holdings, control, the server's season end), and S6b's comeback grant (D-167) needs its standings leader. *Alternatives:* after S6b and S7, with S6b computing the leader itself in the meantime; last in α, with the harness season runs.
 
 ## 7. Tasks, in order

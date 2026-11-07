@@ -79,7 +79,7 @@ Combat mechanics stay in doc 15; AI economic behaviour belongs to doc 13.
 
 ## 6. Harvesting and refining
 
-*Agreed (D-126).* Harvester and extractor modules follow the peripheral rule of doc 12 §3 (D-138).
+*Agreed (D-126).* Harvester and extractor modules follow the peripheral rule of doc 12 §3 (D-138). **Diminishing yield (D-217):** each producing holding other than the mother station has its alloy and crystal output scaled by min(1, F ÷ the commander's producing holdings other than the mother station), with F a rules value starting at 2 and tuned at α, so late income stays near D-070's 3–4× start.
 
 - A **harvester module** on a site with an ore field extracts ore at 600 ore/h × richness. There is one harvester per ore field.
 - A **refinery module** converts ore into alloy 1:1, up to 900 per hour. Ore that is not refined collects in a small ore buffer (1 h), then stops.
@@ -121,6 +121,7 @@ The fleet grows with expansion, but only sublinearly: holdings beyond the 18th a
 
 - Modules go into **build slots**, which are fixed positions on each site's ops grid at the phase-1 elevation tiers (0 / 4 / 8 / 12). The number of slots depends on the site (doc 10 §5, "build area").
 - **Slot types:** 4 pylon slots around the dome edge; 1–2 peripheral slots outside the dome, for solar arrays and harvesters; inner slots for everything else.
+  > **D-228:** peripheral slots lie wholly outside the dome, so their hit circles never overlap it.
   > **Superseded in part by D-130 and D-131:** every core has the same dome and template: 4 pylon slots; inner slots 6 standard + 1 dock at the mother station, 4 + 1 elsewhere; one solar slot plus one deposit slot per deposit. Details in `plans/S4-economy.md` §4.2.
 - Trusses are generated automatically between modules and are cosmetic.
 - A **blueprint** (D-035) is a saved assignment of modules to slots plus a build order.

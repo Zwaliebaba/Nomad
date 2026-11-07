@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** the MVP design is complete. All questions Q1–Q180 are answered (D-001 to D-189), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
+**Status:** the MVP design is complete. All questions Q1–Q226 are answered (D-001 to D-229), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097).
 
 ## Documents
 
@@ -41,10 +41,10 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 | S7 | [`plans/S7-sensors.md`](plans/S7-sensors.md) | Planned and decided (D-173 to D-181) |
 | N4 | [`plans/N4-replication.md`](plans/N4-replication.md) | Planned and decided (D-182 to D-187) |
 | S6 | [`plans/S6-offline-and-sieges.md`](plans/S6-offline-and-sieges.md) | Planned and decided (D-154 to D-172); S6a built, S6b next |
-| S8 | [`plans/S8-season-end.md`](plans/S8-season-end.md) | Planned; questions Q190–Q197 open |
-| A1 | [`plans/A1-deputy.md`](plans/A1-deputy.md) | Planned; questions Q200–Q212 open (also the shared AI architecture for A1–A3) |
-| A2 | [`plans/A2-strategist-economy.md`](plans/A2-strategist-economy.md) | Planned; questions Q213–Q219 open |
-| A3 | [`plans/A3-raider-director.md`](plans/A3-raider-director.md) | Planned; questions Q220–Q226 open (also the α acceptance runs) |
+| S8 | [`plans/S8-season-end.md`](plans/S8-season-end.md) | Planned and decided (D-191 to D-198); next to build |
+| A1 | [`plans/A1-deputy.md`](plans/A1-deputy.md) | Planned and decided (D-199 to D-211) (also the shared AI architecture for A1–A3) |
+| A2 | [`plans/A2-strategist-economy.md`](plans/A2-strategist-economy.md) | Planned and decided (D-212 to D-218) |
+| A3 | [`plans/A3-raider-director.md`](plans/A3-raider-director.md) | Planned and decided (D-219 to D-225) (also the α acceptance runs) |
 
 ## Conventions
 

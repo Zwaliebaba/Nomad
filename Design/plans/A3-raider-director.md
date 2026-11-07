@@ -1,6 +1,6 @@
 # Work package A3 — The raider director
 
-Status: **Planned; questions Q220–Q226 open.** Written together with `A1-deputy.md`, whose §4 holds the shared architecture, and `A2-strategist-economy.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate), S5a (built), S5b (module damage), S6b (the outpost exception, peripheral outcomes by window) and S7 (NPC observers). A3 completes MVP-α, so §5 also defines the α acceptance runs shared by S8, A1, A2 and A3. This plan is also the brief for whoever builds A3. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q220–Q226 → D-219 to D-225). Written together with `A1-deputy.md`, whose §4 holds the shared architecture, and `A2-strategist-economy.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate), S5a (built), S5b (module damage), S6b (the outpost exception, peripheral outcomes by window) and S7 (NPC observers). A3 completes MVP-α, so §5 also defines the α acceptance runs shared by S8, A1, A2 and A3. This plan is also the brief for whoever builds A3. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -212,19 +212,19 @@ The escort decided it. Without one, the raiders would have had nothing to kill i
 
 Numbered Q220–Q226; A1 has Q200–Q212 and A2 Q213–Q219 (Q227–Q229 unused). Each has a recommendation and alternatives.
 
-- **Q220 — Which parts of the raider director are rules and which are AI.** D-081 sizes a raid by the target's fleet value in that system, which the faction cannot see (D-077, D-181).
+- **✅ Q220 (D-219) — Which parts of the raider director are rules and which are AI.** D-081 sizes a raid by the target's fleet value in that system, which the faction cannot see (D-077, D-181).
   *Recommendation:* the launch is a simulation rule: a timer, eligibility, a target drawn by weights from public data, strength and composition from the target's real fleet value, and the spawn. The director AI only controls raid groups, through the NPC view and ordinary commands. *Alternatives:* everything is AI through the view, with strength from public data only (for example the target's holdings in that system), which drops D-081's fleet-value scaling; strength from the fleet value the faction sensed at its previous raid on that commander, with the floor for a first raid; a declared exception to D-077 letting the director read fleet values.
-- **Q221 — Fleet value, and a floor.** D-081 does not define "fleet value", NPC classes have no cost (doc 14 §9.4), and 30–50% of nothing is no raid.
+- **✅ Q221 (D-220) — Fleet value, and a floor.** D-081 does not define "fleet value", NPC classes have no cost (doc 14 §9.4), and 30–50% of nothing is no raid.
   *Recommendation:* build cost as alloy + 3 × crystal (D-066's ratio), docked ships included; NPC classes valued as rules values (raider strike craft 1,600, HSTL 17,000 to start); a floor of 2 strike craft, so undefended convoys and outposts are raided too. *Alternatives:* command points, with command values for the NPC classes; alloy cost only; no floor, so a target with no ships in the system is never raided.
-- **Q222 — Where raid groups come from, and where they go.**
+- **✅ Q222 (D-221) — Where raid groups come from, and where they go.**
   *Recommendation:* each launch spawns a fresh group at the haven's gate, and the group is removed when it returns. There is no raider economy, and survivors do not accumulate. *Alternatives:* a persistent haven garrison that regrows at a fixed rate and sends groups from it (raids weaken after losses); survivors return to a pool that the next raid draws from first.
-- **Q223 — When the 10 minutes start.**
+- **✅ Q223 (D-222) — When the 10 minutes start.**
   *Recommendation:* at arrival in the target system, when the shroud ends. Losses count by value against the spawned group. Withdrawal is a jump back to the haven, earlier if the sensed hostile value within 5 km exceeds twice the group's. *Alternatives:* from the first engagement, with a 30-minute cap in the system (more raid time against hard-to-find targets); from the launch (distant raids would expire in transit).
-- **Q224 — Raiders and peripheral structures inside the owner's window.** D-081 and doc 13 §8 say peripheral structures "are disabled only". Doc 15 §10 says "as for anyone", and D-169 destroys them inside the window.
+- **✅ Q224 (D-223) — Raiders and peripheral structures inside the owner's window.** D-081 and doc 13 §8 say peripheral structures "are disabled only". Doc 15 §10 says "as for anyone", and D-169 destroys them inside the window.
   *Recommendation:* raiders only disable peripheral structures, at any time. That matches D-081's wording and its intent (raids pressure; they do not wipe out). S6b's `structure_outcome_at_zero` takes the attacker's owner into account. *Alternatives:* the same rule as for commanders (destroyed inside the owner's window, D-169); raiders destroy them inside the window only when the owner has no ship in that system.
-- **Q225 — An outpost's hull while it is built.** S4 gives the core its full 300,000 hull from the start (S4 plan §4.7). Two strike craft deal about 75 per second to a structure, so a raid cannot destroy an outpost in 10 minutes, and D-054 and D-081's outpost target exist on paper only for raiders.
+- **✅ Q225 (D-224) — An outpost's hull while it is built.** S4 gives the core its full 300,000 hull from the start (S4 plan §4.7). Two strike craft deal about 75 per second to a structure, so a raid cannot destroy an outpost in 10 minutes, and D-054 and D-081's outpost target exist on paper only for raiders.
   *Recommendation:* a core under construction has a hull that grows linearly from 10% to 100% of its maximum over the 2 h deployment. A fresh claim is fragile and a nearly finished one is not, which rewards escorting it early. *Alternatives:* a fixed low hull (for example 30,000) until complete, then full; keep the full hull from the start (only fleets of strike craft can contest claims).
-- **Q226 — What "raids happen" means at α.**
+- **✅ Q226 (D-225) — What "raids happen" means at α.**
   *Recommendation:* in every α season run:
   1. each haven launches every 2–4 h, with every interval inside the bounds;
   2. every commander is the target of at least one raid per 24 h on average, and never twice within 6 h;

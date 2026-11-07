@@ -1,6 +1,6 @@
 # Work package A2 — The Strategist: economy
 
-Status: **Planned; questions Q213–Q219 open** (and Q205 in `A1-deputy.md`, which moves AI schedules into A2). Written together with `A1-deputy.md`, whose §4 holds the shared architecture A2 runs on, and `A3-raider-director.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate, doctrine), S4 (economy, built), S6a (presence, grace, lapse) and S7 (`CommanderView`); reads S8's standings. This plan is also the brief for whoever builds A2. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q213–Q219 → D-212 to D-218). (and Q205 in `A1-deputy.md`, which moves AI schedules into A2). Written together with `A1-deputy.md`, whose §4 holds the shared architecture A2 runs on, and `A3-raider-director.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate, doctrine), S4 (economy, built), S6a (presence, grace, lapse) and S7 (`CommanderView`); reads S8's standings. This plan is also the brief for whoever builds A2. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Goal
 
@@ -284,19 +284,19 @@ The first kit starts 7.5 h after the season start but at the AI's first online m
 
 Numbered Q213–Q219; A1 has Q200–Q212 and A3 Q220–Q226. Each has a recommendation and alternatives.
 
-- **Q213 — The goals at A2.** Doc 13 §11 names expand, build out and logistics.
+- **✅ Q213 (D-212) — The goals at A2.** Doc 13 §11 names expand, build out and logistics.
   *Recommendation:* those three, plus a stand-in *Garrison* goal that fills the command cap with the preferred composition as holding garrisons when nothing else is worth buying. Without a fleet sink, D-083 item 2 fails once the sites are taken, D-070's fleet target has no fleet to measure, and raids meet nothing. A4 replaces it. *Alternatives:* the three goals only (income idles late in the season at α); a fixed share of income on ships from the start.
-- **Q214 — What *Expand* optimises.** Doc 13 §5 says "free sites with good deposit value nearby".
+- **✅ Q214 (D-213) — What *Expand* optimises.** Doc 13 §5 says "free sites with good deposit value nearby".
   *Recommendation:* payback within the time left in the season (kit price, productive build-out and logistics against the yield), plus a control term (towards a majority, completing one, denying a rival's), minus risk (route time, haven distance, sensed hostiles, rival holdings), crystal first while crystal income is zero, scaled by personality. *Alternatives:* deposit value and distance only (doc 13's literal wording; ignores control, which decides the season); control first, income second.
-- **Q215 — Plans and the online session.**
+- **✅ Q215 (D-214) — Plans and the online session.**
   *Recommendation:* the Strategist knows its schedule (A1 Q205) and starts a plan only if it ends inside the session; otherwise it pre-positions the MULE at its nearest holding. At the last evaluation before the session ends it signs off: Balanced doctrine with every fleet given a role, the replacement list, queues filled for the income until the next session, convoy routes set. *Alternatives:* start plans regardless and let D-162 lapse them at the session end; sign off inside the 120 s grace after the session ends, without knowing the schedule in advance.
-- **Q216 — Built-in blueprints.**
+- **✅ Q216 (D-215) — Built-in blueprints.**
   *Recommendation:* one blueprint per site kind (mother, ore, two-ore, crystal, ore and crystal, empty) as rules data: productive modules first, then storage where needed, pylons, two turrets, and a dry dock only at the mother station and one forward holding. The blueprint type goes into `nomad-types` for U3. Easy uses a generic order; Hard adds turrets where raids strike. *Alternatives:* one generic order for every AI (Easy's, for all); S4's harness build-out (every module everywhere, including docks).
-- **Q217 — Depots or convoys.** At 1,500 A, a storage module costs as much as a MULE and makes a whole system deliver to the pool (D-064).
+- **✅ Q217 (D-216) — Depots or convoys.** At 1,500 A, a storage module costs as much as a MULE and makes a whole system deliver to the pool (D-064).
   *Recommendation:* the AI builds storage at its first holding in every system and runs convoys only until it completes. The α runs measure how much income still travels by convoy; if convoys have all but vanished, raise the storage module's cost (a number, D-137) so convoys keep the role D-064 gave them. *Alternatives:* convoys by default, depots only in systems with 3 or more holdings; choose per system by comparing costs over a horizon.
-- **Q218 — How late income is bounded** (D-070: 3–4× start; S4: 7.8× by day 7).
+- **✅ Q218 (D-217) — How late income is bounded** (D-070: 3–4× start; S4: 7.8× by day 7).
   *Recommendation:* a diminishing yield. Each producing holding other than the mother station has its alloy and crystal output scaled by min(1, F ÷ the commander's producing holdings other than the mother station), with F a rules value starting at 2 (about 3.6× late in the model) and tuned at α, and the factor shown in the economy view. A kit price in any form only delays site exhaustion (§5.3), and the 8-week season outlasts any delay that keeps the early targets. This is the option the owner passed over for D-189; the model shows D-189 cannot bound late income alone. D-189 stays, keeping early expansion paced. *Alternatives:* keep the agreed rules and accept a late ceiling of about 10–14×, retuning ship costs and D-070's late target to it; a geometric kit price, base × (1 + k)ⁿ (about 10× by day 56 at k = 0.5 in the model); a cap on producing modules per commander (for example 4 refineries and 4 extractors), which bounds income visibly and makes rich sites the prize.
-- **Q219 — How α measures pacing with real AI.**
+- **✅ Q219 (D-218) — How α measures pacing with real AI.**
   *Recommendation:* `nomad-harness --season` with 4 AI commanders (A1–A3, Normal, seeded schedules), 3 seeds over the full 8 weeks, plus 7-day runs on 10 seeds for tuning; D-070's six measures with the definitions in §5.4 (first expansion from the first online minute; mid-season days 21–35; late days 42–56); S4's scripted builder on the same seeds alongside; pass when each median is within ±50%. *Alternatives:* 7-day runs only, as S4 did (late income is then never measured); always-online AI (faster than any human plays); measure from the season start, as D-070 is written.
 
 ## 8. Tasks, in order

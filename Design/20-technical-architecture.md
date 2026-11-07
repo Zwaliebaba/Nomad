@@ -48,6 +48,7 @@ Most of it puts together decisions already taken; the new choices are marked *Pr
 | `nomad-server` *(new)* | Wall-clock pacing, network, sessions, replication, journal and snapshots (SQLite), recovery, catch-up, operator commands | `nomad-sim`, `nomad-protocol` |
 | `nomad-client` | Renderer, input, UI, network client, view-model store | `nomad-protocol`, `nomad-types` |
 | `nomad-harness` | Headless fast-forward runs, pacing and AI acceptance runs | `nomad-sim` |
+| `nomad-ai` *(D-199)* | All AI logic (Deputy, Strategist, raider director) behind a `View` trait that `nomad-sim` implements over `CommanderView`; it cannot name `UniverseState` | `nomad-types` |
 | `nomad-link` *(D-125)* | The client side of the connection: connect, pinning, handshake, channels, reconnect; used by the client and the integration tests | `nomad-protocol`, `nomad-types` |
 
 - **The client never depends on `nomad-sim`.** That keeps the client from simulating anything (C-03), and keeps rules code out of the shipped client.

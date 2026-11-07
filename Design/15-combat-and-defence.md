@@ -91,7 +91,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 
 ## 4. Weapons and damage
 
-*Agreed (D-052).* Details agreed with the S5 plan: a ship's hit radius is half its model's short side (D-143); auto-targeting prefers the highest multiplier, then the nearest, then the lowest `SimId` (D-144); there is no friendly fire (D-146); return fire covers hostiles that hit the fleet or its commander's structures in range in the last 30 s (D-145). SHLD SURGE stays at 20% (D-147); FLAK SCREEN is defined in D-148.
+*Agreed (D-052).* Details agreed with the S5 plan: a ship's hit radius is half its model's short side (D-143); auto-targeting prefers the highest multiplier, then the nearest, then the lowest `SimId` (D-144); there is no friendly fire (D-146); return fire covers hostiles that hit the fleet or its commander's structures in range in the last 30 s (D-145). SHLD SURGE stays at 20% (D-147); FLAK SCREEN is defined in D-148. S5b's readings (structures need explicit Attack orders, flak never hits structures, a new dome starts full, and more) are D-227. Ties that rules broke by the lower `CommanderId`, such as D-057's capture tie, use a seeded draw instead (D-229).
 
 - **Projectiles:** each weapon has damage per shot, a fire interval, projectile speed, range, and a spread that narrows as **lock** builds. Bolts fly at about 800 m/s, matching the phase-1 HUD's "TTI 1.1 s" at 0.9 km. Torpedoes are slower, about 350 m/s, and do not home.
 - **Lock:**

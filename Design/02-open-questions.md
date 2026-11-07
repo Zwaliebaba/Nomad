@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q180) on 2026-11-06.**
+Status: **All questions answered (Q1–Q226) on 2026-11-07.**
 
 ## Answer summary
 
@@ -181,6 +181,41 @@ Status: **All questions answered (Q1–Q180) on 2026-11-06.**
 | Q178 | How combat effects reach the client | D-185 |
 | Q179 | How the client tells the server what it views | D-186 |
 | Q180 | Delta consistency | D-187 |
+| Q190 | Where standings are computed, and when | D-191 |
+| Q191 | When the early win triggers | D-192 |
+| Q192 | "Whoever reached the final count first" (D-041's third tie-break) | D-193 |
+| Q193 | A tie after every tie-break | D-194 |
+| Q194 | The final tick in the simulation | D-195 |
+| Q195 | The read model | D-196 |
+| Q196 | A warning one system before the early win | D-197 |
+| Q197 | When S8 is built | D-198 |
+| Q200 | How AI code is kept from reaching `UniverseState` | D-199 |
+| Q201 | How AI commands enter the step | D-200 |
+| Q202 | The competence cap's mechanics | D-201 |
+| Q203 | How the AI learns about events | D-202 |
+| Q204 | Where AI evaluation runs, and its budget | D-203 |
+| Q205 | AI presence before A5 | D-204 |
+| Q206 | The build order towards α | D-205 |
+| Q207 | Doc 13 §4 as the Deputy's rules | D-206 |
+| Q208 | Fleet roles and the default role | D-207 |
+| Q209 | What the replacement list covers, and its budget window | D-208 |
+| Q210 | What "share of the fleet kept as garrison" means | D-209 |
+| Q211 | Convoy evacuation and holding | D-210 |
+| Q212 | Where AI parameters live | D-211 |
+| Q213 | The goals at A2 | D-212 |
+| Q214 | What Expand optimises | D-213 |
+| Q215 | Plans and the online session | D-214 |
+| Q216 | Built-in blueprints | D-215 |
+| Q217 | Depots or convoys | D-216 |
+| Q218 | How late income is bounded | D-217 |
+| Q219 | How α measures pacing with real AI | D-218 |
+| Q220 | Which parts of the raider director are rules and which are AI | D-219 |
+| Q221 | Fleet value, and a floor | D-220 |
+| Q222 | Where raid groups come from, and where they go | D-221 |
+| Q223 | When the 10 minutes start | D-222 |
+| Q224 | Raiders and peripheral structures inside the owner's window | D-223 |
+| Q225 | An outpost's hull while it is built | D-224 |
+| Q226 | What "raids happen" means at α | D-225 |
 
 ## A. Universe and time
 
@@ -758,3 +793,77 @@ The full questions, with alternatives, are in the plans' question sections; Q161
 **✅ Q179** → D-186: **How the client tells the server what it views:** A `SetFocus { focus }` message (TACTICAL site, SYSTEM, SECTOR or GALAXY), rate-limited, not journaled; it only changes rates, never visibility. Until the client sends one, the focus is the mother station's system.
 
 **✅ Q180** → D-187: **Delta consistency:** Each delta carries `since`, the tick of the previous view message; the client reconnects into a fresh snapshot if the chain breaks. No periodic full snapshots.
+
+## V. Round 17, from `plans/S8-season-end.md` and the AI plans `A1`–`A3` (answered)
+
+The full questions, with alternatives, are in the plans' question sections; Q198, Q199 and Q227–Q229 were not used. The owner chose every recommendation. Four further decisions from the S5b and S6a builds and the AI plans' conflict list are D-226 to D-229.
+
+**✅ Q190** → D-191: **Where standings are computed, and when:** In the simulation state, recomputed in phase 9 on any tick where completed holdings or their owners changed, with the control map cached there. The *since* tie-break needs this tick precision, and S6b and the AI need the standings inside the step.
+
+**✅ Q191** → D-192: **When the early win triggers:** The season ends on the first tick on which a commander controls at least ⌈60% × claimable systems⌉ (6 of 9), and that tick is the final tick (D-116). Control only changes through visible, slow events (2 h outposts, scheduled sieges), so there is time to react before the decisive tick.
+
+**✅ Q192** → D-193: **"Whoever reached the final count first" (D-041's third tie-break):** Among commanders tied on systems, holdings and deposit value, the one whose triple has been unchanged since the earliest tick wins: they reached the tied position first.
+
+**✅ Q193** → D-194: **A tie after every tie-break:** Joint winners.
+
+**✅ Q194** → D-195: **The final tick in the simulation:** `SeasonConfig` carries the final tick, set at creation from the season length (D-106). The step that computes it fixes the result, views show the season clock, and the server stops when the simulation reports a result, at the full length or at an early win.
+
+**✅ Q195** → D-196: **The read model:** An append-only `standings_history` (a row per commander per change) and a `season_result` written once, both projections that are re-synced after recovery; `status` prints them. Changes are rare, so the history is tiny, and it serves the season panel and the away report's rank changes.
+
+**✅ Q196** → D-197: **A warning one system before the early win:** A public announcement when a commander reaches threshold − 1, and another when they drop back. It reveals nothing new (control is public, D-075), but it makes the threat visible. An offline player then learns of it from the away report and notifications instead of finding the season over.
+
+**✅ Q197** → D-198: **When S8 is built:** Now, in parallel with S5b and S6a. It needs only built code (holdings, control, the server's season end), and S6b's comeback grant (D-167) needs its standings leader.
+
+**✅ Q200** → D-199: **How AI code is kept from reaching `UniverseState`:** A `nomad-ai` crate with all AI logic. It depends only on `nomad-types` and defines a `View` trait, which `nomad-sim` implements over `CommanderView`, and `nomad-sim` calls the AI from its phases. Cargo's ban on dependency cycles then guarantees the AI cannot name `UniverseState`. Amends D-086, as doc 11 §9 anticipated. Amends D-086's crate list.
+
+**✅ Q201** → D-200: **How AI commands enter the step:** AI layers write to a per-owner outbox in the state with a `not_before` tick. Phase 1 of a later tick applies due AI commands after the tick's external inputs, in `(owner, layer, sequence)` order, through the same `execute`. Deputy commands to a fleet under direct control are dropped when applied (RK-10).
+
+**✅ Q202** → D-201: **The competence cap's mechanics:** Latency 10, 6 or 3 ticks by difficulty, and 3 ticks for a human's Deputy, counted from the triggering event. At most the difficulty's command rate (1, 2 or 4 per second; 4 for a human's Deputy) in any 10 consecutive ticks, shared by all of a commander's AI layers. Waiting commands drain oldest first, Deputy before Strategist, and expire after 10 s.
+
+**✅ Q203** → D-202: **How the AI learns about events:** A per-owner inbox in the state, filled from each tick's outputs with only what the owner may know (own damage coalesced per entity and attacker, own losses, own fleet and economy events, addressed announcements, public season events, its AI commands' outcomes), kept for 60 s and read through `View`.
+
+**✅ Q204** → D-203: **Where AI evaluation runs, and its budget:** The Strategist in phase 3, staggered by commander over its interval; Deputies and raid-group control in phase 4 at 2 Hz, staggered by `SimId`; raid launches on a phase-2 timer. Budgets in a release build at stage 1: the Strategist's mean ≤ 5 ms per evaluation (D-083), bounded by deterministic work counters, never by time; Deputies and raid control together ≤ 25% of a 500× fast-forward tick (about 50 µs mean). The harness times `nomad-ai` directly and compares tick times with the AI on and off.
+
+**✅ Q205** → D-204: **AI presence before A5:** Move D-080's seeded schedule generator into A2, running in the simulation from the seed (not journaled). It drives S6a's presence and the AI's initial window (D-157), so the Strategist knows when its session ends. `SetPresence` stays as a harness override. A5 keeps personalities, difficulty and schedule tuning.
+
+**✅ Q206** → D-205: **The build order towards α:** S8 now, in parallel with S5b and S6a; S7 after S6a, in parallel with S6b; A1a (crate, outbox, gate, inbox, doctrine, direct control, rebuilding, convoy rerouting) after S6a; A1b (threat, alert, engagement, abilities, convoy evacuation) after S7 and S5b; A2 after A1a and S7; A3 after S6b, S7 and A1a, in parallel with A2. Amends D-095's serial order. Amends D-095's order of work.
+
+**✅ Q207** → D-206: **Doc 13 §4 as the Deputy's rules:** Adopt it, with the details in §5: alert on a hostile in the zone or fire on an asset in the zone, ending 60 s later; alert profile, garrison launch and ability triggers from the preset; target priority as explicit attacks; leash from the role's anchor; retreat by fleet hull; convoy safety. Doc 13 §4 becomes Agreed with these details.
+
+**✅ Q208** → D-207: **Fleet roles and the default role:** New ships join the garrison of the holding that built them (or its rally fleet). A garrison docks at its holding, launches on alert, engages in the zone up to the leash and docks 60 s after the alert. A reserve stays docked. Patrol and escort run as `Patrol` and `Guard` orders, with the leash measured from the route or the escortee. MULEs not on a convoy are reserves.
+
+**✅ Q209** → D-208: **What the replacement list covers, and its budget window:** Listed ships and destroyed modules (rebuilt in the same slot, on by default per holding). Budget: the preset's share of each resource's income over the last 24 h, against replacement spending over the same rolling 24 h. Anything that does not fit is reported as deferred.
+
+**✅ Q210** → D-209: **What "share of the fleet kept as garrison" means:** A Strategist parameter. The Strategist commits at most (1 − share) of its fleet value to plans away from its holdings, and when it writes doctrine before going offline every uncommitted fleet becomes a garrison. For a human it only sets the doctrine editor's default role for new fleets.
+
+**✅ Q211** → D-210: **Convoy evacuation and holding:** When a sensed hostile is within the evacuation radius of a convoy or its next stop, the convoy docks at the nearest own holding on its route and resumes 60 s after no hostile is within the radius. At a contested gate it reroutes if another route exists, otherwise it holds docked at its last stop.
+
+**✅ Q212** → D-211: **Where AI parameters live:** An `ai` section in the rules file (D-104): presets, the difficulty table, the human Deputy's competence, inbox and outbox timings, Strategist hysteresis and noise, blueprints, raid parameters. They are copied into the Universe, so a season keeps its AI, replay stays exact, and A6 tunes them with `--rules`.
+
+**✅ Q213** → D-212: **The goals at A2:** Those three, plus a stand-in *Garrison* goal that fills the command cap with the preferred composition as holding garrisons when nothing else is worth buying. Without a fleet sink, D-083 item 2 fails once the sites are taken, D-070's fleet target has no fleet to measure, and raids meet nothing. A4 replaces it.
+
+**✅ Q214** → D-213: **What Expand optimises:** Payback within the time left in the season (kit price, productive build-out and logistics against the yield), plus a control term (towards a majority, completing one, denying a rival's), minus risk (route time, haven distance, sensed hostiles, rival holdings), crystal first while crystal income is zero, scaled by personality.
+
+**✅ Q215** → D-214: **Plans and the online session:** The Strategist knows its schedule (A1 Q205) and starts a plan only if it ends inside the session; otherwise it pre-positions the MULE at its nearest holding. At the last evaluation before the session ends it signs off: Balanced doctrine with every fleet given a role, the replacement list, queues filled for the income until the next session, convoy routes set.
+
+**✅ Q216** → D-215: **Built-in blueprints:** One blueprint per site kind (mother, ore, two-ore, crystal, ore and crystal, empty) as rules data: productive modules first, then storage where needed, pylons, two turrets, and a dry dock only at the mother station and one forward holding. The blueprint type goes into `nomad-types` for U3. Easy uses a generic order; Hard adds turrets where raids strike.
+
+**✅ Q217** → D-216: **Depots or convoys:** The AI builds storage at its first holding in every system and runs convoys only until it completes. The α runs measure how much income still travels by convoy; if convoys have all but vanished, raise the storage module's cost (a number, D-137) so convoys keep the role D-064 gave them.
+
+**✅ Q218** → D-217: **How late income is bounded:** A diminishing yield. Each producing holding other than the mother station has its alloy and crystal output scaled by min(1, F ÷ the commander's producing holdings other than the mother station), with F a rules value starting at 2 (about 3.6× late in the model) and tuned at α, and the factor shown in the economy view. A kit price in any form only delays site exhaustion (§5.3), and the 8-week season outlasts any delay that keeps the early targets. This is the option the owner passed over for D-189; the model shows D-189 cannot bound late income alone. D-189 stays, keeping early expansion paced. A rule change to doc 14; D-189 stays.
+
+**✅ Q219** → D-218: **How α measures pacing with real AI:** `nomad-harness --season` with 4 AI commanders (A1–A3, Normal, seeded schedules), 3 seeds over the full 8 weeks, plus 7-day runs on 10 seeds for tuning; D-070's six measures with the definitions in §5.4 (first expansion from the first online minute; mid-season days 21–35; late days 42–56); S4's scripted builder on the same seeds alongside; pass when each median is within ±50%. Settles D-070's "first expansion within 1 h" for scheduled AI (D-080).
+
+**✅ Q220** → D-219: **Which parts of the raider director are rules and which are AI:** The launch is a simulation rule: a timer, eligibility, a target drawn by weights from public data, strength and composition from the target's real fleet value, and the spawn. The director AI only controls raid groups, through the NPC view and ordinary commands. Reconciles D-081 with D-077: launch, target and strength are a simulation rule, not an AI decision.
+
+**✅ Q221** → D-220: **Fleet value, and a floor:** Build cost as alloy + 3 × crystal (D-066's ratio), docked ships included; NPC classes valued as rules values (raider strike craft 1,600, HSTL 17,000 to start); a floor of 2 strike craft, so undefended convoys and outposts are raided too.
+
+**✅ Q222** → D-221: **Where raid groups come from, and where they go:** Each launch spawns a fresh group at the haven's gate, and the group is removed when it returns. There is no raider economy, and survivors do not accumulate.
+
+**✅ Q223** → D-222: **When the 10 minutes start:** At arrival in the target system, when the shroud ends. Losses count by value against the spawned group. Withdrawal is a jump back to the haven, earlier if the sensed hostile value within 5 km exceeds twice the group's.
+
+**✅ Q224** → D-223: **Raiders and peripheral structures inside the owner's window:** Raiders only disable peripheral structures, at any time. That matches D-081's wording and its intent (raids pressure; they do not wipe out). S6b's `structure_outcome_at_zero` takes the attacker's owner into account. Settles D-081 and doc 13 §8 against doc 15 §10, doc 12 §3 and D-169 for NPC raiders.
+
+**✅ Q225** → D-224: **An outpost's hull while it is built:** A core under construction has a hull that grows linearly from 10% to 100% of its maximum over the 2 h deployment. A fresh claim is fragile and a nearly finished one is not, which rewards escorting it early.
+
+**✅ Q226** → D-225: **What "raids happen" means at α:** In every α season run: 1. each haven launches every 2–4 h, with every interval inside the bounds; 2. every commander is the target of at least one raid per 24 h on average, and never twice within 6 h; 3. at least half of the raids that reach their system destroy or disable something; 4. no dome ever takes raider damage; 5. no raid launches during catch-up (one run includes a catch-up segment).
