@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::combat::Projectiles;
+use crate::commander::Commanders;
 use crate::defence::Defence;
 use crate::economy::Economy;
 use crate::entities::Entities;
@@ -72,6 +73,9 @@ pub struct UniverseState {
     pub(crate) economy: Economy,
     /// Domes, turret state, abilities and the damage ledger (doc 15 §5; S5b).
     pub(crate) defence: Defence,
+    /// Commander records: presence, the disconnect grace, activity and exposure windows
+    /// (doc 12 §4, §5.3; S6a).
+    pub(crate) commanders: Commanders,
 }
 
 impl UniverseState {
@@ -105,6 +109,7 @@ impl UniverseState {
             projectiles: Projectiles::default(),
             economy: Economy::default(),
             defence: Defence::default(),
+            commanders: Commanders::default(),
         }
     }
 
@@ -128,7 +133,9 @@ impl UniverseState {
         self.clock
     }
 
-    /// Commanders whose client is currently connected.
+    /// Commanders whose client is currently connected: the journaled `Connected` and
+    /// `Disconnected` inputs (doc 11 §6). A human is online exactly while connected; see
+    /// [`UniverseState::commander`] for presence.
     pub const fn connected(&self) -> &BTreeSet<CommanderId> {
         &self.connected
     }

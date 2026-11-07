@@ -18,7 +18,12 @@
 //! - ships and fleets ([`fleet`], doc 15 §3; S3): `hecs` entities ordered by `SimId`, the
 //!   start kit, fleet management, 2D kinematics with formations, cruise mode, obstacles and
 //!   separation, the fleet orders, routing over lanes and jumps (D-042, D-055);
-//! - the single command validator ([`validate_command`], D-077).
+//! - the single command validator ([`validate_command`], D-077);
+//! - commander records (S6a; doc 12 §4, §5.3): human or AI, presence with the 120 s
+//!   disconnect grace and the lapse of direct orders after it (D-160 to D-162), the activity
+//!   history and the activity-derived exposure window (D-032, D-154 to D-157, D-171), see
+//!   [`UniverseState::commander`];
+//! - announcements to commanders, as data ([`Announcement`], S6 plan §4.8).
 //!
 //! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
@@ -38,10 +43,13 @@
 //! projectiles, the multiplier table, engagement), and so is station combat ([`defence`],
 //! S5b: dome sectors, regeneration, breaches, damage to modules and its recovery, turrets,
 //! SHLD SURGE and FLAK SCREEN, the damage ledger). Until sensors exist (S7) every entity
-//! counts as visible.
+//! counts as visible. Of the offline rules (doc 12), presence, the disconnect grace and
+//! exposure windows are here (S6a); the siege lifecycle follows with S6b.
 
+mod announce;
 pub mod combat;
 mod command;
+mod commander;
 pub mod defence;
 pub mod economy;
 mod entities;
@@ -63,8 +71,12 @@ mod time;
 mod timers;
 mod util;
 
+pub use announce::{Announcement, AnnouncementKind, Recipients};
 pub use combat::{CombatEvent, ProjectileId};
 pub use command::{CommandRejection, validate_command};
+pub use commander::{
+    CommanderError, CommanderRecord, CommanderSetup, DEFAULT_WINDOW_START, ExposureWindow, Presence,
+};
 pub use defence::{DefenceEvent, DefenceView, LedgerView, SectorView};
 pub use economy::{
     BuildLane, Cargo, CommanderEconomy, EconomyEvent, HoldingEconomyView, ModuleView,
@@ -83,8 +95,8 @@ pub use holding::{
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 pub use nomad_types::{
-    BuildItem, Command, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner, PowerProfile,
-    Queueing, RulesOfEngagement, Slot, StationAbility,
+    BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,
+    PowerProfile, QuarterHour, Queueing, RulesOfEngagement, Slot, StationAbility,
 };
 pub use nomad_types::{Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};

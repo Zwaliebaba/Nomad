@@ -2,6 +2,7 @@
 
 use nomad_types::{Command, Owner};
 
+use crate::announce::Announcement;
 use crate::combat::CombatEvent;
 use crate::command::{CommandRejection, execute};
 use crate::defence::DefenceEvent;
@@ -32,6 +33,10 @@ pub struct TickOutputs {
     pub economy_events: Vec<EconomyEvent>,
     /// What station combat did: sector and module damage, breaches, cores down (S5b).
     pub defence_events: Vec<DefenceEvent>,
+
+    // S6: offline and siege rules.
+    /// What commanders are told: window moves and lapsed orders so far (S6 plan §4.8).
+    pub announcements: Vec<Announcement>,
 }
 
 /// The outcome of one command input.
@@ -47,10 +52,11 @@ pub struct CommandResult {
 
 /// Computes the next tick: applies `inputs`, fires due timers and advances the tick counter.
 ///
-/// Phase order follows Design doc 11 §4.1. Phase 5 (movement and transit) runs ships and
-/// fleets (S3); phase 7 runs ship and station combat (S5a, S5b) and phase 8 the economy
-/// (S4). Phases 3–4, 6
-/// and 9 (AI, Deputy, sensors, derived state) arrive with their work packages (D-051).
+/// Phase order follows Design doc 11 §4.1. Phase 1 ends by bringing commanders' presence up
+/// to date, phase 2 also fires commander deadlines (window closes, grace ends; S6a), phase 5
+/// (movement and transit) runs ships and fleets (S3), phase 7 ship and station combat (S5a,
+/// S5b), phase 8 the economy (S4) and phase 9 the activity samples (S6a). Phases 3–4 and 6
+/// (AI, Deputy, sensors) and the rest of phase 9 arrive with their work packages (D-051).
 pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     let now = state.tick.next();
     let mut out = TickOutputs {
@@ -65,6 +71,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
             out.inputs_rejected = out.inputs_rejected.saturating_add(1);
         }
     }
+    // Presence can change only through these inputs (S6a).
+    let mut presence_inputs = !inputs.operator.is_empty();
     let mut commander_inputs: Vec<&CommanderInput> = inputs.commanders.iter().collect();
     commander_inputs.sort_by_key(|input| (input.commander, input.client_seq));
     for input in commander_inputs {
@@ -79,6 +87,7 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
                 outcome.is_ok()
             }
             CommanderInputKind::Connected | CommanderInputKind::Disconnected => {
+                presence_inputs = true;
                 apply_commander(state, input)
             }
         };
@@ -86,12 +95,18 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
             out.inputs_rejected = out.inputs_rejected.saturating_add(1);
         }
     }
+    // Who is online after this tick's inputs (S6 plan §4.1).
+    if presence_inputs {
+        crate::commander::sync_presence(state, now);
+    }
 
     // Phase 2: fire every timer due at or before this tick, in (deadline, SimId) order.
     while let Some((_id, _deadline, event)) = state.timers.pop_due(now) {
         fire(state, now, &event);
         out.timers_fired = out.timers_fired.saturating_add(1);
     }
+    // Commander deadlines: window closes and grace ends (S6 plan §4.2, §4.3).
+    crate::commander::fire_due(state, now, &mut out);
 
     // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4).
     crate::fleet::movement::run(state, now, &mut out.fleet_events);
@@ -106,6 +121,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     );
     // Phase 8: the economy, each holding once a second in its slot (S4 plan §4.1).
     crate::economy::run(state, now, &mut out.economy_events, &mut out.fleet_events);
+    // Phase 9: activity samples, once a minute per commander (D-154).
+    crate::commander::sample_activity(state, now);
 
     state.tick = now;
     out
@@ -127,6 +144,10 @@ fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) -> b
         // rejected, so a server bug shows up in the outputs instead of passing silently.
         OperatorInput::CatchUpStart => !std::mem::replace(&mut state.catching_up, true),
         OperatorInput::CatchUpEnd => std::mem::replace(&mut state.catching_up, false),
+        // AI presence until A5's schedules (S6 plan §4.1).
+        OperatorInput::SetPresence { commander, online } => {
+            crate::commander::set_presence(state, commander, online)
+        }
     }
 }
 

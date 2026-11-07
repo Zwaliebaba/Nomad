@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@5",
+  "format": "nomad-rules@6",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -253,5 +253,12 @@
       { "id": "factory_fa1", "min_voxels": [-59, 13, 8], "max_voxels": [-40, 30, 19] },
       { "id": "dry_dock", "min_voxels": [-20, 47, 0], "max_voxels": [13, 60, 11] }
     ]
+  },
+  "sieges": {
+    "disconnect_grace_s": 120,
+    "window_minutes": 240,
+    "window_drift_minutes_per_day": 60,
+    "activity_history_days": 14,
+    "free_choice_days": 7
   }
 }

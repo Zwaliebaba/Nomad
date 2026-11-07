@@ -53,6 +53,13 @@ pub(crate) fn defence_reasons() -> BTreeSet<R> {
     .collect()
 }
 
+/// The commander-settings reasons (S6a), produced by `commander::tests`.
+pub(crate) fn commander_reasons() -> BTreeSet<R> {
+    [R::UnknownCommander, R::InvalidWindow, R::WindowLocked]
+        .into_iter()
+        .collect()
+}
+
 /// Every reason, by an exhaustive match: a new reason does not compile until it is listed,
 /// and the tests fail until a scenario produces it.
 pub(crate) fn all_reasons() -> BTreeSet<R> {
@@ -103,58 +110,69 @@ pub(crate) fn all_reasons() -> BTreeSet<R> {
         R::AbilityCooldown,
         R::SectorOpen,
         R::NoPower,
+        // S6a.
+        R::UnknownCommander,
+        R::InvalidWindow,
+        R::WindowLocked,
     ];
-    for reason in every {
-        match reason {
-            R::UnknownFleet
-            | R::UnknownShip
-            | R::UnknownHolding
-            | R::UnknownTarget
-            | R::UnknownSystem
-            | R::NotOwner
-            | R::HoldingNotOwned
-            | R::InvalidPosition
-            | R::WrongSystem
-            | R::Unreachable
-            | R::AlreadyThere
-            | R::Docked
-            | R::NotDocked
-            | R::InTransit
-            | R::NoCapacity
-            | R::NoDryDock
-            | R::NoHolding
-            | R::NoWeapons
-            | R::FriendlyTarget
-            | R::SelfTarget
-            | R::EmptyRoute
-            | R::EmptyFleet
-            | R::DuplicateShip
-            | R::NotTogether
-            | R::NothingToLaunch
-            | R::Outpost
-            | R::NotBuildable
-            | R::NoSuchSlot
-            | R::WrongSlot
-            | R::SlotTaken
-            | R::QueueFull
-            | R::UnknownItem
-            | R::NoMule
-            | R::CargoFull
-            | R::NoKit
-            | R::UnknownSite
-            | R::NotClaimable
-            | R::SiteTaken
-            | R::TooFar
-            | R::RouteTooLong
-            | R::DuplicateStop
-            | R::NotDepot
-            | R::NoSuchSector
-            | R::AbilityCooldown
-            | R::SectorOpen
-            | R::NoPower => {}
-        }
-    }
+    assert!(every.into_iter().all(listed));
     every.into_iter().collect()
+}
+
+/// The exhaustive match behind [`all_reasons`]: a new reason does not compile until it is
+/// listed here and there.
+const fn listed(reason: R) -> bool {
+    match reason {
+        R::UnknownFleet
+        | R::UnknownShip
+        | R::UnknownHolding
+        | R::UnknownTarget
+        | R::UnknownSystem
+        | R::NotOwner
+        | R::HoldingNotOwned
+        | R::InvalidPosition
+        | R::WrongSystem
+        | R::Unreachable
+        | R::AlreadyThere
+        | R::Docked
+        | R::NotDocked
+        | R::InTransit
+        | R::NoCapacity
+        | R::NoDryDock
+        | R::NoHolding
+        | R::NoWeapons
+        | R::FriendlyTarget
+        | R::SelfTarget
+        | R::EmptyRoute
+        | R::EmptyFleet
+        | R::DuplicateShip
+        | R::NotTogether
+        | R::NothingToLaunch
+        | R::Outpost
+        | R::NotBuildable
+        | R::NoSuchSlot
+        | R::WrongSlot
+        | R::SlotTaken
+        | R::QueueFull
+        | R::UnknownItem
+        | R::NoMule
+        | R::CargoFull
+        | R::NoKit
+        | R::UnknownSite
+        | R::NotClaimable
+        | R::SiteTaken
+        | R::TooFar
+        | R::RouteTooLong
+        | R::DuplicateStop
+        | R::NotDepot
+        | R::NoSuchSector
+        | R::AbilityCooldown
+        | R::SectorOpen
+        | R::NoPower
+        | R::UnknownCommander
+        | R::InvalidWindow
+        | R::WindowLocked => true,
+    }
 }
 
 fn check(state: &UniverseState, n: u32, command: &Command) -> Result<(), R> {
@@ -552,6 +570,9 @@ fn every_rejection_reason_is_produced() {
                 .copied()
                 .collect(),
         )
+        .copied()
+        .collect::<BTreeSet<R>>()
+        .difference(&commander_reasons())
         .copied()
         .collect();
     assert_eq!(seen, fleet_reasons);

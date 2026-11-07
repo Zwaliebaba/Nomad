@@ -14,11 +14,13 @@
 //! rejects it.
 //!
 //! Commands are grouped by what they act on (doc 20 §5): a fleet, a holding, or fleet
-//! management, plus economy commands ([`EconomyCommand`], doc 14). Doctrine commands arrive
-//! with their work package (doc 12).
+//! management, plus economy commands ([`EconomyCommand`], doc 14) and the commander's own
+//! settings ([`Command::SetExposureWindow`], doc 12 §4). Doctrine commands arrive with their
+//! work package (doc 12).
 
 use serde::{Deserialize, Serialize};
 
+use crate::commander::QuarterHour;
 use crate::economy::EconomyCommand;
 use crate::id::{FleetId, HoldingId, ShipId, SimId, SystemId};
 use crate::position::Location;
@@ -61,6 +63,13 @@ pub enum Command {
     /// An economy command: building, power, rally, repair, convoys and claims (doc 14;
     /// S4 plan §4.7).
     Economy(EconomyCommand),
+    /// Chooses the commander's exposure window: from the next time the current window
+    /// closes, it starts at `start`, UTC. Open in the commander's first 7 days; after that
+    /// only activity moves the window (D-032, D-157; S6 plan §4.3).
+    SetExposureWindow {
+        /// The new start.
+        start: QuarterHour,
+    },
 }
 
 /// How a fleet order relates to the orders the fleet already has (S3 plan §4.4).

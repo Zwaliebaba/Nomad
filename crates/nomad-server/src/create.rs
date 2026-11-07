@@ -3,6 +3,10 @@
 //! `create` generates the MVP stage-1 Universe (doc 10 §4.4) from a seed and writes the
 //! `meta` row and the tick-0 snapshot. Tick 0 is the season start: the creation time, or
 //! earlier with `backdate`, which lets an operator test catch-up.
+//!
+//! The roster names the human, [`HUMAN_COMMANDER`], with the exposure window it was given;
+//! the AI commanders get the simulation's default window until A5 gives them schedules
+//! (S6 plan §4.1, §4.3; D-157).
 
 use std::fs;
 use std::io;
@@ -10,9 +14,11 @@ use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
+use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1_roster};
 use nomad_sim::snapshot::{self, encode, state_hash};
-use nomad_sim::{CommanderId, SeasonConfig, Tick};
+use nomad_sim::{
+    CommanderId, CommanderSetup, DEFAULT_WINDOW_START, QuarterHour, Rules, SeasonConfig, Tick,
+};
 use nomad_types::UniverseId;
 use tracing::info;
 
@@ -53,6 +59,9 @@ pub struct CreateParams {
     /// Puts the season start this far before now, so the first `run` catches up. An
     /// operator and test tool; zero for a normal Universe.
     pub backdate: Duration,
+    /// Where the human's exposure window starts, UTC (D-157). The default here is 19:00 UTC;
+    /// the command line's default is the local 19:00.
+    pub window_start: QuarterHour,
 }
 
 impl Default for CreateParams {
@@ -64,6 +73,7 @@ impl Default for CreateParams {
             season_weeks: DEFAULT_SEASON_WEEKS,
             name: None,
             backdate: Duration::ZERO,
+            window_start: DEFAULT_WINDOW_START,
         }
     }
 }
@@ -96,15 +106,13 @@ pub fn create(
     let season_start_unix_ms = now.saturating_sub(backdate_ms);
 
     // Generate and encode before touching the disk, so a failure leaves nothing behind.
-    let commanders: [CommanderId; STAGE1_COMMANDERS] = std::array::from_fn(|index| {
-        CommanderId(HUMAN_COMMANDER.0 + u32::try_from(index).unwrap_or(u32::MAX))
-    });
-    let state = generate_stage1(
+    let state = generate_stage1_roster(
         SeasonConfig {
             seed,
             season_start_unix_ms,
         },
-        commanders,
+        stage1_roster(params.window_start),
+        Rules::embedded(),
     )?;
     let hash = state_hash(&state)?;
     let record = SnapshotRecord {
@@ -149,6 +157,20 @@ pub fn create(
         dir,
         meta,
         state_hash: hash,
+    })
+}
+
+/// The stage-1 roster `create` uses: the human, [`HUMAN_COMMANDER`], with its window starting
+/// at `human_window` UTC, then the AI commanders 2, 3 and 4 with the default window (S6 plan
+/// §4.1, §4.3; D-157).
+pub fn stage1_roster(human_window: QuarterHour) -> [CommanderSetup; STAGE1_COMMANDERS] {
+    std::array::from_fn(|index| {
+        let id = CommanderId(HUMAN_COMMANDER.0 + u32::try_from(index).unwrap_or(u32::MAX));
+        if id == HUMAN_COMMANDER {
+            CommanderSetup::human(id, human_window)
+        } else {
+            CommanderSetup::ai(id)
+        }
     })
 }
 

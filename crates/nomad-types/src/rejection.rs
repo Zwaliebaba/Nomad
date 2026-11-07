@@ -98,4 +98,9 @@ pub enum InvalidReason {
     SectorOpen,
     /// The holding cannot supply the ability's power draw (D-128).
     NoPower,
+    /// The window start is not a quarter hour of the day (D-155).
+    InvalidWindow,
+    /// The free choice of the exposure window is over: the commander's first 7 days have
+    /// passed, and only activity moves the window now (D-157).
+    WindowLocked,
 }

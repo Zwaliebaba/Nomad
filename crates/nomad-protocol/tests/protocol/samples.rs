@@ -10,8 +10,8 @@ use nomad_protocol::{
 use nomad_types::{
     BuildItem, Command, CommanderId, ControlState, EconomyCommand, FactionId, FleetId, FleetOrder,
     HoldingId, HoldingOrder, InvalidReason, LaneKind, ModuleKind, Owner, PositionMetres,
-    PowerProfile, Queueing, RulesOfEngagement, SeasonClock, ShipClass, ShipId, SimId, SiteId, Slot,
-    StationAbility, SystemId, SystemKind, Tick, UniverseId,
+    PowerProfile, QuarterHour, Queueing, RulesOfEngagement, SeasonClock, ShipClass, ShipId, SimId,
+    SiteId, Slot, StationAbility, SystemId, SystemKind, Tick, UniverseId,
 };
 
 pub const YOU: CommanderId = CommanderId(1);
@@ -155,6 +155,12 @@ pub fn commands() -> Vec<Command> {
             fleet: FleetId(id(501)),
             site: SiteId(id(40)),
         }),
+        Command::SetExposureWindow {
+            start: QuarterHour::at(19, 0).expect("19:00 is a quarter hour"),
+        },
+        Command::SetExposureWindow {
+            start: QuarterHour::at(23, 45).expect("23:45 is a quarter hour"),
+        },
     ]
 }
 
@@ -417,6 +423,12 @@ pub fn server_messages() -> Vec<ServerMessage> {
         RejectReason::Invalid {
             reason: InvalidReason::AbilityCooldown,
         },
+        RejectReason::Invalid {
+            reason: InvalidReason::InvalidWindow,
+        },
+        RejectReason::Invalid {
+            reason: InvalidReason::WindowLocked,
+        },
         RejectReason::SeasonOver,
     ]) {
         messages.push(ServerMessage::CommandResult {
@@ -498,8 +510,9 @@ pub const fn command_variant(command: &Command) -> usize {
         Command::CreateFleet { .. } => 2,
         Command::MergeFleets { .. } => 3,
         Command::Economy(..) => 4,
+        Command::SetExposureWindow { .. } => 5,
     }
 }
 
 /// Number of [`Command`] variants.
-pub const COMMAND_VARIANTS: usize = 5;
+pub const COMMAND_VARIANTS: usize = 6;

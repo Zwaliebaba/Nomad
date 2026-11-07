@@ -36,7 +36,10 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// - 11: station combat (S5b): domes with their sectors, switches, ability cooldowns and the
 ///   damage ledger, turret weapon state; projectiles name their shooter and gun, and weapons
 ///   may aim at structures; rules format 5, which adds the defence section.
-pub const FORMAT: u32 = 11;
+/// - 12: commander records with presence, the disconnect grace, the activity history and
+///   the exposure window, and their deadlines (S6a); the rules gain the sieges section,
+///   rules format 6.
+pub const FORMAT: u32 = 12;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

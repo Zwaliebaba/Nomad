@@ -8,12 +8,13 @@ use std::time::Duration;
 
 use nomad_server::{
     CreateParams, Created, DataDir, FakeClock, Input, ServerConfig, ServerHandle, create,
+    stage1_roster,
 };
-use nomad_sim::galaxy::generate_stage1;
+use nomad_sim::galaxy::generate_stage1_roster;
 use nomad_sim::snapshot::state_hash;
 use nomad_sim::{
-    CommanderId, CommanderInput, CommanderInputKind, OperatorInput, SeasonConfig, Tick, TickInputs,
-    Ticks, UniverseState, step,
+    CommanderId, CommanderInput, CommanderInputKind, OperatorInput, Rules, SeasonConfig, Tick,
+    TickInputs, Ticks, UniverseState, step,
 };
 
 /// 2026-11-06T00:00:00Z.
@@ -168,18 +169,14 @@ pub fn play(server: &ServerHandle, clock: &FakeClock, script: &[(u64, Input)], u
 /// The state hash after `until` ticks of a pure `nomad-sim` run of the Universe created
 /// with `seed` at `start_ms`, applying each script entry on the tick after its own.
 pub fn reference_hash(seed: u64, start_ms: i64, script: &[(u64, Input)], until: u64) -> u64 {
-    let commanders = [
-        CommanderId(1),
-        CommanderId(2),
-        CommanderId(3),
-        CommanderId(4),
-    ];
-    let mut state = generate_stage1(
+    // The roster `create` uses: commander 1 is the human (S6a).
+    let mut state = generate_stage1_roster(
         SeasonConfig {
             seed,
             season_start_unix_ms: start_ms,
         },
-        commanders,
+        stage1_roster(CreateParams::default().window_start),
+        Rules::embedded(),
     )
     .expect("generate");
     for tick in 1..=until {

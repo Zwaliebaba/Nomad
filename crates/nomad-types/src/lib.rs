@@ -12,6 +12,8 @@
 //! - units and places: [`PositionMetres`] and [`Location`] (D-099);
 //! - small public enums: [`SystemKind`], [`LaneKind`], [`ShipClass`], deposits ([`Deposit`],
 //!   [`DepositKind`], [`Richness`], [`DepositValue`]) and [`ControlState`];
+//! - commanders: [`CommanderKind`] and the [`QuarterHour`] an exposure window starts at
+//!   (doc 12 §4, D-155);
 //! - the shape of [`Command`]s (doc 15 §3.4), shared by the protocol and the simulation's
 //!   validator, including economy commands and module shapes ([`EconomyCommand`],
 //!   [`ModuleKind`], [`Slot`], [`BuildItem`], [`PowerProfile`]; doc 14) and station abilities
@@ -26,6 +28,7 @@
 //! This crate depends only on `serde`. It holds no simulation state and no I/O.
 
 mod command;
+mod commander;
 mod control;
 mod deposit;
 mod economy;
@@ -37,6 +40,7 @@ mod ship;
 mod time;
 
 pub use command::{Command, FleetOrder, HoldingOrder, Queueing, RulesOfEngagement, StationAbility};
+pub use commander::{CommanderKind, QuarterHour};
 pub use control::ControlState;
 pub use deposit::{Deposit, DepositKind, DepositValue, Richness};
 pub use economy::{BuildItem, EconomyCommand, ModuleKind, PowerProfile, Slot};

@@ -52,7 +52,7 @@ mod timefmt;
 pub use clock::{Alarm, Clock, FakeClock, SystemClock};
 pub use create::{
     CreateParams, Created, DEFAULT_SEASON_WEEKS, HUMAN_COMMANDER, NAME_MAX_CHARS, SEASON_WEEKS,
-    STAGE1_AI_COMMANDERS, create,
+    STAGE1_AI_COMMANDERS, create, stage1_roster,
 };
 pub use error::ServerError;
 pub use ids::{

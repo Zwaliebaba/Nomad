@@ -28,7 +28,9 @@ pub fn wire_reason(rejection: CommandRejection) -> InvalidReason {
         | C::HoldingNotOwned
         // Own queue items and sites (public topology): "does not exist" is NotFound too.
         | C::UnknownItem
-        | C::UnknownSite => W::NotFound,
+        | C::UnknownSite
+        // A command from someone who is not a commander of this Universe (S6a).
+        | C::UnknownCommander => W::NotFound,
         C::InvalidPosition => W::InvalidPosition,
         C::WrongSystem => W::WrongSystem,
         C::Unreachable => W::Unreachable,
@@ -67,6 +69,8 @@ pub fn wire_reason(rejection: CommandRejection) -> InvalidReason {
         C::AbilityCooldown => W::AbilityCooldown,
         C::SectorOpen => W::SectorOpen,
         C::NoPower => W::NoPower,
+        C::InvalidWindow => W::InvalidWindow,
+        C::WindowLocked => W::WindowLocked,
     }
 }
 
@@ -78,7 +82,7 @@ mod tests {
 
     /// Every validator reason. The guard below has no wildcard, so a new reason fails to
     /// compile until it is listed.
-    const ALL: [CommandRejection; 46] = [
+    const ALL: [CommandRejection; 49] = [
         CommandRejection::UnknownFleet,
         CommandRejection::UnknownShip,
         CommandRejection::UnknownHolding,
@@ -125,6 +129,9 @@ mod tests {
         CommandRejection::AbilityCooldown,
         CommandRejection::SectorOpen,
         CommandRejection::NoPower,
+        CommandRejection::UnknownCommander,
+        CommandRejection::InvalidWindow,
+        CommandRejection::WindowLocked,
     ];
 
     const fn listed(rejection: CommandRejection) -> bool {
@@ -174,7 +181,10 @@ mod tests {
             | CommandRejection::NoSuchSector
             | CommandRejection::AbilityCooldown
             | CommandRejection::SectorOpen
-            | CommandRejection::NoPower => true,
+            | CommandRejection::NoPower
+            | CommandRejection::UnknownCommander
+            | CommandRejection::InvalidWindow
+            | CommandRejection::WindowLocked => true,
         }
     }
 
@@ -192,6 +202,7 @@ mod tests {
             CommandRejection::HoldingNotOwned,
             CommandRejection::UnknownItem,
             CommandRejection::UnknownSite,
+            CommandRejection::UnknownCommander,
         ];
         for rejection in ALL {
             let wire = wire_reason(rejection);

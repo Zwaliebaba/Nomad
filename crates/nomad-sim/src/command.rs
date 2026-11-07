@@ -15,6 +15,8 @@
 //!   is a dry dock (D-102); docking needs room for every ship;
 //! - **station orders** (S5b, [`crate::defence`]): abilities need a completed holding, an
 //!   existing sector that is not open, an elapsed cooldown and their power (D-128).
+//! - **the commander's own settings** (S6a): an exposure window is chosen by a commander of
+//!   the Universe, starts on a quarter hour, and only in the first 7 days (D-157).
 //!
 //! A rejection carries its reason ([`CommandRejection`]). The visibility check ("you can
 //! only target what you detect", D-039) is added with sensors in S7; until then every entity
@@ -185,6 +187,17 @@ pub enum CommandRejection {
     /// The holding cannot supply the ability's power draw (D-128).
     #[error("not enough power")]
     NoPower,
+
+    // S6: offline and siege rules.
+    /// The issuer is not a commander of this Universe.
+    #[error("no such commander")]
+    UnknownCommander,
+    /// The window start is not a quarter hour of the day (D-155).
+    #[error("not a quarter hour of the day")]
+    InvalidWindow,
+    /// The free choice of the exposure window is over: the first 7 days have passed (D-157).
+    #[error("the window can no longer be chosen")]
+    WindowLocked,
 }
 
 /// Checks `command` from `issuer` against the current state (D-077).
@@ -205,6 +218,9 @@ pub fn validate_command(
         Command::CreateFleet { ships } => validate_create(state, issuer, ships),
         Command::MergeFleets { fleet, into } => validate_merge(state, issuer, *fleet, *into),
         Command::Economy(command) => crate::economy::validate(state, issuer, command),
+        Command::SetExposureWindow { start } => {
+            crate::commander::validate_window_choice(state, issuer, *start)
+        }
     }
 }
 
@@ -242,6 +258,9 @@ pub(crate) fn execute(
         }
         Command::MergeFleets { fleet, into } => crate::fleet::merge_fleets(state, *fleet, *into),
         Command::Economy(command) => crate::economy::execute(state, command, economy_events),
+        Command::SetExposureWindow { start } => {
+            crate::commander::choose_window(state, issuer, *start);
+        }
     }
     Ok(())
 }

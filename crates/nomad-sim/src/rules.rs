@@ -24,6 +24,7 @@
 //! | Combat: hull, weapons, multipliers, hit radii | [`combat`] (doc 15 §3–§4, §12; D-052, D-143) |
 //! | Defence: dome sectors, regeneration, turrets, abilities, recovery | [`defence`] (doc 15 §5, §12; D-140 to D-142, D-147 to D-149) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
+//! | Sieges: disconnect grace, exposure window, drift, activity history, free choice | [`sieges`] (doc 12 §4, §5.3, §8; D-015, D-032, D-155 to D-157) |
 //!
 //! Starting values adopted from this implementation (D-113): separation distance, obstacle
 //! margin, look-ahead time (D-105 fixes the behaviour, D-113 the numbers), the guard radius
@@ -31,6 +32,7 @@
 
 pub mod combat;
 pub mod defence;
+pub mod sieges;
 
 use std::collections::BTreeMap;
 
@@ -40,7 +42,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@5";
+pub const RULES_FORMAT: &str = "nomad-rules@6";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -92,6 +94,8 @@ pub struct Rules {
     pub combat: combat::CombatRules,
     /// Dome sectors, regeneration, turrets, abilities and recovery (S5b).
     pub defence: defence::DefenceRules,
+    /// Presence and exposure windows (S6a; doc 12 §4, §5.3).
+    pub sieges: sieges::SiegeRules,
 }
 
 /// One ship class (doc 15 §3.3, §12; D-101).
@@ -343,6 +347,7 @@ impl Rules {
         self.combat.check(&self.ship_classes)?;
         self.economy.check()?;
         self.defence.check()?;
+        self.sieges.check()?;
         for class in self.economy.ships.keys() {
             if self.class(*class).npc {
                 return Err(invalid(
@@ -453,6 +458,18 @@ mod tests {
             (6_000, 500)
         );
         assert_eq!(economy.core_kit_growth_permille, 250);
+        // Doc 12 §8, D-015, D-032, D-155, D-157: the S6a values.
+        let sieges = &rules.sieges;
+        assert_eq!(sieges.disconnect_grace_s, 120);
+        assert_eq!((sieges.window_minutes, sieges.window_quarters()), (240, 16));
+        assert_eq!(
+            (sieges.window_drift_minutes_per_day, sieges.drift_quarters()),
+            (60, 4)
+        );
+        assert_eq!(
+            (sieges.activity_history_days, sieges.free_choice_days),
+            (14, 7)
+        );
         // The slowest commander warship is the WARDEN (D-099 item 5), not the HSTL.
         assert_eq!(rules.slowest_commander_warship(), ShipClass::Warden);
         assert!((vx.turn_rate_rad_per_s() - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
@@ -465,8 +482,35 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@5", "nomad-rules@4"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@4"
+            swap("nomad-rules@6", "nomad-rules@5"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@5"
+        ));
+        // The sieges section (S6a): whole quarter hours, a window shorter than a day.
+        for (from, to) in [
+            ("\"window_minutes\": 240", "\"window_minutes\": 250"),
+            ("\"window_minutes\": 240", "\"window_minutes\": 0"),
+            ("\"window_minutes\": 240", "\"window_minutes\": 1440"),
+            (
+                "\"window_drift_minutes_per_day\": 60",
+                "\"window_drift_minutes_per_day\": 70",
+            ),
+            (
+                "\"window_drift_minutes_per_day\": 60",
+                "\"window_drift_minutes_per_day\": 735",
+            ),
+            (
+                "\"activity_history_days\": 14",
+                "\"activity_history_days\": 0",
+            ),
+        ] {
+            assert!(
+                matches!(swap(from, to), Err(RulesError::Invalid { field, .. }) if field.starts_with("sieges.")),
+                "{to}"
+            );
+        }
+        assert!(matches!(
+            swap("\"disconnect_grace_s\": 120,", ""),
+            Err(RulesError::Parse(_))
         ));
         // A rules file without the D-189 growth does not parse; a zero growth is the flat
         // price D-189 replaced.

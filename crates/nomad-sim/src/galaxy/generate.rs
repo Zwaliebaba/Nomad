@@ -15,6 +15,7 @@ use std::f64::consts::TAU;
 
 use thiserror::Error;
 
+use crate::commander::{CommanderError, CommanderSetup};
 use crate::galaxy::validate::neighbourhood_imbalance;
 use crate::galaxy::{
     Deposit, Galaxy, GateId, InvariantLimits, LaneKind, MAX_DEPOSITS_PER_SITE, PositionMetres,
@@ -115,6 +116,10 @@ pub enum GenerationError {
     /// checked invariant, so this means a generator bug; the galaxy is not used.
     #[error("generated galaxy breaks {} invariant checks: {:?}", .0.len(), .0)]
     Invalid(Vec<Violation>),
+    /// A commander record could not be made (S6a): for example a window start that is not
+    /// a quarter hour of the day.
+    #[error("invalid commander: {0}")]
+    Commander(#[from] CommanderError),
 }
 
 impl From<RulesError> for GenerationError {
@@ -139,7 +144,9 @@ pub const fn stage1_sites(kind: SystemKind) -> usize {
 /// Generates a new MVP stage-1 Universe for `season` (doc 10 §4.4) with the embedded rules.
 ///
 /// `commanders[i]` gets a mother-station holding, with its core complete, on the first site
-/// of home system H(i+1), and the start-kit fleet docked there (doc 14 §12).
+/// of home system H(i+1), and the start-kit fleet docked there (doc 14 §12). Every commander
+/// is an AI commander with the default window ([`CommanderSetup::ai`]); the server names
+/// its human with [`generate_stage1_roster`].
 pub fn generate_stage1(
     season: SeasonConfig,
     commanders: [CommanderId; STAGE1_COMMANDERS],
@@ -154,6 +161,17 @@ pub fn generate_stage1_with_rules(
     commanders: [CommanderId; STAGE1_COMMANDERS],
     rules: Rules,
 ) -> Result<UniverseState, GenerationError> {
+    generate_stage1_roster(season, commanders.map(CommanderSetup::ai), rules)
+}
+
+/// Like [`generate_stage1_with_rules`], with each commander's kind and initial exposure
+/// window (S6 plan §4.1, §4.3; D-157). `roster[i]` gets home system H(i+1).
+pub fn generate_stage1_roster(
+    season: SeasonConfig,
+    roster: [CommanderSetup; STAGE1_COMMANDERS],
+    rules: Rules,
+) -> Result<UniverseState, GenerationError> {
+    let commanders = roster.map(|setup| setup.id);
     for (i, commander) in commanders.iter().enumerate() {
         if commanders[..i].contains(commander) {
             return Err(GenerationError::DuplicateCommander(*commander));
@@ -229,6 +247,10 @@ pub fn generate_stage1_with_rules(
     }
     crate::economy::spawn_start_stations(&mut state);
     crate::fleet::spawn_start_kits(&mut state);
+    // Commander records last, so the identities of everything above stay as they were.
+    for setup in roster {
+        crate::commander::add_commander(&mut state, setup)?;
+    }
 
     let report = validate(state.galaxy(), &InvariantLimits::from_rules(&state.rules));
     if report.is_valid() {

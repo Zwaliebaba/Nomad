@@ -29,7 +29,9 @@ use crate::error::{MalformedBody, ProtocolError};
 /// - 3: holding orders gain the station abilities (SHLD SURGE, FLAK SCREEN) and STOP, and
 ///   `InvalidReason` gains `NoSuchSector`, `AbilityCooldown`, `SectorOpen` and `NoPower`
 ///   (S5b; doc 15 §5.3). N4's messages follow in the next version.
-pub const PROTOCOL_VERSION: u32 = 3;
+/// - 4: the `SetExposureWindow` command and the `InvalidWindow` and `WindowLocked`
+///   rejection reasons (S6a; D-157).
+pub const PROTOCOL_VERSION: u32 = 4;
 
 /// The variant index of `ClientMessage::Hello` (frozen).
 const HELLO_VARIANT: u32 = 0;
