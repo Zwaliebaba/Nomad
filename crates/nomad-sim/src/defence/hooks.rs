@@ -55,9 +55,9 @@ pub(crate) fn structure_outcome_at_zero(
 }
 
 /// Whether a hostile hit that leaves a sector of `holding` at 0 on tick `now` is a breach
-/// (doc 15 §5.1). **Default until S6:** always. S6 replaces it with "the holding is
-/// breachable": Nominal and not protected (D-159: during protection a sector can be worn to
-/// 0 without a breach, and the next hostile hit after protection ends is one).
-pub(crate) fn breach_may_occur(_state: &UniverseState, _holding: HoldingId, _now: Tick) -> bool {
-    true
+/// (doc 15 §5.1): the holding is breachable, Nominal and not protected (S6b, D-015, D-159).
+/// During protection a sector can be worn to 0 without a breach, and the next hostile hit
+/// after protection ends is one.
+pub(crate) fn breach_may_occur(state: &UniverseState, holding: HoldingId, now: Tick) -> bool {
+    crate::siege::breachable(state, holding, now)
 }

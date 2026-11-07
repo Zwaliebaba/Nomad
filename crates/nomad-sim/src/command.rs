@@ -17,6 +17,9 @@
 //!   existing sector that is not open, an elapsed cooldown and their power (D-128).
 //! - **the commander's own settings** (S6a): an exposure window is chosen by a commander of
 //!   the Universe, starts on a quarter hour, and only in the first 7 days (D-157).
+//! - **emergency jumps** (S6b): a fleet in one takes no orders but its rules of engagement,
+//!   like a fleet in lane transit (D-166), and a site a fallen mother station is jumping to
+//!   counts as taken (D-164).
 //!
 //! A rejection carries its reason ([`CommandRejection`]). The visibility check ("you can
 //! only target what you detect", D-039) is added with sensors in S7; until then every entity
@@ -289,7 +292,7 @@ pub(crate) struct Target {
 pub(crate) fn locate(state: &UniverseState, id: SimId) -> Option<Target> {
     let in_space = |fleet: &Fleet| match fleet.place {
         Place::InSystem(system) => Some(system),
-        Place::Docked(_) | Place::InTransit { .. } => None,
+        Place::Docked(_) | Place::InTransit { .. } | Place::EmergencyJump { .. } => None,
     };
     if let Some((system, owner)) = state
         .entities
@@ -465,6 +468,8 @@ fn current_context(state: &UniverseState, id: FleetId, fleet: &Fleet) -> Option<
                 position: Some(gate.position.into()),
             })
         }
+        // Refused before this is asked: an emergency jump takes no orders (S6b).
+        Place::EmergencyJump { .. } => None,
     }
 }
 
@@ -618,6 +623,11 @@ fn validate_order(
     // Rules of engagement apply at once, wherever the fleet is.
     if let FleetOrder::SetRulesOfEngagement { .. } = order {
         return Ok(());
+    }
+    // An emergency jump cannot be interrupted, and where it ends is not known until it does:
+    // docked if there is room, otherwise in space (D-166).
+    if matches!(fleet.place, Place::EmergencyJump { .. }) {
+        return Err(R::InTransit);
     }
     let ctx = order_context(state, id, &fleet, queue).ok_or(R::UnknownFleet)?;
     match order {
@@ -798,7 +808,8 @@ fn ship_place(
 /// Two places count as together if they are one system in space or one holding.
 fn together(a: Place, b: Place) -> Result<(), CommandRejection> {
     match (a, b) {
-        (Place::InTransit { .. }, _) | (_, Place::InTransit { .. }) => {
+        (Place::InTransit { .. } | Place::EmergencyJump { .. }, _)
+        | (_, Place::InTransit { .. } | Place::EmergencyJump { .. }) => {
             Err(CommandRejection::InTransit)
         }
         (Place::InSystem(x), Place::InSystem(y)) if x == y => Ok(()),

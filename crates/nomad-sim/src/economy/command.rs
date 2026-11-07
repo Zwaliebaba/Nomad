@@ -131,7 +131,8 @@ pub(crate) fn validate(
             {
                 return Err(CommandRejection::NotClaimable);
             }
-            if state.holding_at(*site).is_some() {
+            // A fallen mother station on its way there has it reserved (S6b, D-164).
+            if state.holding_at(*site).is_some() || crate::siege::site_reserved(state, *site) {
                 return Err(CommandRejection::SiteTaken);
             }
             if !logistics::near_site(state, *fleet, &f, *site) {
@@ -235,7 +236,10 @@ fn validate_convoy(
     if route.last().is_none_or(|&last| !state.is_depot(last)) {
         return Err(CommandRejection::NotDepot);
     }
-    if matches!(f.place, Place::InTransit { .. }) {
+    if matches!(
+        f.place,
+        Place::InTransit { .. } | Place::EmergencyJump { .. }
+    ) {
         return Err(CommandRejection::InTransit);
     }
     Ok(())

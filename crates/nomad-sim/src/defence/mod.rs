@@ -30,8 +30,8 @@
 //!
 //! **Hooks for S6** (S5 plan §4.5; S6 plan §4.4, §4.7): the breach event, the `immune` switch
 //! ([`UniverseState::set_dome_immune`]), `open` ([`UniverseState::open_sector`]), sector
-//! restoring for Held and capture, the damage ledger, and the two functions in [`hooks`]
-//! that S6 replaces.
+//! restoring for Held and capture, the damage ledger, and the two functions in [`hooks`],
+//! whose rules S6b gives ([`crate::siege`]).
 //!
 //! **Power** comes from S4 ([`crate::economy`]): the allocation per sector for regeneration,
 //! the powered flag per turret, and ability power through `request_ability_power` (D-128).
@@ -399,10 +399,6 @@ impl UniverseState {
 
     /// S6's Reinforced switch: while `immune`, the dome takes no damage but still blocks
     /// hostile fire (doc 12 §4; S5 plan §4.5).
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "an S5b hook that S6 calls (S5 plan §4.5)")
-    )]
     pub(crate) fn set_dome_immune(&mut self, holding: HoldingId, immune: bool) {
         if self.holdings.contains_key(&holding) {
             self.defence.holdings.entry(holding).or_default().immune = immune;
@@ -425,10 +421,6 @@ impl UniverseState {
     }
 
     /// Closes every open sector of `holding` (S6: the siege is over).
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "an S5b hook that S6 calls (S5 plan §4.5)")
-    )]
     pub(crate) fn close_sectors(&mut self, holding: HoldingId) {
         if let Some(d) = self.defence.holdings.get_mut(&holding) {
             for sector in &mut d.sectors {
@@ -437,12 +429,10 @@ impl UniverseState {
         }
     }
 
-    /// Sets every sector of `holding` to `percent` of its maximum (S6: Held restores 50%,
-    /// a capture 25%; D-057) and re-arms the breach event.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "an S5b hook that S6 calls (S5 plan §4.5)")
-    )]
+    /// Raises every sector of `holding` to at least `percent` of its maximum (S6: Held
+    /// restores 50%, a capture 25%; D-057) and re-arms the breach event. *Derived:* "restores"
+    /// raises a sector and never lowers one; a sector that regenerated while the dome was
+    /// immune keeps its strength (D-227).
     pub(crate) fn restore_sectors(&mut self, holding: HoldingId, percent: u64) {
         if !dome::has_dome(self, holding) {
             return;
@@ -453,8 +443,9 @@ impl UniverseState {
         };
         for sector in &mut d.sectors {
             let max = sector.max;
-            sector.strength =
+            let restored =
                 u64::try_from(u128::from(max) * u128::from(percent.min(100)) / 100).unwrap_or(max);
+            sector.strength = sector.strength.max(restored).min(max);
             sector.breach_reported = false;
             sector.carry = 0;
         }
@@ -462,10 +453,6 @@ impl UniverseState {
 
     /// Starts `holding`'s siege tally afresh at `now`: core damage and total damage per
     /// commander from then on (S6: at the siege's start; D-057).
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "an S5b hook that S6 calls (S5 plan §4.5)")
-    )]
     pub(crate) fn reset_siege_tally(&mut self, holding: HoldingId, now: Tick) {
         if self.holdings.contains_key(&holding) {
             self.defence

@@ -489,7 +489,7 @@ pub(crate) fn spawn_ship(
         .filter(|&(_, place)| match place {
             Place::Docked(at) => at == holding && room,
             Place::InSystem(s) => Some(s) == system,
-            Place::InTransit { .. } => false,
+            Place::InTransit { .. } | Place::EmergencyJump { .. } => false,
         });
     let ship = ShipId(state.ids.allocate());
     let spacing = state.rules.movement.formation_spacing_m;

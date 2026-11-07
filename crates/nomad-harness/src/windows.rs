@@ -314,7 +314,8 @@ pub fn run(out: &mut impl Write, run: WindowRun) -> Result<(), String> {
                         log.lapses += 1;
                     }
                 }
-                // Control, standings and the season's end are `--season`'s (S8).
+                // Control, standings and the season's end are `--season`'s (S8), the
+                // siege announcements `--siege`'s (S6b).
                 _ => {}
             }
         }

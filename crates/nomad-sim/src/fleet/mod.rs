@@ -87,6 +87,16 @@ pub enum Place {
         /// The tick it arrives.
         arrive: Tick,
     },
+    /// In an emergency jump (S6b; D-057, D-166): an uninterruptible transit to `site`
+    /// along the fastest route, untargetable and invisible like lane transit. On arrival it
+    /// docks at the owner's holding there if there is room, and otherwise station-keeps by
+    /// the core.
+    EmergencyJump {
+        /// The site it jumps to.
+        site: crate::galaxy::SiteId,
+        /// The tick it arrives.
+        arrive: Tick,
+    },
 }
 
 /// Tactical or cruise mode (doc 15 §3.3).
@@ -470,6 +480,11 @@ impl UniverseState {
                 && !self.transits_pending(id, arrive)
             {
                 problems.push(format!("{id:?} is in a lane with no transit timer"));
+            }
+            if let Place::EmergencyJump { arrive, .. } = fleet.place
+                && !crate::siege::jump_pending(self, id, arrive)
+            {
+                problems.push(format!("{id:?} is in an emergency jump with no arrival"));
             }
         }
         for &holding in self.holdings.keys() {

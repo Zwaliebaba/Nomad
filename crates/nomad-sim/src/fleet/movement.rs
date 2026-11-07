@@ -551,7 +551,7 @@ fn kinematics(state: &mut UniverseState, goals: &BTreeMap<FleetId, Goal>) {
             let fleet = state.entities.get::<Fleet>(id)?;
             match fleet.place {
                 Place::InSystem(system) => Some((FleetId(id), system, fleet)),
-                Place::Docked(_) | Place::InTransit { .. } => None,
+                Place::Docked(_) | Place::InTransit { .. } | Place::EmergencyJump { .. } => None,
             }
         })
         .collect();

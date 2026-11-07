@@ -16,6 +16,7 @@ use crate::id::{CommanderId, SimIdAllocator};
 use crate::rng::RngStreams;
 use crate::rules::{Rules, RulesError};
 use crate::season::SeasonRecord;
+use crate::siege::Sieges;
 use crate::time::{SeasonClock, Tick, Ticks};
 use crate::timers::TimerQueue;
 
@@ -104,6 +105,8 @@ pub struct UniverseState {
     // S8: season standings and the result.
     /// The cached control map, the standings and the result (D-191; S8 plan §4.2).
     pub(crate) season_record: SeasonRecord,
+    /// Defence states, protections and emergency jumps (doc 12 §4, doc 15 §6–§7; S6b).
+    pub(crate) sieges: Sieges,
 }
 
 impl UniverseState {
@@ -139,6 +142,7 @@ impl UniverseState {
             defence: Defence::default(),
             commanders: Commanders::default(),
             season_record: SeasonRecord::default(),
+            sieges: Sieges::default(),
         }
     }
 

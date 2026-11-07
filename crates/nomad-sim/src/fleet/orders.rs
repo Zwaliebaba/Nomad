@@ -206,7 +206,7 @@ fn activate(state: &UniverseState, id: FleetId, fleet: &Fleet, order: &FleetOrde
                 _ => Start::Dropped,
             };
         }
-        Place::InTransit { .. } => return Start::Dropped,
+        Place::InTransit { .. } | Place::EmergencyJump { .. } => return Start::Dropped,
     };
     let here = |loc: &nomad_types::Location| loc.system == system;
     let target_here =

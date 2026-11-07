@@ -43,7 +43,11 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// - 14: the season's final tick in the season configuration (D-195) and the season record:
 ///   the cached control map, the standings with their *since*, the near-win set and the
 ///   result (S8; D-191); the rules gain the season section, rules format 8.
-pub const FORMAT: u32 = 14;
+/// - 15: the siege lifecycle (S6b): each holding's defence state with its exit or siege
+///   deadline and credited attackers, its protection, fallen mother stations in their
+///   emergency jump, and siege deadlines; fleets gain the emergency-jump place; rules format
+///   9, which adds the siege values and the outpost's starting hull (D-224).
+pub const FORMAT: u32 = 15;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

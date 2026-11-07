@@ -25,7 +25,12 @@
 //!   [`UniverseState::commander`];
 //! - announcements to commanders, as data ([`Announcement`], S6 plan §4.8);
 //! - the season's standings, the early win and the season end ([`season`], S8: D-191 to
-//!   D-198), with the final tick in [`SeasonConfig`] (D-195).
+//!   D-198), with the final tick in [`SeasonConfig`] (D-195);
+//! - the siege lifecycle (S6b; doc 12 §3–§4, doc 15 §6–§8): breach, Reinforced with its
+//!   stagger slot, the siege and its clock, Held, capture and the emergency jumps of docked
+//!   ships and of a fallen mother station, the comeback grant, protections, the window rule
+//!   for peripheral structures and the outpost exception (D-015, D-033, D-034, D-054, D-057,
+//!   D-138, D-158 to D-170, D-223, D-229), see [`UniverseState::siege`].
 //!
 //! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
@@ -46,8 +51,8 @@
 //! projectiles, the multiplier table, engagement), and so is station combat ([`defence`],
 //! S5b: dome sectors, regeneration, breaches, damage to modules and its recovery, turrets,
 //! SHLD SURGE and FLAK SCREEN, the damage ledger). Until sensors exist (S7) every entity
-//! counts as visible. Of the offline rules (doc 12), presence, the disconnect grace and
-//! exposure windows are here (S6a); the siege lifecycle follows with S6b.
+//! counts as visible. The offline rules (doc 12) are here: presence, the disconnect grace and
+//! exposure windows (S6a), and the siege lifecycle (S6b).
 
 mod announce;
 pub mod combat;
@@ -66,6 +71,7 @@ mod rng;
 pub mod rules;
 pub mod scenario;
 pub mod season;
+mod siege;
 pub mod snapshot;
 mod state;
 mod step;
@@ -75,7 +81,7 @@ mod time;
 mod timers;
 mod util;
 
-pub use announce::{Announcement, AnnouncementKind, Recipients};
+pub use announce::{Announcement, AnnouncementKind, HeldReason, Recipients};
 pub use combat::{CombatEvent, ProjectileId};
 pub use command::{CommandRejection, validate_command};
 pub use commander::{
@@ -105,6 +111,7 @@ pub use nomad_types::{
 pub use nomad_types::{Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};
+pub use siege::{DefenceState, SiegeView, StationJumpView, StationLeg};
 pub use state::{ScheduledEvent, SeasonConfig, UniverseState, final_tick_after_weeks};
 
 // S8: season standings and the result.

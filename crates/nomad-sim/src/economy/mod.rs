@@ -769,12 +769,14 @@ impl UniverseState {
     }
 
     /// The pool cap: the mother station's base plus each completed storage module (D-025).
+    /// A fallen mother station in its emergency jump keeps the base (S6b).
     pub fn pool_cap(&self, commander: CommanderId) -> Stock {
         let storage = &self.rules.economy.storage;
         let has_mother = self
             .holdings
             .values()
-            .any(|h| h.owner == commander && h.mother_station && h.core_complete);
+            .any(|h| h.owner == commander && h.mother_station && h.core_complete)
+            || crate::siege::mother_in_transit(self, commander);
         let base = if has_mother {
             Stock::units(storage.base_alloy, storage.base_crystal)
         } else {
@@ -794,10 +796,11 @@ impl UniverseState {
     }
 
     /// The command cap: the base, plus each other completed holding, up to the maximum
-    /// (D-129). A commander without a mother station has no cap.
+    /// (D-129). A commander without a mother station has no cap. A fallen mother station in
+    /// its emergency jump stays the commander's mother station (S6 plan §4.6).
     pub fn command_cap(&self, commander: CommanderId) -> u32 {
         let cap = &self.rules.economy.command_cap;
-        let mut has_mother = false;
+        let mut has_mother = crate::siege::mother_in_transit(self, commander);
         let mut others = 0_u32;
         for h in self
             .holdings

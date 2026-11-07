@@ -627,7 +627,7 @@ fn a_frozen_window_does_not_move() {
         q(6, 0)
     );
     assert_eq!(announcements.len(), 1);
-    // S6a has no defences: nothing is ever frozen yet.
+    // No holding of commander 2 is Reinforced or under siege (S6b answers, D-156).
     assert!(!window::defence_pending(&state, CommanderId(2)));
 }
 

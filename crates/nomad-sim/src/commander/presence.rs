@@ -180,7 +180,8 @@ fn lapse(state: &mut UniverseState, fleet: FleetId, place: Place, events: &mut V
             Queueing::Replace,
             events,
         ),
-        Place::Docked(_) => {
+        // An emergency jump cannot be interrupted, and it has no orders (S6b).
+        Place::Docked(_) | Place::EmergencyJump { .. } => {
             if let Some(f) = state.entities.get_mut::<Fleet>(fleet.sim_id()) {
                 f.active = None;
                 f.queue.clear();

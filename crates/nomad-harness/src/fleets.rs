@@ -291,6 +291,8 @@ fn order_start(state: &UniverseState, view: &FleetView, queue: Queueing) -> Opti
         Place::Docked(holding) => return Some(Start::DockedNow(holding)),
         Place::InTransit { to_gate, .. } => state.galaxy().gate(to_gate)?.system,
         Place::InSystem(system) => system,
+        // An emergency jump takes no orders (S6b).
+        Place::EmergencyJump { .. } => return None,
     };
     if queue == Queueing::Replace {
         return Some(Start::InSystem(here));

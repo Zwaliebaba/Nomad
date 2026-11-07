@@ -89,7 +89,8 @@ struct ModuleCircle {
     id: SimId,
     centre: Vec2,
     radius_m: f64,
-    /// Inside the dome: the core, inner modules and the dry dock.
+    /// Inside a dome: the core, inner modules and the dry dock of a holding that projects
+    /// one.
     inner: bool,
     hittable: bool,
 }
@@ -179,8 +180,10 @@ impl Structures {
                 let radius_m =
                     f64::from(slot_radius_voxels(&template.radius_voxels, slot)) * voxel_m;
                 bound_m = f64::max(bound_m, offset.length() + radius_m);
-                let inner = inside_dome(slot);
-                let hittable = kind != ModuleKind::Pylon && (!inner || dome.is_none() || any_open);
+                // Inside a dome: an outpost's core has none yet, so raiders can hit it like
+                // a peripheral structure (D-054, D-056; D-163 spares only what a dome covers).
+                let inner = inside_dome(slot) && dome.is_some();
+                let hittable = kind != ModuleKind::Pylon && (!inner || any_open);
                 modules.push(ModuleCircle {
                     id,
                     centre: centre + offset,
@@ -542,9 +545,11 @@ fn damage_sector(
             .entry((holding, sector, hit.owner))
             .or_default();
         *entry = entry.saturating_add(removed);
-        if let Owner::Commander(commander) = hit.owner {
-            d.ledger.dome_hit(commander, removed, now);
-        }
+    }
+    // A damaging hit on a sector already at 0 counts too: it is the hit that breaches once
+    // protection is over (D-159), and its commander gets breach credit (D-057; S6b).
+    if let Owner::Commander(commander) = hit.owner {
+        d.ledger.dome_hit(commander, removed, now);
     }
     if breach {
         events.push(DefenceEvent::SectorBreached {

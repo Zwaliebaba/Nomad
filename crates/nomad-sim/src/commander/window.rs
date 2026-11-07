@@ -52,10 +52,9 @@ pub(super) fn sample_key(commander: CommanderId) -> u64 {
 }
 
 /// Whether any of `commander`'s holdings is Reinforced or under siege, which freezes the
-/// window (D-156). **The S6b interface:** holding defence states arrive with S6b, which
-/// answers from them here. Until then no defence is ever pending.
-pub(super) fn defence_pending(_state: &UniverseState, _commander: CommanderId) -> bool {
-    false
+/// window (D-156): S6b answers from the holdings' defence states.
+pub(super) fn defence_pending(state: &UniverseState, commander: CommanderId) -> bool {
+    crate::siege::defence_pending(state, commander)
 }
 
 /// The window's length in milliseconds.

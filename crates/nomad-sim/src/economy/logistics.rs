@@ -128,7 +128,7 @@ fn convoy_second(
         return false;
     };
     let order = match fleet.place {
-        Place::InTransit { .. } => return true,
+        Place::InTransit { .. } | Place::EmergencyJump { .. } => return true,
         Place::Docked(at) if at == stop => None,
         Place::Docked(_) => Some(FleetOrder::Launch),
         Place::InSystem(here) if here != system => Some(FleetOrder::Jump { system }),
