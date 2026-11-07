@@ -1,6 +1,6 @@
 # 21 — Browser client and the local container
 
-Status: **Partly agreed (round 18).** The owner's direction is agreed as D-235 to D-237. The way it is carried out is *Proposed*, in questions **Q230–Q243** (§11), each with a recommendation and alternatives. Builds on docs 17 and 20, the N3 and N4 plans, and phase-1 doc 05. Labels: *Stated* means the owner said it, *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 18).** The owner's direction is D-235 to D-237; the questions Q230–Q243 (§11) were decided as D-238 to D-251, all as recommended except Q243 (MP-1 comes after δ, D-251). Statements below marked *Proposed* with a question number are agreed through that question's decision. Builds on docs 17 and 20, the N3 and N4 plans, and phase-1 doc 05. Labels: *Stated* means the owner said it, *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -266,46 +266,46 @@ Late joiners (D-045) can stay out if every human joins before the season starts.
 
 Numbered Q230–Q243 (round 18). Each has a recommendation and alternatives.
 
-- **Q230 — The client's technology** (§7.1).
+- **✅ Q230 (D-238) — The client's technology** (§7.1).
   *Recommendation:* the Rust `wgpu` + `winit` client compiled to WebAssembly for the scene (D-004 stands), with the UI in HTML. *Alternatives:* a TypeScript rewrite of the client (supersedes D-004; loses M1–M4 and the shared protocol types); the whole UI in wgpu in the browser (keeps phase-1 doc 05; keeps the UI-volume risk).
 
-- **Q231 — The language of the HTML UI** (§7.2).
+- **✅ Q231 (D-239) — The language of the HTML UI** (§7.2).
   *Recommendation:* Rust with Leptos in the same wasm module, reading the Rust view-model directly. *Alternatives:* TypeScript with a bridge from the wasm view-model (familiar web tooling, but two languages, generated types and an npm supply chain outside `cargo deny`); Rust with plain `web-sys` DOM calls (no framework, much more code).
 
-- **Q232 — Where the phase-1 HUD (M6) is drawn** (§7.2).
+- **✅ Q232 (D-240) — Where the phase-1 HUD (M6) is drawn** (§7.2).
   *Recommendation:* in HTML over the canvas, held to phase-1 doc 06's ±4 px; world labels and markers stay in wgpu. Supersedes phase-1 doc 05's custom-drawn HUD. *Alternatives:* M6 in wgpu as phase-1 doc 05 says, and only the doc 17 §6 panels in HTML (two UI systems on one screen); everything in wgpu (Q230's last alternative).
 
-- **Q233 — The transport** (§5.1).
+- **✅ Q233 (D-241) — The transport** (§5.1).
   *Recommendation:* one WebSocket per session on TCP 31790, carrying N1 frames behind a one-byte stream tag; the native build uses the same. Supersedes D-087's QUIC transport and D-150's UDP port; D-087's encoding and version rule stay. *Alternatives:* two WebSockets per session, one per stream; WebTransport (needs HTTP/3 and a rotating certificate, no gain on loopback).
 
-- **Q234 — The QUIC endpoint** (§5.3).
+- **✅ Q234 (D-242) — The QUIC endpoint** (§5.3).
   *Recommendation:* retire it once the WebSocket endpoint passes the integration test, with `quinn`, `rustls`, `rcgen`, the certificate (D-151's certificate part) and the `nomad://` import string. *Alternatives:* keep it for the native build (two endpoints to maintain and test); keep it until MP-1 decides on WebTransport.
 
-- **Q235 — Serving the client** (§5.2).
+- **✅ Q235 (D-243) — Serving the client** (§5.2).
   *Recommendation:* `nomad-server` serves the client's files and the WebSocket on one port with `axum`, the client built into the image from the same commit, file names carrying the build ID. *Alternatives:* a second container (for example Caddy) serving the files and proxying the socket (one more moving part, and the Host and Origin checks must then be in both); the client embedded in the server binary (couples every server build to a wasm build).
 
-- **Q236 — The guard without a login** (§6).
+- **✅ Q236 (D-244) — The guard without a login** (§6).
   *Recommendation:* Host and Origin checks against a loopback allowlist; browser sessions skip the token; sessions without an `Origin` keep D-151's token; the player's Windows account is the trust boundary. *Alternatives:* no token at all on loopback; a token delivered in a `SameSite=Strict` cookie (no stronger, since anything that can load the page gets the cookie); a pairing code from `docker logs` on first visit (a small login, which D-236 rules out).
 
-- **Q237 — The process model in Docker Desktop** (§4).
+- **✅ Q237 (D-245) — The process model in Docker Desktop** (§4).
   *Recommendation:* a compose file with `restart: unless-stopped`, a named volume and loopback-only publishing; Docker Desktop's start at sign-in replaces "start with Windows"; the server always runs and owns the start screen; "Shut down the Universe" stops the simulation inside the process and *Resume* catches up as a restart does; the client warns when its clock and the server's differ by more than 5 s. Supersedes D-085 and D-152. *Alternatives:* `restart: on-failure` with "shut down" exiting the process (then nothing restarts it at sign-in, and resuming needs Docker Desktop or the command line); no start screen in the browser, with `create` staying a command (not easy use).
 
-- **Q238 — Fonts** (§7.6).
+- **✅ Q238 (D-246) — Fonts** (§7.6).
   *Recommendation:* the image's build stage downloads JetBrains Mono and Rajdhani and serves them with their OFL licence files; the repository still does not commit them. *Alternatives:* load them from Google Fonts (fails without internet); commit them to the repository (supersedes phase-1 ground rule 4).
 
-- **Q239 — Browsers** (§7.4).
+- **✅ Q239 (D-247) — Browsers** (§7.4).
   *Recommendation:* Edge and Chrome on Windows as the reference, Firefox best effort, WebGPU first with WebGL2 as the tested fallback, desktop only, a 1280×720 minimum viewport. *Alternatives:* Chromium only (no Firefox testing); include tablets (a touch design first).
 
-- **Q240 — Keys and fullscreen in the browser** (§7.5).
+- **✅ Q240 (D-248) — Keys and fullscreen in the browser** (§7.5).
   *Recommendation:* doc 17 §7 stays except for keys a browser reserves; U7 tests every binding on Edge, Chrome and Firefox and proposes replacements for those that fail; fullscreen starts from the game's own control after *Play*. Supersedes D-108's fullscreen at start for the browser. *Alternatives:* use Chromium's Keyboard Lock API in fullscreen to capture more keys (Chromium only, fullscreen only); redesign the hotkey scheme for the browser now, before U7.
 
-- **Q241 — Notifications** (§7.7).
+- **✅ Q241 (D-249) — Notifications** (§7.7).
   *Recommendation:* the browser's Notification API replaces the Windows toast, with permission asked when the player turns alerts on; outside the browser remains hosting work. *Alternatives:* the in-page banner only; Web Push already in the MVP (needs a push service on the internet, which D-236 rules out).
 
-- **Q242 — Build, CI and tests** (§8).
+- **✅ Q242 (D-250) — Build, CI and tests** (§8).
   *Recommendation:* a wasm32 build and clippy of the client in CI, Debug, amending D-011; the player's image builds the wasm client in release; the WebSocket integration test and a Playwright browser smoke test run locally (D-190); GPU tests stay native. *Alternatives:* no wasm job in CI (the wasm build breaks unnoticed between local runs); the browser smoke test in CI (a network test, which D-190 keeps out).
 
-- **Q243 — Where MP-1 sits** (§9).
+- **✅ Q243 (D-251) — Where MP-1 sits** (§9).
   *Recommendation:* directly after γ and before δ, because multiplayer is the goal and δ (10 AI commanders in two sectors) does not serve it. *Alternatives:* after δ, as the last milestone; in parallel with δ.
 
 ## 12. Stress test

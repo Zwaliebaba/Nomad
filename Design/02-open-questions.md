@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **Q1–Q226 answered on 2026-11-07. Q230–Q243 are open** (round 18, from `21-browser-client-and-local-container.md`).
+Status: **All questions answered (Q1–Q243) on 2026-11-07.**
 
 ## Answer summary
 
@@ -216,20 +216,20 @@ Status: **Q1–Q226 answered on 2026-11-07. Q230–Q243 are open** (round 18, fr
 | Q224 | Raiders and peripheral structures inside the owner's window | D-223 |
 | Q225 | An outpost's hull while it is built | D-224 |
 | Q226 | What "raids happen" means at α | D-225 |
-| Q230 | *Open:* The client's technology (doc 21 §11) | — |
-| Q231 | *Open:* The language of the HTML UI (doc 21 §11) | — |
-| Q232 | *Open:* Where the phase-1 HUD (M6) is drawn (doc 21 §11) | — |
-| Q233 | *Open:* The transport (doc 21 §11) | — |
-| Q234 | *Open:* The QUIC endpoint (doc 21 §11) | — |
-| Q235 | *Open:* Serving the client (doc 21 §11) | — |
-| Q236 | *Open:* The guard without a login (doc 21 §11) | — |
-| Q237 | *Open:* The process model in Docker Desktop (doc 21 §11) | — |
-| Q238 | *Open:* Fonts (doc 21 §11) | — |
-| Q239 | *Open:* Browsers (doc 21 §11) | — |
-| Q240 | *Open:* Keys and fullscreen in the browser (doc 21 §11) | — |
-| Q241 | *Open:* Notifications (doc 21 §11) | — |
-| Q242 | *Open:* Build, CI and tests (doc 21 §11) | — |
-| Q243 | *Open:* Where MP-1 sits (doc 21 §11) | — |
+| Q230 | The client's technology | D-238 |
+| Q231 | The language of the HTML UI | D-239 |
+| Q232 | Where the phase-1 HUD (M6) is drawn | D-240 |
+| Q233 | The transport | D-241 |
+| Q234 | The QUIC endpoint | D-242 |
+| Q235 | Serving the client | D-243 |
+| Q236 | The guard without a login | D-244 |
+| Q237 | The process model in Docker Desktop | D-245 |
+| Q238 | Fonts | D-246 |
+| Q239 | Browsers | D-247 |
+| Q240 | Keys and fullscreen in the browser | D-248 |
+| Q241 | Notifications | D-249 |
+| Q242 | Build, CI and tests | D-250 |
+| Q243 | Where MP-1 sits | D-251 |
 
 ## A. Universe and time
 
@@ -882,21 +882,21 @@ The full questions, with alternatives, are in the plans' question sections; Q198
 
 **✅ Q226** → D-225: **What "raids happen" means at α:** In every α season run: 1. each haven launches every 2–4 h, with every interval inside the bounds; 2. every commander is the target of at least one raid per 24 h on average, and never twice within 6 h; 3. at least half of the raids that reach their system destroy or disable something; 4. no dome ever takes raider damage; 5. no raid launches during catch-up (one run includes a catch-up segment).
 
-## W. Round 18, from `21-browser-client-and-local-container.md` (open)
+## W. Round 18, from `21-browser-client-and-local-container.md` (answered)
 
 The owner's direction is agreed as D-235 (the browser is the player's client), D-236 (the server in Docker Desktop, one player, no internet, no login) and D-237 (single player first, then MP-1 with up to 4 humans). The questions below are how to carry it out; the full text, with recommendations and alternatives, is in doc 21 §11. Q227–Q229 were not used.
 
-- **Q230** — The client's technology.
-- **Q231** — The language of the HTML UI.
-- **Q232** — Where the phase-1 HUD (M6) is drawn.
-- **Q233** — The transport.
-- **Q234** — The QUIC endpoint.
-- **Q235** — Serving the client.
-- **Q236** — The guard without a login.
-- **Q237** — The process model in Docker Desktop.
-- **Q238** — Fonts.
-- **Q239** — Browsers.
-- **Q240** — Keys and fullscreen in the browser.
-- **Q241** — Notifications.
-- **Q242** — Build, CI and tests.
-- **Q243** — Where MP-1 sits.
+- **✅ Q230** (D-238) — The client's technology.
+- **✅ Q231** (D-239) — The language of the HTML UI.
+- **✅ Q232** (D-240) — Where the phase-1 HUD (M6) is drawn.
+- **✅ Q233** (D-241) — The transport.
+- **✅ Q234** (D-242) — The QUIC endpoint.
+- **✅ Q235** (D-243) — Serving the client.
+- **✅ Q236** (D-244) — The guard without a login.
+- **✅ Q237** (D-245) — The process model in Docker Desktop.
+- **✅ Q238** (D-246) — Fonts.
+- **✅ Q239** (D-247) — Browsers.
+- **✅ Q240** (D-248) — Keys and fullscreen in the browser.
+- **✅ Q241** (D-249) — Notifications.
+- **✅ Q242** (D-250) — Build, CI and tests.
+- **✅ Q243** (D-251) — Where MP-1 sits.

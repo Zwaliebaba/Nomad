@@ -51,7 +51,7 @@ CI runs only fast tests (D-190). Network tests and long simulations are `#[ignor
 ## CI rules
 
 - CI builds the **Debug** profile only (D-010). Do not add `--release` builds or a build-configuration matrix.
-- CI runs on Linux and Windows (D-011). Code must build on both. Put platform-specific code behind `cfg`.
+- CI runs on Linux and Windows (D-011). Code must build on both. Put platform-specific code behind `cfg`. A wasm32 build and clippy of the client joins CI with the browser client (D-250).
 - Never weaken lints, skip tests or remove CI steps to get a green build. Fix the code instead. A local suppression must use `#[expect(lint, reason = "...")]` on the smallest possible scope.
 - A test leaves CI only by D-190's rule (it opens a socket, or simulates long enough to take more than a few seconds in Debug): `#[ignore = "reason"]`, and it still has to pass locally. Never ignore a failing test to get a green build.
 

@@ -74,15 +74,15 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 
 ## 3. Milestones
 
-*Agreed (D-094); MP-1 added by D-237.*
+*Agreed (D-094); MP-1 added by D-237 and placed after δ by D-251.*
 
 | Milestone | Contents | Acceptance |
 |---|---|---|
 | **MVP-α — Headless game** | S2–S8, A1, A2, A3, harness | AI commanders with economy, plus raiders and Deputies, play seasons headlessly. Determinism holds (D-049). The economy pacing targets can be measured, and are within ±50% at this stage. Raids happen. Sieges run end to end when driven by scripted commands. |
 | **MVP-β — Playable slice** | N1–N5, C7, C8, U1–U3, U7, plus phase-1 M3–M6 | A human plays in the stage-1 sector against raiders and one economy AI, from the browser against the server in Docker Desktop (D-235, D-236; contents add N6, W1 and W2 once Q230–Q243 are answered). The client–server integration test passes on both operating systems (run locally, D-190). A 3-day playtest with server restarts, PC shutdowns and PC sleep (doc 21 §4.4) loses no state beyond the 1 s journal window, and catch-up works. |
 | **MVP-γ — Stage 1 (MVP acceptance, D-038)** | A4, A5, A6, U4–U6; siege, window and away-report UI | **1 human, 3 AI and raiders, for a full season.** See §5. |
-| **MP-1 — Multiplayer** (D-237) | Up to 4 humans in the stage-1 sector on a hosted server, AI filling empty seats; hosting, identity, derelict holdings (D-023) and notifications outside the client; contents from its own plan (doc 21 §10) | A full season with up to 4 humans, plus raiders and AI seat fillers. Acceptance is set by MP-1's plan. Placed before δ if Q243 is accepted. |
 | **MVP-δ — Stage 2** | Up to 9 AI commanders, two sectors (doc 10 §3) | The AI acceptance criteria hold with 10 commanders. Tick and AI budgets hold at stage-2 scale. A stage-2 playtest. |
+| **MP-1 — Multiplayer** (D-237; after δ, D-251) | Up to 4 humans in the stage-1 sector on a hosted server, AI filling empty seats; hosting, identity, derelict holdings (D-023) and notifications outside the client; contents from its own plan (doc 21 §10) | A full season with up to 4 humans, plus raiders and AI seat fillers. Acceptance is set by MP-1's plan. Placed before δ if Q243 is accepted. |
 
 ## 4. Order of work
 
