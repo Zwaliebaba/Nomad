@@ -14,7 +14,7 @@ use crate::command::tests::economy_reasons;
 use crate::fleet::{Fleet, Motion, Place};
 use crate::rules::Rules;
 use crate::snapshot::{decode, encode, state_hash};
-use crate::testkit::{commander, home, idle, kit_fleet, order, send, stage1};
+use crate::testkit::{commander, home, idle, kit_fleet, kit_mules, order, send, stage1};
 use crate::validate_command;
 
 const ONE_HOUR: u64 = 3_600 * TICKS_PER_SECOND;
@@ -523,7 +523,7 @@ fn rally_fleets_take_new_ships() {
         _ => None,
     });
     assert_eq!(built, Some(kit));
-    assert_eq!(state.fleet(kit).unwrap().ships.len(), 6);
+    assert_eq!(state.fleet(kit).unwrap().ships.len(), 4);
     assert!(state.fleet_problems().is_empty());
 }
 
@@ -653,7 +653,7 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
     assert_eq!(state.pool(you).crystal, 0);
     counts_once(&state, "stored");
 
-    let kit = kit_fleet(&state, 1);
+    let kit = kit_mules(&state, 1);
     let out = send(
         &mut state,
         1,
@@ -695,9 +695,12 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
     assert!(!state.cargo(carrier).core_kit);
     counts_once(&state, "outpost");
     let core = state.economy.holdings[&outpost].slots[&Slot::Core];
-    assert_eq!(state.module(core).unwrap().building_ms, Some(7_200_000));
-    // D-224: the core starts at 10% of its hull.
-    assert_eq!(state.module(core).unwrap().hp, 30_000);
+    // 2 h to build, and D-224's start at 10% of its hull, less at most the one economy
+    // second its slot (by `SimId`, doc 11 §4.1) may have had since the deployment.
+    let building = state.module(core).unwrap().building_ms.unwrap();
+    assert!((7_199_000..=7_200_000).contains(&building), "{building}");
+    let hp = state.module(core).unwrap().hp;
+    assert!((30_000..30_100).contains(&hp), "{hp}");
     // Outposts cannot build and do not raise the cap.
     assert_eq!(
         check(
@@ -971,7 +974,7 @@ fn convoys_empty_buffers_into_the_pool() {
     let (mother, home_system) = home(&state, 1);
     let remote = remote_ore_holding(&mut state);
     state.economy.holdings.get_mut(&remote).unwrap().buffer = Stock::units(900, 0);
-    let kit = kit_fleet(&state, 1);
+    let kit = kit_mules(&state, 1);
     // Stand at the remote stop, in space: the first convoy second loads the buffer. (Given
     // while docked at the mother station, a stop of the route, the route would start
     // there, A1 plan §5.8.)
@@ -1031,7 +1034,7 @@ fn convoys_travel_by_ordinary_orders() {
     let mut state = stage1(7);
     let (mother, _) = home(&state, 1);
     let remote = remote_ore_holding(&mut state);
-    let kit = kit_fleet(&state, 1);
+    let kit = kit_mules(&state, 1);
     send(
         &mut state,
         1,
@@ -1268,24 +1271,11 @@ fn fleet_and_claim_reasons(seen: &mut Seen) {
     let state = stage1(7);
     let (mother, home_system) = home(&state, 1);
     let (theirs, _) = home(&state, 2);
-    let kit = kit_fleet(&state, 1);
+    // The start kit's MULEs and VX are fleets of their own (D-286).
+    let kit = kit_mules(&state, 1);
     // Fleets: no MULE, no kit, a full hold, in space instead of docked.
     let mut s = stage1(7);
-    let warriors: Vec<_> = s
-        .fleet(kit)
-        .unwrap()
-        .ships
-        .iter()
-        .copied()
-        .filter(|ship| s.ship(*ship).is_some_and(|v| v.class == ShipClass::Vx))
-        .collect();
-    let out = send(&mut s, 1, Command::CreateFleet { ships: warriors });
-    let vx_fleet = s
-        .fleet_ids()
-        .into_iter()
-        .find(|f| *f != kit && s.fleet(*f).is_some_and(|v| v.owner == commander(1)))
-        .expect("the VX fleet");
-    let _ = out;
+    let vx_fleet = kit_fleet(&s, 1);
     seen.expect(
         &s,
         EconomyCommand::LoadCoreKit { fleet: vx_fleet },
@@ -1435,7 +1425,7 @@ fn destroyed_carriers_lose_their_cargo_and_end_their_routes() {
     let mut state = stage1(7);
     let (mother, _) = home(&state, 1);
     let remote = remote_ore_holding(&mut state);
-    let kit = kit_fleet(&state, 1);
+    let kit = kit_mules(&state, 1);
     send(
         &mut state,
         1,

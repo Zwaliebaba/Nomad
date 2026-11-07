@@ -253,7 +253,7 @@ fn a_convoy_holds_at_a_contested_gate_and_never_passes_it() {
         gate_at + Vec2::new(-1_500.0, 0.0),
         &[ShipClass::Vx],
     );
-    let kit = kit_fleet(&state, 1);
+    let kit = crate::testkit::kit_mules(&state, 1);
     let convoy = Command::Economy(EconomyCommand::Convoy {
         fleet: kit,
         route: vec![remote, mother],

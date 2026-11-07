@@ -18,7 +18,8 @@
 //! format 16), with rules format 11 (A1a's AI section), and again for the D-282 and D-284
 //! rules values (F 2.5, storage 5,000 A base and 1,500 A a rack, LANCER hull 1,400) with no
 //! format change, and for format 18 (A1b: the attacking fleet in the inbox's damage
-//! entries). The harness's seasons are 8 weeks long ([`SeasonConfig::new`], D-106).
+//! entries) and the start kit as two fleets (D-286). The harness's seasons are 8 weeks long
+//! ([`SeasonConfig::new`], D-106).
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
 use nomad_sim::snapshot::{self, state_hash};
@@ -34,11 +35,11 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0x6521_3d01_3554_357f),
-    (1, 0x0ef8_da8b_bd05_2078),
-    (2, 0x3fa0_641b_d039_9df7),
-    (7, 0xf4c6_be4a_5c81_e6e9),
-    (99, 0x3f60_ede8_8aef_2f47),
+    (0, 0xf454_c3de_a1c2_c9cc),
+    (1, 0xe6e5_0f0a_5d2b_d719),
+    (2, 0x3eb7_cf56_6bcf_3f08),
+    (7, 0xe623_6034_d9f2_b280),
+    (99, 0x7f68_95d8_f401_aa97),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).

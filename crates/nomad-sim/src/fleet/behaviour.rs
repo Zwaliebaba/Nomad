@@ -56,19 +56,25 @@ fn every_mother_station_has_its_start_kit_docked() {
     let state = stage1(3);
     for n in 1..=4 {
         let (holding, _) = home(&state, n);
-        let fleet = state.fleet(kit_fleet(&state, n)).unwrap();
-        assert_eq!(fleet.place, Place::Docked(holding));
-        let classes: Vec<ShipClass> = fleet
-            .ships
-            .iter()
-            .map(|&s| state.ship(s).unwrap().class)
-            .collect();
-        assert_eq!(classes, [VX, VX, VX, MULE, MULE]);
+        // Two fleets (D-286): the 3 VX, then the 2 MULEs.
+        for (fleet, kit) in [
+            (kit_fleet(&state, n), [VX; 3].as_slice()),
+            (crate::testkit::kit_mules(&state, n), [MULE; 2].as_slice()),
+        ] {
+            let fleet = state.fleet(fleet).unwrap();
+            assert_eq!(fleet.place, Place::Docked(holding));
+            let classes: Vec<ShipClass> = fleet
+                .ships
+                .iter()
+                .map(|&s| state.ship(s).unwrap().class)
+                .collect();
+            assert_eq!(classes, kit);
+        }
         // D-102: mother-station core 24, plus 6 for the start kit's dry dock.
         assert_eq!(state.docking_capacity(holding), 30);
         assert_eq!(state.docked_ships(holding), 5);
     }
-    assert_eq!(state.fleet_ids().len(), 4);
+    assert_eq!(state.fleet_ids().len(), 8);
     assert_eq!(state.ship_ids().len(), 20);
 }
 
@@ -112,7 +118,19 @@ fn launch_ready_puts_docked_fleets_at_the_launch_point_in_formation() {
 fn split_and_merge_keep_every_ship_in_exactly_one_fleet() {
     let mut state = stage1(3);
     let kit = kit_fleet(&state, 1);
+    // The kit's two fleets (D-286) merged into one first.
+    let kit_mules = crate::testkit::kit_mules(&state, 1);
+    let out = send(
+        &mut state,
+        1,
+        Command::MergeFleets {
+            fleet: kit_mules,
+            into: kit,
+        },
+    );
+    assert_eq!(out.commands[0].outcome, Ok(()));
     let ships = state.fleet(kit).unwrap().ships;
+    assert_eq!(ships.len(), 5);
     let out = send(
         &mut state,
         1,
@@ -156,7 +174,7 @@ fn split_and_merge_keep_every_ship_in_exactly_one_fleet() {
         },
     );
     assert!(state.fleet(kit).is_none());
-    assert_eq!(state.fleet_ids().len(), 4);
+    assert_eq!(state.fleet_ids().len(), 7);
 }
 
 /// Runs `fleet` to `target` and checks the Done-when movement criteria on the way: no ship

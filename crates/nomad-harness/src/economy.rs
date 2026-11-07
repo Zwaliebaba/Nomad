@@ -192,11 +192,15 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
     };
     let economy = state.economy_of(c);
 
-    // Split the start kit's MULEs off once.
+    // Split the start kit's MULEs, a reserve fleet of their own (D-286), into one fleet each.
     if b.kit_mule.is_none() {
         let start = state.fleet_ids().into_iter().find_map(|f| {
             let v = state.fleet(f)?;
-            (v.owner == owner).then_some(v)
+            let mules = v
+                .ships
+                .iter()
+                .any(|s| state.ship(*s).is_some_and(|v| v.class == ShipClass::Mule));
+            (v.owner == owner && mules).then_some(v)
         });
         if let Some(fleet) = start {
             let mules: Vec<ShipId> = fleet

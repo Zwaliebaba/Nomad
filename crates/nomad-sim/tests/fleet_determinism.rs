@@ -43,8 +43,8 @@ fn add(script: &mut Script, tick: u64, commander: CommanderId, seq: u64, command
 }
 
 /// The order script, derived from the generated Universe only. Everyone launches on the
-/// first tick and splits off the MULEs; then commander 1 jumps, 2 patrols, 3 moves and
-/// docks, and 4 sends a rejected launch and later retreats.
+/// first tick, the start kit's VX and MULEs as their two fleets (D-286); then commander 1's
+/// VX jump, 2's patrol, 3's move and dock, and 4's send a rejected launch and later retreat.
 fn script(state: &UniverseState) -> Script {
     let mut script = Script::new();
     for (n, &commander) in COMMANDERS.iter().enumerate() {
@@ -59,7 +59,6 @@ fn script(state: &UniverseState) -> Script {
             .into_iter()
             .find(|&f| state.fleet(f).is_some_and(|v| v.owner == commander.into()))
             .expect("a start-kit fleet");
-        let ships = state.fleet(fleet).expect("fleet").ships;
         let order = |order, queue| Command::Fleet {
             fleet,
             order,
@@ -71,10 +70,6 @@ fn script(state: &UniverseState) -> Script {
             order: HoldingOrder::LaunchReady,
         };
         add(&mut script, 0, commander, 1, launch);
-        let split = Command::CreateFleet {
-            ships: ships[3..].to_vec(),
-        };
-        add(&mut script, 1, commander, 2, split);
         let then: Vec<(u64, FleetOrder, Queueing)> = match n {
             0 => {
                 let neighbour = *state.galaxy().neighbours(system).first().expect("lanes");
@@ -165,7 +160,7 @@ fn the_script_does_what_it_says() {
     assert_eq!(
         state.fleet_ids().len(),
         8,
-        "every commander split off the MULEs"
+        "every commander has its two start-kit fleets"
     );
 }
 

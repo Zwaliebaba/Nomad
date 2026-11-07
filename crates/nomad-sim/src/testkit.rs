@@ -99,13 +99,29 @@ pub(crate) fn home(state: &UniverseState, n: u32) -> (HoldingId, SystemId) {
     (id, system)
 }
 
-/// Commander `n`'s start-kit fleet.
+/// Commander `n`'s start-kit garrison: the 3 VX (D-286).
 pub(crate) fn kit_fleet(state: &UniverseState, n: u32) -> FleetId {
+    kit_of(state, n, ShipClass::Vx)
+}
+
+/// Commander `n`'s start-kit reserve: the 2 MULEs (D-286).
+pub(crate) fn kit_mules(state: &UniverseState, n: u32) -> FleetId {
+    kit_of(state, n, ShipClass::Mule)
+}
+
+fn kit_of(state: &UniverseState, n: u32, class: ShipClass) -> FleetId {
     state
         .fleet_ids()
         .into_iter()
-        .find(|&f| state.fleet(f).is_some_and(|v| v.owner == commander(n)))
-        .expect("every commander has a start-kit fleet")
+        .find(|&f| {
+            state.fleet(f).is_some_and(|v| {
+                v.owner == commander(n)
+                    && v.ships
+                        .iter()
+                        .all(|&s| state.ship(s).is_some_and(|s| s.class == class))
+            })
+        })
+        .expect("every commander has its start-kit fleets")
 }
 
 /// The position of site `index` of `system`.

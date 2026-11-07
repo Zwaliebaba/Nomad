@@ -661,7 +661,7 @@ fn lapse_scene() -> (UniverseState, FleetId, FleetId, FleetId) {
     // As a direct order of commander 2's client would leave it (RK-10).
     crate::doctrine::take_control(&mut state, two, false);
     // Commander 3's kit runs a convoy route: doctrine, not a direct order (D-162).
-    let three = kit_fleet(&state, 3);
+    let three = crate::testkit::kit_mules(&state, 3);
     let (mother, _) = home(&state, 3);
     state.economy.convoys.insert(
         three,

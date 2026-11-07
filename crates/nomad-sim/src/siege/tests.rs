@@ -713,7 +713,10 @@ fn a_fallen_mother_station_jumps_and_leaves_its_site_to_the_capturer_as_an_outpo
     let (outpost, h) = s.state.holding_at(site).unwrap();
     assert_eq!((h.owner, h.core_complete), (CommanderId(ATTACKER), false));
     let outpost_core = s.state.economy.holdings[&outpost].slots[&Slot::Core];
-    assert_eq!(s.state.module(outpost_core).unwrap().hp, 30_000);
+    // Its starting hull (D-224), plus the construction of at most the one economy second
+    // that its slot (by `SimId`, doc 11 §4.1) may have had since it was placed.
+    let hp = s.state.module(outpost_core).unwrap().hp;
+    assert!((30_000..30_100).contains(&hp), "{hp}");
     // The other modules are destroyed (D-034).
     let destroyed = out
         .iter()

@@ -280,11 +280,12 @@ fn docked_ships_fleets_in_transit_and_outposts_sense_nothing() {
         f.rules_of_engagement = RulesOfEngagement::HoldFire;
     }
     send(&mut state, 1, order(kit, FleetOrder::Launch));
-    assert_eq!(state.sensors_detection_stats().sensors, 4 + 5);
+    // The kit's 3 VX launch; its MULEs are a docked fleet of their own (D-286).
+    assert_eq!(state.sensors_detection_stats().sensors, 4 + 3);
     // An outpost has no core yet (D-176).
     let free = state.galaxy().system(system).unwrap().sites[1];
     let outpost = state.insert_holding(free, CommanderId(1), false).unwrap();
-    assert_eq!(state.sensors_detection_stats().sensors, 4 + 5);
+    assert_eq!(state.sensors_detection_stats().sensors, 4 + 3);
     // But it is a target: another observer near it sees it.
     let near: Vec2 = state.galaxy().site(free).unwrap().position.into();
     place(
