@@ -35,7 +35,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | S5 ✅ | Combat (doc 15 §4–5; plan in `plans/S5-combat.md`). S5a ✅: weapons, lock, projectiles, multipliers, targeting, engagement. S5b ✅: dome sectors and regeneration, turrets, abilities, module damage, after S4 (D-139) | L |
 | | S6 ⏳ | Offline and siege rules (docs 12, 15; plan in `plans/S6-offline-and-sieges.md`). S6a ✅: commander records, activity and windows, presence, grace and order lapse, alongside S5b. S6b: breach, Reinforced, siege, Held and Fallen, capture, emergency jump, outpost combat, protections, after S5b (D-172; claiming moved to S4, D-135) | L |
 | | S7 | Sensors: visibility sets, signatures, lane traffic, last-known memory, `CommanderView` (doc 16; plan in `plans/S7-sensors.md`) | M |
-| | S8 | Season standings, win, season end (D-020, D-041; plan in `plans/S8-season-end.md`, D-191 to D-198) | S |
+| | S8 ✅ | Season standings, win, season end (D-020, D-041; plan in `plans/S8-season-end.md`, D-191 to D-198) | S |
 | **AI** | A1 | Deputy (doc 13 §4; plan in `plans/A1-deputy.md`, D-199 to D-211; A1a and A1b, D-205) | M |
 | | A2 | Strategist economy (plan in `plans/A2-strategist-economy.md`, D-212 to D-218) | L |
 | | A3 | Raider director (plan in `plans/A3-raider-director.md`, D-219 to D-225; also the α acceptance runs) | M |

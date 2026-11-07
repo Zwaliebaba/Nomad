@@ -41,7 +41,7 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 | S7 | [`plans/S7-sensors.md`](plans/S7-sensors.md) | Planned and decided (D-173 to D-181) |
 | N4 | [`plans/N4-replication.md`](plans/N4-replication.md) | Planned and decided (D-182 to D-187) |
 | S6 | [`plans/S6-offline-and-sieges.md`](plans/S6-offline-and-sieges.md) | Planned and decided (D-154 to D-172); S6a built, S6b next |
-| S8 | [`plans/S8-season-end.md`](plans/S8-season-end.md) | Planned and decided (D-191 to D-198); next to build |
+| S8 | [`plans/S8-season-end.md`](plans/S8-season-end.md) | Built (D-191 to D-198) |
 | A1 | [`plans/A1-deputy.md`](plans/A1-deputy.md) | Planned and decided (D-199 to D-211) (also the shared AI architecture for A1–A3) |
 | A2 | [`plans/A2-strategist-economy.md`](plans/A2-strategist-economy.md) | Planned and decided (D-212 to D-218) |
 | A3 | [`plans/A3-raider-director.md`](plans/A3-raider-director.md) | Planned and decided (D-219 to D-225) (also the α acceptance runs) |
