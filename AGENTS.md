@@ -8,8 +8,8 @@ Nomad (working title) is a persistent multiplayer space RTS in Rust:
 
 - Commanders grow an empire from a mother station in one shared **Universe** (up to 100 commanders, seasons of 8–12 weeks) that keeps running while they are offline.
 - A **Deputy** AI always executes each commander's standing orders (doctrine). While the player is away it runs the empire alone. Offline protection is clock-based: see `Design/12-offline-play-and-deputy.md`.
-- MVP: one human player and up to 9 AI commanders, on a local headless server.
-- Client: a custom `wgpu` + `winit` renderer drawing an isometric voxel scene, on Windows. Server: Linux; `hecs`, `tokio` + `quinn`, SQLite (D-029, D-030).
+- MVP: one human player and up to 9 AI commanders, on a local headless server in Docker Desktop (D-236). Multiplayer with up to 4 humans follows as MP-1 (D-237).
+- Client: a custom `wgpu` + `winit` renderer drawing an isometric voxel scene. Players use it in a browser on Windows; the native build is for development (D-235; how it is built for the browser is `Design/21-browser-client-and-local-container.md`). Server: Linux, in a container; `hecs`, `tokio` + `quinn` (the transport is changing, doc 21 §5), SQLite (D-029, D-030).
 - License: proprietary (D-031). Only permissively licensed dependencies may ship.
 
 ## Current phase: build (the MVP design is complete)

@@ -34,6 +34,8 @@ Most of it puts together decisions already taken; the new choices are marked *Pr
 - If the PC shuts down, the server stops. At its next start it catches up (D-047).
 - **"Start the Universe when I log in to Windows"** is opt-in. It registers the server as a per-user logon task; no Windows service and no admin rights are needed.
 - **MVP networking is localhost only:** the server binds to 127.0.0.1.
+
+> **Changing (D-235, D-236; doc 21):** the player's client is the browser, and the server runs in Docker Desktop on the player's PC, with no login. What replaces "the client starts the server" and "start with Windows" is Q237 (doc 21 §4); this section and its diagram follow the answer.
 - *Later:* a Linux container image of the same `nomad-server`, with PostgreSQL and real certificates (D-029, D-030). Same binary, different configuration.
   > **Already built (D-150 to D-152):** the repository's `Dockerfile` builds that image with SQLite. In the MVP it is a developer and soak-test mode, published on the host's loopback only; the player-facing process model stays D-085.
 
@@ -74,6 +76,7 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 *Agreed (D-087).*
 
 - **Transport:** QUIC via `quinn` over TLS 1.3 with `rustls`. In the MVP the server generates a self-signed certificate on first start, and the client pins its fingerprint.
+  > **Changing (D-235; doc 21 §5):** a browser cannot open a QUIC connection. Q233 proposes one WebSocket per session on TCP 31790 carrying the same frames, and Q234 retiring the `quinn` endpoint; the encoding and version rule below stay.
   > **Amended by D-120 to D-124 (N3 plan):** the server listens on an OS-chosen port and writes port, fingerprint and token to `<universe>/server.json` (D-120; superseded by D-150: a fixed default port with `--bind` and `--port` overrides, `server.json` kept); certificate and token are new at every start (D-121; superseded by D-151: they persist, with `connect-info` and `rotate-token` commands); validator rejection reasons go on the wire with "unknown / not yours / not visible" collapsed into `NotFound` (D-123); a second connection for a commander replaces the first (D-124).
 - **Streams:** one reliable bidirectional control stream (session, commands, acknowledgements) and one reliable unidirectional state stream. There are **no unreliable datagrams in the MVP**; head-of-line blocking does not matter on localhost. Revisit for hosting.
 - **Encoding:** length-prefixed `postcard` frames of one versioned `enum` per direction. Client and server must have **exactly the same protocol version**, because they ship together in the MVP.
@@ -164,6 +167,8 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 - **View-model store:** built from `ViewSnapshot` and `ViewDelta`. Render and UI code read **only** the view-model (phase-1 ground rule 3). The phase-1 fixture schema grows into a saved copy of this view-model (D-028), so the fixtures stay useful for tests and golden images.
 - **Without a server**, the client shows a start screen: create a Universe, continue one, or show catch-up progress (doc 17).
 
+> **Changing (D-235; doc 21 §7):** the player's client is the same Rust code compiled to WebAssembly and running in a browser, with the UI in HTML and the start screen served by the server (Q230–Q232, Q237). The native build stays for development.
+
 ## 9. Security and robustness
 
 *Derived* from `CODING_STANDARDS.md` §5. The details are proposed.
@@ -171,6 +176,8 @@ Channels connect the threads. The simulation thread never blocks on I/O. If enco
 - **Bound everything that arrives:** malformed frames, oversized messages and unknown versions are rejected and logged, never turned into a panic. Each message type has a maximum size; each session has a command rate limit.
 - **MVP authentication:** on first start the server creates the local commander and a random token, stored in the per-user data directory with user-only permissions. The client reads the token from there. *Amended by D-151 and D-122:* the token is created once, kept in the Universe's data directory and published in `server.json`, protected by mode 0600 on Linux and the profile's per-user ACL on Windows; `connect-info` prints it for a client that cannot read those files, and `rotate-token` replaces it. Accounts and external identity are hosting work, outside the MVP.
 - Clients never receive entities they have not detected (doc 16 §6), so a modified client learns nothing extra.
+
+> **Changing (D-236; doc 21 §6):** there is no login in the MVP, and a server on loopback is reachable from every page in the player's browser. Q236 proposes Host and Origin checks against cross-site WebSocket hijacking and DNS rebinding, with the token kept for sessions that are not from a browser.
 
 ## 10. Observability
 

@@ -1,6 +1,6 @@
 # 02 — Open questions
 
-Status: **All questions answered (Q1–Q226) on 2026-11-07.**
+Status: **Q1–Q226 answered on 2026-11-07. Q230–Q243 are open** (round 18, from `21-browser-client-and-local-container.md`).
 
 ## Answer summary
 
@@ -216,6 +216,20 @@ Status: **All questions answered (Q1–Q226) on 2026-11-07.**
 | Q224 | Raiders and peripheral structures inside the owner's window | D-223 |
 | Q225 | An outpost's hull while it is built | D-224 |
 | Q226 | What "raids happen" means at α | D-225 |
+| Q230 | *Open:* The client's technology (doc 21 §11) | — |
+| Q231 | *Open:* The language of the HTML UI (doc 21 §11) | — |
+| Q232 | *Open:* Where the phase-1 HUD (M6) is drawn (doc 21 §11) | — |
+| Q233 | *Open:* The transport (doc 21 §11) | — |
+| Q234 | *Open:* The QUIC endpoint (doc 21 §11) | — |
+| Q235 | *Open:* Serving the client (doc 21 §11) | — |
+| Q236 | *Open:* The guard without a login (doc 21 §11) | — |
+| Q237 | *Open:* The process model in Docker Desktop (doc 21 §11) | — |
+| Q238 | *Open:* Fonts (doc 21 §11) | — |
+| Q239 | *Open:* Browsers (doc 21 §11) | — |
+| Q240 | *Open:* Keys and fullscreen in the browser (doc 21 §11) | — |
+| Q241 | *Open:* Notifications (doc 21 §11) | — |
+| Q242 | *Open:* Build, CI and tests (doc 21 §11) | — |
+| Q243 | *Open:* Where MP-1 sits (doc 21 §11) | — |
 
 ## A. Universe and time
 
@@ -867,3 +881,22 @@ The full questions, with alternatives, are in the plans' question sections; Q198
 **✅ Q225** → D-224: **An outpost's hull while it is built:** A core under construction has a hull that grows linearly from 10% to 100% of its maximum over the 2 h deployment. A fresh claim is fragile and a nearly finished one is not, which rewards escorting it early.
 
 **✅ Q226** → D-225: **What "raids happen" means at α:** In every α season run: 1. each haven launches every 2–4 h, with every interval inside the bounds; 2. every commander is the target of at least one raid per 24 h on average, and never twice within 6 h; 3. at least half of the raids that reach their system destroy or disable something; 4. no dome ever takes raider damage; 5. no raid launches during catch-up (one run includes a catch-up segment).
+
+## W. Round 18, from `21-browser-client-and-local-container.md` (open)
+
+The owner's direction is agreed as D-235 (the browser is the player's client), D-236 (the server in Docker Desktop, one player, no internet, no login) and D-237 (single player first, then MP-1 with up to 4 humans). The questions below are how to carry it out; the full text, with recommendations and alternatives, is in doc 21 §11. Q227–Q229 were not used.
+
+- **Q230** — The client's technology.
+- **Q231** — The language of the HTML UI.
+- **Q232** — Where the phase-1 HUD (M6) is drawn.
+- **Q233** — The transport.
+- **Q234** — The QUIC endpoint.
+- **Q235** — Serving the client.
+- **Q236** — The guard without a login.
+- **Q237** — The process model in Docker Desktop.
+- **Q238** — Fonts.
+- **Q239** — Browsers.
+- **Q240** — Keys and fullscreen in the browser.
+- **Q241** — Notifications.
+- **Q242** — Build, CI and tests.
+- **Q243** — Where MP-1 sits.

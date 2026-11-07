@@ -1,14 +1,14 @@
 # 30 — MVP scope, milestones and acceptance
 
-Status: **Agreed (round 10).** Q88–Q91 were decided as D-094 to D-097. D-135, D-139, D-172 and D-205 later amended the packages and the order of work (§2, §4); D-190 moved the integration test out of CI (§3, §5). Built on R-05, D-026, D-028, D-037, D-038, D-051, D-058, D-070 and D-083, and docs 10–17 and 20. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 10).** Q88–Q91 were decided as D-094 to D-097. D-135, D-139, D-172 and D-205 later amended the packages and the order of work (§2, §4); D-190 moved the integration test out of CI (§3, §5). D-235 to D-237 (doc 21) make the browser the player's client, run the server in Docker Desktop, and add the MP-1 milestone (§2, §3, §6); the packages they bring are *Proposed* until Q230–Q243 are answered. Built on R-05, D-026, D-028, D-037, D-038, D-051, D-058, D-070 and D-083, and docs 10–17 and 20. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. What the MVP is
 
 *Derived* from agreed decisions.
 
-**The game:** a persistent, single-player Universe. One human plays from a Windows client against **3 fair AI commanders and NPC raiders**, in one sector of 9 systems (D-038, doc 10 §4.4).
+**The game:** a persistent, single-player Universe. One human plays from a browser on Windows (D-235) against **3 fair AI commanders and NPC raiders**, in one sector of 9 systems (D-038, doc 10 §4.4).
 
-**The setup:** a local headless server that keeps running when the client closes and catches up after the PC was off (D-026, D-047).
+**The setup:** a local headless server that keeps running when the client closes and catches up after the PC was off (D-026, D-047). It runs in Docker Desktop on the player's PC, for one player, without internet and without a login (D-236, doc 21).
 
 **What it includes:**
 
@@ -46,12 +46,15 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | N2 ✅ | Server shell: pacing, SQLite journal and snapshots, recovery, catch-up, journal checkpoints, season end (doc 20 §4, §6, §7; D-109, D-110, D-116; plan in `plans/N2-server-shell.md`) | M |
 | | N3 ✅ | QUIC transport, sessions, token, commands and results (plan in `plans/N3-transport-and-sessions.md`; D-120 to D-125, D-150, D-151) | M |
 | | N4 | Replication with interest management (doc 16 §6; plan in `plans/N4-replication.md`) | L |
-| | N5 | Process model: the client starts the server, start with Windows, shut down (doc 20 §2) | S |
+| | N5 | Process model. *Changed by D-236; Proposed in doc 21 §4 (Q237):* the server in Docker Desktop, with a compose file, restart policy, named volume, backups, the start screen's server side, shut down and resume. Replaces "the client starts the server, start with Windows" (D-085) | M |
+| | N6 | *Proposed (doc 21 §5–§6; Q233–Q236):* web endpoint: HTTP serving of the client, WebSocket transport for N3's sessions, Host and Origin checks; retires N3's `quinn` endpoint (Q234) | M |
 | **Client** | M1 ✅ | Window, camera, grid (phase 1) | — |
 | | M2 ✅ | Station voxels (phase 1) | — |
 | | M3 ✅ | Emissives (bloom), elevation cues, hover tag (phase 1) | — |
 | | M4 ✅ | Shield: globe (D-100), sector ring and rim, scripted hit ripples (phase 1) | — |
-| | M5–M6 | Ships and effects, HUD (phase 1) | L in total |
+| | M5–M6 | Ships and effects, HUD (phase 1). *Proposed (Q232):* M6's HUD panels built in HTML on W2 | L in total |
+| | W1 | *Proposed (doc 21 §7–§8; Q230, Q238–Q242):* the web build of the client: wasm target, async startup, assets over HTTP, the browser link for C7, keys and fullscreen, notifications, the image's client stage, wasm in CI. Can start now on the phase-1 fixtures | M |
+| | W2 | *Proposed (doc 21 §7.2; Q231, Q232):* the HTML UI layer: Leptos, the view-model binding, the M6 HUD. U1–U7 build on it | M |
 | | C7 | Network client and view-model store, replacing fixtures with live data (doc 20 §8) | M |
 | | C8 | Selection and orders in TACTICAL; live ships and effects | M |
 | **UI** | U1 | SYSTEM and SECTOR views, minimal GALAXY (doc 17 §3–4) | L |
@@ -71,13 +74,14 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 
 ## 3. Milestones
 
-*Agreed (D-094).*
+*Agreed (D-094); MP-1 added by D-237.*
 
 | Milestone | Contents | Acceptance |
 |---|---|---|
 | **MVP-α — Headless game** | S2–S8, A1, A2, A3, harness | AI commanders with economy, plus raiders and Deputies, play seasons headlessly. Determinism holds (D-049). The economy pacing targets can be measured, and are within ±50% at this stage. Raids happen. Sieges run end to end when driven by scripted commands. |
-| **MVP-β — Playable slice** | N1–N5, C7, C8, U1–U3, U7, plus phase-1 M3–M6 | A human plays in the stage-1 sector against raiders and one economy AI, from the client against the local server. The client–server integration test passes on both operating systems (run locally, D-190). A 3-day playtest with server restarts and PC shutdowns loses no state beyond the 1 s journal window, and catch-up works. |
+| **MVP-β — Playable slice** | N1–N5, C7, C8, U1–U3, U7, plus phase-1 M3–M6 | A human plays in the stage-1 sector against raiders and one economy AI, from the browser against the server in Docker Desktop (D-235, D-236; contents add N6, W1 and W2 once Q230–Q243 are answered). The client–server integration test passes on both operating systems (run locally, D-190). A 3-day playtest with server restarts, PC shutdowns and PC sleep (doc 21 §4.4) loses no state beyond the 1 s journal window, and catch-up works. |
 | **MVP-γ — Stage 1 (MVP acceptance, D-038)** | A4, A5, A6, U4–U6; siege, window and away-report UI | **1 human, 3 AI and raiders, for a full season.** See §5. |
+| **MP-1 — Multiplayer** (D-237) | Up to 4 humans in the stage-1 sector on a hosted server, AI filling empty seats; hosting, identity, derelict holdings (D-023) and notifications outside the client; contents from its own plan (doc 21 §10) | A full season with up to 4 humans, plus raiders and AI seat fillers. Acceptance is set by MP-1's plan. Placed before δ if Q243 is accepted. |
 | **MVP-δ — Stage 2** | Up to 9 AI commanders, two sectors (doc 10 §3) | The AI acceptance criteria hold with 10 commanders. Tick and AI budgets hold at stage-2 scale. A stage-2 playtest. |
 
 ## 4. Order of work
@@ -114,13 +118,13 @@ The streams meet at β (a playable slice) and γ (acceptance). Each package ends
 
 | Out of scope | Source |
 |---|---|
-| Hosting: accounts, PostgreSQL, real certificates, Linux deployment, other human players | D-026, D-029, doc 20 |
+| Hosting: accounts, PostgreSQL, real certificates, Linux deployment, other human players. *They return at MP-1 (D-237).* | D-026, D-029, doc 20, D-236 |
 | Alliances and diplomacy, chat | D-026, D-040 |
 | Vacation and derelict states | D-038 |
 | Late joiners and frontier sectors | Single human |
 | Munitions, salvage, finite deposits, exploration, free module placement | D-065, D-071, D-066, D-044, D-067 |
 | Galaxy beyond two sectors; full GALAXY view | D-038, doc 17 §8 |
-| Notifications outside the client (email or push) | Doc 17 §6 |
+| Notifications outside the client (email or push); inside the browser they are Q241 | Doc 17 §6, doc 21 §7.7 |
 | Replays, localisation (English only) | — |
 | **Audio** | Proposed: no audio in the MVP. Alerts reach the player through the in-client banner and Windows toasts (doc 17 §6). |
 

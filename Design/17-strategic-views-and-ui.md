@@ -96,6 +96,8 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 | **Start screen** | Create a Universe (seed, number of AI commanders, difficulty per AI); continue a Universe; catch-up progress; shut down the Universe; "start with Windows" | Doc 20 §2, §7 |
 | **Notifications** | The in-client alert banner (phase-1 amber) and toasts for breaches, sieges and raids, plus a **Windows toast while the client is running but minimised**. Notifications that reach you outside the client are hosting work. | Doc 12 §5.3 |
 
+> **Changing (D-235, D-236; doc 21):** in the browser the start screen is served by the server, "start with Windows" becomes Docker Desktop's start at sign-in, and "shut down" stops the simulation inside the server (Q237); the Windows toast becomes a browser notification (Q241). The panels themselves are unchanged.
+
 ## 7. Hotkeys
 
 *Agreed (D-093); resolves phase-1 doc 07 item 1.*
@@ -110,6 +112,8 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 | Phase-1 extras | Home, H (HUD on/off), F10 (menu), F11 (fullscreen), F12 (screenshot), unchanged |
 
 *Why:* the phase-1 bindings already conflict (Q rotates the camera and is also SHLD SURGE; W and S are both card buttons and pan keys). A positional grid is the standard RTS answer, and it keeps every card reachable with one hand.
+
+> **Changing (D-235; doc 21 §7.5):** a browser reserves some of these keys, among them Ctrl+1–9, mouse buttons 4 and 5, F11, F12 and Esc. Q240 proposes keeping this scheme except where a browser reserves a key, with U7 testing every binding on Edge, Chrome and Firefox.
 
 ## 8. MVP limits
 
