@@ -32,7 +32,7 @@ Two consequences follow:
 | Target | Outside the owner's exposure window | Inside the owner's exposure window |
 |---|---|---|
 | Ships and fleets away from the dome; convoys; harvesters | Can be destroyed in real time | Same |
-| Peripheral structures outside the dome (for example SOL-1, mining outposts) | Can be **disabled**: knocked offline, not destroyed. They restore automatically 10 min after the last hostile leaves, or sooner if repaired. | Can be destroyed |
+| Peripheral structures outside the dome (for example SOL-1, mining outposts; shield pylons, D-255) | Can be **disabled**: knocked offline, not destroyed. They restore automatically 10 min after the last hostile leaves, or sooner if repaired. | Can be destroyed |
 | Shield sectors | Can be worn down. A sector at 0 triggers **Reinforced** (§4). | Same; there is no immediate siege either. |
 | Core structures inside the dome | Cannot be attacked: the dome is intact or Reinforced | Can be attacked only during a **Siege** that follows a Reinforced period |
 

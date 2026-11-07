@@ -34,7 +34,7 @@ PHASE1_SCENE = ASSETS / "voxels/station_scene.json"
 DOME_R = 36
 SPOKE_Z = 8  # the core's docking arms are at z 8–9
 TEMPLATE = {
-    "pylons": [(-22, -22), (22, -22), (22, 22), (-22, 22)],  # sector order N, E, S, W
+    "pylons": [(-30, -30), (30, -30), (30, 30), (-30, 30)],  # sector order N, E, S, W; wholly outside the dome (D-255)
     # Standard inner slots, in rules order: the first four exist at every holding.
     "inner": [(22, 0), (0, -22), (-22, 0), (-14, -14), (14, -14), (-14, 14)],
     "dock": (0, 23),

@@ -900,3 +900,10 @@ The owner's direction is agreed as D-235 (the browser is the player's client), D
 - **✅ Q241** (D-249) — Notifications.
 - **✅ Q242** (D-250) — Build, CI and tests.
 - **✅ Q243** (D-251) — Where MP-1 sits.
+
+## X. Round 19, from the station-kit art pass
+
+Raised while bringing the scene into line with the slot template (D-119). Q244–Q254 are proposed in `plans/C7-view-model-inventory.md` and listed here once the owner has reviewed them.
+
+**✅ Q255** → D-255: **Pylons outside the dome.** Should pylons sit outside the shield, where attackers can reach them, so that defending the rim matters? *Recommendation:* yes, on the peripheral rule (disabled outside the owner's window, destroyable inside), with a lost pylon capping its sector at 25% (D-140) and raiders not targeting pylons. *Alternatives:* a destroyed pylon zeroes its sector and breaches it (bypasses the dome's strength and, outside the window, the stakes rule); pylons stay inside and untargetable (doc 15 §5.1 as written).
+
