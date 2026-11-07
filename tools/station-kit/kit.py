@@ -73,6 +73,7 @@ NEW_MATERIALS = {
     "barrel": ("#3a3f4c", False, 2),
     "crystal": ("#9fb6ff", False, 8),
     "rock": ("#5a5454", False, 8),
+    "rock_dark": ("#36363f", False, 5),
     "light": ("#7ed8ed", True, 0),
     "emitter": ("#b8f6ff", True, 0),
     "beacon": ("#ff6a55", True, 0),
@@ -161,52 +162,102 @@ def quarter_for(dx, dy):
 
 
 # ---- Module models (built at the origin, facing +x = away from the core) ----------------
+# Round 2 detail pass: panel seams every 3 voxels, corner posts, rim lights, pipework and
+# greebles, at about the density of the phase-1 factories.
+def panelled(m, x0, x1, y0, y1, z0, z1, base="hull_mid", seam="hull_dark", rim="hull"):
+    """A box whose side faces carry vertical seams every 3 voxels and a lit top rim."""
+    m.box(x0, x1, y0, y1, z0, z1, base)
+    for x in range(x0, x1 + 1):
+        for y in range(y0, y1 + 1):
+            edge_x, edge_y = x in (x0, x1), y in (y0, y1)
+            if not (edge_x or edge_y):
+                continue
+            k = y if edge_x and not edge_y else x
+            if k % 3 == 0:
+                for z in range(z0, z1):
+                    m.put(x, y, z, seam)
+            m.put(x, y, z1, rim)
+            m.put(x, y, z0, seam)
+    for x, y in ((x0, y0), (x0, y1), (x1, y0), (x1, y1)):
+        m.box(x, x, y, y, z0, z1 + 1, "hull")
+
+
 def refinery(pal):
     m = Model(pal)
-    m.box(-5, 5, -5, 5, 4, 8, "hull_mid")
+    panelled(m, -5, 5, -5, 5, 4, 8)
     m.top_stripes(-5, 5, -5, 5, 8, along="y")
-    m.box(-5, 5, -5, 5, 4, 4, "hull_dark")
+    # three tanks with bands, linked by a manifold
     for cx, cy in ((-2, -2), (-2, 3), (3, -2)):
-        m.disc(cx, cy, 2, 9, 13, "tank")
-        m.disc(cx, cy, 1, 14, 14, "pipe")
-    m.box(1, 5, 1, 5, 9, 10, "hull")  # control block
-    m.put(5, 5, 10, "light")
-    m.box(6, 7, -1, 1, 6, 7, "pipe")  # ore intake facing outward
-    m.put(5, -5, 8, "light")
-    m.put(-5, 5, 8, "light")
+        m.disc(cx, cy, 2, 9, 14, "tank")
+        for z in (10, 13):
+            m.disc(cx, cy, 2, z, z, "pipe")
+        m.disc(cx, cy, 1, 15, 15, "hull_dark")
+    m.box(-2, 3, -2, -2, 11, 11, "pipe")
+    m.box(-2, -2, -2, 3, 11, 11, "pipe")
+    # control block with a lit window strip and a vent stack
+    panelled(m, 1, 5, 1, 5, 9, 11, base="hull", seam="hull_mid", rim="hull_mid")
+    m.put(5, 3, 10, "light")
+    m.box(4, 4, 4, 4, 12, 15, "pipe")
+    m.put(4, 4, 16, "warm")
+    # ore hopper facing outward (+x), with a chute into the body
+    m.box(6, 8, -2, 2, 7, 8, "hull_dark")
+    m.box(6, 8, -3, 3, 9, 9, "hull_mid")
+    m.box(9, 9, -3, 3, 8, 9, "hull")
+    m.put(9, 0, 10, "warm")
     return m
 
 
 def storage(pal):
     m = Model(pal)
     m.box(-5, 5, -5, 5, 4, 4, "hull_dark")
+    m.top_stripes(-5, 5, -5, 5, 4)
+    # rack frame: posts, top rails and diagonal bracing on the long sides
     for x in (-5, 5):
         for y in (-5, 0, 5):
-            m.box(x, x, y, y, 5, 12, "truss")
-    m.box(-5, 5, -5, -5, 12, 12, "truss")
-    m.box(-5, 5, 5, 5, 12, 12, "truss")
+            m.box(x, x, y, y, 5, 13, "truss")
+    for y in (-5, 5):
+        m.box(-5, 5, y, y, 13, 13, "truss")
+        for i in range(0, 8):
+            m.put(-5 + i, y, 5 + i, "truss_dark")
+    for x in (-5, 5):
+        m.box(x, x, -5, 5, 13, 13, "truss")
+    # containers in clamped bays, with darker door ends
     colours = ["cont_olive", "cont_rust", "cont_tan", "cont_blue"]
     k = 0
     for z0 in (5, 9):
         for y0 in (-4, 1):
             for x0 in (-4, 0):
-                c = colours[(k * 3 + z0) % 4]
+                c = colours[(k * 3 + z0 + y0) % 4]
                 m.box(x0, x0 + 3, y0, y0 + 2, z0, z0 + 2, c)
+                m.box(x0 + 3, x0 + 3, y0, y0 + 2, z0, z0 + 2, "barrel")
+                m.put(x0 + 1, y0, z0 + 3, "truss_dark")  # clamp
                 k += 1
-    m.put(5, 5, 12, "light")
-    m.put(-5, -5, 12, "light")
+    # gantry crane across the top
+    m.box(-6, 6, 0, 0, 14, 14, "hull_mid")
+    m.box(1, 2, -1, 1, 15, 15, "hull")
+    m.box(1, 1, 0, 0, 12, 13, "truss_dark")
+    for x, y in ((5, 5), (-5, -5)):
+        m.put(x, y, 14, "light")
     return m
 
 
 def turret(pal):
     m = Model(pal)
-    m.box(-4, 4, -4, 4, 4, 6, "hull_dark")
-    m.top_stripes(-4, 4, -4, 4, 6)
-    m.disc(0, 0, 3, 7, 9, "hull")
-    m.box(-1, 2, -2, 2, 10, 10, "hull_mid")
+    # stepped armoured base
+    panelled(m, -4, 4, -4, 4, 4, 5)
+    m.box(-3, 3, -3, 3, 6, 6, "hull_dark")
+    m.disc(0, 0, 3, 7, 7, "pipe")  # ring track
+    # turret head with a slit and a sensor box
+    m.disc(0, 0, 3, 8, 9, "hull")
+    m.box(-2, 2, -2, 2, 10, 10, "hull_mid")
+    m.box(1, 3, -1, 1, 9, 9, "hull_dark")
+    m.box(-3, -2, 1, 2, 10, 11, "hull_mid")
+    m.put(-3, 2, 12, "beacon")
+    # twin barrels with dark muzzles
     for y in (-1, 1):
-        m.box(2, 8, y, y, 9, 9, "barrel")
-    m.put(0, 0, 11, "light")
+        m.box(3, 9, y, y, 9, 9, "pipe")
+        m.put(10, y, 9, "barrel")
+    m.put(4, 4, 6, "light")
     return m
 
 
@@ -218,81 +269,125 @@ def dry_dock(pal):
         m.box(x0, x1, y, y, 3, 3, "truss")
         m.box(x0, x1, y, y, 12, 12, "truss")
         for x in range(x0, x1 + 1, 4):
-            m.box(x, x, y, y, 3, 12, "truss")
-            if (x - x0) % 8 == 0:
-                m.put(x, y, 12, "light")
+            m.box(x, x, y, y, 3, 12, "hull_mid" if x in (x0, x1) else "truss")
+
+        for x in range(x0, x1 - 3, 4):  # diagonal bracing in each bay
+            for i in range(4):
+                m.put(x + i, y, 4 + i * 2, "truss_dark")
     for x in range(x0, x1 + 1, 4):
         m.box(x, x, -5, 5, 12, 12, "truss_dark")
-    m.box(x0 - 2, x0, -5, 5, 3, 12, "hull_mid")  # back wall towards the core
-    m.box(x0 - 2, x0, -2, 2, 6, 9, "hull_dark")
+    # gantry crane riding the top rails, over the hull
+    m.box(2, 3, -6, 6, 13, 13, "hull_mid")
+    m.box(2, 3, -1, 1, 11, 12, "hull_dark")
+
+    # back wall towards the core: machinery and a lit hatch
+    panelled(m, x0 - 3, x0 - 1, -5, 5, 3, 12)
+    m.box(x0 - 1, x0 - 1, -2, 2, 6, 9, "hull_dark")
+    m.put(x0, 0, 8, "light")
     m.box(-6, 6, -1, 1, 2, 2, "truss_dark")  # keel cradle
-    m.put(x1, -5, 3, "light")
-    m.put(x1, 5, 3, "light")
+    for x in (-6, 0, 6):
+        m.box(x, x, -2, 2, 2, 3, "truss")
+    # approach lights at the open end
+    m.put(x1 + 1, -5, 12, "light")
+    m.put(x1 + 1, 5, 12, "light")
     return m
 
 
 def pylon(pal):
-    """Shield pylon on the dome rim: a block on the spoke, a mast, the emitter on the equator
-    (D-100: the globe's equator is at the ship plane, z = 16)."""
+    """Shield pylon on an outrigger outside the dome (D-255): a housing where the spoke
+    arrives, a braced mast, and the emitter crown on the equator (D-100, z = 16)."""
     m = Model(pal)
-    m.box(-3, 3, -3, 3, 5, 10, "hull_mid")
+    panelled(m, -3, 3, -3, 3, 5, 10)
     m.top_stripes(-3, 3, -3, 3, 10)
-    m.box(-3, 3, -3, 3, 5, 5, "hull_dark")
+    for d in ((-4, 0), (4, 0), (0, -4), (0, 4)):  # cooling fins
+        m.box(min(0, d[0]) if d[0] else -1, max(0, d[0]) if d[0] else 1,
+              min(0, d[1]) if d[1] else -1, max(0, d[1]) if d[1] else 1, 6, 9, "hull_dark")
     m.box(-1, 1, -1, 1, 1, 4, "truss_dark")  # lower counter-spar
-    m.put(0, 0, 0, "light")
+
     for x, y in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
         m.box(x, x, y, y, 11, 15, "truss")
-    m.box(-2, 2, -2, 2, 13, 13, "hull_dark")  # collar
-    m.box(-1, 0, -1, 0, 16, 18, "emitter")
-    m.box(-2, 1, -2, 1, 16, 16, "emitter")
+    for z in (12, 14):
+        m.box(-1, 1, -1, 1, z, z, "truss_dark")
+    m.box(-2, 2, -2, 2, 15, 15, "hull_mid")  # crown ring
+    for x, y in ((-2, -2), (2, -2), (-2, 2), (2, 2)):
+        m.put(x, y, 16, "emitter")
+    m.box(0, 0, 0, 0, 16, 18, "emitter")
     return m
 
 
 def empty_mount(pal):
     m = Model(pal)
-    m.box(-2, 2, -2, 2, 7, 8, "hull_dark")
+    panelled(m, -2, 2, -2, 2, 7, 8)
+    for x, y in ((-2, -2), (2, 2)):
+        m.put(x, y, 9, "truss_dark")
     m.put(0, 0, 9, "light")
     return m
 
 
 def solar(pal):
-    """Four panel wings around a hub, flat on the spoke plane; the bus enters from +x."""
+    """Four panel wings around a hub, on support struts; the bus enters from +x."""
     m = Model(pal)
-    m.box(-2, 2, -2, 2, SPOKE_Z - 1, SPOKE_Z + 2, "hull_mid")
-    m.put(0, 0, SPOKE_Z + 3, "light")
+    panelled(m, -3, 3, -3, 3, SPOKE_Z - 2, SPOKE_Z + 2)
+    m.box(-1, 1, -1, 1, SPOKE_Z + 3, SPOKE_Z + 4, "hull_dark")  # transformer
+    m.put(0, 0, SPOKE_Z + 5, "light")
     for qx in (-1, 1):
         for qy in (-1, 1):
-            xa, ya = 4 * qx, 4 * qy
-            xb, yb = 17 * qx, 17 * qy
+            xa, ya = 5 * qx, 5 * qy
+            xb, yb = 18 * qx, 18 * qy
             for x in range(min(xa, xb), max(xa, xb) + 1):
                 for y in range(min(ya, yb), max(ya, yb) + 1):
-                    frame = (x % 5 == 0) or (y % 5 == 0)
+                    frame = (x % 5 == 0) or (y % 5 == 0) or x in (xa, xb) or y in (ya, yb)
                     m.put(x, y, SPOKE_Z, "panel_frame" if frame else "panel")
-    for x in range(-17, 18):
+            for t in range(5, 19, 6):  # struts under each wing
+                m.put(t * qx, t * qy, SPOKE_Z - 1, "truss_dark")
+    for x in range(-18, 19):
         m.put(x, 0, SPOKE_Z, "truss")
-    for y in range(-17, 18):
+        m.put(x, 0, SPOKE_Z - 1, "truss_dark")
+    for y in range(-18, 19):
         m.put(0, y, SPOKE_Z, "truss")
+        m.put(0, y, SPOKE_Z - 1, "truss_dark")
     return m
 
 
 def harvester(pal):
-    """Rig clamped onto the ore field's largest rock; faces -x (towards the core)."""
+    """Mining rig clamped onto the ore field's largest rock: platform, four clamp legs,
+    a drill tower with its bit in the rock, an ore bin and a beacon mast."""
     m = Model(pal)
-    m.box(-4, 2, -3, 3, 9, 11, "hull_mid")
-    m.top_stripes(-4, 2, -3, 3, 11)
-    m.box(-1, 1, -1, 1, 4, 8, "truss_dark")  # drill column into the rock
-    m.box(-2, 2, -2, 2, 3, 3, "hull_dark")
-    m.box(-6, -5, -1, 1, 9, 10, "pipe")  # conveyor head
-    m.put(2, 3, 12, "warm")
-    m.put(-4, -3, 12, "light")
+    panelled(m, -4, 3, -3, 3, 9, 10)
+    m.top_stripes(-4, 3, -3, 3, 10)
+    for x, y in ((-4, -3), (-4, 3), (3, -3), (3, 3)):  # clamp legs gripping the rock
+        m.box(x, x, y, y, 4, 8, "truss_dark")
+        m.box(x - (1 if x < 0 else -1), x, y, y, 4, 4, "hull_dark")
+    m.box(-1, 1, -1, 1, 11, 16, "truss")  # drill tower
+    m.box(-2, 2, -2, 2, 17, 17, "hull_mid")
+    m.box(0, 0, 0, 0, 2, 8, "pipe")  # drill shaft into the rock
+    m.put(0, 0, 1, "warm")
+    m.box(-4, -2, 0, 3, 11, 13, "hull_dark")  # ore bin
+    m.box(-3, -2, 1, 2, 14, 14, "rock")
+    m.box(3, 3, -3, -3, 11, 15, "truss_dark")  # beacon mast
+    m.put(3, -3, 16, "warm")
     return m
 
 
 def extractor(pal, crystals=True):
     m = harvester(pal)
     if crystals:
-        for (x, y, h) in ((3, -2, 4), (4, 1, 6), (2, 3, 3)):
+        for (x, y, h) in ((4, -2, 4), (5, 1, 6), (3, 3, 3)):
             m.box(x, x, y, y, 6, 6 + h, "crystal")
+    return m
+
+
+def debris(pal, seed, size):
+    """A small rough rock: a noisy blob of `size` voxels across."""
+    m = Model(pal)
+    r = size / 2
+    for x in range(-size, size + 1):
+        for y in range(-size, size + 1):
+            for z in range(0, size + 1):
+                h = (x * 92837111 ^ y * 689287499 ^ z * 283923481 ^ seed * 1234577) % 100
+                d = (x * x + y * y) / (r * r) + ((z - r) ** 2) / (r * r)
+                if d <= 1.0 + (h - 50) / 160:
+                    m.put(x, y, z, "rock" if h % 3 else "rock_dark")
     return m
 
 
@@ -362,10 +457,24 @@ def build(layout_name):
     for slot in TEMPLATE["inner"][:3] + [TEMPLATE["dock"]]:
         r = max(abs(slot[0]), abs(slot[1]))
         u = (slot[0] // r, slot[1] // r)
-        truss_line(spokes, (u[0] * 12, u[1] * 12), (u[0] * (r - 6), u[1] * (r - 6)), SPOKE_Z)
+        truss_line(spokes, (u[0] * 12, u[1] * 12), (u[0] * (r - 6), u[1] * (r - 6)), SPOKE_Z,
+                   light_every=0)
     for p in TEMPLATE["pylons"]:
         u = (1 if p[0] > 0 else -1, 1 if p[1] > 0 else -1)
-        truss_line(spokes, (u[0] * 7, u[1] * 7), (p[0] - u[0] * 4, p[1] - u[1] * 4), SPOKE_Z)
+        truss_line(spokes, (u[0] * 7, u[1] * 7), (p[0] - u[0] * 4, p[1] - u[1] * 4), SPOKE_Z,
+                   light_every=0)
+    # Collars where the axial spokes meet the core's docking arms and the modules.
+    for slot in TEMPLATE["inner"][:3] + [TEMPLATE["dock"]]:
+        r = max(abs(slot[0]), abs(slot[1]))
+        u = (slot[0] // r, slot[1] // r)
+        for dist in (12, r - 6):
+            cx, cy = u[0] * dist, u[1] * dist
+            px, py = (0, 1) if u[0] else (1, 0)
+            for a in (-1, 0, 1, 2):
+                for zz in (SPOKE_Z - 1, SPOKE_Z + 2):
+                    spokes.put(cx + px * a, cy + py * a, zz, "hull_mid")
+            spokes.put(cx - px, cy - py, SPOKE_Z, "hull_mid")
+            spokes.put(cx + px * 2, cy + py * 2, SPOKE_Z + 1, "hull_mid")
     scene["spokes"] = spokes
 
     for i, (slot, kind) in enumerate(zip(TEMPLATE["inner"], lay["inner"])):
@@ -378,7 +487,7 @@ def build(layout_name):
         scene["solar_array"] = solar(pal).moved(*TEMPLATE["solar"])
         bus = Model(pal)
         sx = TEMPLATE["solar"][0]
-        truss_line(bus, (-28, 0), (sx + 3, 0), SPOKE_Z, light_every=4)
+        truss_line(bus, (-28, 0), (sx + 4, 0), SPOKE_Z, light_every=8)
         scene["power_bus"] = bus
 
     # Deposit 0: the ore field, well out from the station. Rocks from phase 1, spread around
@@ -392,6 +501,12 @@ def build(layout_name):
              ("asteroid_5", (59, 35, 2), (d[0] - 10, d[1] + 16, 2))]
     for rid, c, (tx, ty, tz) in rocks:
         scene[rid] = phase1_module(phase1, rid, pal, tx - c[0], ty - c[1], tz)
+    scatter = [(-14, -4, 3, 3), (24, 4, 6, 2), (8, -22, 2, 3), (-6, 28, 5, 2), (30, 24, 1, 2),
+               (-18, 12, 9, 2), (14, 30, 4, 1)]
+    field = Model(pal)
+    for i, (dx, dy, dz, size) in enumerate(scatter):
+        field.v.update(debris(pal, i, size).moved(d[0] + dx, d[1] + dy, dz).v)
+    scene["ore_debris"] = field
     if lay["deposits"][0]:
         h = MODELS[lay["deposits"][0]](pal).moved(d[0] - 2, d[1] - 6, 4)
         scene["harvester"] = h

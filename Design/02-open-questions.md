@@ -903,7 +903,7 @@ The owner's direction is agreed as D-235 (the browser is the player's client), D
 
 ## X. Round 19, from the β boards, the C7 inventory and the station kit (answered)
 
-Q244–Q254 come from the view-model inventory (`plans/C7-view-model-inventory.md`, which has their full text), Q255 from the station-kit art pass, and Q256–Q265 from the β client UI boards (`plans/U-beta-ui.md`). All were answered as recommended, Q255 in its capped-sector form.
+Q244–Q254 come from the view-model inventory (`plans/C7-view-model-inventory.md`, which has their full text), Q255 from the station-kit art pass, Q256–Q265 from the β client UI boards (`plans/U-beta-ui.md`), and Q266–Q267 place S9 and K1. All were answered as recommended (Q255 in its capped-sector form) except Q266, where S9 goes after α.
 
 **✅ Q255** → D-255: **Pylons outside the dome.** Should pylons sit outside the shield, where attackers can reach them, so that defending the rim matters? *Recommendation:* yes, on the peripheral rule (disabled outside the owner's window, destroyable inside), with a lost pylon capping its sector at 25% (D-140) and raiders not targeting pylons. *Alternatives:* a destroyed pylon zeroes its sector and breaches it (bypasses the dome's strength and, outside the window, the stakes rule); pylons stay inside and untargetable (doc 15 §5.1 as written).
 
@@ -938,3 +938,7 @@ Q244–Q254 come from the view-model inventory (`plans/C7-view-model-inventory.m
 **✅ Q264** → D-275: **The HUD below 1600 px.** The question: D-247's 1280×720 minimum with uniform scaling gives about 8 px text. *Recommendation:* a compact layout, text at 11 px or more. *Alternatives:* raise the minimum to 1600×900; keep uniform scaling.
 
 **✅ Q265** → D-276: **Who draws the strategic views.** The question: doc 21 keeps the scene in wgpu and the UI in HTML, but does not say where SYSTEM and SECTOR belong. *Recommendation:* HTML/SVG. *Alternatives:* wgpu, which allows a continuous zoom from TACTICAL; mock both first.
+
+**✅ Q266** → D-277: **Where S9 goes.** The question: S9 changes hit tests and station obstacles that A1b and A3 build on. *Recommendation:* now, beside A1a. *Alternatives:* after α (chosen); split into the template now and the pylon rules after α.
+
+**✅ Q267** → D-278: **Where K1 goes.** *Recommendation:* after S9 and before C8, on fixtures first. *Alternatives:* right now on fixtures, with rework if S9 moves positions; fold it into M5.
