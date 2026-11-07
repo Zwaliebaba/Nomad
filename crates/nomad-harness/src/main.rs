@@ -29,6 +29,11 @@
 //! and Fallen, capture, the emergency jump of a mother station, protections and peripheral
 //! structures, each end to end from scripted commands, with its timeline and checks.
 //!
+//! With `--fog` it runs the fog-of-war check (S7 plan §6 tasks 8 and 9): scripted fleets of
+//! two commanders and an NPC group for a simulated day by default, every observer's picture
+//! compared with brute-force ground truth after every sensors pass, the sensors pass's cost
+//! at stage 1 and in a stage-2 stress layout, and two fleets finding each other.
+//!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
 //!
@@ -44,11 +49,13 @@
 //! nomad-harness --season [--seed N] [--days N] [--claim-hours N] [--early-win]
 //!               [--restore-at N] [--rules PATH]
 //! nomad-harness --siege [--seed N] [--rules PATH]
+//! nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]
 //! ```
 
 mod combat;
 mod economy;
 mod fleets;
+mod fog;
 mod galaxy;
 mod season;
 mod siege;
@@ -73,6 +80,7 @@ struct Args {
     seed: u64,
     ticks: Option<u64>,
     hours: u64,
+    hours_given: bool,
     order_interval_secs: u64,
     fleets: bool,
     diagnostics: u32,
@@ -83,6 +91,7 @@ struct Args {
     economy: bool,
     windows: bool,
     siege: bool,
+    fog: bool,
     days: Option<u64>,
     rules: Option<PathBuf>,
     // S8: `--season`.
@@ -97,6 +106,7 @@ impl Default for Args {
             seed: 1,
             ticks: None,
             hours: 6,
+            hours_given: false,
             order_interval_secs: 60,
             fleets: false,
             diagnostics: 10_000,
@@ -107,6 +117,7 @@ impl Default for Args {
             economy: false,
             windows: false,
             siege: false,
+            fog: false,
             days: None,
             rules: None,
             season: false,
@@ -124,7 +135,10 @@ fn parse_args() -> Result<Args, String> {
         match flag.as_str() {
             "--seed" => args.seed = parse(&value()?)?,
             "--ticks" => args.ticks = Some(parse(&value()?)?),
-            "--hours" => args.hours = parse(&value()?)?,
+            "--hours" => {
+                args.hours = parse(&value()?)?;
+                args.hours_given = true;
+            }
             "--order-interval-secs" => args.order_interval_secs = parse(&value()?)?,
             "--fleets" => args.fleets = true,
             "--diagnostics" => args.diagnostics = parse(&value()?)?,
@@ -135,6 +149,7 @@ fn parse_args() -> Result<Args, String> {
             "--economy" => args.economy = true,
             "--windows" => args.windows = true,
             "--siege" => args.siege = true,
+            "--fog" => args.fog = true,
             "--days" => args.days = Some(parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--season" => args.season = true,
@@ -153,7 +168,8 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --windows [--seed N] [--days N] [--rules PATH]\n       \
                      nomad-harness --season [--seed N] [--days N] [--claim-hours N] \
                             [--early-win] [--restore-at N] [--rules PATH]\n       \
-                     nomad-harness --siege [--seed N] [--rules PATH]"
+                     nomad-harness --siege [--seed N] [--rules PATH]\n       \
+                     nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -225,6 +241,18 @@ fn run() -> Result<(), String> {
             &mut io::stdout().lock(),
             &siege::SiegeRun {
                 seed: args.seed,
+                rules,
+            },
+        );
+    }
+    if args.fog {
+        // A simulated day unless --hours or --ticks says otherwise.
+        let hours = if args.hours_given { args.hours } else { 24 };
+        return fog::run(
+            &mut io::stdout().lock(),
+            &fog::FogRun {
+                seed: args.seed,
+                ticks: args.ticks.unwrap_or(Ticks::from_hours(hours).get()),
                 rules,
             },
         );
