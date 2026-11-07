@@ -942,3 +942,7 @@ Q244–Q254 come from the view-model inventory (`plans/C7-view-model-inventory.m
 **✅ Q266** → D-277: **Where S9 goes.** The question: S9 changes hit tests and station obstacles that A1b and A3 build on. *Recommendation:* now, beside A1a. *Alternatives:* after α (chosen); split into the template now and the pylon rules after α.
 
 **✅ Q267** → D-278: **Where K1 goes.** *Recommendation:* after S9 and before C8, on fixtures first. *Alternatives:* right now on fixtures, with rework if S9 moves positions; fold it into M5.
+
+## Y. Round 20, from maintaining the voxel art in MagicaVoxel (answered)
+
+**✅ Q268** → D-289: **Who owns the voxel art.** The owner wants to maintain the models in MagicaVoxel. Until now the JSON files were the truth, and two generators rewrote them: `tools/station-spread` rebuilds the phase-1 diorama and `tools/station-kit` generated the module-kind models in code, so edits made in an editor would be overwritten. *Recommendation:* `.vox` files are the source of truth and the JSON is generated from them by a Rust tool in the workspace, with a test that fails when the two disagree; module kinds and ships first. *Alternatives:* JSON stays the truth with a throwaway round-trip through `.vox`; a hybrid where only hand art is `.vox`; the phase-1 diorama as well (left out: D-278 retires it); a Python converter (no CI coverage). Owner chose the recommendation, module kinds and ships.

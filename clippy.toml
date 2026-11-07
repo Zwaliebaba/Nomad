@@ -3,3 +3,5 @@ allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-dbg-in-tests = true
 allow-print-in-tests = true
+# Product names that are not code, for clippy::doc_markdown; ".." keeps the default list.
+doc-valid-idents = ["MagicaVoxel", ".."]

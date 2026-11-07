@@ -74,8 +74,11 @@ crates/          nomad-client (phase 1), nomad-sim (deterministic core and game 
                  nomad-protocol (wire messages and framing, doc 20 §5),
                  nomad-server (server: persistence, recovery, catch-up, QUIC sessions; N2, N3 plans),
                  nomad-link (client side of the connection, D-125), nomad-ai (all AI logic behind the
-                 View trait, D-199; A1a); further crates follow doc 20 §3
+                 View trait, D-199; A1a), nomad-vox (MagicaVoxel import and export, D-289);
+                 further crates follow doc 20 §3
+art/voxels/      MagicaVoxel sources of the module kinds and ships (D-289); see art/README.md
 tools/preview/   WebGL preview of the phase-1 scene for design review (not the game client)
+tools/station-kit/  Builds a holding's scene from the slot template and the module kinds (K1 draft)
 tools/station-spread/  Rebuilds the phase-1 station layout with the buildings spread out (D-111)
 .github/         CI, Dependabot, PR template
 Dockerfile       Linux image of nomad-server, a developer and soak-test mode (D-152)
@@ -84,6 +87,7 @@ Dockerfile       Linux image of nomad-server, a developer and soak-test mode (D-
 ## Git
 
 - Commit subject: imperative mood, at most 72 characters. The body explains *why* and cites design IDs.
+- `.vox` files under `art/voxels/` are the source of truth for the models they hold; `module_kinds.json` and `ships_placeholder.json` are generated from them. After changing a `.vox` file, run `cargo run -p nomad-vox -- import` and commit both (D-289). Never edit the generated files by hand.
 - Do not commit `target/`, screenshots or downloaded fonts. The fonts are OFL-licensed and the phase-1 package says they are not bundled. Milestone screenshots are not committed either (D-232).
 - Do not rewrite history on shared branches. Do not push to `main` directly.
 

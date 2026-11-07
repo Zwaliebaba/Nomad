@@ -1,0 +1,45 @@
+{
+  "format": "nomad-vox/set@1",
+  "kind": "ships",
+  "output": "../../../Design/phase1-visual-slice/assets/voxels/ships_placeholder.json",
+  "axes": "+x nose, +y port, +z up; origin ~ centre of mass",
+  "status": "PLACEHOLDER — blockout models for phase 1, not final art",
+  "colour_names": {
+    "#9aa1af": "hull",
+    "#5b6270": "hull_d",
+    "#2a3346": "cock",
+    "#7fe6ff": "eng",
+    "#38d6ff": "acc",
+    "#6b4a3a": "h_hull",
+    "#3a2a24": "h_dark",
+    "#ff8a3a": "h_light",
+    "#a19370": "cargo",
+    "#62694d": "olive"
+  },
+  "models": [
+    {
+      "id": "vx_interceptor",
+      "name": "VX interceptor (friendly)"
+    },
+    {
+      "id": "lancer",
+      "name": "LANCER strike craft (friendly)"
+    },
+    {
+      "id": "mule",
+      "name": "MULE hauler (friendly)"
+    },
+    {
+      "id": "warden_frigate",
+      "name": "WARDEN frigate (friendly, in dry dock)"
+    },
+    {
+      "id": "hostile_strike",
+      "name": "Hostile strike craft"
+    },
+    {
+      "id": "hostile_heavy_cruiser",
+      "name": "HSTL heavy cruiser"
+    }
+  ]
+}
