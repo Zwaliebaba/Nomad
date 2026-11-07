@@ -12,6 +12,7 @@ use super::*;
 use crate::command::CommandRejection as R;
 use crate::command::tests::economy_reasons;
 use crate::fleet::{Fleet, Motion, Place};
+use crate::rules::Rules;
 use crate::snapshot::{decode, encode, state_hash};
 use crate::testkit::{commander, home, idle, kit_fleet, order, send, stage1};
 use crate::validate_command;
@@ -620,6 +621,18 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
     let mut state = stage1(7);
     let (mother, home_system) = home(&state, 1);
     let you = CommanderId(1);
+    // D-189: the kit counts once towards the next kit's price at every stage, queued,
+    // stored, carried, deployed and complete.
+    let counts_once = |state: &UniverseState, stage: &str| {
+        assert_eq!(state.expansion_count(you), 1, "{stage}");
+        assert_eq!(
+            state.economy_of(you).core_kit_price,
+            Stock::units(7_500, 625),
+            "{stage}"
+        );
+    };
+    assert_eq!(state.expansion_count(you), 0);
+    assert_eq!(state.core_kit_price(you), Stock::units(6_000, 500));
     let item = queued(&send(
         &mut state,
         1,
@@ -628,6 +641,7 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
             item: BuildItem::CoreKit,
         }),
     ));
+    counts_once(&state, "queued");
     let out = idle(&mut state, 900 * TICKS_PER_SECOND + 10);
     assert!(events(&out).contains(&EconomyEvent::ItemCompleted {
         holding: mother,
@@ -635,6 +649,7 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
     }));
     assert_eq!(state.holding_economy(mother).unwrap().kits, 1);
     assert_eq!(state.pool(you).crystal, 0);
+    counts_once(&state, "stored");
 
     let kit = kit_fleet(&state, 1);
     let out = send(
@@ -649,6 +664,7 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
     let fleet = state.entities.get::<Fleet>(kit.sim_id()).unwrap();
     let carrier = logistics::kit_carrier(&state, &fleet).expect("a MULE carries the kit");
     assert!(state.cargo(carrier).core_kit);
+    counts_once(&state, "carried");
 
     // Fly next to a free site of the home system (placed there for the test).
     let site = state
@@ -675,6 +691,7 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
         .expect("deployed");
     assert!(!state.holding(outpost).unwrap().core_complete);
     assert!(!state.cargo(carrier).core_kit);
+    counts_once(&state, "outpost");
     let core = state.economy.holdings[&outpost].slots[&Slot::Core];
     assert_eq!(state.module(core).unwrap().building_ms, Some(7_200_000));
     // Outposts cannot build and do not raise the cap.
@@ -701,6 +718,176 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
     assert!(state.holding(outpost).unwrap().core_complete);
     assert_eq!(state.command_cap(you), 130);
     assert_eq!(state.docking_capacity(outpost), 8);
+    counts_once(&state, "holding");
+}
+
+#[test]
+fn the_core_kit_price_grows_by_k_per_further_holding_rounded_up() {
+    let base = Rules::embedded().economy.core_kit;
+    // D-189 at the starting k = 0.25: 6,000 A + 500 C × (1 + 0.25 n).
+    let k = Rules::embedded().economy.core_kit_growth_permille;
+    assert_eq!(k, 250);
+    for (n, alloy, crystal) in [
+        (0, 6_000, 500),
+        (1, 7_500, 625),
+        (2, 9_000, 750),
+        (4, 12_000, 1_000),
+        (15, 28_500, 2_375),
+    ] {
+        assert_eq!(
+            rules::core_kit_price(base, k, n),
+            Stock::units(alloy, crystal),
+            "n {n}"
+        );
+    }
+    // Each resource is rounded up to whole units: 500 C × 1.333 = 666.5 → 667;
+    // 6,000 A × 1.001 = 6,006 exactly, 500 C × 1.001 = 500.5 → 501.
+    assert_eq!(
+        rules::core_kit_price(base, 333, 1),
+        Stock::units(7_998, 667)
+    );
+    assert_eq!(rules::core_kit_price(base, 1, 1), Stock::units(6_006, 501));
+    let odd = rules::Cost {
+        alloy: 1,
+        crystal: 3,
+        build_s: 1,
+    };
+    assert_eq!(rules::core_kit_price(odd, 250, 1), Stock::units(2, 4));
+    assert_eq!(rules::core_kit_price(odd, 250, 4), Stock::units(2, 6));
+    // Out-of-range numbers saturate instead of overflowing.
+    let huge = rules::Cost {
+        alloy: u64::MAX,
+        crystal: u64::MAX,
+        build_s: 1,
+    };
+    assert_eq!(
+        rules::core_kit_price(huge, u32::MAX, u64::MAX),
+        Stock {
+            alloy: u64::MAX,
+            crystal: u64::MAX
+        }
+    );
+}
+
+/// Runs one tick in which commander `n` sends every command in `commands`, in order.
+fn send_all(state: &mut UniverseState, n: u32, commands: Vec<Command>) -> crate::TickOutputs {
+    let commanders = commands
+        .into_iter()
+        .zip(1..)
+        .map(|(command, seq)| crate::input::CommanderInput {
+            commander: CommanderId(n),
+            client_seq: seq,
+            kind: crate::input::CommanderInputKind::Command(command),
+        })
+        .collect();
+    crate::step(
+        state,
+        &crate::input::TickInputs {
+            operator: vec![],
+            commanders,
+        },
+    )
+}
+
+/// The prices of `holding`'s queue, in order.
+fn queue_prices(state: &UniverseState, holding: HoldingId) -> Vec<Stock> {
+    state
+        .holding_economy(holding)
+        .unwrap()
+        .queue
+        .iter()
+        .map(|q| q.price)
+        .collect()
+}
+
+#[test]
+fn kits_queued_at_once_each_pay_more_and_keep_their_price() {
+    let mut state = stage1(7);
+    let (mother, home_system) = home(&state, 1);
+    let you = CommanderId(1);
+    let kit = eco(EconomyCommand::Build {
+        holding: mother,
+        item: BuildItem::CoreKit,
+    });
+    // Three kits in one tick: each counts the kits queued before it (D-189).
+    let out = send_all(&mut state, 1, vec![kit.clone(), kit.clone(), kit]);
+    assert!(out.commands.iter().all(|r| r.outcome.is_ok()));
+    let ids: Vec<SimId> = out
+        .economy_events
+        .iter()
+        .filter_map(|e| match e {
+            EconomyEvent::ItemQueued { item, .. } => Some(*item),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(ids.len(), 3);
+    assert_eq!(
+        queue_prices(&state, mother),
+        [
+            Stock::units(6_000, 500),
+            Stock::units(7_500, 625),
+            Stock::units(9_000, 750)
+        ]
+    );
+    assert_eq!(state.expansion_count(you), 3);
+    assert_eq!(state.core_kit_price(you), Stock::units(10_500, 875));
+
+    // The first kit takes the whole start stock.
+    idle(&mut state, 20);
+    assert!(!command::waiting(&state, mother, ids[0]));
+    assert_eq!(state.pool(you).crystal, 0);
+
+    // n falls (the third kit is cancelled) and rises (an outpost appears); the second kit
+    // keeps the price it was queued at.
+    send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Cancel {
+            holding: mother,
+            item: ids[2],
+        }),
+    );
+    let site = state
+        .galaxy()
+        .system(home_system)
+        .unwrap()
+        .sites
+        .iter()
+        .copied()
+        .find(|&s| state.holding_at(s).is_none())
+        .unwrap();
+    state.insert_holding(site, you, false).unwrap();
+    assert_eq!(state.expansion_count(you), 3);
+    assert_eq!(
+        queue_prices(&state, mother),
+        [Stock::units(6_000, 500), Stock::units(7_500, 625)]
+    );
+
+    // It starts once the pool holds its price, and pays exactly that.
+    state.economy.pools.insert(you, Stock::units(8_000, 1_000));
+    let out = idle(&mut state, 900 * TICKS_PER_SECOND + 10);
+    assert!(events(&out).contains(&EconomyEvent::ItemStarted {
+        holding: mother,
+        item: ids[1]
+    }));
+    assert_eq!(state.pool(you).crystal, 375_000);
+    // Cancelled while building, it refunds half of that price (D-068).
+    let out = send(
+        &mut state,
+        1,
+        eco(EconomyCommand::Cancel {
+            holding: mother,
+            item: ids[1],
+        }),
+    );
+    assert!(out.economy_events.contains(&EconomyEvent::ItemCancelled {
+        holding: mother,
+        item: ids[1],
+        refund: Stock {
+            alloy: 3_750_000,
+            crystal: 312_500
+        }
+    }));
 }
 
 /// Puts `fleet` at rest at `at` in `system` (tests only).

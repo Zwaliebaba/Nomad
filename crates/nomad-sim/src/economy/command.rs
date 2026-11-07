@@ -192,6 +192,9 @@ fn validate_build(
             }
             Ok(())
         }
+        // A kit priced above the pool cap is accepted and waits like any unaffordable item:
+        // storage modules raise the cap. D-189 has the harness report such kits rather than
+        // the validator refuse them.
         BuildItem::CoreKit => Ok(()),
     }
 }

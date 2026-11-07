@@ -19,7 +19,7 @@
 //! | Gates | D-055: 2 km scatter, 5 s spool-up, 10 s shroud; S3 plan §4.4: within 2 km |
 //! | Docking | D-102 (Q93) |
 //! | Start kit | Doc 14 §12 (D-112): 3 VX and 2 MULE; the station's modules and stock are in the economy section |
-//! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*) |
+//! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*), the core kit's growth k = 0.25 (D-189) |
 //! | Cruise drop range | Doc 15 §3.3: a hostile within 20 km (a hook until S7) |
 //! | Combat: hull, weapons, multipliers, hit radii | [`combat`] (doc 15 §3–§4, §12; D-052, D-143) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
@@ -38,7 +38,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@3";
+pub const RULES_FORMAT: &str = "nomad-rules@4";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -442,6 +442,12 @@ mod tests {
             (120, 10)
         );
         assert_eq!(economy.logistics.mule_units, 2_000);
+        // D-189: the core kit's base price and its growth k = 0.25.
+        assert_eq!(
+            (economy.core_kit.alloy, economy.core_kit.crystal),
+            (6_000, 500)
+        );
+        assert_eq!(economy.core_kit_growth_permille, 250);
         // The slowest commander warship is the WARDEN (D-099 item 5), not the HSTL.
         assert_eq!(rules.slowest_commander_warship(), ShipClass::Warden);
         assert!((vx.turn_rate_rad_per_s() - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
@@ -454,8 +460,28 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@3", "nomad-rules@2"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@2"
+            swap("nomad-rules@4", "nomad-rules@3"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@3"
+        ));
+        // A rules file without the D-189 growth does not parse; a zero growth is the flat
+        // price D-189 replaced.
+        assert!(matches!(
+            swap("\"core_kit_growth_permille\": 250,", ""),
+            Err(RulesError::Parse(_))
+        ));
+        assert!(matches!(
+            swap(
+                "\"core_kit_growth_permille\": 250",
+                "\"core_kit_growth_permille\": 0"
+            ),
+            Err(RulesError::Invalid { field, .. }) if field == "economy.core_kit_growth_permille"
+        ));
+        assert!(matches!(
+            swap(
+                "\"core_kit_growth_permille\": 250",
+                "\"core_kit_growth_permille\": -250"
+            ),
+            Err(RulesError::Parse(_))
         ));
         assert!(matches!(
             swap("\"ops_area_radius_m\"", "\"ops_radius_m\""),

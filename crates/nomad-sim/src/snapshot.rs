@@ -30,8 +30,10 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   in flight (S5 plan §4.9);
 /// - 9: station modules as entities (module, hull, construction and disabled tables) and the
 ///   economy: pools, holding economies, queues, convoys and cargo (S4); rules format 3, which
-///   holds both the combat and the economy sections.
-pub const FORMAT: u32 = 9;
+///   holds both the combat and the economy sections;
+/// - 10: each queue item keeps the price fixed when it was queued, and the rules gain the
+///   core kit's growth per further holding (D-189); rules format 4.
+pub const FORMAT: u32 = 10;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

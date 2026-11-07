@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use nomad_types::{ModuleKind, ShipClass, Slot};
 use serde::{Deserialize, Serialize};
 
+use super::Stock;
 use crate::rules::RulesError;
 
 /// Milli-units per unit (D-049).
@@ -23,8 +24,12 @@ pub const KW_PER_MW: u64 = 1_000;
 pub struct EconomyRules {
     /// Cores: supply, hull and deployment (doc 14 §9.3).
     pub core: CoreRules,
-    /// The core kit item (doc 14 §9.3; doc 15 §8).
+    /// The core kit item at its base price (doc 14 §9.3; doc 15 §8). What a kit costs grows
+    /// with the commander's size: see [`core_kit_price`] (D-189).
     pub core_kit: Cost,
+    /// k of D-189, in per mille: each further holding, outpost under construction and core
+    /// kit not yet deployed adds this share of the base price to the next core kit.
+    pub core_kit_growth_permille: u32,
     /// Every other module kind (doc 14 §9.3).
     pub modules: BTreeMap<ModuleKind, ModuleRules>,
     /// The ships a commander can build (doc 14 §9.4; doc 15 §12 command costs).
@@ -257,6 +262,19 @@ pub struct SlotRadii {
     pub deposit: i32,
 }
 
+/// What a core kit costs when it is queued while the commander has `n` further holdings,
+/// outposts under construction and core kits not yet deployed (D-189): the base price ×
+/// (1 + k × n), with k = `growth_permille` / 1000, each resource rounded up to whole units.
+/// In milli-units, integer throughout (D-049); a price too large for `u64` saturates.
+pub fn core_kit_price(base: Cost, growth_permille: u32, n: u64) -> Stock {
+    let factor = u128::from(MILLI) + u128::from(growth_permille) * u128::from(n);
+    let whole_units = |amount: u64| {
+        let scaled = u128::from(amount).saturating_mul(factor);
+        u64::try_from(scaled.div_ceil(u128::from(MILLI))).unwrap_or(u64::MAX)
+    };
+    Stock::units(whole_units(base.alloy), whole_units(base.crystal))
+}
+
 impl EconomyRules {
     /// The rules of a module kind other than the core.
     pub fn module(&self, kind: ModuleKind) -> &ModuleRules {
@@ -336,6 +354,14 @@ impl EconomyRules {
         }
         if self.core_kit.build_s == 0 {
             return Err(err("economy.core_kit.build_s".into(), "must be > 0"));
+        }
+        // D-189 makes the price grow with the commander's size; 0 would be the flat price it
+        // replaced.
+        if self.core_kit_growth_permille == 0 {
+            return Err(err(
+                "economy.core_kit_growth_permille".into(),
+                "must be > 0",
+            ));
         }
         let p = &self.production;
         if p.ore_buffer_h == 0 {

@@ -8,6 +8,12 @@
 //! refinery, storage, 4 pylons, 2 turrets, a dry dock: the plan's standard build-out), keeps a
 //! convoy running between remote holdings and the mother station, and keeps a core-kit
 //! reserve so expansion is not starved. It is a measuring script, not an AI (A2 is).
+//!
+//! A core kit's price grows with the commander's size and is fixed when the kit is queued
+//! (D-189), so the reserve is the next kit's price, and the report lists every kit with its
+//! price. It flags a kit priced above the commander's pool cap when it was queued: until
+//! storage raises the cap, the pool cannot hold its price, so it cannot be bought (doc 14
+//! §13).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
@@ -20,7 +26,7 @@ use nomad_sim::snapshot::state_hash;
 use nomad_sim::{
     BuildItem, Command, CommanderId, CommanderInput, CommanderInputKind, EconomyCommand,
     EconomyEvent, FleetId, FleetOrder, HoldingId, Location, ModuleKind, Owner, Place, Queueing,
-    Rules, SeasonConfig, ShipId, SiteId, Slot, Stock, TICKS_PER_SECOND, TickInputs, Ticks,
+    Rules, SeasonConfig, ShipId, SimId, SiteId, Slot, Stock, TICKS_PER_SECOND, TickInputs, Ticks,
     UniverseState, step, validate_command,
 };
 
@@ -51,6 +57,27 @@ struct Builder {
     completions: Vec<u64>,
     built_out: BTreeMap<HoldingId, u64>,
     completed_at: BTreeMap<HoldingId, u64>,
+    kits: Vec<KitRecord>,
+}
+
+/// One core kit the script queued (D-189).
+struct KitRecord {
+    item: SimId,
+    queued: u64,
+    /// The n it was priced at.
+    n: u64,
+    price: Stock,
+    /// The pool cap when it was queued.
+    cap: Stock,
+    /// When it was paid for and started.
+    started: Option<u64>,
+}
+
+impl KitRecord {
+    /// Whether the pool could not hold its price when it was queued.
+    fn above_cap(&self) -> bool {
+        !self.cap.covers(self.price)
+    }
 }
 
 /// The modules of a full build-out, in build order (S4 plan §4.2).
@@ -281,8 +308,12 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
         }
     }
 
-    // Build-out: one item at a time per holding, keeping a core-kit reserve.
-    let kit_cost = Stock::units(6_000, 500);
+    // Build-out: one item at a time per holding, keeping a core-kit reserve: the price of
+    // the kit in the queue, or else of the next one (D-189).
+    let kit_cost = mother_view
+        .as_ref()
+        .and_then(|v| v.queue.iter().find(|q| q.item == BuildItem::CoreKit))
+        .map_or(economy.core_kit_price, |q| q.price);
     let reserve = if b.target.is_some() && !carrying && kits == 0 {
         kit_cost
     } else {
@@ -382,6 +413,103 @@ fn fleet_order(fleet: FleetId, order: FleetOrder) -> Command {
     }
 }
 
+/// Records the core kits the script queues and starts, with their price (D-189).
+fn record_kit(
+    state: &UniverseState,
+    builders: &mut BTreeMap<CommanderId, Builder>,
+    event: &EconomyEvent,
+    t: u64,
+) {
+    match *event {
+        EconomyEvent::ItemQueued { holding, item } => {
+            let Some(owner) = state.holding(holding).map(|h| h.owner) else {
+                return;
+            };
+            let Some(price) = state
+                .holding_economy(holding)
+                .and_then(|v| {
+                    v.queue
+                        .into_iter()
+                        .find(|q| q.id == item && q.item == BuildItem::CoreKit)
+                })
+                .map(|q| q.price)
+            else {
+                return;
+            };
+            if let Some(b) = builders.get_mut(&owner) {
+                b.kits.push(KitRecord {
+                    item,
+                    queued: t,
+                    // The kit now counts itself. Nothing else in a harness tick changes n:
+                    // the script queues one kit at a time and never cancels, and no MULE is
+                    // destroyed.
+                    n: state.expansion_count(owner).saturating_sub(1),
+                    price,
+                    cap: state.pool_cap(owner),
+                    started: None,
+                });
+            }
+        }
+        EconomyEvent::ItemStarted { item, .. } => {
+            for b in builders.values_mut() {
+                if let Some(kit) = b.kits.iter_mut().find(|k| k.item == item) {
+                    kit.started = Some(t);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Lists every core kit with its price, flagging those above the pool cap when they were
+/// queued (D-189; doc 14 §13).
+fn write_kits(
+    out: &mut impl Write,
+    builders: &BTreeMap<CommanderId, Builder>,
+) -> Result<(), String> {
+    writeln!(
+        out,
+        "core kits (D-189: price fixed when queued; pool cap when queued):"
+    )
+    .map_err(|e| e.to_string())?;
+    let (mut queued, mut bought, mut above, mut above_unbought) = (0, 0, 0, 0);
+    for (c, b) in builders {
+        for (i, kit) in b.kits.iter().enumerate() {
+            queued += 1;
+            bought += usize::from(kit.started.is_some());
+            if kit.above_cap() {
+                above += 1;
+                above_unbought += usize::from(kit.started.is_none());
+            }
+            writeln!(
+                out,
+                "  C{} kit {}: queued {:.2} h | n {} | {:.0} A + {:.0} C | cap {:.0} A / {:.0} C{} | {}",
+                c.0,
+                i + 1,
+                hours(kit.queued),
+                kit.n,
+                units(kit.price.alloy),
+                units(kit.price.crystal),
+                units(kit.cap.alloy),
+                units(kit.cap.crystal),
+                if kit.above_cap() {
+                    " | ABOVE THE POOL CAP"
+                } else {
+                    ""
+                },
+                kit.started
+                    .map_or("never bought".to_owned(), |s| format!("bought {:.2} h", hours(s))),
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+    writeln!(
+        out,
+        "  {queued} kits queued, {bought} bought | {above} above the pool cap when queued, {above_unbought} of them never bought"
+    )
+    .map_err(|e| e.to_string())
+}
+
 fn hours(ticks: u64) -> f64 {
     ticks as f64 / (3_600 * TICKS_PER_SECOND) as f64
 }
@@ -455,6 +583,7 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
             {
                 b.completions.push(t);
             }
+            record_kit(&state, &mut builders, event, t);
             let name = format!("{event:?}");
             kinds.insert(name.split([' ', '{']).next().unwrap_or_default().to_owned());
         }
@@ -667,6 +796,7 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
     }
+    write_kits(out, &builders)?;
     let hash = state_hash(&state).map_err(|e| e.to_string())?;
     writeln!(
         out,
@@ -675,7 +805,10 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
         state.economy_problems().len() + state.fleet_problems().len(),
     )
     .map_err(|e| e.to_string())?;
-    writeln!(out, "standard build-out costs {bo_a:.0} A + {bo_c:.0} C")
-        .map_err(|e| e.to_string())?;
+    writeln!(
+        out,
+        "standard build-out costs {bo_a:.0} A + {bo_c:.0} C, with the core kit at its base price"
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }

@@ -3,8 +3,10 @@
 //! - **One queue per holding,** plus one parallel ship lane per working dry dock. Modules
 //!   and core kits build in the main lane; small craft in the main lane or a free dock lane;
 //!   frigates only in a dock lane (D-068: frigates need a dry dock). *Derived.*
-//! - **Payment in full when an item starts.** An item the pool cannot pay for, or a ship
-//!   that would exceed the command cap (D-129), waits and does not block later items.
+//! - **Payment in full when an item starts,** at the price fixed when it was queued. Only a
+//!   core kit's price depends on when: it grows with the commander's size (D-189). An item
+//!   the pool cannot pay for, or a ship that would exceed the command cap (D-129), waits and
+//!   does not block later items.
 //! - **Cancelling** refunds everything before the start (nothing was paid) and half after.
 //! - **Progress** is counted in the holding's economy second: the main lane at full speed,
 //!   a dock lane at the fraction of its 150 MW it is allocated (doc 14 §7). *Derived:* the
@@ -15,7 +17,7 @@ use std::collections::{BTreeMap, VecDeque};
 use nomad_types::{BuildItem, ModuleKind, Owner, ShipClass, Slot};
 
 use super::power::Consumer;
-use super::rules::MILLI;
+use super::rules::{Cost, MILLI};
 use super::{
     BuildLane, Construction, EconomyEvent, EntryState, QueueEntry, Shortage, Stock, spawn_module,
 };
@@ -29,28 +31,47 @@ use crate::id::{CommanderId, SimId};
 use crate::state::UniverseState;
 use crate::time::Tick;
 
-/// What `item` costs and how long it takes, in milli-units and milliseconds.
-pub(crate) fn cost(state: &UniverseState, item: BuildItem) -> Option<(Stock, u64)> {
+/// The rules entry of `item`: its base cost and build time (doc 14 §9.3–§9.4).
+fn rules_cost(state: &UniverseState, item: BuildItem) -> Option<Cost> {
     let economy = &state.rules.economy;
-    let c = match item {
-        BuildItem::Module { kind, .. } if kind != ModuleKind::Core => economy.module(kind).cost,
-        BuildItem::Module { .. } => return None,
-        BuildItem::Ship { class } => economy.ship(class)?.cost,
-        BuildItem::CoreKit => economy.core_kit,
-    };
-    Some((
-        Stock::units(c.alloy, c.crystal),
-        c.build_s.saturating_mul(MILLI),
-    ))
+    match item {
+        BuildItem::Module { kind, .. } if kind != ModuleKind::Core => {
+            Some(economy.module(kind).cost)
+        }
+        BuildItem::Module { .. } => None,
+        BuildItem::Ship { class } => economy.ship(class).map(|s| s.cost),
+        BuildItem::CoreKit => Some(economy.core_kit),
+    }
 }
 
-/// Adds an item to `holding`'s queue (validated).
+/// How long `item` takes to build, in milliseconds.
+fn build_ms(state: &UniverseState, item: BuildItem) -> Option<u64> {
+    rules_cost(state, item).map(|c| c.build_s.saturating_mul(MILLI))
+}
+
+/// What `item` costs if it is queued at `holding` now, in milli-units: the rules cost, or
+/// for a core kit the price that grows with the owner's size (D-189).
+pub(crate) fn price(state: &UniverseState, holding: HoldingId, item: BuildItem) -> Option<Stock> {
+    match item {
+        BuildItem::CoreKit => {
+            let owner = state.holdings.get(&holding)?.owner;
+            Some(state.core_kit_price(owner))
+        }
+        other => rules_cost(state, other).map(|c| Stock::units(c.alloy, c.crystal)),
+    }
+}
+
+/// Adds an item to `holding`'s queue (validated), with its price fixed now (D-189): the kit
+/// is priced before it joins the queue, so it does not count towards its own price.
 pub(crate) fn enqueue(
     state: &mut UniverseState,
     holding: HoldingId,
     item: BuildItem,
     events: &mut Vec<EconomyEvent>,
 ) {
+    let Some(price) = price(state, holding, item) else {
+        return;
+    };
     let id = state.ids.allocate();
     state
         .economy
@@ -61,6 +82,7 @@ pub(crate) fn enqueue(
         .push(QueueEntry {
             id,
             item,
+            price,
             state: EntryState::Waiting,
             short: None,
         });
@@ -305,7 +327,9 @@ pub(crate) fn start_items(
         let Some(lane) = choose_lane(state, entry.item, main_free, &free_docks) else {
             continue;
         };
-        let Some((price, build_ms)) = cost(state, entry.item) else {
+        // The price fixed when the item was queued (D-189).
+        let price = entry.price;
+        let Some(build_ms) = build_ms(state, entry.item) else {
             continue;
         };
         let command = match entry.item {

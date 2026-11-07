@@ -223,6 +223,10 @@ pub(crate) struct AbilityDraw {
 pub(crate) struct QueueEntry {
     pub(crate) id: SimId,
     pub(crate) item: BuildItem,
+    /// What it costs, fixed when it was queued and paid when it starts. A core kit's price
+    /// grows with the commander's size (D-189); every other price is the season's rules
+    /// cost, which does not change (D-104).
+    pub(crate) price: Stock,
     pub(crate) state: EntryState,
     /// Why it last could not start, so a waiting event is sent once per reason.
     pub(crate) short: Option<Shortage>,
@@ -487,6 +491,8 @@ pub struct QueueItemView {
     pub id: SimId,
     /// What it makes.
     pub item: BuildItem,
+    /// What it costs, fixed when it was queued (D-189 for core kits).
+    pub price: Stock,
     /// Its lane and build time left, once started.
     pub building: Option<(BuildLane, u64)>,
     /// Why it last could not start.
@@ -540,6 +546,8 @@ pub struct CommanderEconomy {
     pub command_used: u32,
     /// The command cap (D-129).
     pub command_cap: u32,
+    /// What a core kit queued now would cost (D-189).
+    pub core_kit_price: Stock,
     /// Every holding and outpost, in identity order.
     pub holdings: Vec<HoldingEconomyView>,
 }
@@ -571,6 +579,7 @@ impl UniverseState {
             lost: stats.map_or(Stock::ZERO, |s| s.lost),
             command_used: self.command_used(commander),
             command_cap: self.command_cap(commander),
+            core_kit_price: self.core_kit_price(commander),
             holdings,
         }
     }
@@ -595,6 +604,7 @@ impl UniverseState {
                 .map(|entry| QueueItemView {
                     id: entry.id,
                     item: entry.item,
+                    price: entry.price,
                     building: match entry.state {
                         EntryState::Waiting => None,
                         EntryState::Building {
@@ -786,6 +796,56 @@ impl UniverseState {
             })
             .fold(0_u32, u32::saturating_add);
         ships.saturating_add(building)
+    }
+
+    /// n of D-189: the commander's holdings beyond the mother station, outposts under
+    /// construction included, plus the core kits not yet deployed: in a build queue (waiting
+    /// or being built), stored at a holding or carried by a MULE. Counting queued kits keeps
+    /// several kits queued at once from sharing the low price. A kit that is cancelled, or
+    /// lost with its MULE, no longer counts.
+    pub fn expansion_count(&self, commander: CommanderId) -> u64 {
+        let count = |n: usize| u64::try_from(n).unwrap_or(u64::MAX);
+        let mut n = 0_u64;
+        for (id, h) in self.holdings.iter().filter(|(_, h)| h.owner == commander) {
+            if !h.mother_station {
+                n = n.saturating_add(1);
+            }
+            if let Some(e) = self.economy.holdings.get(id) {
+                let queued = e
+                    .queue
+                    .iter()
+                    .filter(|entry| entry.item == BuildItem::CoreKit)
+                    .count();
+                n = n
+                    .saturating_add(count(queued))
+                    .saturating_add(u64::from(e.kits));
+            }
+        }
+        let owner = nomad_types::Owner::Commander(commander);
+        let carried = self
+            .economy
+            .cargo
+            .iter()
+            .filter(|(ship, cargo)| {
+                cargo.core_kit
+                    && self
+                        .entities
+                        .with::<Ship, _>(ship.sim_id(), |s| s.owner == owner)
+                        .unwrap_or(false)
+            })
+            .count();
+        n.saturating_add(count(carried))
+    }
+
+    /// What a core kit `commander` queues now would cost (D-189). The queue keeps this price
+    /// until the kit is paid for.
+    pub fn core_kit_price(&self, commander: CommanderId) -> Stock {
+        let economy = &self.rules.economy;
+        rules::core_kit_price(
+            economy.core_kit,
+            economy.core_kit_growth_permille,
+            self.expansion_count(commander),
+        )
     }
 
     /// Completed dry docks at `holding`, for docking room and frigates (D-102).
