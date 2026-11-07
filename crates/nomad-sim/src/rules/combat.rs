@@ -427,22 +427,27 @@ mod tests {
 
     /// S5 plan §4.1 and §4.7: every weapon's range stays below its own platform's sensor
     /// range for the smallest signature (0.6), so a target in range is always detected by the
-    /// shooter itself. The sensor ranges are doc 16 §3's table until S7 puts them in the
-    /// rules file.
+    /// shooter itself. The sensor ranges are doc 16 §3's table, which the rules file's
+    /// sensors section (S7) must match.
     #[test]
     fn every_weapon_range_is_inside_its_platforms_own_detection() {
-        let sensor_km = [
-            (ShipClass::Vx, 15.0),
-            (ShipClass::Lancer, 10.0),
-            (ShipClass::Warden, 25.0),
-            (ShipClass::Mule, 8.0),
-            (ShipClass::RaiderStrikeCraft, 12.0),
-            (ShipClass::HeavyCruiser, 30.0),
+        let sensor_km: [(ShipClass, u32); 6] = [
+            (ShipClass::Vx, 15),
+            (ShipClass::Lancer, 10),
+            (ShipClass::Warden, 25),
+            (ShipClass::Mule, 8),
+            (ShipClass::RaiderStrikeCraft, 12),
+            (ShipClass::HeavyCruiser, 30),
         ];
         let smallest_signature = 0.6;
         let rules = rules();
         for (class, km) in sensor_km {
-            let detection_m = km * 1_000.0 * smallest_signature;
+            assert_eq!(
+                rules.sensors.range_m(&rules.class(class).sensor),
+                Some(km * 1_000),
+                "{class:?}"
+            );
+            let detection_m = f64::from(km) * 1_000.0 * smallest_signature;
             let combat = rules.combat.class(class);
             for weapon in &combat.weapons {
                 assert!(weapon.range_m < detection_m, "{class:?}");

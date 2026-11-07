@@ -39,7 +39,7 @@ Implementation plans for packages from `30-mvp-scope-and-milestones.md` §2. Eac
 | N3 | [`plans/N3-transport-and-sessions.md`](plans/N3-transport-and-sessions.md) | Built (D-120 to D-125, D-150, D-151) |
 | S4 | [`plans/S4-economy.md`](plans/S4-economy.md) | Built (D-126 to D-138; core-kit price D-189 and diminishing yield D-217, both built) |
 | S5 | [`plans/S5-combat.md`](plans/S5-combat.md) | Built, S5a and S5b (D-139 to D-149; S5a details D-188; S5b readings D-227; slot geometry D-228 follows with S6b) |
-| S7 | [`plans/S7-sensors.md`](plans/S7-sensors.md) | Planned and decided (D-173 to D-181) |
+| S7 | [`plans/S7-sensors.md`](plans/S7-sensors.md) | Built (D-173 to D-181) |
 | N4 | [`plans/N4-replication.md`](plans/N4-replication.md) | Planned and decided (D-182 to D-187) |
 | S6 | [`plans/S6-offline-and-sieges.md`](plans/S6-offline-and-sieges.md) | Built (D-154 to D-172; S6b with D-224, D-228, D-229) |
 | S8 | [`plans/S8-season-end.md`](plans/S8-season-end.md) | Built (D-191 to D-198) |

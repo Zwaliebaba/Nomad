@@ -3,8 +3,11 @@
 //! A disabled structure comes back online once no hostile ship has been inside its holding's
 //! ops area (20 km, D-103) for 10 minutes, with at least 10% of its hull, and is then
 //! repaired normally (D-071). REPAIR brings it back at once, with the same hull. The clock
-//! starts when it was disabled or when the last hostile was seen, whichever is later. Every
-//! ship counts as visible until S7.
+//! starts when it was disabled or when the last hostile was there, whichever is later.
+//! Every hostile ship in the area counts, detected or not: S7's switch-over changes what
+//! commanders and their weapons know (S7 plan §4.6), not this clock. A completed core sees
+//! the smallest signature at 24 km, beyond the ops area, so the two differ only at outposts
+//! and holdings whose core is not complete.
 //!
 //! The check runs once a second per holding, in the holding's economy slot (doc 11 §4.1),
 //! and does nothing at holdings without disabled structures.
