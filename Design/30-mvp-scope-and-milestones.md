@@ -94,7 +94,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
    - **A1b** (threat, alert, engagement, abilities, convoy evacuation) after S7 and S5b;
    - **A2** after A1a and S7; **A3** after S6b, S7 and A1a, in parallel with A2.
 
-   After α: A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2):* S3, S4, S5a, S5b, S6a and S8 are built; S6b, S7 and A1a are next.
+   After α: A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2):* S2–S8 are built; A1a is next, then A1b, A2 and A3 (D-205).
 2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send. *Status:* N1–N3 are built; N4 builds on S7's `CommanderView` (D-182).
 3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7. *Status:* M1–M4 are built; M5 and M6 are next.
 
