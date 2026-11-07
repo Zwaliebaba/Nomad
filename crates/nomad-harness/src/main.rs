@@ -12,7 +12,9 @@
 //!
 //! With `--combat skirmish|battle|stress` it runs the time-to-kill scenarios of D-058 (S5
 //! plan §7 task 7): two fleets attack each other, and it reports the time to kill against
-//! the target and the tick time.
+//! the target and the tick time. `--combat breach|core` runs the station scenarios (S5 plan
+//! §7 task 13): a mid-size fleet breaches a full mother-station sector, or kills the core
+//! through an open sector, measured as D-147 says.
 //!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
@@ -23,7 +25,7 @@
 //! nomad-harness --galaxy [--seed N] [--rules PATH]
 //! nomad-harness --fleets [--seed N] [--hours N | --ticks N] [--order-interval-secs N]
 //!               [--restore-at N] [--rules PATH]
-//! nomad-harness --combat skirmish|battle|stress [--seed N] [--rules PATH]
+//! nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] [--rules PATH]
 //! nomad-harness --economy [--seed N] [--days N] [--rules PATH]
 //! ```
 
@@ -31,6 +33,7 @@ mod combat;
 mod economy;
 mod fleets;
 mod galaxy;
+mod station;
 
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -104,7 +107,8 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --galaxy [--seed N] [--rules PATH]\n       \
                      nomad-harness --fleets [--seed N] [--hours N | --ticks N] \
                             [--order-interval-secs N] [--restore-at N] [--rules PATH]\n       \
-                     nomad-harness --combat skirmish|battle|stress [--seed N] [--rules PATH]\n       \
+                     nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] \
+                            [--rules PATH]\n       \
                      nomad-harness --economy [--seed N] [--days N] [--rules PATH]"
                         .to_owned(),
                 );

@@ -14,7 +14,7 @@
 //! - `stress`: 100 against 100, for the tick time of a large battle (doc 15 §13).
 //!
 //! Every scenario reports the tick time (mean, p99, max) and the most projectiles in
-//! flight. The breach and core-kill targets need S5b.
+//! flight. The breach and core-kill targets (`breach`, `core`) are in [`crate::station`].
 
 use std::io::Write;
 use std::time::Instant;
@@ -45,17 +45,23 @@ pub enum Set {
     Battle,
     /// 100 against 100, for tick time.
     Stress,
+    /// Breaching a full mother-station sector (D-058: 5–10 min; S5b).
+    Breach,
+    /// Killing the core in a siege (D-058: 15–25 min; S5b).
+    Core,
 }
 
 impl Set {
-    /// Parses `skirmish`, `battle` or `stress`.
+    /// Parses `skirmish`, `battle`, `stress`, `breach` or `core`.
     pub fn parse(text: &str) -> Result<Self, String> {
         match text {
             "skirmish" => Ok(Self::Skirmish),
             "battle" => Ok(Self::Battle),
             "stress" => Ok(Self::Stress),
+            "breach" => Ok(Self::Breach),
+            "core" => Ok(Self::Core),
             other => Err(format!(
-                "--combat takes skirmish, battle or stress, not {other}"
+                "--combat takes skirmish, battle, stress, breach or core, not {other}"
             )),
         }
     }
@@ -151,6 +157,8 @@ fn scenarios(set: Set) -> Vec<Scenario> {
                 cap_s: 1_800,
             },
         ],
+        // The station scenarios are crate::station's.
+        Set::Breach | Set::Core => vec![],
         Set::Stress => vec![Scenario {
             name: "40/40/20 v 40/40/20 (VX/LANCER/WARDEN)",
             a: mixed(40, 40, 20),
@@ -262,6 +270,11 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
 
 /// Runs the scenarios of `set` and writes the report.
 pub fn run(out: &mut impl Write, set: Set, seed: u64, rules: &Rules) -> Result<(), String> {
+    match set {
+        Set::Breach => return crate::station::breach(out, seed, rules),
+        Set::Core => return crate::station::core(out, seed, rules),
+        Set::Skirmish | Set::Battle | Set::Stress => {}
+    }
     let w = |out: &mut dyn Write, line: String| writeln!(out, "{line}").map_err(|e| e.to_string());
     w(
         out,
@@ -360,5 +373,7 @@ mod tests {
         }
         assert!(text.contains("TTK"), "{text}");
         assert!(Set::parse("dome").is_err());
+        assert_eq!(Set::parse("breach"), Ok(Set::Breach));
+        assert_eq!(Set::parse("core"), Ok(Set::Core));
     }
 }

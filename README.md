@@ -72,6 +72,7 @@ Run the headless simulation harness (fast-forward, reports the state hash and sp
 cargo run -p nomad-harness -- --ticks 36000 --diagnostics 10000
 cargo run -p nomad-harness -- --fleets --seed 7          # fleet demo: random orders, consistency checks
 cargo run -p nomad-harness -- --combat skirmish          # time-to-kill scenarios (also: battle, stress)
+cargo run -p nomad-harness -- --combat breach            # station scenarios: breach a sector (also: core)
 cargo run --release -p nomad-harness -- --economy --days 7   # scripted builders, D-070 pacing measures
 ```
 
