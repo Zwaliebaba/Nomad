@@ -1,0 +1,439 @@
+{
+  "source": "Owner-provided isometric station screenshot, 2026-11-07",
+  "status": "Visual reconstructions; concealed geometry inferred. Repeated instances share a model. Names describe appearance, not new gameplay rules. Existing canonical assets preserved.",
+  "axes": "+z up; ground z=0; footprint centred on x/y; hangar entrance faces +x. Art reference scale, not balanced to existing gameplay slots.",
+  "models": [
+    {
+      "id": "reference_command_core",
+      "name": "Command complex with holographic mast",
+      "voxels": 19760,
+      "bounds": [
+        [
+          -32,
+          -30,
+          0
+        ],
+        [
+          31,
+          29,
+          126
+        ]
+      ],
+      "note": "Large central stepped tower; emblem and concealed walls reconstructed."
+    },
+    {
+      "id": "reference_relay_tower",
+      "name": "Tall relay tower",
+      "voxels": 4922,
+      "bounds": [
+        [
+          -12,
+          -12,
+          0
+        ],
+        [
+          11,
+          11,
+          78
+        ]
+      ],
+      "note": "Repeated freestanding tower variant; +x is the outward side."
+    },
+    {
+      "id": "reference_junction_tower",
+      "name": "Cyan junction tower",
+      "voxels": 3802,
+      "bounds": [
+        [
+          -12,
+          -12,
+          0
+        ],
+        [
+          11,
+          11,
+          57
+        ]
+      ],
+      "note": "Repeated freestanding tower variant; +x is the outward side."
+    },
+    {
+      "id": "reference_beacon_tower",
+      "name": "Narrow beacon tower",
+      "voxels": 4418,
+      "bounds": [
+        [
+          -12,
+          -12,
+          0
+        ],
+        [
+          11,
+          11,
+          69
+        ]
+      ],
+      "note": "Repeated freestanding tower variant; +x is the outward side."
+    },
+    {
+      "id": "reference_solar_array_large",
+      "name": "Solar array, large",
+      "voxels": 8060,
+      "bounds": [
+        [
+          -40,
+          -27,
+          0
+        ],
+        [
+          39,
+          23,
+          26
+        ]
+      ],
+      "note": "Blue cell wings, central maintenance spine, support piers and end beacons."
+    },
+    {
+      "id": "reference_solar_array_small",
+      "name": "Solar array, small",
+      "voxels": 3404,
+      "bounds": [
+        [
+          -28,
+          -14,
+          0
+        ],
+        [
+          27,
+          10,
+          26
+        ]
+      ],
+      "note": "Blue cell wings, central maintenance spine, support piers and end beacons."
+    },
+    {
+      "id": "reference_refinery_vats",
+      "name": "Three-vat industrial rack",
+      "voxels": 6376,
+      "bounds": [
+        [
+          -24,
+          -15,
+          0
+        ],
+        [
+          23,
+          15,
+          44
+        ]
+      ],
+      "note": "Left-side row of cylindrical silver vats with amber bands and external gantry."
+    },
+    {
+      "id": "reference_refinery_furnace",
+      "name": "Twin furnace rack",
+      "voxels": 6697,
+      "bounds": [
+        [
+          -21,
+          -16,
+          0
+        ],
+        [
+          20,
+          15,
+          34
+        ]
+      ],
+      "note": "Front-left pair of squared hot industrial units, with amber service panels."
+    },
+    {
+      "id": "reference_biodome",
+      "name": "Botanical dome",
+      "voxels": 6318,
+      "bounds": [
+        [
+          -21,
+          -21,
+          0
+        ],
+        [
+          20,
+          20,
+          31
+        ]
+      ],
+      "note": "Front-middle geodesic greenhouse, modelled with an open glass lattice so planting remains visible."
+    },
+    {
+      "id": "reference_greenhouse_pair",
+      "name": "Twin arched greenhouses",
+      "voxels": 5141,
+      "bounds": [
+        [
+          -22,
+          -16,
+          0
+        ],
+        [
+          21,
+          15,
+          22
+        ]
+      ],
+      "note": "Two small planted glasshouses on a shared utility platform."
+    },
+    {
+      "id": "reference_reactor_chamber",
+      "name": "Caged cyan energy chamber",
+      "voxels": 5706,
+      "bounds": [
+        [
+          -18,
+          -18,
+          0
+        ],
+        [
+          17,
+          17,
+          39
+        ]
+      ],
+      "note": "Frontmost square gantry containing a luminous energy column; visual label only."
+    },
+    {
+      "id": "reference_hangar",
+      "name": "Hangar and launch apron",
+      "voxels": 12237,
+      "bounds": [
+        [
+          -35,
+          -19,
+          0
+        ],
+        [
+          35,
+          19,
+          31
+        ]
+      ],
+      "note": "One of the repeated right-side hangar bays. Open +x entrance; craft are excluded."
+    },
+    {
+      "id": "reference_ring_dock",
+      "name": "Circular docking ring",
+      "voxels": 7147,
+      "bounds": [
+        [
+          -40,
+          -40,
+          5
+        ],
+        [
+          40,
+          40,
+          17
+        ]
+      ],
+      "note": "Lower-right open docking ring with amber internal strips and four outriggers. No ship included."
+    },
+    {
+      "id": "reference_communications_dish",
+      "name": "Parabolic communications dish",
+      "voxels": 4576,
+      "bounds": [
+        [
+          -17,
+          -17,
+          0
+        ],
+        [
+          17,
+          15,
+          50
+        ]
+      ],
+      "note": "Rear-right tilted reflector and support pedestal; rear surfaces inferred."
+    },
+    {
+      "id": "reference_utility_workshop",
+      "name": "Low utility workshop",
+      "voxels": 3798,
+      "bounds": [
+        [
+          -18,
+          -14,
+          0
+        ],
+        [
+          17,
+          13,
+          24
+        ]
+      ],
+      "note": "Low service building beside the botanical dome, with rooftop vents and service hatch."
+    },
+    {
+      "id": "reference_logistics_bay",
+      "name": "Framed logistics bay",
+      "voxels": 6005,
+      "bounds": [
+        [
+          -20,
+          -16,
+          0
+        ],
+        [
+          19,
+          15,
+          40
+        ]
+      ],
+      "note": "Rear-left framed utility block below the large solar array; visual purpose inferred."
+    },
+    {
+      "id": "reference_rooftop_turret",
+      "name": "Small rooftop turret",
+      "voxels": 1138,
+      "bounds": [
+        [
+          -9,
+          -9,
+          0
+        ],
+        [
+          13,
+          8,
+          13
+        ]
+      ],
+      "note": "Small paired-barrel roof fixture, separated for reuse; no gameplay properties assigned."
+    },
+    {
+      "id": "reference_landing_platform",
+      "name": "Landing Platform",
+      "voxels": 3420,
+      "bounds": [
+        [
+          -22,
+          -16,
+          0
+        ],
+        [
+          21,
+          15,
+          13
+        ]
+      ],
+      "note": "Marked platform variant visible at the front-left or rear of the base."
+    },
+    {
+      "id": "reference_service_platform",
+      "name": "Service Platform",
+      "voxels": 2020,
+      "bounds": [
+        [
+          -14,
+          -14,
+          0
+        ],
+        [
+          13,
+          13,
+          13
+        ]
+      ],
+      "note": "Marked platform variant visible at the front-left or rear of the base."
+    },
+    {
+      "id": "reference_small_landing_pad",
+      "name": "Small Landing Pad",
+      "voxels": 1360,
+      "bounds": [
+        [
+          -15,
+          -8,
+          0
+        ],
+        [
+          15,
+          7,
+          13
+        ]
+      ],
+      "note": "Marked platform variant visible at the front-left or rear of the base."
+    },
+    {
+      "id": "reference_connector_straight",
+      "name": "Utility bridge, straight",
+      "voxels": 940,
+      "bounds": [
+        [
+          -16,
+          -4,
+          4
+        ],
+        [
+          16,
+          4,
+          11
+        ]
+      ],
+      "note": "Repeatable bridge segment with a cyan conduit, side cladding and exposed understructure."
+    },
+    {
+      "id": "reference_connector_corner",
+      "name": "Utility bridge, corner",
+      "voxels": 899,
+      "bounds": [
+        [
+          -4,
+          -4,
+          4
+        ],
+        [
+          16,
+          16,
+          11
+        ]
+      ],
+      "note": "Repeatable bridge segment with a cyan conduit, side cladding and exposed understructure."
+    },
+    {
+      "id": "reference_connector_tee",
+      "name": "Utility bridge, tee",
+      "voxels": 1267,
+      "bounds": [
+        [
+          -16,
+          -4,
+          4
+        ],
+        [
+          16,
+          16,
+          11
+        ]
+      ],
+      "note": "Repeatable bridge segment with a cyan conduit, side cladding and exposed understructure."
+    },
+    {
+      "id": "reference_connector_cross",
+      "name": "Utility bridge, cross",
+      "voxels": 1594,
+      "bounds": [
+        [
+          -16,
+          -16,
+          4
+        ],
+        [
+          16,
+          16,
+          11
+        ]
+      ],
+      "note": "Repeatable bridge segment with a cyan conduit, side cladding and exposed understructure."
+    }
+  ]
+}

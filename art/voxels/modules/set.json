@@ -43,6 +43,102 @@
     {
       "id": "empty_mount",
       "name": "Empty slot mount"
+    },
+    {
+      "id": "reference_command_core",
+      "name": "Command complex with holographic mast"
+    },
+    {
+      "id": "reference_relay_tower",
+      "name": "Tall relay tower"
+    },
+    {
+      "id": "reference_junction_tower",
+      "name": "Cyan junction tower"
+    },
+    {
+      "id": "reference_beacon_tower",
+      "name": "Narrow beacon tower"
+    },
+    {
+      "id": "reference_solar_array_large",
+      "name": "Solar array, large"
+    },
+    {
+      "id": "reference_solar_array_small",
+      "name": "Solar array, small"
+    },
+    {
+      "id": "reference_refinery_vats",
+      "name": "Three-vat industrial rack"
+    },
+    {
+      "id": "reference_refinery_furnace",
+      "name": "Twin furnace rack"
+    },
+    {
+      "id": "reference_biodome",
+      "name": "Botanical dome"
+    },
+    {
+      "id": "reference_greenhouse_pair",
+      "name": "Twin arched greenhouses"
+    },
+    {
+      "id": "reference_reactor_chamber",
+      "name": "Caged cyan energy chamber"
+    },
+    {
+      "id": "reference_hangar",
+      "name": "Hangar and launch apron"
+    },
+    {
+      "id": "reference_ring_dock",
+      "name": "Circular docking ring"
+    },
+    {
+      "id": "reference_communications_dish",
+      "name": "Parabolic communications dish"
+    },
+    {
+      "id": "reference_utility_workshop",
+      "name": "Low utility workshop"
+    },
+    {
+      "id": "reference_logistics_bay",
+      "name": "Framed logistics bay"
+    },
+    {
+      "id": "reference_rooftop_turret",
+      "name": "Small rooftop turret"
+    },
+    {
+      "id": "reference_landing_platform",
+      "name": "Landing Platform"
+    },
+    {
+      "id": "reference_service_platform",
+      "name": "Service Platform"
+    },
+    {
+      "id": "reference_small_landing_pad",
+      "name": "Small Landing Pad"
+    },
+    {
+      "id": "reference_connector_straight",
+      "name": "Utility bridge, straight"
+    },
+    {
+      "id": "reference_connector_corner",
+      "name": "Utility bridge, corner"
+    },
+    {
+      "id": "reference_connector_tee",
+      "name": "Utility bridge, tee"
+    },
+    {
+      "id": "reference_connector_cross",
+      "name": "Utility bridge, cross"
     }
   ]
 }
