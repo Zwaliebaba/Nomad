@@ -223,6 +223,13 @@ pub struct StartModule {
 /// *Proposed* positions within the agreed template: D-130 fixes the slot counts and which
 /// slots lie inside the dome; the exact positions follow the art pass that brings the
 /// phase-1 scene into line (D-119).
+///
+/// **Peripheral slots lie wholly outside the dome** (D-228): the solar and deposit slots'
+/// hit circles never overlap the dome circle, so a shot aimed at a sector never meets a
+/// peripheral module where it would cross the sector. [`EconomyRules::check`] enforces it.
+/// *Proposed* placement: they sit on the sector boundaries (the grid axes, D-046), the solar
+/// array to the north-west and the deposits to the south-east and south-west, so the line
+/// from each sector's centre direction to the dome is clear of them too.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SlotTemplate {
@@ -445,6 +452,27 @@ impl EconomyRules {
         }
         if t.inner.len() > usize::from(u8::MAX) {
             return Err(err("economy.slots.inner".into(), "has too many positions"));
+        }
+        // D-228: peripheral hit circles lie wholly outside the dome circle.
+        let outside = |at: [i32; 2], radius: i32| {
+            let (grid_x, grid_y) = (i64::from(at[0]), i64::from(at[1]));
+            let reach = i64::from(t.dome_radius_voxels) + i64::from(radius.max(0));
+            grid_x * grid_x + grid_y * grid_y > reach * reach
+        };
+        if !outside(t.solar, t.radius_voxels.solar) {
+            return Err(err(
+                "economy.slots.solar".into(),
+                "must lie wholly outside the dome (D-228)",
+            ));
+        }
+        if t.deposits
+            .iter()
+            .any(|&d| !outside(d, t.radius_voxels.deposit))
+        {
+            return Err(err(
+                "economy.slots.deposits".into(),
+                "must lie wholly outside the dome (D-228)",
+            ));
         }
         for start in &self.start.modules {
             if start.kind == ModuleKind::Core {

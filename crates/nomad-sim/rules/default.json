@@ -133,8 +133,8 @@
       "mother_inner": 6,
       "other_inner": 4,
       "dock": [-12, 14],
-      "solar": [-40, -24],
-      "deposits": [[48, 18], [18, 48]],
+      "solar": [-62, 0],
+      "deposits": [[50, 0], [0, 50]],
       "radius_voxels": { "core": 15, "pylon": 6, "inner": 10, "dock": 12, "solar": 20, "deposit": 10 }
     }
   },

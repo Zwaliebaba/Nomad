@@ -37,10 +37,11 @@ const EAST: u8 = 1;
 const SOUTH: u8 = 2;
 const WEST: u8 = 3;
 /// Directions from the mother station's centre, in degrees from east, with a clear line of
-/// fire to its dome: the solar array (north-north-west, 1.6 km out, 700 m radius) and the
-/// harvester (south-south-east) are structures too, and take shots that cross them first.
-const CLEAR_NORTH: f64 = 60.0;
-const CLEAR_SOUTH: f64 = -110.0;
+/// fire to its dome: the sector centres. The peripheral modules lie wholly outside the dome
+/// on the sector boundaries (D-228): the solar array to the north-west (2.2 km out, 700 m
+/// radius) and the harvester to the south-east, so they take only shots that cross them.
+const CLEAR_NORTH: f64 = 90.0;
+const CLEAR_SOUTH: f64 = -90.0;
 
 /// Commander 1's mother station after one second, so its dome is up (domes are refreshed in
 /// the holding's economy slot): the Universe, the holding, its system and its centre.
@@ -333,16 +334,17 @@ fn a_hostile_flak_shell_stops_at_the_dome() {
 
 #[test]
 fn the_sector_hit_is_the_one_whose_arc_the_shot_crosses() {
-    // D-046: N, E, S and W arcs of 90° centred on their pylons, in the system frame.
+    // D-046: N, E, S and W arcs of 90° centred on their pylons, in the system frame. The
+    // angles keep clear of the peripheral modules on the boundaries (D-228).
     for (angle, expected) in [
         (CLEAR_NORTH, NORTH),
         (50.0, NORTH),
         (30.0, EAST),
-        (-40.0, EAST),
+        (-30.0, EAST),
         (CLEAR_SOUTH, SOUTH),
-        (-130.0, SOUTH),
-        (150.0, WEST),
-        (220.0, WEST),
+        (-120.0, SOUTH),
+        (165.0, WEST),
+        (210.0, WEST),
     ] {
         let mut s = station();
         let point = s.at(angle, 3_500.0);
@@ -355,9 +357,10 @@ fn the_sector_hit_is_the_one_whose_arc_the_shot_crosses() {
             "a shot from {angle}°"
         );
     }
-    // A shot from due north meets the solar array first, which lies outside the dome.
+    // A shot from the north-west, along the boundary the solar array sits on, meets the
+    // array first: it lies wholly outside the dome (D-228).
     let mut s = station();
-    let lancer = s.fleet(commander(2), s.at(95.0, 3_500.0), &[LANCER], attacker());
+    let lancer = s.fleet(commander(2), s.at(135.0, 3_500.0), &[LANCER], attacker());
     s.attack(2, lancer, s.holding.sim_id());
     let out = idle(&mut s.state, 100);
     let solar = s.module(Slot::Solar);
@@ -380,6 +383,45 @@ fn the_sector_hit_is_the_one_whose_arc_the_shot_crosses() {
             expected,
             "{angle}°"
         );
+    }
+}
+
+#[test]
+fn peripheral_modules_lie_outside_the_dome_and_clear_of_every_sector_centre() {
+    // D-228: no peripheral hit circle overlaps the dome circle, and the line of fire from
+    // each sector's centre direction, from beyond torpedo range to the dome edge, keeps a
+    // fleet's width (300 m) clear of them, so a breach can be made from any side.
+    let s = station();
+    let rules = &s.state.rules;
+    let dome = super::dome::radius_m(rules);
+    let directions = super::dome::pylon_directions(rules);
+    let peripheral: Vec<(Vec2, f64)> = [Slot::Solar, Slot::Deposit(0)]
+        .into_iter()
+        .map(|slot| {
+            let (_, centre, radius) = s.state.module_position(s.module(slot)).unwrap();
+            (Vec2::from(centre), radius)
+        })
+        .collect();
+    assert_eq!(peripheral.len(), 2);
+    for &(centre, radius) in &peripheral {
+        assert!((centre - s.centre).length() - radius > dome, "{centre:?}");
+    }
+    let template = &rules.economy.slots;
+    for deposit in template.deposits {
+        let at = Vec2::new(f64::from(deposit[0]), f64::from(deposit[1]));
+        let reach = f64::from(template.dome_radius_voxels + template.radius_voxels.deposit);
+        assert!(at.length() > reach, "{deposit:?}");
+    }
+    for (sector, direction) in (0_u8..).zip(directions) {
+        let from = s.centre + direction * (dome + 3_500.0);
+        let to = s.centre + direction * dome;
+        for &(centre, radius) in &peripheral {
+            // Distance from the circle's centre to the segment.
+            let along = (to - from).normalized().unwrap();
+            let t = (centre - from).dot(along).clamp(0.0, (to - from).length());
+            let gap = (from + along * t - centre).length() - radius;
+            assert!(gap > 300.0, "sector {sector}: {gap:.0} m from {centre:?}");
+        }
     }
 }
 

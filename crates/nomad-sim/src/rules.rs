@@ -543,6 +543,15 @@ mod tests {
             ),
             Err(RulesError::Parse(_))
         ));
+        // D-228: peripheral slots lie wholly outside the dome (the S5b positions did not).
+        assert!(matches!(
+            swap("\"solar\": [-62, 0]", "\"solar\": [-40, -24]"),
+            Err(RulesError::Invalid { field, .. }) if field == "economy.slots.solar"
+        ));
+        assert!(matches!(
+            swap("\"deposits\": [[50, 0]", "\"deposits\": [[46, 0]"),
+            Err(RulesError::Invalid { field, .. }) if field == "economy.slots.deposits"
+        ));
         assert!(matches!(
             swap("\"ops_area_radius_m\"", "\"ops_radius_m\""),
             Err(RulesError::Parse(_))

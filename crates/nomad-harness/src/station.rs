@@ -3,18 +3,20 @@
 //!
 //! The defender is commander 1's mother station from the stage-1 start kit: four pylons, so
 //! every sector is full (150,000), 1,140 MW of supply, and no turrets. The attackers are D-058's
-//! mid-size fleet, 10 LANCER and 4 WARDEN of commander 2, placed 6 km east of the station
-//! (a fixture, `nomad_sim::scenario`, not a game rule), where nothing but the dome lies in
-//! their line of fire. Each run ends when its goal is reached or the time cap passes. The
-//! time to kill runs from the attackers' first hit on the holding to the goal, so the approach
-//! does not count.
+//! mid-size fleet, 10 LANCER and 4 WARDEN of commander 2, placed 6 km out from the station
+//! in the direction of the sector they attack (a fixture, `nomad_sim::scenario`, not a game
+//! rule). Peripheral modules lie wholly outside the dome on the sector boundaries (D-228), so
+//! from any sector's centre direction nothing but the dome lies in their line of fire. Each
+//! run ends when its goal is reached or the time cap passes. The time to kill runs from the
+//! attackers' first hit on the holding to the goal, so the approach does not count.
 //!
-//! - `breach`: Attack on the holding until the east sector breaches. D-147 measures the
-//!   D-058 target (5–10 min) with the Deputy's default ability use: SHLD SURGE on the sector
-//!   once it falls below 30% (doc 15 §5.3, doc 12 §5.2). The Deputy is A1's, so the harness
-//!   sends that order itself, as the default trigger would. Also run without abilities (the
-//!   S5 plan's 4.7 min hand calculation) and with two turrets added, which the attackers
-//!   out-range (S5 plan §5).
+//! - `breach`: Attack on the holding until the attacked sector breaches, the east sector
+//!   unless named. D-147 measures the D-058 target (5–10 min) with the Deputy's default
+//!   ability use: SHLD SURGE on the sector once it falls below 30% (doc 15 §5.3, doc 12
+//!   §5.2). The Deputy is A1's, so the harness sends that order itself, as the default trigger
+//!   would. Also run without abilities (the S5 plan's 4.7 min hand calculation), with two
+//!   turrets added, which the attackers out-range (S5 plan §5), and from the north, which the
+//!   solar array blocked before D-228 moved it: the same breach from another side.
 //! - `core`: the east sector is opened as S6's siege will (`scenario::open_sector`) and the
 //!   fleet attacks the core. D-147 measures the D-058 target (15–25 min) with the defender's
 //!   turrets absent. Also run with two turrets on the attackers' side, which the attackers
@@ -39,8 +41,21 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
     CommanderId(3),
     CommanderId(4),
 ];
-/// The east sector, in pylon slot order N, E, S, W (D-046).
+/// The north and east sectors, in pylon slot order N, E, S, W (D-046).
+const NORTH: u8 = 0;
 const EAST: u8 = 1;
+
+/// The direction of `sector`'s centre from the dome centre, counter-clockwise from east, in
+/// the system frame: N, E, S, W (D-046).
+fn sector_direction(sector: u8) -> Vec2 {
+    let degrees: f64 = match sector {
+        0 => 90.0,
+        1 => 0.0,
+        2 => -90.0,
+        _ => 180.0,
+    };
+    Vec2::from_angle(degrees.to_radians())
+}
 /// The Deputy's default SHLD SURGE trigger: a sector below 30% (doc 15 §5.3).
 const SURGE_BELOW_PERCENT: u64 = 30;
 
@@ -57,6 +72,8 @@ enum Goal {
 struct Scenario {
     name: &'static str,
     goal: Goal,
+    /// The sector attacked, from its centre direction.
+    sector: u8,
     /// Whether the defender uses SHLD SURGE on the Deputy's default trigger.
     surge: bool,
     /// Turrets added to the station, in these inner slots (D-130).
@@ -74,6 +91,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
             Scenario {
                 name: "breach, Deputy SHLD SURGE (D-147)",
                 goal,
+                sector: EAST,
                 surge: true,
                 turrets: &[],
                 target_s: Some((300, 600)),
@@ -83,6 +101,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
             Scenario {
                 name: "breach, no abilities",
                 goal,
+                sector: EAST,
                 surge: false,
                 turrets: &[],
                 target_s: None,
@@ -92,10 +111,21 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
             Scenario {
                 name: "breach, SHLD SURGE and 2 turrets",
                 goal,
+                sector: EAST,
                 surge: true,
                 turrets: &[4, 2],
                 target_s: None,
                 estimate: Some("turrets reach about 3.3 km, strike craft sit about 4 km out"),
+                cap_s: 1_800,
+            },
+            Scenario {
+                name: "breach from the north (D-228)",
+                goal,
+                sector: NORTH,
+                surge: true,
+                turrets: &[],
+                target_s: Some((300, 600)),
+                estimate: Some("as from the east: the line of fire is clear of the solar array"),
                 cap_s: 1_800,
             },
         ],
@@ -103,6 +133,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
             Scenario {
                 name: "core, open sector, no turrets (D-147)",
                 goal,
+                sector: EAST,
                 surge: false,
                 turrets: &[],
                 target_s: Some((900, 1_500)),
@@ -112,6 +143,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
             Scenario {
                 name: "core, open sector, 2 turrets first",
                 goal,
+                sector: EAST,
                 surge: false,
                 turrets: &[4, 2],
                 target_s: None,
@@ -217,19 +249,20 @@ fn set_up(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Setup, String
                 .ok_or("a turret slot is taken")?,
         );
     }
+    let direction = sector_direction(scenario.sector);
     let fleet = place_fleet(
         &mut state,
         Owner::Commander(COMMANDERS[1]),
         system,
-        centre + Vec2::new(6_000.0, 0.0),
-        std::f64::consts::PI,
+        centre + direction * 6_000.0,
+        (direction * -1.0).angle(),
         &attackers(),
     );
-    // A siege opens the east sector; the dome comes up with it, or else in the holding's
+    // A siege opens the attacked sector; the dome comes up with it, or else in the holding's
     // first economy slot.
     step(&mut state, &TickInputs::default());
-    if scenario.goal == Goal::Core && !open_sector(&mut state, holding, EAST) {
-        return Err("the east sector cannot be opened".to_owned());
+    if scenario.goal == Goal::Core && !open_sector(&mut state, holding, scenario.sector) {
+        return Err("the sector cannot be opened".to_owned());
     }
     let orders = TickInputs {
         operator: vec![],
@@ -267,7 +300,7 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
         } else {
             TickInputs::default()
         };
-        if scenario.surge && deputy_surges(&state, holding) {
+        if scenario.surge && deputy_surges(&state, holding, scenario.sector) {
             seq += 1;
             inputs.commanders.push(command(
                 1,
@@ -275,7 +308,9 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
                 Command::Holding {
                     holding,
                     order: HoldingOrder::Ability {
-                        ability: StationAbility::ShieldSurge { sector: EAST },
+                        ability: StationAbility::ShieldSurge {
+                            sector: scenario.sector,
+                        },
                     },
                 },
             ));
@@ -304,8 +339,8 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
                 {
                     outcome.first_hit_tick = Some(t);
                 }
-                DefenceEvent::SectorBreached { sector: EAST, .. }
-                    if scenario.goal == Goal::Breach =>
+                DefenceEvent::SectorBreached { sector, .. }
+                    if scenario.goal == Goal::Breach && sector == scenario.sector =>
                 {
                     outcome.goal_tick = outcome.goal_tick.or(Some(t));
                 }
@@ -330,13 +365,13 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
     Ok(outcome)
 }
 
-/// Whether the Deputy's default trigger fires SHLD SURGE on the east sector now: below 30%
-/// of its maximum, the ability ready on the tick the order would apply (doc 15 §5.3).
-fn deputy_surges(state: &UniverseState, holding: HoldingId) -> bool {
+/// Whether the Deputy's default trigger fires SHLD SURGE on `sector` now: below 30% of its
+/// maximum, the ability ready on the tick the order would apply (doc 15 §5.3).
+fn deputy_surges(state: &UniverseState, holding: HoldingId, sector: u8) -> bool {
     let Some(view) = state.defence(holding) else {
         return false;
     };
-    let sector = view.sectors[usize::from(EAST)];
+    let sector = view.sectors[usize::from(sector)];
     u128::from(sector.strength_milli) * 100
         < u128::from(sector.max_milli) * u128::from(SURGE_BELOW_PERCENT)
         && view.surge_ready_at <= state.tick().next()
@@ -349,8 +384,8 @@ fn run_goal(out: &mut dyn Write, goal: Goal, seed: u64, rules: &Rules) -> Result
     w(
         out,
         format!(
-            "combat {goal:?} | seed {seed} | 10 LANCER + 4 WARDEN from 6 km east of a full \
-             mother station"
+            "combat {goal:?} | seed {seed} | 10 LANCER + 4 WARDEN from 6 km out (east unless \
+             named) of a full mother station"
         ),
     )?;
     for scenario in scenarios(goal) {
