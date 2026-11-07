@@ -12,8 +12,12 @@
 //! - units and places: [`PositionMetres`] and [`Location`] (D-099);
 //! - small public enums: [`SystemKind`], [`LaneKind`], [`ShipClass`], deposits ([`Deposit`],
 //!   [`DepositKind`], [`Richness`], [`DepositValue`]) and [`ControlState`];
-//! - commanders: [`CommanderKind`] and the [`QuarterHour`] an exposure window starts at
-//!   (doc 12 §4, D-155);
+//! - commanders: [`CommanderKind`], an AI's [`Difficulty`] (D-079) and the [`QuarterHour`]
+//!   an exposure window starts at (doc 12 §4, D-155);
+//! - amounts of alloy and crystal ([`Stock`], milli-units, D-049);
+//! - doctrine ([`DoctrinePreset`], [`HoldingDoctrine`], [`FleetDoctrine`], [`FleetRole`],
+//!   [`ReplacementEntry`], the preset values [`DoctrineValues`] and [`DoctrineCommand`];
+//!   doc 12 §5.2, D-082), which the wire carries and the AI reads (D-199);
 //! - the shape of [`Command`]s (doc 15 §3.4), shared by the protocol and the simulation's
 //!   validator, including economy commands and module shapes ([`EconomyCommand`],
 //!   [`ModuleKind`], [`Slot`], [`BuildItem`], [`PowerProfile`]; doc 14) and station abilities
@@ -33,6 +37,7 @@ mod command;
 mod commander;
 mod control;
 mod deposit;
+mod doctrine;
 mod economy;
 mod galaxy;
 mod id;
@@ -40,12 +45,17 @@ mod position;
 mod rejection;
 mod season;
 mod ship;
+mod stock;
 mod time;
 
 pub use command::{Command, FleetOrder, HoldingOrder, Queueing, RulesOfEngagement, StationAbility};
-pub use commander::{CommanderKind, QuarterHour};
+pub use commander::{CommanderKind, Difficulty, QuarterHour};
 pub use control::ControlState;
 pub use deposit::{Deposit, DepositKind, DepositValue, Richness};
+pub use doctrine::{
+    DoctrineCommand, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetRole, HoldingDoctrine,
+    ReplacementEntry,
+};
 pub use economy::{BuildItem, EconomyCommand, ModuleKind, PowerProfile, Slot};
 pub use galaxy::{LaneKind, SystemKind};
 pub use id::{
@@ -56,4 +66,5 @@ pub use position::{Location, PositionMetres};
 pub use rejection::InvalidReason;
 pub use season::{SeasonEndReason, SeasonResult, Standing};
 pub use ship::ShipClass;
+pub use stock::{MILLI, Stock};
 pub use time::{SeasonClock, TICK_MILLIS, TICKS_PER_SECOND, Tick, Ticks};
