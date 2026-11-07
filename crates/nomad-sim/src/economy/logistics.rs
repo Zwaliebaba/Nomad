@@ -6,8 +6,9 @@
 //!   not fit is lost (D-134). It travels with ordinary orders (Launch, Jump, Move), checked
 //!   by the single validator (D-077), so it can be raided like any fleet. Any other order to
 //!   the fleet ends the route.
-//! - **Contested gates** (D-055; S4 plan §4.4, S6 plan §4.7): armed ships of another owner
-//!   within 5 km of a gate make it contested for a convoy. A convoy whose next leg would depart
+//! - **Contested gates** (D-055, D-285; S4 plan §4.4, S6 plan §4.7): armed ships of another
+//!   owner within 5 km of a gate, that the convoy's owner detects, make it contested for a
+//!   convoy. A convoy whose next leg would depart
 //!   from or arrive at a contested gate does not set out: it holds at its last stop, docked,
 //!   and reports [`EconomyEvent::ConvoyHeld`] once; it goes on when the gate is clear. Whether
 //!   to reroute instead is doctrine, the Deputy's (D-210). *Proposed:* the check runs when the
@@ -233,32 +234,35 @@ fn contested_on_leg(
         .find(|&gate| contested(state, gate, fleet.owner))
 }
 
-/// Whether `gate` is contested for `owner`'s convoys: an armed ship of another owner, in
-/// space in the gate's system, within the contested radius (D-055). No alliances in the MVP,
+/// Whether `gate` is contested for `owner`'s convoys: an armed ship of another owner that
+/// `owner` detects, in space in the gate's system, within the contested radius (D-055,
+/// D-285). Only ships in the owner's visibility set count (D-173), so a hidden fleet at a
+/// gate can ambush a convoy, and a convoy's hold never reveals it. No alliances in the MVP,
 /// so every other owner is hostile (D-040).
 pub(crate) fn contested(state: &UniverseState, gate: GateId, owner: Owner) -> bool {
     let Some(g) = state.galaxy.gate(gate) else {
         return false;
     };
+    let Some(picture) = crate::sensors::picture_of(state, owner, g.system) else {
+        return false;
+    };
     let radius = state.rules.gates.contested_radius_m;
-    state.entities.ids_with::<Fleet>().into_iter().any(|fleet| {
-        state
+    // The picture lists other owners' ships only; some may since have docked or jumped.
+    picture.ships.iter().any(|ship| {
+        let Some((class, fleet)) = state
             .entities
-            .with::<Fleet, _>(fleet, |f| {
-                f.owner != owner
-                    && f.place == Place::InSystem(g.system)
-                    && f.members.keys().any(|ship| {
-                        let armed = state.entities.with::<Ship, _>(ship.sim_id(), |s| {
-                            state.rules.class(s.class).weapon_range_m.is_some()
-                        }) == Some(true);
-                        armed
-                            && state
-                                .entities
-                                .get::<Motion>(ship.sim_id())
-                                .is_some_and(|m| distance_m(m.position, g.position) <= radius)
-                    })
-            })
-            .unwrap_or(false)
+            .with::<Ship, _>(ship.sim_id(), |s| (s.class, s.fleet))
+        else {
+            return false;
+        };
+        state.rules.class(class).weapon_range_m.is_some()
+            && state.entities.with::<Fleet, _>(fleet.sim_id(), |f| {
+                f.owner != owner && f.place == Place::InSystem(g.system)
+            }) == Some(true)
+            && state
+                .entities
+                .get::<Motion>(ship.sim_id())
+                .is_some_and(|m| distance_m(m.position, g.position) <= radius)
     })
 }
 

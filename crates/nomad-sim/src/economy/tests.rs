@@ -1774,3 +1774,54 @@ fn diminishing_yield_follows_the_rules_value() {
         );
     }
 }
+
+/// D-285: a gate is contested only by hostiles the convoy's owner detects. An armed fleet at
+/// a gate beyond every sensor of the convoy's owner does not contest it, so a convoy sets out
+/// into the ambush; once the owner detects it, the same gate is contested.
+#[test]
+fn only_a_detected_armed_hostile_contests_a_gate() {
+    use crate::geometry::Vec2;
+    use crate::testkit::{site_position, spawn_fleet};
+    let mut state = stage1(7);
+    let (mother, home_system) = home(&state, 1);
+    let mother_at = site_position(&state, home_system, 0);
+    let _ = mother;
+    // The home system's gate farthest from the mother station: beyond its core's 40 km
+    // reach for a light signature (24 km).
+    let distance = |g: &crate::galaxy::Gate| (Vec2::from(g.position) - mother_at).length();
+    let (gate, gate_at) = state
+        .galaxy()
+        .gates()
+        .filter(|(_, g)| g.system == home_system)
+        .max_by(|a, b| distance(a.1).total_cmp(&distance(b.1)))
+        .map(|(id, g)| (id, Vec2::from(g.position)))
+        .expect("the home system has a gate");
+    assert!(
+        (gate_at - mother_at).length() > 30_000.0,
+        "far enough to hide"
+    );
+    let ambush = spawn_fleet(
+        &mut state,
+        commander(2),
+        home_system,
+        gate_at + Vec2::new(1_000.0, 0.0),
+        &[ShipClass::Vx; 2],
+    );
+    assert!(
+        !state.view(commander(1)).is_sensed(ambush.sim_id()),
+        "commander 1 does not detect the ambush"
+    );
+    assert!(!logistics::contested(&state, gate, commander(1)));
+    // Commander 2 is not its own hostile, and commander 3 sees nothing there either.
+    assert!(!logistics::contested(&state, gate, commander(3)));
+    // A commander-1 picket next to it detects it: now the gate is contested.
+    spawn_fleet(
+        &mut state,
+        commander(1),
+        home_system,
+        gate_at + Vec2::new(-1_000.0, 0.0),
+        &[ShipClass::Vx],
+    );
+    assert!(state.view(commander(1)).is_sensed(ambush.sim_id()));
+    assert!(logistics::contested(&state, gate, commander(1)));
+}

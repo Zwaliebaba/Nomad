@@ -200,8 +200,8 @@ fn the_deputy_rebuilds_a_destroyed_module_in_its_slot() {
     );
 }
 
-/// D-055, D-210 (A1 plan §9 scenario 3 in part): a convoy whose next leg passes a gate armed
-/// hostiles contest holds at its last stop, and the Deputy either takes it around the gate
+/// D-055, D-210 (A1 plan §9 scenario 3 in part): a convoy whose next leg passes a gate that
+/// detected armed hostiles contest (D-285) holds at its last stop, and the Deputy either takes it around the gate
 /// or reports the hold; it never sets out through the contested gate.
 #[test]
 fn a_convoy_holds_at_a_contested_gate_and_never_passes_it() {
@@ -243,6 +243,15 @@ fn a_convoy_holds_at_a_contested_gate_and_never_passes_it() {
         home_system,
         gate_at + Vec2::new(1_000.0, 0.0),
         &[ShipClass::Vx; 2],
+    );
+    // A commander-1 picket by the gate detects them: only detected hostiles contest a gate
+    // (D-285).
+    spawn_fleet(
+        &mut state,
+        commander(1),
+        home_system,
+        gate_at + Vec2::new(-1_500.0, 0.0),
+        &[ShipClass::Vx],
     );
     let kit = kit_fleet(&state, 1);
     let convoy = Command::Economy(EconomyCommand::Convoy {
