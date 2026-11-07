@@ -62,6 +62,11 @@ pub fn wire_reason(rejection: CommandRejection) -> InvalidReason {
         C::RouteTooLong => W::RouteTooLong,
         C::DuplicateStop => W::DuplicateStop,
         C::NotDepot => W::NotDepot,
+        // Station orders (S5b).
+        C::NoSuchSector => W::NoSuchSector,
+        C::AbilityCooldown => W::AbilityCooldown,
+        C::SectorOpen => W::SectorOpen,
+        C::NoPower => W::NoPower,
     }
 }
 
@@ -73,7 +78,7 @@ mod tests {
 
     /// Every validator reason. The guard below has no wildcard, so a new reason fails to
     /// compile until it is listed.
-    const ALL: [CommandRejection; 42] = [
+    const ALL: [CommandRejection; 46] = [
         CommandRejection::UnknownFleet,
         CommandRejection::UnknownShip,
         CommandRejection::UnknownHolding,
@@ -116,6 +121,10 @@ mod tests {
         CommandRejection::RouteTooLong,
         CommandRejection::DuplicateStop,
         CommandRejection::NotDepot,
+        CommandRejection::NoSuchSector,
+        CommandRejection::AbilityCooldown,
+        CommandRejection::SectorOpen,
+        CommandRejection::NoPower,
     ];
 
     const fn listed(rejection: CommandRejection) -> bool {
@@ -161,7 +170,11 @@ mod tests {
             | CommandRejection::TooFar
             | CommandRejection::RouteTooLong
             | CommandRejection::DuplicateStop
-            | CommandRejection::NotDepot => true,
+            | CommandRejection::NotDepot
+            | CommandRejection::NoSuchSector
+            | CommandRejection::AbilityCooldown
+            | CommandRejection::SectorOpen
+            | CommandRejection::NoPower => true,
         }
     }
 

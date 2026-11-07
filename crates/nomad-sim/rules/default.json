@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@4",
+  "format": "nomad-rules@5",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -213,6 +213,29 @@
         ]
       }
     }
+  },
+  "defence": {
+    "sector_full_points": 150000,
+    "core_share_percent": 25,
+    "pylon_share_percent": 75,
+    "regen_points_per_s": 50,
+    "weak_below_percent": 50,
+    "ledger_window_s": 600,
+    "turret": {
+      "lock_ms": 2000,
+      "weapon": { "kind": "TURRET", "damage": 40, "interval_ms": 1000, "speed_m_per_s": 800, "range_m": 2500, "spread_mrad": [20, 4], "burst_radius_m": null }
+    },
+    "shield_surge": { "restore_percent": 20, "cooldown_s": 90, "draw_mw": 200, "draw_s": 10 },
+    "flak_screen": {
+      "duration_s": 10,
+      "cooldown_s": 60,
+      "draw_mw": 90,
+      "reach_m": 2000,
+      "interval_ms": 1000,
+      "max_bursts": 8,
+      "weapon": { "kind": "FLAK", "damage": 30, "interval_ms": 1000, "speed_m_per_s": 800, "range_m": 2000, "spread_mrad": [20, 4], "burst_radius_m": 150 }
+    },
+    "recovery": { "quiet_s": 600, "hull_percent": 10 }
   },
   "mother_station": {
     "voxel_m": 35,

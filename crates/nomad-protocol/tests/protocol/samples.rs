@@ -11,7 +11,7 @@ use nomad_types::{
     BuildItem, Command, CommanderId, ControlState, EconomyCommand, FactionId, FleetId, FleetOrder,
     HoldingId, HoldingOrder, InvalidReason, LaneKind, ModuleKind, Owner, PositionMetres,
     PowerProfile, Queueing, RulesOfEngagement, SeasonClock, ShipClass, ShipId, SimId, SiteId, Slot,
-    SystemId, SystemKind, Tick, UniverseId,
+    StationAbility, SystemId, SystemKind, Tick, UniverseId,
 };
 
 pub const YOU: CommanderId = CommanderId(1);
@@ -86,6 +86,22 @@ pub fn commands() -> Vec<Command> {
         Command::Holding {
             holding: HoldingId(id(16)),
             order: HoldingOrder::LaunchReady,
+        },
+        Command::Holding {
+            holding: HoldingId(id(16)),
+            order: HoldingOrder::Ability {
+                ability: StationAbility::ShieldSurge { sector: 2 },
+            },
+        },
+        Command::Holding {
+            holding: HoldingId(id(16)),
+            order: HoldingOrder::Ability {
+                ability: StationAbility::FlakScreen,
+            },
+        },
+        Command::Holding {
+            holding: HoldingId(id(16)),
+            order: HoldingOrder::TurretsHold { hold: true },
         },
         Command::CreateFleet {
             ships: vec![ShipId(id(601)), ShipId(id(602))],
@@ -397,6 +413,9 @@ pub fn server_messages() -> Vec<ServerMessage> {
         },
         RejectReason::Invalid {
             reason: InvalidReason::NothingToLaunch,
+        },
+        RejectReason::Invalid {
+            reason: InvalidReason::AbilityCooldown,
         },
         RejectReason::SeasonOver,
     ]) {

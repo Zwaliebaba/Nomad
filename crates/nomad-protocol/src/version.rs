@@ -26,7 +26,10 @@ use crate::error::{MalformedBody, ProtocolError};
 /// - 2: `Ping` and `Pong` carry a nonce; rejections carry the validator's reason (D-123) or
 ///   `SeasonOver` (D-116); `ByeReason` gains `HandshakeTimeout`, `Resync` and `Replaced`
 ///   (D-124). N3 plan §4.7.
-pub const PROTOCOL_VERSION: u32 = 2;
+/// - 3: holding orders gain the station abilities (SHLD SURGE, FLAK SCREEN) and STOP, and
+///   `InvalidReason` gains `NoSuchSector`, `AbilityCooldown`, `SectorOpen` and `NoPower`
+///   (S5b; doc 15 §5.3). N4's messages follow in the next version.
+pub const PROTOCOL_VERSION: u32 = 3;
 
 /// The variant index of `ClientMessage::Hello` (frozen).
 const HELLO_VARIANT: u32 = 0;

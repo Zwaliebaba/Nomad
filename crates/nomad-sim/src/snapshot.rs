@@ -32,8 +32,11 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   economy: pools, holding economies, queues, convoys and cargo (S4); rules format 3, which
 ///   holds both the combat and the economy sections;
 /// - 10: each queue item keeps the price fixed when it was queued, and the rules gain the
-///   core kit's growth per further holding (D-189); rules format 4.
-pub const FORMAT: u32 = 10;
+///   core kit's growth per further holding (D-189); rules format 4;
+/// - 11: station combat (S5b): domes with their sectors, switches, ability cooldowns and the
+///   damage ledger, turret weapon state; projectiles name their shooter and gun, and weapons
+///   may aim at structures; rules format 5, which adds the defence section.
+pub const FORMAT: u32 = 11;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

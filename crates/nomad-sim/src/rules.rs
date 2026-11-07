@@ -22,6 +22,7 @@
 //! | Economy | Doc 14 §6–§10 (D-126 to D-129, D-133, D-134), module and ship tables §9.3–§9.4, command costs doc 15 §12, slot template D-130/D-131 (positions *Proposed*), the core kit's growth k = 0.25 (D-189) |
 //! | Cruise drop range | Doc 15 §3.3: a hostile within 20 km (a hook until S7) |
 //! | Combat: hull, weapons, multipliers, hit radii | [`combat`] (doc 15 §3–§4, §12; D-052, D-143) |
+//! | Defence: dome sectors, regeneration, turrets, abilities, recovery | [`defence`] (doc 15 §5, §12; D-140 to D-142, D-147 to D-149) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
 //!
 //! Starting values adopted from this implementation (D-113): separation distance, obstacle
@@ -29,6 +30,7 @@
 //! (S3 plan §4.4 names it without a value) and the launch point.
 
 pub mod combat;
+pub mod defence;
 
 use std::collections::BTreeMap;
 
@@ -38,7 +40,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@4";
+pub const RULES_FORMAT: &str = "nomad-rules@5";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -88,6 +90,8 @@ pub struct Rules {
     pub mother_station: StationLayout,
     /// Hull, weapons and the multiplier table (S5).
     pub combat: combat::CombatRules,
+    /// Dome sectors, regeneration, turrets, abilities and recovery (S5b).
+    pub defence: defence::DefenceRules,
 }
 
 /// One ship class (doc 15 §3.3, §12; D-101).
@@ -338,6 +342,7 @@ impl Rules {
         }
         self.combat.check(&self.ship_classes)?;
         self.economy.check()?;
+        self.defence.check()?;
         for class in self.economy.ships.keys() {
             if self.class(*class).npc {
                 return Err(invalid(
@@ -460,8 +465,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@4", "nomad-rules@3"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@3"
+            swap("nomad-rules@5", "nomad-rules@4"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@4"
         ));
         // A rules file without the D-189 growth does not parse; a zero growth is the flat
         // price D-189 replaced.

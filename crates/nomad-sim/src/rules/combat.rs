@@ -258,7 +258,11 @@ impl CombatRules {
     }
 }
 
-fn check_weapon(weapon: &WeaponRules, field: &dyn Fn(&str) -> String) -> Result<(), RulesError> {
+/// Checks one weapon's values; `field` names them in errors.
+pub(super) fn check_weapon(
+    weapon: &WeaponRules,
+    field: &dyn Fn(&str) -> String,
+) -> Result<(), RulesError> {
     if weapon.damage == 0 {
         return Err(invalid(field("damage"), "must be positive"));
     }

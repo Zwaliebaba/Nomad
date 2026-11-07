@@ -85,12 +85,10 @@ pub(crate) fn refresh(state: &mut UniverseState, now: Tick, index: &ShipIndex) {
 /// A ship of `fleet` was hit by `shooter` at tick `now`: the fleet is engaged for another
 /// window ("taking fire", D-114), and `shooter` becomes a target for return fire (D-145).
 pub(crate) fn taking_fire(state: &mut UniverseState, now: Tick, fleet: FleetId, shooter: ShipId) {
-    let until = now.after(window(state));
-    let id = fleet.sim_id();
-    let Some(f) = state.entities.get_mut::<Fleet>(id) else {
+    if !engaged_by_fire(state, now, fleet) {
         return;
-    };
-    f.engaged_until = Some(f.engaged_until.map_or(until, |d| d.max(until)));
+    }
+    let id = fleet.sim_id();
     if let Some(attackers) = state.entities.get_mut::<Attackers>(id) {
         attackers.last_hit.insert(shooter, now);
     } else {
@@ -101,6 +99,18 @@ pub(crate) fn taking_fire(state: &mut UniverseState, now: Tick, fleet: FleetId, 
             },
         );
     }
+}
+
+/// A ship of `fleet` was hit at tick `now`: the fleet is engaged for another window ("taking
+/// fire", D-114). Returns whether the fleet exists. A hit from a turret or a FLAK SCREEN
+/// (S5b) does only this, since there is no ship to return fire at.
+pub(crate) fn engaged_by_fire(state: &mut UniverseState, now: Tick, fleet: FleetId) -> bool {
+    let until = now.after(window(state));
+    let Some(f) = state.entities.get_mut::<Fleet>(fleet.sim_id()) else {
+        return false;
+    };
+    f.engaged_until = Some(f.engaged_until.map_or(until, |d| d.max(until)));
+    true
 }
 
 /// Ships that hit one of `fleet`'s ships within the engagement window (D-145).

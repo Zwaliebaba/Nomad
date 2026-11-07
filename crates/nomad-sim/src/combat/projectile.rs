@@ -3,13 +3,16 @@
 //! Projectiles are short-lived and numerous, so they are not `hecs` entities: they live in
 //! one list in [`ProjectileId`] order, and the id takes the place doc 15 gives the
 //! "projectile `SimId`" in the damage order. Each tick a projectile's swept segment is tested
-//! against ship circles (D-143) through the combat grid; the first hostile ship along the
-//! segment is hit. Flak shells instead burst at their aim point after their flight time.
+//! against ship circles (D-143) through the combat grid, and against the module footprints
+//! and dome circles of hostile holdings (S5b, [`crate::defence`]); the first hit along the
+//! segment counts. Flak shells instead burst at their aim point after their flight time; a
+//! hostile dome stops them on the way.
 
 use nomad_types::Owner;
 use serde::{Deserialize, Serialize};
 
-use super::{Hit, ShipIndex, hostile};
+use super::{Hit, ShipIndex, Shooter, hostile};
+use crate::defence::{StructureHit, Structures};
 use crate::fleet::movement::DT;
 use crate::fleet::{ShipClass, ShipId};
 use crate::galaxy::SystemId;
@@ -34,17 +37,27 @@ pub(crate) struct Projectile {
     pub(crate) id: ProjectileId,
     pub(crate) system: SystemId,
     pub(crate) owner: Owner,
-    /// The ship that fired it (it may be gone by the time it hits).
-    pub(crate) shooter: ShipId,
-    /// The shooter's class and the weapon's index there, which give its numbers.
-    pub(crate) class: ShipClass,
-    pub(crate) weapon: u8,
+    /// Who fired it (it may be gone by the time it hits).
+    pub(crate) shooter: Shooter,
+    /// The weapon it came from, which gives its numbers.
+    pub(crate) gun: Gun,
     pub(crate) position: Vec2,
     pub(crate) velocity: Vec2,
     /// Distance it may still fly before it expires.
     pub(crate) remaining_m: f64,
     /// Flak: ticks until it bursts, and where.
     pub(crate) burst: Option<Burst>,
+}
+
+/// The weapon a projectile came from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum Gun {
+    /// Weapon `weapon` of a ship of `class`, in the order of the rules file.
+    Ship { class: ShipClass, weapon: u8 },
+    /// A turret module (S5b).
+    Turret,
+    /// A holding's FLAK SCREEN (S5b; D-148).
+    FlakScreen,
 }
 
 /// When and where a flak shell bursts.
@@ -65,58 +78,79 @@ impl Projectiles {
     }
 }
 
-/// Phase 7, step 2: moves every projectile one tick and returns the hits.
-pub(crate) fn advance(state: &mut UniverseState, index: &ShipIndex) -> Vec<Hit> {
+/// Phase 7: moves every projectile one tick and returns the hits on ships and on structures.
+pub(crate) fn advance(
+    state: &mut UniverseState,
+    index: &ShipIndex,
+    structures: &Structures,
+) -> (Vec<Hit>, Vec<StructureHit>) {
     let mut hits = Vec::new();
+    let mut structure_hits = Vec::new();
     let flying = std::mem::take(&mut state.projectiles.flying);
     let mut kept = Vec::with_capacity(flying.len());
     for mut p in flying {
-        let Some(weapon) = weapon_of(state, p.class, p.weapon).cloned() else {
+        let Some(weapon) = weapon_of(state, p.gun).cloned() else {
             continue;
         };
         let keep = match p.burst {
             Some(mut burst) => {
-                p.position += p.velocity * DT;
-                burst.ticks = burst.ticks.saturating_sub(1);
-                if burst.ticks == 0 {
-                    flak_burst(state, index, &p, &weapon, burst.at, &mut hits);
+                let step = p.velocity * DT;
+                if structures.blocks(p.system, p.owner, p.position, step) {
+                    // A hostile dome stops the shell; flak does nothing to domes (doc 15 §3.2).
                     false
                 } else {
-                    p.burst = Some(burst);
-                    true
+                    p.position += step;
+                    burst.ticks = burst.ticks.saturating_sub(1);
+                    if burst.ticks == 0 {
+                        flak_burst(state, index, &p, &weapon, burst.at, &mut hits);
+                        false
+                    } else {
+                        p.burst = Some(burst);
+                        true
+                    }
                 }
             }
-            None => fly(state, index, &mut p, &weapon, &mut hits),
+            None => fly(
+                state,
+                index,
+                structures,
+                &mut p,
+                &weapon,
+                &mut hits,
+                &mut structure_hits,
+            ),
         };
         if keep {
             kept.push(p);
         }
     }
     state.projectiles.flying = kept;
-    hits
+    (hits, structure_hits)
 }
 
 /// The weapon a projectile came from.
-pub(crate) fn weapon_of(
-    state: &UniverseState,
-    class: ShipClass,
-    weapon: u8,
-) -> Option<&WeaponRules> {
-    state
-        .rules
-        .combat
-        .class(class)
-        .weapons
-        .get(usize::from(weapon))
+pub(crate) fn weapon_of(state: &UniverseState, gun: Gun) -> Option<&WeaponRules> {
+    match gun {
+        Gun::Ship { class, weapon } => state
+            .rules
+            .combat
+            .class(class)
+            .weapons
+            .get(usize::from(weapon)),
+        Gun::Turret => Some(&state.rules.defence.turret.weapon),
+        Gun::FlakScreen => Some(&state.rules.defence.flak_screen.weapon),
+    }
 }
 
 /// Moves a bolt or torpedo one tick; returns whether it is still flying.
 fn fly(
     state: &UniverseState,
     index: &ShipIndex,
+    structures: &Structures,
     p: &mut Projectile,
     weapon: &WeaponRules,
     hits: &mut Vec<Hit>,
+    structure_hits: &mut Vec<StructureHit>,
 ) -> bool {
     let step = p.velocity * DT;
     let length = step.length().min(p.remaining_m);
@@ -124,6 +158,7 @@ fn fly(
         return false;
     };
     let segment = direction * length;
+    let mut first: Option<(f64, ShipId, SizeClass)> = None;
     if let Some(ships) = index.systems.get(&p.system) {
         let largest = state
             .rules
@@ -132,7 +167,6 @@ fn fly(
             .values()
             .map(|c| c.hit_radius_m)
             .fold(0.0, f64::max);
-        let mut first: Option<(f64, ShipId, SizeClass)> = None;
         for i in ships.near(p.position, length + largest) {
             let entry = ships.entries[i];
             // Friendly ships let it through (D-146); shrouded ones cannot be hit (D-055).
@@ -148,7 +182,19 @@ fn fly(
                 }
             }
         }
-        if let Some((_, target, size)) = first {
+    }
+    // A structure nearer along the segment than the first ship takes the hit instead.
+    let structure = structures.first_hit(state, p, weapon, segment);
+    match (first, structure) {
+        (Some((ship_t, ..)), Some((structure_t, hit))) if structure_t < ship_t => {
+            structure_hits.push(hit);
+            return false;
+        }
+        (None, Some((_, hit))) => {
+            structure_hits.push(hit);
+            return false;
+        }
+        (Some((_, target, size)), _) => {
             hits.push(Hit {
                 target,
                 projectile: p.id,
@@ -161,6 +207,7 @@ fn fly(
             });
             return false;
         }
+        (None, None) => {}
     }
     p.position += segment;
     p.remaining_m -= length;

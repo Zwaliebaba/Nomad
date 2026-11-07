@@ -35,11 +35,14 @@
 //! (doc 10), deposit data and values (doc 14 §5, D-066), system control (D-041), and
 //! movement, fleets and orders (doc 15 §3, §9; D-101 to D-105). Claims, economy flows,
 //! sensors and the Deputy are not here yet. Ship combat is ([`combat`], S5a: weapons, lock,
-//! projectiles, the multiplier table, engagement); the dome, turrets and abilities follow
-//! with S5b. Until sensors exist (S7) every entity counts as visible.
+//! projectiles, the multiplier table, engagement), and so is station combat ([`defence`],
+//! S5b: dome sectors, regeneration, breaches, damage to modules and its recovery, turrets,
+//! SHLD SURGE and FLAK SCREEN, the damage ledger). Until sensors exist (S7) every entity
+//! counts as visible.
 
 pub mod combat;
 mod command;
+pub mod defence;
 pub mod economy;
 mod entities;
 pub mod fleet;
@@ -62,6 +65,7 @@ mod util;
 
 pub use combat::{CombatEvent, ProjectileId};
 pub use command::{CommandRejection, validate_command};
+pub use defence::{DefenceEvent, DefenceView, LedgerView, SectorView};
 pub use economy::{
     BuildLane, Cargo, CommanderEconomy, EconomyEvent, HoldingEconomyView, ModuleView,
     PowerAllocation, QueueItemView, Shortage, Stock,
@@ -80,7 +84,7 @@ pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 pub use nomad_types::{
     BuildItem, Command, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner, PowerProfile,
-    Queueing, RulesOfEngagement, Slot,
+    Queueing, RulesOfEngagement, Slot, StationAbility,
 };
 pub use nomad_types::{Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};

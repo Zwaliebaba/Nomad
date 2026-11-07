@@ -4,8 +4,8 @@ use nomad_types::{FactionId, FleetOrder, Owner, RulesOfEngagement};
 
 use super::engagement::taking_fire;
 use super::fire::lead;
-use super::projectile::{Burst, Projectile, ProjectileId};
-use super::{CombatEvent, Damage, Hit, WeaponSlot, Weapons, apply};
+use super::projectile::{Burst, Gun, Projectile, ProjectileId};
+use super::{CombatEvent, Damage, Hit, Shooter, WeaponSlot, Weapons, apply};
 use crate::fleet::movement::DT;
 use crate::fleet::{Fleet, FleetEvent, FleetId, MotionMode, ShipClass, ShipId, Shroud};
 use crate::galaxy::SystemId;
@@ -96,7 +96,7 @@ fn lock_reaches_full_at_the_lock_time_and_resets_on_a_target_change() {
     let target = ships(&state, first)[0];
     // Lock rises one tick's worth per tick: 2 s for a VX (doc 15 §12).
     idle(&mut state, 1);
-    assert_eq!(slots(&state, shooter)[0].target, Some(target));
+    assert_eq!(slots(&state, shooter)[0].ship_target(), Some(target));
     assert_eq!(slots(&state, shooter)[0].lock_ms, 100);
     idle(&mut state, 18);
     assert_eq!(slots(&state, shooter)[0].lock_ms, 1_900);
@@ -125,7 +125,7 @@ fn lock_reaches_full_at_the_lock_time_and_resets_on_a_target_change() {
         ),
     );
     let new_target = ships(&state, second)[0];
-    assert_eq!(slots(&state, shooter)[0].target, Some(new_target));
+    assert_eq!(slots(&state, shooter)[0].ship_target(), Some(new_target));
     assert_eq!(slots(&state, shooter)[0].lock_ms, 100);
 }
 
@@ -161,7 +161,7 @@ fn a_ranging_laser_makes_allied_lock_rise_half_as_fast_again() {
     // Tick 1: the cruiser takes the target; its laser designates it from tick 2.
     idle(&mut state, 1);
     assert_eq!(
-        slots(&state, ships(&state, cruiser)[0])[0].target,
+        slots(&state, ships(&state, cruiser)[0])[0].ship_target(),
         Some(target_ship)
     );
     assert_eq!(slots(&state, raider_ship)[0].lock_ms, 100);
@@ -220,7 +220,7 @@ fn spread_follows_lock_and_shots_stay_inside_the_cone() {
     // The torpedo fires at once, at no lock: inside the 30 mrad cone around the target.
     idle(&mut state, 1);
     let p = &state.projectiles.flying[0];
-    assert_eq!(p.shooter, shooter);
+    assert_eq!(p.shooter, Shooter::Ship(shooter));
     let to_target = (base + Vec2::new(2_500.0, 0.0)) - p.position;
     let off = crate::geometry::angle_difference(to_target.angle(), p.velocity.angle()).abs();
     assert!(off <= 0.015 + 1e-12, "{off} rad off");
@@ -312,9 +312,11 @@ fn flak_damages_only_hostile_light_and_medium_ships_within_its_burst() {
         id: ProjectileId(0),
         system,
         owner: commander(1),
-        shooter,
-        class: WARDEN,
-        weapon: 2,
+        shooter: Shooter::Ship(shooter),
+        gun: Gun::Ship {
+            class: WARDEN,
+            weapon: 2,
+        },
         position: base,
         velocity: Vec2::new(800.0, 0.0),
         remaining_m: 2_000.0,
@@ -373,9 +375,11 @@ fn projectiles_pass_through_friendly_and_shrouded_ships() {
         id: ProjectileId(0),
         system,
         owner: commander(1),
-        shooter: ships(&state, shooter_fleet)[0],
-        class: VX,
-        weapon: 0,
+        shooter: Shooter::Ship(ships(&state, shooter_fleet)[0]),
+        gun: Gun::Ship {
+            class: VX,
+            weapon: 0,
+        },
         position: base,
         velocity: Vec2::new(800.0, 0.0),
         remaining_m: 1_500.0,
@@ -430,10 +434,10 @@ fn a_cruising_fleet_does_not_fire() {
         RulesOfEngagement::WeaponsFree,
     );
     assert_eq!(state.fleet(fleet).map(|f| f.mode), Some(MotionMode::Cruise));
-    assert!(super::fire::may_fire(&state, fleet).is_none());
+    assert!(super::fire::may_fire(&state, fleet, state.tick()).is_none());
     // Engaged, it may.
     state.set_fleet_engaged(fleet, true);
-    assert!(super::fire::may_fire(&state, fleet).is_some());
+    assert!(super::fire::may_fire(&state, fleet, state.tick()).is_some());
 }
 
 #[test]
@@ -464,7 +468,7 @@ fn damage_applies_in_target_then_projectile_order() {
         projectile: ProjectileId(projectile),
         amount: 20,
         owner: commander(owner),
-        shooter: ships(state, shooter)[0],
+        shooter: Shooter::Ship(ships(state, shooter)[0]),
     };
     // Listed out of order: projectile 3 (commander 3) lands before projectile 5.
     let hits = vec![hit(5, 2, attacker_b, &state), hit(3, 3, attacker_c, &state)];
@@ -617,10 +621,10 @@ fn auto_targeting_prefers_the_highest_multiplier_then_the_nearest() {
     idle(&mut state, 1);
     let s = slots(&state, ships(&state, warden)[0]);
     // Batteries: Medium 100% beats Light 50%, although the MULE is farthest.
-    assert_eq!(s[0].target, Some(ships(&state, mule)[0]));
-    assert_eq!(s[1].target, Some(ships(&state, mule)[0]));
+    assert_eq!(s[0].ship_target(), Some(ships(&state, mule)[0]));
+    assert_eq!(s[1].ship_target(), Some(ships(&state, mule)[0]));
     // Flak: Light 200%, and of the two VX the nearer.
-    assert_eq!(s[2].target, Some(ships(&state, near_vx)[0]));
+    assert_eq!(s[2].ship_target(), Some(ships(&state, near_vx)[0]));
     let _ = far_vx;
 }
 
@@ -661,7 +665,7 @@ fn return_fire_engages_only_recent_attackers() {
     idle(&mut state, 1);
     // The nearer VX did nothing, so return fire takes the attacker (D-145).
     assert_eq!(
-        slots(&state, shooter)[0].target,
+        slots(&state, shooter)[0].ship_target(),
         Some(ships(&state, attacker)[0])
     );
     let _ = quiet;

@@ -12,7 +12,9 @@
 //!   cannot be reorganised;
 //! - **reachability:** a jump destination has a route; a point is not inside an obstacle;
 //! - **the fleet's composition:** attacks need an armed ship; frigates dock only where there
-//!   is a dry dock (D-102); docking needs room for every ship.
+//!   is a dry dock (D-102); docking needs room for every ship;
+//! - **station orders** (S5b, [`crate::defence`]): abilities need a completed holding, an
+//!   existing sector that is not open, an elapsed cooldown and their power (D-128).
 //!
 //! A rejection carries its reason ([`CommandRejection`]). The visibility check ("you can
 //! only target what you detect", D-039) is added with sensors in S7; until then every entity
@@ -169,6 +171,20 @@ pub enum CommandRejection {
     /// A convoy route does not end at a depot (D-134).
     #[error("the route must end at a depot")]
     NotDepot,
+
+    // Station orders (S5b; doc 15 §5.3).
+    /// The holding's dome has no such sector.
+    #[error("no such shield sector")]
+    NoSuchSector,
+    /// The ability is cooling down.
+    #[error("the ability is cooling down")]
+    AbilityCooldown,
+    /// SHLD SURGE on an open sector (doc 15 §5.3).
+    #[error("the sector is open")]
+    SectorOpen,
+    /// The holding cannot supply the ability's power draw (D-128).
+    #[error("not enough power")]
+    NoPower,
 }
 
 /// Checks `command` from `issuer` against the current state (D-077).
@@ -219,6 +235,8 @@ pub(crate) fn execute(
                 crate::fleet::orders::launch(state, fleet, events);
             }
         }
+        // Station orders (S5b).
+        Command::Holding { holding, order } => crate::defence::execute(state, *holding, *order),
         Command::CreateFleet { ships } => {
             crate::fleet::create_fleet(state, issuer, ships);
         }
@@ -293,6 +311,15 @@ pub(crate) fn locate(state: &UniverseState, id: SimId) -> Option<Target> {
             system: site.system,
             position: site.position.into(),
             owner: None,
+            fleet: None,
+        });
+    }
+    // A module (S5b): any but a pylon, which cannot be targeted (D-053).
+    if let Some((system, position, owner)) = crate::defence::locate_module(state, id) {
+        return Some(Target {
+            system,
+            position,
+            owner: Some(owner),
             fleet: None,
         });
     }
@@ -722,6 +749,10 @@ fn validate_holding_order(
             } else {
                 Ok(())
             }
+        }
+        // Station orders (S5b).
+        HoldingOrder::Ability { .. } | HoldingOrder::TurretsHold { .. } => {
+            crate::defence::validate(state, holding, order)
         }
     }
 }

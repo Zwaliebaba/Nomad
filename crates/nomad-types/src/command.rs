@@ -136,6 +136,30 @@ pub enum FleetOrder {
 pub enum HoldingOrder {
     /// LAUNCH (L), "6 READY": undock the ships that are ready.
     LaunchReady,
+    /// Use a station ability: SHLD SURGE (Q) or FLAK SCREEN (W) (doc 15 §5.3; S5b).
+    Ability {
+        /// Which one.
+        ability: StationAbility,
+    },
+    /// STOP (S), "ALL TURRETS": every turret of the holding holds fire, or fires again
+    /// (doc 15 §5.3; S5b).
+    TurretsHold {
+        /// Hold fire (`true`) or fire again (`false`).
+        hold: bool,
+    },
+}
+
+/// A station ability on the phase-1 command card (doc 15 §5.3). PWR ROUTE and REPAIR are
+/// economy commands ([`crate::EconomyCommand`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum StationAbility {
+    /// SHLD SURGE (Q): restores part of one shield sector at once.
+    ShieldSurge {
+        /// The sector, by pylon slot index (0–3).
+        sector: u8,
+    },
+    /// FLAK SCREEN (W): flak bursts around the station for a while.
+    FlakScreen,
 }
 
 /// Rules of engagement, set per fleet (doc 15 §3.4).

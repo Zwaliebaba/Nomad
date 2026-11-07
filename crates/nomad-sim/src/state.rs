@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::combat::Projectiles;
+use crate::defence::Defence;
 use crate::economy::Economy;
 use crate::entities::Entities;
 use crate::fleet::FleetId;
@@ -69,6 +70,8 @@ pub struct UniverseState {
     pub(crate) projectiles: Projectiles,
     /// Pools, holding economies, convoys and cargo (doc 14; S4). Modules are entities.
     pub(crate) economy: Economy,
+    /// Domes, turret state, abilities and the damage ledger (doc 15 §5; S5b).
+    pub(crate) defence: Defence,
 }
 
 impl UniverseState {
@@ -101,6 +104,7 @@ impl UniverseState {
             transits: TimerQueue::default(),
             projectiles: Projectiles::default(),
             economy: Economy::default(),
+            defence: Defence::default(),
         }
     }
 

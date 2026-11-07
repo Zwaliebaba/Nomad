@@ -343,11 +343,11 @@ fn abilities_claim_fixed_power_only_if_it_fits() {
     let headroom = state.power(mother).unwrap().headroom_kw;
     assert_eq!(headroom, 1_140_000 - 160_000);
     let until = now.after(crate::time::Ticks::from_secs(10));
-    assert!(power::request_ability_power(
+    assert!(request_ability_power(
         &mut state, mother, 200_000, now, until
     ));
     assert_eq!(state.power(mother).unwrap().headroom_kw, headroom - 200_000);
-    assert!(!power::request_ability_power(
+    assert!(!request_ability_power(
         &mut state, mother, 900_000, now, until
     ));
     // It ends on time.

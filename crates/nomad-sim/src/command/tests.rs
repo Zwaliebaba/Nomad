@@ -41,6 +41,18 @@ pub(crate) fn economy_reasons() -> BTreeSet<R> {
     .collect()
 }
 
+/// The station orders' reasons (S5b), produced by `defence::tests`.
+pub(crate) fn defence_reasons() -> BTreeSet<R> {
+    [
+        R::NoSuchSector,
+        R::AbilityCooldown,
+        R::SectorOpen,
+        R::NoPower,
+    ]
+    .into_iter()
+    .collect()
+}
+
 /// Every reason, by an exhaustive match: a new reason does not compile until it is listed,
 /// and the tests fail until a scenario produces it.
 pub(crate) fn all_reasons() -> BTreeSet<R> {
@@ -87,6 +99,10 @@ pub(crate) fn all_reasons() -> BTreeSet<R> {
         R::RouteTooLong,
         R::DuplicateStop,
         R::NotDepot,
+        R::NoSuchSector,
+        R::AbilityCooldown,
+        R::SectorOpen,
+        R::NoPower,
     ];
     for reason in every {
         match reason {
@@ -131,7 +147,11 @@ pub(crate) fn all_reasons() -> BTreeSet<R> {
             | R::TooFar
             | R::RouteTooLong
             | R::DuplicateStop
-            | R::NotDepot => {}
+            | R::NotDepot
+            | R::NoSuchSector
+            | R::AbilityCooldown
+            | R::SectorOpen
+            | R::NoPower => {}
         }
     }
     every.into_iter().collect()
@@ -526,7 +546,12 @@ fn every_rejection_reason_is_produced() {
     seen.insert(R::NothingToLaunch);
 
     let fleet_reasons: BTreeSet<R> = all_reasons()
-        .difference(&economy_reasons())
+        .difference(
+            &economy_reasons()
+                .union(&defence_reasons())
+                .copied()
+                .collect(),
+        )
         .copied()
         .collect();
     assert_eq!(seen, fleet_reasons);

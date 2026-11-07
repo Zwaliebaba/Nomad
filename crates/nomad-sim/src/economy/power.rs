@@ -271,13 +271,20 @@ fn compute(state: &UniverseState, holding: HoldingId, now: Tick) -> PowerAllocat
     }
 }
 
+/// Whether `draw_kw` of fixed power for an ability would be granted at `holding` now (S4/S5
+/// interface; D-128): the validator's check, which [`request_ability_power`] repeats.
+pub(crate) fn ability_power_available(
+    state: &UniverseState,
+    holding: HoldingId,
+    draw_kw: u64,
+    now: Tick,
+) -> bool {
+    draw_kw <= compute(state, holding, now).headroom_kw
+}
+
 /// Claims `draw_kw` of fixed power at `holding` for an ability until `until` (S4/S5
 /// interface). Granted only if the full draw fits after the fixed draws; the ability then
 /// joins them until it ends, and the allocation is recomputed now.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "an S4/S5 interface that S5b calls (S4 plan §4.6)")
-)]
 pub(crate) fn request_ability_power(
     state: &mut UniverseState,
     holding: HoldingId,
@@ -285,8 +292,7 @@ pub(crate) fn request_ability_power(
     now: Tick,
     until: Tick,
 ) -> bool {
-    let current = compute(state, holding, now);
-    if draw_kw > current.headroom_kw || until <= now {
+    if !ability_power_available(state, holding, draw_kw, now) || until <= now {
         return false;
     }
     let Some(economy) = state.economy.holdings.get_mut(&holding) else {

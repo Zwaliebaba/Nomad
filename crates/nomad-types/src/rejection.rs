@@ -90,4 +90,12 @@ pub enum InvalidReason {
     DuplicateStop,
     /// A convoy route does not end at a depot (D-134).
     NotDepot,
+    /// The holding's dome has no such sector.
+    NoSuchSector,
+    /// The ability is cooling down.
+    AbilityCooldown,
+    /// SHLD SURGE on a sector that is open during a siege (doc 15 §5.3).
+    SectorOpen,
+    /// The holding cannot supply the ability's power draw (D-128).
+    NoPower,
 }

@@ -8,7 +8,7 @@
 //! | Patrol | Loop through the waypoints |
 //! | Guard | Stay within the guard radius of the object, following it |
 //! | Station-keep | Hold the position, or the present offset from a target, following it |
-//! | Attack | Close to weapon range of the target, hold and fire at it; completes when it is destroyed (S5) |
+//! | Attack | Close to weapon range of the target, hold and fire at it; completes when it is destroyed (S5). A holding's dome is a circle: the fleet closes to weapon range of its edge (S5b) |
 //! | Dock | Approach the holding's launch point and dock, if there is room (D-102) |
 //! | Launch | Undock at once, at the holding's launch point |
 //! | Retreat | Route to the nearest (or the given) owned holding by time, and dock |
@@ -510,7 +510,10 @@ fn attack_move_pauses(
             .is_some_and(|range| hostile_ship_within(state, system, fleet.owner, here, range))
 }
 
-/// An Attack: close to weapon range of the target and hold; combat fires at it (S5).
+/// An Attack: close to weapon range of the target and hold; combat fires at it (S5). For a
+/// holding with a dome, weapon range of the dome's edge (S5b): the dome is what is hit, and
+/// strike craft breaching from their full range stay out of reach of the turrets inside
+/// (S5 plan §5).
 fn decide_attack(
     state: &UniverseState,
     fleet: &Fleet,
@@ -520,10 +523,13 @@ fn decide_attack(
 ) -> Decision {
     let tracked = locate(state, target).filter(|t| t.system == system);
     match (tracked, engagement_range_m(state, fleet)) {
-        (Some(t), Some(range)) => Decision {
-            goal: hold_within(here, t.position, range, 0.9),
-            change: Change::None,
-        },
+        (Some(t), Some(range)) => {
+            let edge = crate::defence::attack_edge_m(state, target);
+            Decision {
+                goal: hold_within_edge(here, t.position, edge, range, 0.9),
+                change: Change::None,
+            }
+        }
         // A destroyed ship or fleet no longer exists: the attack succeeded. One that docked,
         // jumped or left the system still exists: the order lost its target.
         (None, _)
@@ -602,6 +608,19 @@ fn drop_order() -> Decision {
 
 /// Stay within `radius` of `target`: if farther, close to `fraction × radius` along the line
 /// from the target; otherwise come to rest.
+/// As [`hold_within`], for a target that is a circle of radius `edge`: stop within `range`
+/// of its edge, or head for `fraction` of the range outside it. With no edge it is
+/// [`hold_within`].
+fn hold_within_edge(here: Vec2, target: Vec2, edge: f64, range: f64, fraction: f64) -> Goal {
+    let away = here - target;
+    if away.length() <= edge + range {
+        Goal::Stop
+    } else {
+        let direction = away.normalized().unwrap_or(Vec2::new(1.0, 0.0));
+        Goal::Point(target + direction * (edge + range * fraction))
+    }
+}
+
 fn hold_within(here: Vec2, target: Vec2, radius: f64, fraction: f64) -> Goal {
     let away = here - target;
     if away.length() <= radius {

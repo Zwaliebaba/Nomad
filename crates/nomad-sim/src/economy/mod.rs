@@ -32,6 +32,7 @@ mod tick;
 mod tests;
 
 pub(crate) use command::{end_convoy, execute, validate};
+pub(crate) use power::{ability_power_available, request_ability_power};
 pub(crate) use tick::run;
 
 use std::collections::{BTreeMap, VecDeque};
@@ -76,7 +77,7 @@ pub(crate) struct Construction {
 }
 
 /// A module knocked offline (component): it produces, supplies and draws nothing
-/// (doc 12 §3; restoring it is S5b's and S6's rule, D-149).
+/// (doc 12 §3; S5b restores it under D-149).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Disabled {
     pub(crate) since: Tick,
@@ -202,7 +203,8 @@ pub(crate) struct HoldingEconomy {
     pub(crate) allocation: PowerAllocation,
     /// Fixed draws of active abilities (S5), served in tier 1 until they end.
     pub(crate) abilities: Vec<AbilityDraw>,
-    /// Regeneration demand per sector, set by S5b; zero while every sector is full.
+    /// Regeneration demand per sector, set by S5b ([`crate::defence`]) every tick; zero
+    /// while a sector is full or open.
     pub(crate) regen_demand_kw: [u64; 4],
     /// The REPAIR ability is on (doc 15 §5.3).
     pub(crate) repairing: bool,
@@ -1106,11 +1108,8 @@ pub(crate) fn spawn_start_stations(state: &mut UniverseState) {
 
 /// Records that module `id` took damage now, which holds back its free repair (D-071), and
 /// lowers its hull by `amount`. Returns the hit points left; at zero, S5b decides between
-/// disabled and destroyed (doc 12 §3) and calls [`disable_module`] or [`destroy_module`].
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "an S4/S5 interface that S5b calls (S4 plan §4.6)")
-)]
+/// disabled and destroyed (doc 12 §3, [`crate::defence::hooks`]) and calls
+/// [`disable_module`] or [`destroy_module`].
 pub(crate) fn damage_module(
     state: &mut UniverseState,
     id: SimId,
@@ -1124,10 +1123,6 @@ pub(crate) fn damage_module(
 }
 
 /// Knocks module `id` offline (doc 12 §3).
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "an S4/S5 interface that S5b calls (S4 plan §4.6)")
-)]
 pub(crate) fn disable_module(
     state: &mut UniverseState,
     id: SimId,
@@ -1140,11 +1135,7 @@ pub(crate) fn disable_module(
     }
 }
 
-/// Brings a disabled module back online (D-149 decides when; S5b and S6 call this).
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "an S4/S5 interface that S5b calls (S4 plan §4.6)")
-)]
+/// Brings a disabled module back online (D-149 decides when; S5b calls this).
 pub(crate) fn restore_module(state: &mut UniverseState, id: SimId, events: &mut Vec<EconomyEvent>) {
     if state.entities.remove::<Disabled>(id).is_some() {
         events.push(EconomyEvent::ModuleRestored { module: id });
@@ -1153,10 +1144,6 @@ pub(crate) fn restore_module(state: &mut UniverseState, id: SimId, events: &mut 
 
 /// Destroys module `id` and frees its slot. A module being built is removed from the queue
 /// without a refund. Destroying a core is S6's capture rule and is refused here.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "an S4/S5 interface that S5b calls (S4 plan §4.6)")
-)]
 pub(crate) fn destroy_module(
     state: &mut UniverseState,
     id: SimId,
