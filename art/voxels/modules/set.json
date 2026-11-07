@@ -1,0 +1,48 @@
+{
+  "format": "nomad-vox/set@1",
+  "kind": "models",
+  "output": "../../../Design/phase1-visual-slice/assets/voxels/module_kinds.json",
+  "axes": "+x away from the core (towards the slot's outer side), +y to its left, +z up; origin at the slot centre on the ops grid (z = 0); world-aligned, placed by quarter turns about z (tools/station-kit)",
+  "models": [
+    {
+      "id": "core",
+      "name": "Command core"
+    },
+    {
+      "id": "pylon",
+      "name": "Shield pylon"
+    },
+    {
+      "id": "refinery",
+      "name": "Refinery"
+    },
+    {
+      "id": "storage",
+      "name": "Storage"
+    },
+    {
+      "id": "turret",
+      "name": "Turret"
+    },
+    {
+      "id": "dry_dock",
+      "name": "Dry dock"
+    },
+    {
+      "id": "solar_array",
+      "name": "Solar array"
+    },
+    {
+      "id": "harvester",
+      "name": "Harvester"
+    },
+    {
+      "id": "extractor",
+      "name": "Extractor"
+    },
+    {
+      "id": "empty_mount",
+      "name": "Empty slot mount"
+    }
+  ]
+}

@@ -48,6 +48,10 @@ ring = "0.17"
 # tree through rcgen; `local-offset` adds only num_threads. MIT or Apache-2.0.
 time = { version = "0.3.55", default-features = false, features = ["std", "local-offset"] }
 
+# MagicaVoxel `.vox` reading and writing for the voxel art pipeline (nomad-vox, D-289). MIT.
+# A build tool only: no shipped binary links it. The default `ahash` feature is left out.
+dot_vox = { version = "5.2", default-features = false }
+
 # Client (phase-1 visual slice, Design D-004, phase-1 doc 05).
 bytemuck = { version = "1.25", features = ["derive"] }
 glam = "0.34"
