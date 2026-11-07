@@ -171,6 +171,8 @@ Holdings produce, store, spend and build. Every commander has a pool of alloy an
 
 > *Note (2026-11-07):* these estimates assume a flat kit price and full output at every holding. The 7-day harness run showed income at 9.5× start and 16 holdings for one builder, so D-189 made the kit price grow with the commander's size. A kit price alone cannot bound late income, so D-217 also scales each remote producer by min(1, F ÷ the producing holdings other than the mother station), F = 2 to start. Both are built; the harness reports kit prices and the factor.
 
+> *Note (2026-11-07), as built since:* D-281 counts D-217's yield per resource (alloy over alloy-producing holdings, crystal over crystal-producing ones), D-282 sets F = 2.5, a 5,000 A base and 1,500 A racks and keeps the extractor at 60 C/h, and D-283 measures build-out from core completion. `nomad-harness --economy` now measures D-070 with D-218 §5.4's definitions: storage fill and the cap-fleet rebuild (Garrison mix, binding resource) over days 21–35, late income over days 42–56, 72 h ÷ the holdings completed by hour 72, and build-out per holding; a shorter run reads a stand-in stretch and marks it as a proxy (*Derived:* the scripted economy is stationary once its sites are claimed). `--csv PATH` writes the hourly samples. *Derived* results, 5 seeds × 21 days: storage fill 9.5 h at mid-season (was 25.6 h under D-281 with the old values), rebuild 22.9 h (was 26.6 h), late income 3.50× (was 3.00×), 24 h per new holding over days 0–3 (unchanged), build-out from core completion about 150–199 h (seed medians), failing as D-283 expects.
+
 ## 6. Questions
 
 Numbered Q115–Q127; each has a recommendation and alternatives.

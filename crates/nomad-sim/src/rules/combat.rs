@@ -390,9 +390,9 @@ mod tests {
     fn class_values_are_doc_15s_starting_values() {
         let rules = rules();
         let c = &rules.combat;
-        // Doc 15 §12 (D-058) and D-143.
+        // Doc 15 §12 (D-058) and D-143; LANCER's hull from D-284.
         let hulls: Vec<u32> = ShipClass::ALL.iter().map(|&k| c.class(k).hull).collect();
-        assert_eq!(hulls, [600, 800, 7_500, 2_500, 700, 30_000]);
+        assert_eq!(hulls, [600, 1_400, 7_500, 2_500, 700, 30_000]);
         let radii: Vec<f64> = ShipClass::ALL
             .iter()
             .map(|&k| c.class(k).hit_radius_m)

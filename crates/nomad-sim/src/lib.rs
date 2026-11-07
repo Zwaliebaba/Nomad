@@ -109,7 +109,7 @@ pub use commander::{
 pub use defence::{DefenceEvent, DefenceView, LedgerView, SectorView};
 pub use doctrine::Doctrine;
 pub use economy::{
-    BuildLane, Cargo, CommanderEconomy, EconomyEvent, HoldingEconomyView, ModuleView,
+    BuildLane, Cargo, CommanderEconomy, EconomyEvent, HoldingEconomyView, ModuleView, PerResource,
     PowerAllocation, QueueItemView, Shortage, Stock,
 };
 pub use fleet::{

@@ -5,24 +5,28 @@
 //! delivery, starting queued items, and repair. Convoys run once a second in their fleet's
 //! slot.
 //!
-//! **Diminishing yield (D-217):** a producing holding other than the mother station has its
-//! alloy and crystal output scaled by min(1, F ÷ n), n being its owner's producing holdings
-//! other than the mother station. *Derived:* a holding is producing when its completed
-//! producers give it a nominal alloy or crystal output (doc 14 §6: an extractor on a crystal
-//! vein, or a harvester on an ore field with a refinery), whatever its power or damage, so a
-//! raid on one holding does not raise the others' yield. n is counted once per tick, before
-//! any holding's second, so the order in which holdings run does not matter. The factor
-//! scales the harvesting, refining and extraction rates, so refined alloy, limited by both,
-//! scales by it too, and every flow stays exact in milli-units ([`super::Flow`]).
+//! **Diminishing yield (D-217, counted per resource by D-281):** a holding other than the
+//! mother station has its alloy output scaled by min(1, F ÷ n), n being its owner's holdings
+//! other than the mother station that produce alloy, and its crystal output by the same over
+//! the holdings that produce crystal. *Derived:* a holding produces a resource
+//! when its completed producers give it a nominal output of it (doc 14 §6: an extractor on a
+//! crystal vein for crystal, a harvester on an ore field with a refinery for alloy), whatever
+//! its power or damage, so a raid on one holding does not raise the others' yield; a holding
+//! that does not produce a resource never lowers the commander's output of it (D-281). The
+//! counts are taken once per tick, before any holding's second, so the order in which holdings
+//! run does not matter. The alloy factor scales the harvesting and refining rates, so refined
+//! alloy, limited by both, scales by it too; the crystal factor scales extraction. Every flow
+//! stays exact in milli-units ([`super::Flow`]).
 
 use std::collections::BTreeMap;
 
 use nomad_types::{DepositKind, ModuleKind, Slot};
 
 use super::power::{self, Consumer};
-use super::rules::{MILLI, scaled, yield_factor};
+use super::rules::{MILLI, YieldFactors, scaled};
 use super::{
-    Construction, EconomyEvent, Hull, Stock, economy_slot, logistics, queue, richness_permille,
+    Construction, EconomyEvent, Hull, PerResource, Stock, economy_slot, logistics, queue,
+    richness_permille,
 };
 use crate::fleet::FleetEvent;
 use crate::holding::HoldingId;
@@ -45,7 +49,7 @@ pub(crate) fn run(
         .copied()
         .filter(|&h| economy_slot(h) == slot)
         .collect();
-    // D-217's n, counted only on ticks where a holding it applies to produces.
+    // D-281's counts, taken only on ticks where a holding they apply to produces.
     let scaled_due = due.iter().any(|h| {
         state
             .holdings
@@ -63,22 +67,36 @@ pub(crate) fn run(
     logistics::run(state, now, slot, events, fleet_events);
 }
 
-/// Whether `holding` is producing for D-217: its completed producers give it a nominal
-/// alloy or crystal output.
-pub(crate) fn is_producing(state: &UniverseState, holding: HoldingId) -> bool {
-    state
+/// Which resources `holding` produces for D-217 and D-281: those its completed producers give
+/// it a nominal output of.
+pub(crate) fn produces(state: &UniverseState, holding: HoldingId) -> PerResource<bool> {
+    if !state
         .holdings
         .get(&holding)
         .is_some_and(|h| h.core_complete)
-        && nominal_output_per_h(state, holding) != (0, 0)
+    {
+        return PerResource::default();
+    }
+    let (alloy, crystal) = nominal_output_per_h(state, holding);
+    PerResource {
+        alloy: alloy > 0,
+        crystal: crystal > 0,
+    }
 }
 
-/// Each commander's producing holdings other than the mother station (D-217).
-pub(crate) fn producing_counts(state: &UniverseState) -> BTreeMap<CommanderId, u64> {
-    let mut counts: BTreeMap<CommanderId, u64> = BTreeMap::new();
+/// Each commander's holdings other than the mother station that produce alloy and crystal
+/// (D-281's per-resource n).
+pub(crate) fn producing_counts(state: &UniverseState) -> BTreeMap<CommanderId, PerResource<u64>> {
+    let mut counts: BTreeMap<CommanderId, PerResource<u64>> = BTreeMap::new();
     for (&id, holding) in &state.holdings {
-        if !holding.mother_station && is_producing(state, id) {
-            *counts.entry(holding.owner).or_default() += 1;
+        if holding.mother_station {
+            continue;
+        }
+        let produces = produces(state, id);
+        if produces.alloy || produces.crystal {
+            let count = counts.entry(holding.owner).or_default();
+            count.alloy += u64::from(produces.alloy);
+            count.crystal += u64::from(produces.crystal);
         }
     }
     counts
@@ -129,7 +147,7 @@ fn holding_second(
     state: &mut UniverseState,
     holding: HoldingId,
     now: Tick,
-    producing: &BTreeMap<CommanderId, u64>,
+    producing: &BTreeMap<CommanderId, PerResource<u64>>,
     events: &mut Vec<EconomyEvent>,
     fleet_events: &mut Vec<FleetEvent>,
 ) {
@@ -142,11 +160,11 @@ fn holding_second(
     };
     // D-217: the mother station is never scaled.
     let factor = if mother {
-        (1, 1)
+        YieldFactors::FULL
     } else {
-        yield_factor(
+        YieldFactors::new(
             state.rules.economy.diminishing_yield_permille,
-            producing.get(&owner).copied().unwrap_or(0),
+            producing.get(&owner).copied().unwrap_or_default(),
         )
     };
     state.economy.holdings.entry(holding).or_default();
@@ -218,12 +236,12 @@ pub(crate) fn nominal_output_per_h(state: &UniverseState, holding: HoldingId) ->
 }
 
 /// One second of harvesting, refining and extraction at `holding`, delivered to the pool or
-/// the local buffer (doc 14 §4, §6; D-126), with the rates scaled by D-217's `factor`.
+/// the local buffer (doc 14 §4, §6; D-126), with the rates scaled by D-281's `factor`.
 fn produce(
     state: &mut UniverseState,
     holding: HoldingId,
     owner: CommanderId,
-    factor: (u64, u64),
+    factor: YieldFactors,
     now: Tick,
     events: &mut Vec<EconomyEvent>,
 ) {
@@ -264,12 +282,13 @@ fn produce(
         }
     }
     let ore_cap = ore_cap.saturating_mul(state.rules.economy.production.ore_buffer_h);
-    // D-217: scaling harvesting and refining alike scales the refined alloy, which is
-    // limited by both; the ore buffer keeps its nominal size.
+    // D-281: scaling harvesting and refining alike by the alloy factor scales the refined
+    // alloy, which is limited by both; the ore buffer keeps its nominal size. Extraction
+    // takes the crystal factor.
     let (harvest, refine, extract) = (
-        scaled(harvest, factor),
-        scaled(refine, factor),
-        scaled(extract, factor),
+        scaled(harvest, factor.alloy),
+        scaled(refine, factor.alloy),
+        scaled(extract, factor.crystal),
     );
     let Some(e) = state.economy.holdings.get_mut(&holding) else {
         return;
@@ -305,14 +324,14 @@ fn produce(
 }
 
 /// Puts production into the pool if `holding` is in a depot's system, otherwise into its
-/// buffer, which holds 2 h of its production after D-217's `factor`; what does not fit is
+/// buffer, which holds 2 h of its production after D-281's `factor`; what does not fit is
 /// lost and counted (D-025, D-064).
 fn deliver(
     state: &mut UniverseState,
     holding: HoldingId,
     owner: CommanderId,
     output: Stock,
-    factor: (u64, u64),
+    factor: YieldFactors,
     events: &mut Vec<EconomyEvent>,
 ) {
     if state.delivers_to_pool(holding) {

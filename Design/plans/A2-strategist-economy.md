@@ -1,6 +1,6 @@
 # Work package A2 — The Strategist: economy
 
-Status: **Planned and decided** (Q213–Q219 → D-212 to D-218, and Q205 in `A1-deputy.md` → D-204, which moves AI schedules into A2). Written together with `A1-deputy.md`, whose §4 holds the shared architecture A2 runs on, and `A3-raider-director.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate, doctrine), S4 (economy, built; the D-217 diminishing yield built with it), S6a (presence, grace, lapse; built) and S7 (`CommanderView`); reads S8's standings (built). This plan is also the brief for whoever builds A2. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Planned and decided** (Q213–Q219 → D-212 to D-218, and Q205 in `A1-deputy.md` → D-204, which moves AI schedules into A2). Written together with `A1-deputy.md`, whose §4 holds the shared architecture A2 runs on, and `A3-raider-director.md`. Builds on A1a (the `nomad-ai` crate, outbox, competence gate, doctrine), S4 (economy, built; the D-217 diminishing yield built with it), S6a (presence, grace, lapse; built) and S7 (`CommanderView`); reads S8's standings (built). This plan is also the brief for whoever builds A2. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval. *Build status (2026-11-07):* Not built yet; brief in `briefs/A2.md`.
 
 ## 1. Goal
 
