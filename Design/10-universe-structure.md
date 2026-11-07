@@ -1,6 +1,6 @@
 # 10 — Universe structure
 
-Status: **Agreed (round 4).** Built on D-020, D-021, D-022 and D-038, and on RK-08 and RK-11 from doc 04. Q35–Q40 were decided as D-041 to D-046. Still working proposals: naming (§9), the data model sketch (§10) and the ops-area radius (§8). Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 4).** Built on D-020, D-021, D-022 and D-038, and on RK-08 and RK-11 from doc 04. Q35–Q40 were decided as D-041 to D-046. Still working proposals: naming (§9), the data model sketch (§10) and the ops-area radius (§8). *(The ops-area radius has since been agreed as 20 km, D-103; D-099 clarified the S2 gaps, and D-191 to D-198 settled the season result of §6.)* Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -125,8 +125,9 @@ Sites: 4 homes × 7, plus 4 standard × 6, plus a hub with 8, gives 60 sites, wh
 This matches the phase-1 system panel: in Kestrel-7, "YOU 3 · HSTL 2 · FREE 2" with no majority is **CONTESTED**.
 
 - **What counts:** holdings with a completed core, including a mother-station holding. Outposts do not count; otherwise control would be cheap to fake.
-- **What control gives during the season:** sensor coverage of the whole system, meaning all gates and in-system lanes are visible to the controller (ties to D-039). This makes control matter before the season ends. Any economic bonuses are for doc 14 to decide.
+- **What control gives during the season:** sensor coverage of the whole system, meaning all gates and in-system lanes are visible to the controller (ties to D-039). This makes control matter before the season ends. Any economic bonuses are for doc 14 to decide. *(Doc 14 decided none, D-069.)*
 - **Season result (D-020):** an early win requires 60% of claimable systems, rounded up (6 of 9 in MVP stage 1). Otherwise the commander with the most controlled systems at season end wins. Tie-breaks, in order: holdings owned, total deposit value held, then whoever reached the final count first.
+  > **Settled with the S8 plan (D-191 to D-198), and built:** the simulation keeps the standings and recomputes them in phase 9 on any tick where completed holdings or their owners change (D-191). The early win triggers on the first tick a commander controls the threshold, and that tick is the final tick (D-192). "Reached the final count first" means the commander whose triple has been unchanged since the earliest tick (D-193); a tie after every tie-break gives joint winners (D-194). The final tick lives in `SeasonConfig` (D-195), and the server keeps `standings_history` and `season_result` as read models (D-196). A public announcement warns when a commander is one system short of the early win (D-197).
 - **Alliances (D-040):** whether alliance members' holdings are pooled for control is decided together with the alliance design. The MVP counts per commander.
 
 ## 7. Season start and late joiners

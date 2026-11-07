@@ -3,12 +3,17 @@
 //!
 //! | Table | Holds |
 //! |---|---|
-//! | `meta` | One row: layout format, Universe ID and name, creating build, seed, season start and length, creation parameters, rules hash, journal floor |
+//! | `meta` | One row: layout format, Universe ID and name, creating build, seed, season start, length and final tick, creation parameters, rules hash, journal floor |
 //! | `snapshots` | One row per snapshot: tick, build, snapshot format, state hash, bytes |
-//! | `journal` | One row per input: tick, seq, kind, payload, build |
+//! | `journal` | One row per input, and every 600 ticks a state-hash checkpoint (D-109): tick, seq, kind, payload, build. Kept for 48 h (D-110) |
+//! | `standings_history` | Read model (D-196): one row per commander per standings change: tick, commander, rank, systems, holdings, deposit value, since |
+//! | `season_result` | Read model (D-196): one row per winner once the result is fixed: winner, tick, reason |
 //!
 //! Snapshots are opaque bytes plus the format number `nomad_sim::snapshot` reported when
-//! they were written; this module never looks inside them. Every write is one transaction.
+//! they were written; this module never looks inside them. The read-model tables are
+//! projections of the simulation's outputs, not authoritative state (doc 11 §8), and are
+//! re-synced with the recovered state at every start ([`read_model`]). Every write is one
+//! transaction.
 //! `synchronous = FULL` makes each commit durable on disk, so a journal batch that was
 //! committed survives a crash or power loss (D-048: flushed at least once per second).
 
@@ -21,10 +26,17 @@ use rusqlite::{Connection, ErrorCode, OpenFlags, OptionalExtension, Transaction,
 use crate::error::ServerError;
 use crate::ids::Difficulty;
 use crate::journal::{EntryKind, JournalEntry};
-use crate::retention::{self, RetentionPlan};
+use crate::retention::{self, RetentionPlan, RetentionPolicy};
+
+// S8: the season read model (D-196).
+pub mod read_model;
 
 /// The database layout this build reads and writes. Bumped whenever a table changes.
-pub const SCHEMA_FORMAT: i64 = 1;
+///
+/// - 1: `meta`, `snapshots` and `journal` (N2).
+/// - 2: `meta.final_tick` (D-195), and the read-model tables `standings_history` and
+///   `season_result` (S8, D-196).
+pub const SCHEMA_FORMAT: i64 = 2;
 
 /// `SQLite` `application_id` of a Nomad Universe database: "NMAD".
 const APPLICATION_ID: i64 = 0x4E4D_4144;
@@ -39,6 +51,7 @@ CREATE TABLE meta (
     seed            INTEGER NOT NULL,
     season_start_ms INTEGER NOT NULL,
     season_weeks    INTEGER NOT NULL,
+    final_tick      INTEGER NOT NULL,
     ai_commanders   INTEGER NOT NULL,
     difficulty      TEXT    NOT NULL,
     created_at_ms   INTEGER NOT NULL,
@@ -60,7 +73,31 @@ CREATE TABLE journal (
     build   TEXT    NOT NULL,
     PRIMARY KEY (tick, seq)
 ) STRICT, WITHOUT ROWID;
+CREATE TABLE standings_history (
+    tick          INTEGER NOT NULL,
+    commander     INTEGER NOT NULL,
+    rank          INTEGER NOT NULL,
+    systems       INTEGER NOT NULL,
+    holdings      INTEGER NOT NULL,
+    deposit_value INTEGER NOT NULL,
+    since         INTEGER NOT NULL,
+    PRIMARY KEY (tick, commander)
+) STRICT, WITHOUT ROWID;
+CREATE TABLE season_result (
+    winner INTEGER PRIMARY KEY,
+    tick   INTEGER NOT NULL,
+    reason TEXT    NOT NULL
+) STRICT;
 ";
+
+/// Every table, for the layout check.
+const TABLES: [&str; 5] = [
+    "meta",
+    "snapshots",
+    "journal",
+    "standings_history",
+    "season_result",
+];
 
 /// The `meta` row: what the Universe is and how it was created.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -75,8 +112,12 @@ pub struct Meta {
     pub seed: u64,
     /// Universe time of tick 0, UTC ms since the Unix epoch.
     pub season_start_unix_ms: i64,
-    /// Season length in weeks (D-020, D-106).
+    /// Season length in weeks (D-020, D-106), as given at creation.
     pub season_weeks: u32,
+    /// The season's scheduled final tick, as the simulation's season configuration holds it
+    /// (D-195): from the season length, or shorter for a test season. An early win ends the
+    /// season sooner (D-192); `season_result` then says when.
+    pub final_tick: Tick,
     /// AI commanders created with the Universe.
     pub ai_commanders: u32,
     /// Their difficulty (D-079).
@@ -132,6 +173,10 @@ pub struct JournalStats {
     pub first_tick: Option<Tick>,
     /// Tick of the newest entry.
     pub last_tick: Option<Tick>,
+    /// State-hash checkpoints among the entries (D-109).
+    pub checkpoints: u64,
+    /// Tick of the newest checkpoint.
+    pub last_checkpoint: Option<Tick>,
 }
 
 /// An open Universe database.
@@ -166,9 +211,9 @@ impl Store {
         tx.execute_batch(SCHEMA).map_err(fail("create tables"))?;
         tx.execute(
             "INSERT INTO meta (singleton, format, universe_id, name, build, seed,
-                 season_start_ms, season_weeks, ai_commanders, difficulty, created_at_ms,
-                 rules_hash, journal_floor)
-             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                 season_start_ms, season_weeks, final_tick, ai_commanders, difficulty,
+                 created_at_ms, rules_hash, journal_floor)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 SCHEMA_FORMAT,
                 meta.universe_id,
@@ -177,6 +222,7 @@ impl Store {
                 meta.seed.cast_signed(),
                 meta.season_start_unix_ms,
                 meta.season_weeks,
+                tick_to_sql(meta.final_tick)?,
                 meta.ai_commanders,
                 meta.difficulty.as_str(),
                 meta.created_at_unix_ms,
@@ -251,7 +297,7 @@ impl Store {
                 detail: check,
             });
         }
-        for table in ["meta", "snapshots", "journal"] {
+        for table in TABLES {
             let exists: bool = self
                 .conn
                 .query_row(
@@ -285,43 +331,43 @@ impl Store {
     /// The `meta` row.
     pub fn meta(&self) -> Result<Meta, ServerError> {
         type Raw = (
-            String,
-            Option<String>,
-            String,
-            i64,
-            i64,
-            i64,
-            i64,
-            String,
-            i64,
-            Option<i64>,
-            i64,
+            (String, Option<String>, String, i64, i64, i64, i64),
+            (i64, String, i64, Option<i64>, i64),
         );
         let raw: Raw = self
             .conn
             .query_row(
                 "SELECT universe_id, name, build, seed, season_start_ms, season_weeks,
-                        ai_commanders, difficulty, created_at_ms, rules_hash, journal_floor
+                        final_tick, ai_commanders, difficulty, created_at_ms, rules_hash,
+                        journal_floor
                  FROM meta WHERE singleton = 1",
                 [],
                 |row| {
                     Ok((
-                        row.get(0)?,
-                        row.get(1)?,
-                        row.get(2)?,
-                        row.get(3)?,
-                        row.get(4)?,
-                        row.get(5)?,
-                        row.get(6)?,
-                        row.get(7)?,
-                        row.get(8)?,
-                        row.get(9)?,
-                        row.get(10)?,
+                        (
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                            row.get(5)?,
+                            row.get(6)?,
+                        ),
+                        (
+                            row.get(7)?,
+                            row.get(8)?,
+                            row.get(9)?,
+                            row.get(10)?,
+                            row.get(11)?,
+                        ),
                     ))
                 },
             )
             .map_err(|e| self.error("read meta", e))?;
-        let (id, name, build, seed, start, weeks, ai, difficulty, created, rules, floor) = raw;
+        let (
+            (id, name, build, seed, start, weeks, final_tick),
+            (ai, difficulty, created, rules, floor),
+        ) = raw;
         let corrupt = |what: &str| self.corrupt(format!("meta.{what} is out of range"));
         Ok(Meta {
             universe_id: id,
@@ -330,6 +376,7 @@ impl Store {
             seed: seed.cast_unsigned(),
             season_start_unix_ms: start,
             season_weeks: u32::try_from(weeks).map_err(|_| corrupt("season_weeks"))?,
+            final_tick: tick_from_sql(final_tick).ok_or_else(|| corrupt("final_tick"))?,
             ai_commanders: u32::try_from(ai).map_err(|_| corrupt("ai_commanders"))?,
             difficulty: difficulty.parse().map_err(|_| corrupt("difficulty"))?,
             created_at_unix_ms: created,
@@ -455,11 +502,21 @@ impl Store {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .map_err(|e| self.error("measure journal", e))?;
+        let (checkpoints, last_checkpoint): (i64, Option<i64>) = self
+            .conn
+            .query_row(
+                "SELECT count(*), max(tick) FROM journal WHERE kind = ?1",
+                [EntryKind::StateHash.as_str()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|e| self.error("count checkpoints", e))?;
         Ok(JournalStats {
             entries: u64::try_from(entries).unwrap_or(0),
             payload_bytes: u64::try_from(bytes).unwrap_or(0),
             first_tick: first.and_then(tick_from_sql),
             last_tick: last.and_then(tick_from_sql),
+            checkpoints: u64::try_from(checkpoints).unwrap_or(0),
+            last_checkpoint: last_checkpoint.and_then(tick_from_sql),
         })
     }
 
@@ -492,11 +549,12 @@ impl Store {
         tx.commit().map_err(|e| db_error(path, "commit journal", e))
     }
 
-    /// Writes a snapshot and applies retention (doc 11 §8), in one transaction. Returns
-    /// what retention kept and deleted.
+    /// Writes a snapshot and applies retention under `policy` (doc 11 §8), in one
+    /// transaction. Returns what retention kept and deleted.
     pub fn write_snapshot(
         &mut self,
         snapshot: &SnapshotRecord,
+        policy: RetentionPolicy,
     ) -> Result<RetentionPlan, ServerError> {
         let path = self.path.as_path();
         let fail = |context| move |e| db_error(path, context, e);
@@ -521,7 +579,7 @@ impl Store {
             }
             ticks
         };
-        let plan = retention::plan(&ticks);
+        let plan = retention::plan(&ticks, policy);
         {
             let mut delete = tx
                 .prepare_cached("DELETE FROM snapshots WHERE tick = ?1")

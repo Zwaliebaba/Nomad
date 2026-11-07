@@ -1,12 +1,13 @@
 //! `assets/layout/scene_config.json`, format `voxel-rts/scene-config@1` (phase-1 doc 03).
 //!
-//! Only the fields the client uses so far are declared; serde ignores the rest (shield, pylons,
-//! the elevation tier list, lights policy and the prose notes), so later milestones can add them
+//! Only the fields the client uses so far are declared; serde ignores the rest (pylons, the
+//! elevation tier list, lights policy and the prose notes), so later milestones can add them
 //! without breaking older files.
 //!
 //! Every declared field is required, including the tuning values D-063 moved out of the code
-//! (pan speed, ops-area bounds, background and stars) and the M3 looks (elevation cues, bloom,
-//! hover): the file is the one source of truth for them, so there are no fallback constants in
+//! (pan speed, ops-area bounds, background and stars), the M3 looks (elevation cues, bloom,
+//! hover) and the M4 shield (shape, centre height, vertical radius, below-grid opacity, lines and
+//! hits): the file is the one source of truth for them, so there are no fallback constants in
 //! the code that could silently disagree with it. The only optional field is
 //! `projection.true_cubes` (default `false`).
 
@@ -37,6 +38,7 @@ pub struct SceneConfig {
     pub elevation: ElevationConfig,
     pub bloom: BloomConfig,
     pub hover: HoverConfig,
+    pub shield: ShieldConfig,
 }
 
 /// Projection, doc 01 §1.
@@ -242,6 +244,122 @@ pub struct HoverConfig {
     pub brightness_lift: f32,
 }
 
+/// The power shield (doc 01 §6, superseded in part by D-100; doc 06 M4): a sectored, translucent
+/// ellipsoid around the station with a rim, a sector ring and scripted hit ripples. Sector
+/// strengths are live data and come from the fixture (`selection.pylons`), not from here.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ShieldConfig {
+    pub shape: ShieldShape,
+    /// Centre in world voxels. D-100: z is the ship plane (16); with [`ShieldShape::Dome`] it is
+    /// the plane the cap rests on.
+    pub center: [f32; 3],
+    /// Horizontal radius: the equator, which is the 2D hit circle (doc 15 §5.1; D-119).
+    pub radius_xy: f32,
+    /// Vertical radius in world voxels, before the projection's z scale. Tuned at M4 so the
+    /// solar array reads as outside the shield (D-100).
+    pub radius_z: f32,
+    /// Factor on the opacity of everything drawn below the ops grid (`z < 0`; D-100).
+    pub below_grid_opacity: f32,
+    /// Fill opacity of one surface layer where it faces the viewer (doc 01 §6: about 0.05).
+    pub rest_alpha_fill: f32,
+    /// Fill opacity at the silhouette, reached as `fresnel^fresnel_power`.
+    pub edge_alpha_fill: f32,
+    pub fresnel_power: f32,
+    pub rim_color: Rgb,
+    /// The silhouette line (doc 01 §6: alpha 0.75).
+    pub rim_alpha: f32,
+    pub rim_width_ref_px: f32,
+    /// The silhouette over a weak sector, in `weak_color`.
+    pub rim_weak: ShieldLine,
+    /// A sector's arc of the ring at the equator (doc 01 §6: 2 px).
+    pub ring: ShieldLine,
+    /// The arc of a sector below `weak_threshold`, in `weak_color`.
+    pub ring_weak: ShieldLine,
+    /// The far half of the ring, seen through the globe.
+    pub ring_far: ShieldLine,
+    pub sectors: Vec<ShieldSector>,
+    /// A sector below this strength is drawn in `weak_color` and dashed (doc 01 §6).
+    pub weak_threshold: f32,
+    pub weak_color: Rgb,
+    pub hits: ShieldHits,
+}
+
+/// The shield's shape.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ShieldShape {
+    /// A full ellipsoid centred on the ship plane (D-100).
+    Globe,
+    /// The phase-1 cap: only the part above `center` z (doc 01 §6, superseded; kept to compare).
+    Dome,
+}
+
+/// A shield line style. Widths and dashes are 1080p pixels and scale with the window, like the
+/// elevation cues.
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct ShieldLine {
+    pub alpha: f32,
+    pub width_ref_px: f32,
+    /// Dash and gap length. A gap of 0 draws a solid line.
+    pub dash_ref_px: [f32; 2],
+}
+
+/// One shield sector: an arc of azimuths around the centre, in degrees from +x towards +y,
+/// centred on its pylon (D-046).
+#[derive(Clone, Debug, Deserialize)]
+pub struct ShieldSector {
+    /// The pylon feeding it, as in `station_scene.json` (`pylon_e`); its strength is the
+    /// fixture's `selection.pylons` entry for the letter after `pylon_` (`E`).
+    pub pylon: String,
+    /// Start and end azimuth, start < end, at most 360° apart; may run past 360.
+    pub az_deg: [f32; 2],
+}
+
+/// The scripted hit ripples of doc 06 M4 (doc 01 §6: hex ripple at the impact point, 600 ms,
+/// radius 4–6 voxels, plus a hot flash).
+#[derive(Clone, Debug, Deserialize)]
+pub struct ShieldHits {
+    /// The script repeats with this period.
+    pub loop_ms: u32,
+    /// How long one ripple lasts.
+    pub ripple_ms: u32,
+    /// How long the hot flash at the impact point lasts (0: no flash).
+    pub flash_ms: u32,
+    /// Width of one hex cell, in voxels along the surface.
+    pub hex_cell_voxels: f32,
+    pub hex_color: Rgb,
+    pub hex_alpha: f32,
+    /// The ripple's edge, in a healthy sector.
+    pub outline_color: Rgb,
+    /// The ripple's edge, in a sector below `weak_threshold`.
+    pub outline_weak_color: Rgb,
+    pub outline_alpha: f32,
+    /// The flash's centre and edge colour (doc 01 §6).
+    pub flash_core: Rgb,
+    pub flash_edge: Rgb,
+    pub flash_radius_voxels: f32,
+    pub impacts: Vec<ShieldImpact>,
+}
+
+/// One scripted impact.
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct ShieldImpact {
+    /// Where the reference render shows it: pixels at the reference resolution in view 0 at zoom
+    /// 1. The client puts the impact where this pixel's view ray meets the shield's front surface.
+    pub reference_px: [f32; 2],
+    /// The ripple's final radius along the surface.
+    pub radius_voxels: f32,
+    /// When in the loop it hits.
+    pub delay_ms: u32,
+}
+
+/// Most scripted impacts the shield shader takes.
+pub const MAX_SHIELD_IMPACTS: usize = 4;
+/// Most shield sectors accepted.
+pub const MAX_SHIELD_SECTORS: usize = 8;
+/// Widest shield line accepted, in 1080p pixels.
+pub const MAX_SHIELD_LINE_REF_PX: f32 = 16.0;
+
 /// Largest bloom radius accepted, in 1080p pixels. The blur's tap count grows with the radius.
 pub const MAX_BLOOM_RADIUS_REF_PX: f32 = 32.0;
 /// Widest elevation-cue line accepted, in 1080p pixels.
@@ -279,7 +397,8 @@ impl SceneConfig {
         self.validate_camera()?;
         self.validate_grid()?;
         self.background.validate()?;
-        self.validate_looks()
+        self.validate_looks()?;
+        self.shield.validate()
     }
 
     /// Elevation cues, bloom and hover (M3).
@@ -508,6 +627,109 @@ impl BackgroundConfig {
 }
 
 /// False for zero, negatives and NaN.
+impl ShieldConfig {
+    /// The shield (M4).
+    fn validate(&self) -> Result<(), Rejection> {
+        if !self.center.iter().all(|c| c.is_finite()) {
+            return Err(("shield.center", "must be finite".into()));
+        }
+        if !(finite_positive(self.radius_xy) && finite_positive(self.radius_z)) {
+            return Err(("shield.radius_xy / radius_z", "must be positive".into()));
+        }
+        for (field, value) in [
+            ("shield.below_grid_opacity", self.below_grid_opacity),
+            ("shield.rest_alpha_fill", self.rest_alpha_fill),
+            ("shield.edge_alpha_fill", self.edge_alpha_fill),
+            ("shield.rim_alpha", self.rim_alpha),
+            ("shield.weak_threshold", self.weak_threshold),
+            ("shield.hits.hex_alpha", self.hits.hex_alpha),
+            ("shield.hits.outline_alpha", self.hits.outline_alpha),
+        ] {
+            if !unit(value) {
+                return Err((field, "must be in [0, 1]".into()));
+            }
+        }
+        if !(finite_positive(self.fresnel_power) && self.fresnel_power <= 64.0) {
+            return Err(("shield.fresnel_power", "must be in (0, 64]".into()));
+        }
+        let width_ok = |w: f32| finite_positive(w) && w <= MAX_SHIELD_LINE_REF_PX;
+        if !width_ok(self.rim_width_ref_px) {
+            return Err((
+                "shield.rim_width_ref_px",
+                format!("must be in (0, {MAX_SHIELD_LINE_REF_PX}]"),
+            ));
+        }
+        for (field, line) in [
+            ("shield.rim_weak", &self.rim_weak),
+            ("shield.ring", &self.ring),
+            ("shield.ring_weak", &self.ring_weak),
+            ("shield.ring_far", &self.ring_far),
+        ] {
+            let ok = unit(line.alpha)
+                && width_ok(line.width_ref_px)
+                && finite_positive(line.dash_ref_px[0])
+                && line.dash_ref_px[1].is_finite()
+                && line.dash_ref_px[1] >= 0.0;
+            if !ok {
+                return Err((
+                    field,
+                    format!(
+                        "alpha must be in [0, 1], width in (0, {MAX_SHIELD_LINE_REF_PX}], dash \
+                         positive and gap not negative"
+                    ),
+                ));
+            }
+        }
+        if self.sectors.is_empty() || self.sectors.len() > MAX_SHIELD_SECTORS {
+            return Err((
+                "shield.sectors",
+                format!("expected 1 to {MAX_SHIELD_SECTORS} sectors"),
+            ));
+        }
+        for sector in &self.sectors {
+            let [start, end] = sector.az_deg;
+            if !(start.is_finite() && end.is_finite() && start < end && end - start <= 360.0) {
+                return Err((
+                    "shield.sectors.az_deg",
+                    "start must be below end, at most 360° apart".into(),
+                ));
+            }
+        }
+        self.hits.validate()
+    }
+}
+
+impl ShieldHits {
+    fn validate(&self) -> Result<(), Rejection> {
+        if self.loop_ms == 0 || self.ripple_ms == 0 {
+            return Err(("shield.hits.loop_ms / ripple_ms", "must be positive".into()));
+        }
+        if !(finite_positive(self.hex_cell_voxels) && finite_positive(self.flash_radius_voxels)) {
+            return Err((
+                "shield.hits.hex_cell_voxels / flash_radius_voxels",
+                "must be positive".into(),
+            ));
+        }
+        if self.impacts.len() > MAX_SHIELD_IMPACTS {
+            return Err((
+                "shield.hits.impacts",
+                format!("at most {MAX_SHIELD_IMPACTS} impacts"),
+            ));
+        }
+        for impact in &self.impacts {
+            if !(impact.reference_px.iter().all(|c| c.is_finite())
+                && finite_positive(impact.radius_voxels))
+            {
+                return Err((
+                    "shield.hits.impacts",
+                    "reference_px must be finite and radius_voxels positive".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 fn positive(value: f32) -> bool {
     value > 0.0
 }
@@ -658,7 +880,22 @@ mod tests {
     #[test]
     fn missing_tuning_values_are_rejected() {
         type Edit = fn(&mut serde_json::Value);
-        let cases: [(&str, Edit); 6] = [
+        let cases: [(&str, Edit); 10] = [
+            ("shield shape", |v| {
+                v["shield"].as_object_mut().unwrap().remove("shape");
+            }),
+            ("shield vertical radius", |v| {
+                v["shield"].as_object_mut().unwrap().remove("radius_z");
+            }),
+            ("shield below-grid opacity", |v| {
+                v["shield"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("below_grid_opacity");
+            }),
+            ("shield hits", |v| {
+                v["shield"].as_object_mut().unwrap().remove("hits");
+            }),
             ("pan speed", |v| {
                 v["camera"]
                     .as_object_mut()
@@ -701,7 +938,30 @@ mod tests {
     #[test]
     fn invalid_values_are_rejected() {
         type Edit = fn(&mut serde_json::Value);
-        let cases: [(&str, Edit); 18] = [
+        let cases: [(&str, Edit); 25] = [
+            ("shield centre not finite", |v| {
+                v["shield"]["center"] = serde_json::json!([0, 0, 1e40]);
+            }),
+            ("shield vertical radius zero", |v| {
+                v["shield"]["radius_z"] = 0.into();
+            }),
+            ("below-grid opacity above 1", |v| {
+                v["shield"]["below_grid_opacity"] = 1.5.into();
+            }),
+            ("ring width huge", |v| {
+                v["shield"]["ring"]["width_ref_px"] = 100.into();
+            }),
+            ("sector arc reversed", |v| {
+                v["shield"]["sectors"][0]["az_deg"] = serde_json::json!([270, 180]);
+            }),
+            ("too many impacts", |v| {
+                let one = v["shield"]["hits"]["impacts"][0].clone();
+                v["shield"]["hits"]["impacts"] =
+                    serde_json::Value::Array(vec![one; MAX_SHIELD_IMPACTS + 1]);
+            }),
+            ("ripple of zero length", |v| {
+                v["shield"]["hits"]["ripple_ms"] = 0.into();
+            }),
             ("alpha_far zero", |v| {
                 v["ops_grid"]["major"]["alpha_far"] = 0.0.into();
             }),
@@ -764,6 +1024,25 @@ mod tests {
                 "{name} should be rejected"
             );
         }
+    }
+
+    /// D-100: a globe centred on the ship plane, its equator the 36-voxel hit circle (D-119).
+    #[test]
+    fn shield_is_a_globe_on_the_ship_plane() {
+        let shield = real_config().shield;
+        assert_eq!(shield.shape, ShieldShape::Globe);
+        assert!(approx(&shield.center, &[-8.6, 9.4, 16.0]));
+        assert!((shield.radius_xy - 36.0).abs() < 1e-6);
+        assert!(
+            shield.radius_z > shield.center[2],
+            "part of the globe lies below the grid"
+        );
+        assert_eq!(shield.sectors.len(), 4);
+        assert_eq!(shield.hits.impacts.len(), 2);
+        let dome = edited(|v| v["shield"]["shape"] = "dome".into());
+        assert_eq!(parse(&dome).unwrap().shield.shape, ShieldShape::Dome);
+        let cube = edited(|v| v["shield"]["shape"] = "cube".into());
+        assert!(matches!(parse(&cube), Err(ConfigError::Parse { .. })));
     }
 
     #[test]

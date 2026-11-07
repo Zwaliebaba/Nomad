@@ -20,14 +20,8 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 const TICKS: u64 = 6_000;
 
 fn universe(seed: u64) -> UniverseState {
-    generate_stage1(
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: 1_793_923_200_000,
-        },
-        COMMANDERS,
-    )
-    .expect("stage 1 generates")
+    generate_stage1(SeasonConfig::new(seed, 1_793_923_200_000), COMMANDERS)
+        .expect("stage 1 generates")
 }
 
 fn site_location(state: &UniverseState, system: SystemId, index: usize) -> Location {

@@ -1,13 +1,16 @@
 //! `status`: what is on disk for a Universe, without running it (N2 plan §4.1, §6 task 8).
 //!
-//! Reads `meta`, the snapshots and the size of the journal, and checks whether a server
-//! holds the lock. The database is only read; a running server is not disturbed.
+//! Reads `meta`, the snapshots, the size of the journal and the season read model (the
+//! current standings and the result, D-196), and checks whether a server holds the lock. The
+//! database is only read; a running server is not disturbed.
 
 use std::fmt;
 use std::fs;
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
-use nomad_sim::{SeasonClock, Tick, Ticks};
+use nomad_protocol::{CONNECTION_FILE, ConnectionFile};
+use nomad_sim::{SeasonClock, SeasonEndReason, SeasonResult, Standing, Tick};
 
 use crate::clock::Clock;
 use crate::error::ServerError;
@@ -29,6 +32,8 @@ pub struct UniverseReport {
     pub meta: Meta,
     /// Whether a server holds its lock.
     pub running: bool,
+    /// Where the running server listens, from its connection file (N3 plan §4.9).
+    pub endpoint: Option<SocketAddr>,
     /// Its snapshots, oldest first.
     pub snapshots: Vec<SnapshotInfo>,
     /// The size of its journal.
@@ -41,6 +46,12 @@ pub struct UniverseReport {
     pub wall_tick: Tick,
     /// The build reading it.
     pub this_build: String,
+    /// The newest standings in the read model, with the tick they changed at (D-196).
+    pub standings: Option<(Tick, Vec<Standing>)>,
+    /// How many standings changes the read model holds.
+    pub standings_changes: usize,
+    /// The season's result, once fixed (D-116).
+    pub result: Option<SeasonResult>,
 }
 
 impl UniverseReport {
@@ -51,6 +62,21 @@ impl UniverseReport {
         let snapshot = self.snapshots.last().map_or(Tick::ZERO, |s| s.tick);
         self.journal.last_tick.map_or(snapshot, |j| j.max(snapshot))
     }
+
+    /// The season's final tick: the tick of its result once fixed (an early win ends it
+    /// sooner, D-192), or else the scheduled one (D-195). The Universe never advances past
+    /// it (D-116).
+    pub fn season_end(&self) -> Tick {
+        self.result
+            .as_ref()
+            .map_or(self.meta.final_tick, |result| result.tick)
+    }
+
+    /// Whether the season has ended: its result is fixed, or the saved Universe has reached
+    /// its final tick.
+    pub fn season_over(&self) -> bool {
+        self.result.is_some() || self.last_saved_tick() >= self.season_end()
+    }
 }
 
 /// Reads the state of the Universe in `dir`.
@@ -60,14 +86,24 @@ pub fn inspect(dir: &Path, clock: &dyn Clock, build: &str) -> Result<UniverseRep
     let meta = store.meta()?;
     let snapshots = store.snapshots()?;
     let journal = store.journal_stats()?;
+    let standings = store.latest_standings()?;
+    let standings_changes = store.standings_history()?.len();
+    let result = store.season_result()?;
     drop(store);
     let running = UniverseLock::is_held(dir)?;
+    // A connection file without the lock is stale, left by a crash (N3 plan §4.2).
+    let endpoint = running
+        .then(|| fs::read_to_string(dir.join(CONNECTION_FILE)).ok())
+        .flatten()
+        .and_then(|text| serde_json::from_str::<ConnectionFile>(&text).ok())
+        .map(|file| file.address);
     let size = |path: PathBuf| fs::metadata(path).map_or(0, |m| m.len());
     let mut wal = db_path.clone().into_os_string();
     wal.push("-wal");
     Ok(UniverseReport {
         dir: dir.to_owned(),
         running,
+        endpoint,
         wall_tick: wall_tick(SeasonClock::new(meta.season_start_unix_ms), clock.utc_ms()),
         meta,
         snapshots,
@@ -75,6 +111,9 @@ pub fn inspect(dir: &Path, clock: &dyn Clock, build: &str) -> Result<UniverseRep
         database_bytes: size(db_path),
         wal_bytes: size(PathBuf::from(wal)),
         this_build: build.to_owned(),
+        standings,
+        standings_changes,
+        result,
     })
 }
 
@@ -82,6 +121,7 @@ impl fmt::Display for UniverseReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_meta(f)?;
         self.fmt_progress(f)?;
+        self.fmt_season(f)?;
         self.fmt_storage(f)
     }
 }
@@ -90,22 +130,17 @@ impl UniverseReport {
     fn fmt_meta(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let meta = &self.meta;
         let clock = SeasonClock::new(meta.season_start_unix_ms);
-        let season_end = clock
-            .universe_time_ms(Tick::ZERO.after(Ticks::from_days(7 * u64::from(meta.season_weeks))));
+        let season_end = clock.universe_time_ms(self.season_end());
         match &meta.name {
             Some(name) => writeln!(f, "Universe     {} \"{name}\"", meta.universe_id)?,
             None => writeln!(f, "Universe     {}", meta.universe_id)?,
         }
         writeln!(f, "Directory    {}", self.dir.display())?;
-        writeln!(
-            f,
-            "Server       {}",
-            if self.running {
-                "running (the lock is held)"
-            } else {
-                "not running"
-            }
-        )?;
+        match (self.running, self.endpoint) {
+            (true, Some(endpoint)) => writeln!(f, "Server       running on {endpoint} (UDP)")?,
+            (true, None) => writeln!(f, "Server       running (the lock is held)")?,
+            (false, _) => writeln!(f, "Server       not running")?,
+        }
         writeln!(
             f,
             "Created      {} by build {} (this build: {})",
@@ -116,10 +151,15 @@ impl UniverseReport {
         writeln!(f, "Seed         {}", meta.seed)?;
         writeln!(
             f,
-            "Season       {} weeks, {} to {}",
+            "Season       {} weeks, {} to {}{}",
             meta.season_weeks,
             utc_text(meta.season_start_unix_ms),
-            utc_text(season_end)
+            utc_text(season_end),
+            if self.season_over() {
+                " (ended: the Universe no longer advances, D-116)"
+            } else {
+                ""
+            }
         )?;
         writeln!(
             f,
@@ -143,18 +183,96 @@ impl UniverseReport {
             utc_text(clock.universe_time_ms(last)),
             ticks_text(last.since(Tick::ZERO))
         )?;
-        let behind = self.wall_tick.since(last);
-        if self.running {
+        // A run catches up to the wall clock, but never past the season end (D-116).
+        let target = self.wall_tick.min(self.season_end());
+        let behind = target.since(last);
+        if self.season_over() {
+            writeln!(
+                f,
+                "Wall clock   tick {}; the season ended at tick {}",
+                self.wall_tick.get(),
+                self.season_end().get()
+            )?;
+        } else if self.running {
             writeln!(f, "Wall clock   tick {}", self.wall_tick.get())?;
         } else if behind.get() > 0 {
             writeln!(
                 f,
-                "Wall clock   tick {}: the next run catches up {}",
+                "Wall clock   tick {}: the next run catches up {}{}",
                 self.wall_tick.get(),
-                ticks_text(behind)
+                ticks_text(behind),
+                if target < self.wall_tick {
+                    ", to the season end"
+                } else {
+                    ""
+                }
             )?;
         } else {
             writeln!(f, "Wall clock   tick {} (up to date)", self.wall_tick.get())?;
+        }
+        Ok(())
+    }
+
+    /// The current standings and the result, from the read model (D-196).
+    fn fmt_season(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let clock = SeasonClock::new(self.meta.season_start_unix_ms);
+        match &self.standings {
+            Some((tick, standings)) => {
+                writeln!(
+                    f,
+                    "Standings    since tick {} ({}), {} {} in the history (D-041)",
+                    tick.get(),
+                    utc_text(clock.universe_time_ms(*tick)),
+                    self.standings_changes,
+                    if self.standings_changes == 1 {
+                        "change"
+                    } else {
+                        "changes"
+                    }
+                )?;
+                for s in standings {
+                    writeln!(
+                        f,
+                        "  {:>2}. commander {:<3} {} {}, {} {}, deposit value {}, unchanged since tick {}",
+                        s.rank,
+                        s.commander.0,
+                        s.systems,
+                        if s.systems == 1 { "system" } else { "systems" },
+                        s.holdings,
+                        if s.holdings == 1 {
+                            "holding"
+                        } else {
+                            "holdings"
+                        },
+                        s.deposit_value,
+                        s.since.get()
+                    )?;
+                }
+            }
+            None => writeln!(f, "Standings    none recorded yet")?,
+        }
+        if let Some(result) = &self.result {
+            let winners: Vec<String> = result
+                .winners
+                .iter()
+                .map(|c| format!("commander {}", c.0))
+                .collect();
+            writeln!(
+                f,
+                "Result       {} at tick {} ({}): {}{}",
+                match result.reason {
+                    SeasonEndReason::EarlyWin => "early win (D-192)",
+                    SeasonEndReason::FinalTick => "the season's final tick (D-195)",
+                },
+                result.tick.get(),
+                utc_text(clock.universe_time_ms(result.tick)),
+                winners.join(", "),
+                if result.winners.len() > 1 {
+                    ", joint winners (D-194)"
+                } else {
+                    ""
+                }
+            )?;
         }
         Ok(())
     }
@@ -206,11 +324,151 @@ impl UniverseReport {
                 self.meta.journal_floor.get()
             )?,
         }
+        match journal.last_checkpoint {
+            Some(last) => writeln!(
+                f,
+                "Checkpoints  {} state hashes in the journal, the newest at tick {} (D-109)",
+                journal.checkpoints,
+                last.get()
+            )?,
+            None => writeln!(f, "Checkpoints  none in the journal (D-109)")?,
+        }
         write!(
             f,
             "Database     {}, write-ahead log {}",
             bytes_text(self.database_bytes),
             bytes_text(self.wal_bytes)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nomad_sim::galaxy::DepositValue;
+    use nomad_sim::{CommanderId, Ticks};
+
+    use super::*;
+    use crate::ids::Difficulty;
+    use crate::server::season_end_tick;
+
+    fn report(last_snapshot: Tick, wall: Tick) -> UniverseReport {
+        UniverseReport {
+            dir: PathBuf::from("universes/abcdefgh"),
+            meta: Meta {
+                universe_id: "abcdefgh".to_owned(),
+                name: None,
+                build: "test-build".to_owned(),
+                seed: 1,
+                season_start_unix_ms: 0,
+                season_weeks: 8,
+                final_tick: season_end_tick(8),
+                ai_commanders: 3,
+                difficulty: Difficulty::Normal,
+                created_at_unix_ms: 0,
+                rules_hash: None,
+                journal_floor: Tick::ZERO,
+            },
+            running: false,
+            endpoint: None,
+            snapshots: vec![SnapshotInfo {
+                tick: last_snapshot,
+                build: "test-build".to_owned(),
+                format: 1,
+                state_hash: 0,
+                size: 10,
+            }],
+            journal: JournalStats::default(),
+            database_bytes: 0,
+            wal_bytes: 0,
+            wall_tick: wall,
+            this_build: "test-build".to_owned(),
+            standings: None,
+            standings_changes: 0,
+            result: None,
+        }
+    }
+
+    fn standing(commander: u32, rank: u32, systems: u32, since: u64) -> Standing {
+        Standing {
+            commander: CommanderId(commander),
+            rank,
+            systems,
+            holdings: 5,
+            deposit_value: DepositValue::from_milli(7_500),
+            since: Tick::new(since),
+        }
+    }
+
+    #[test]
+    fn the_standings_and_an_early_win_are_reported() {
+        let win = Tick::new(5_000);
+        let mut ended = report(win, Tick::new(9_000));
+        ended.standings = Some((win, vec![standing(2, 1, 6, 5_000), standing(1, 2, 1, 300)]));
+        ended.standings_changes = 4;
+        ended.result = Some(SeasonResult {
+            tick: win,
+            reason: SeasonEndReason::EarlyWin,
+            winners: vec![CommanderId(2)],
+        });
+        // The early win is the final tick (D-192), well before the scheduled one.
+        assert_eq!(ended.season_end(), win);
+        assert!(ended.season_over());
+        let text = ended.to_string();
+        for expected in [
+            "Standings    since tick 5000",
+            "4 changes in the history",
+            "   1. commander 2   6 systems, 5 holdings, deposit value 7.5, unchanged since tick 5000",
+            "   2. commander 1   1 system, 5 holdings",
+            "Result       early win (D-192) at tick 5000",
+            ": commander 2\n",
+            "the season ended at tick 5000",
+        ] {
+            assert!(text.contains(expected), "{expected:?} in\n{text}");
+        }
+        // Joint winners at the scheduled end (D-194).
+        let end = season_end_tick(8);
+        let mut joint = report(end, end);
+        joint.result = Some(SeasonResult {
+            tick: end,
+            reason: SeasonEndReason::FinalTick,
+            winners: vec![CommanderId(1), CommanderId(3)],
+        });
+        let text = joint.to_string();
+        assert!(
+            text.contains("commander 1, commander 3, joint winners (D-194)"),
+            "{text}"
+        );
+        assert!(text.contains("Standings    none recorded yet"), "{text}");
+    }
+
+    #[test]
+    fn an_ended_season_is_reported() {
+        let end = season_end_tick(8);
+        let day = Ticks::from_days(1).get();
+        let after = end.after(Ticks::from_days(3));
+
+        let ended = report(end, after);
+        assert!(ended.season_over());
+        let text = ended.to_string();
+        assert!(
+            text.contains("(ended: the Universe no longer advances, D-116)"),
+            "{text}"
+        );
+        assert!(
+            text.contains(&format!("the season ended at tick {}", end.get())),
+            "{text}"
+        );
+        assert!(!text.contains("catches up"), "{text}");
+
+        // A day before the end, with the wall clock past it: the next run catches up only to
+        // the season end.
+        let behind = report(Tick::new(end.get() - day), after);
+        assert!(!behind.season_over());
+        let text = behind.to_string();
+        assert!(
+            text.contains("the next run catches up 1 d, to the season end"),
+            "{text}"
+        );
+        assert!(text.contains("Checkpoints  none in the journal"), "{text}");
     }
 }

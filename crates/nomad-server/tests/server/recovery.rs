@@ -89,5 +89,16 @@ fn a_crash_loses_at_most_the_last_second_of_inputs() {
     assert!(server.wait_for_tick(Tick::new(120), crate::common::TIMEOUT));
     let (_, hash) = server.state_hash().expect("hash");
     server.shutdown().expect("clean shutdown");
-    assert_eq!(hash, reference_hash(3, T0, &[(100, connect(1, 1))], 120));
+    // Replay ends at tick 101, and the 19 ticks to the wall clock are a catch-up. Every
+    // commander is offline during catch-up (D-047), so commander 1, connected by the
+    // committed input, goes offline on its first tick, 102.
+    let offline = Input::Commander(CommanderInput {
+        commander: CommanderId(1),
+        client_seq: u64::MAX,
+        kind: CommanderInputKind::Disconnected,
+    });
+    assert_eq!(
+        hash,
+        reference_hash(3, T0, &[(100, connect(1, 1)), (101, offline)], 120)
+    );
 }

@@ -34,6 +34,7 @@ Ships exist in the simulation, move in 2D, form fleets, follow the doc 15 §3.4 
 
 - weapons and damage (S5);
 - sensors and visibility (S7; until then all entities count as visible, and the visibility check plugs in at S7);
+  > *Note (2026-11-07):* still so after S5 and S8, since S7 is not built: every ship in space counts as visible. "Entities" excludes what is not in space: docked ships and fleets in lane transit never trigger engagement and are never fired on or hit (D-042, doc 15 §3.3). S5a also refined it: shrouded hostiles trigger engagement but cannot be targeted or hit (D-188), and auto-targeting never picks structures (D-227).
 - building ships (S4);
 - the Deputy and AI (A1 onward).
 
@@ -72,6 +73,7 @@ Ships exist in the simulation, move in 2D, form fleets, follow the doc 15 §3.4 
   - Allowed **outside every ops area** (radius from Q94) **and while not engaged**.
   - The fleet cruises at its slowest member's cruise speed and cannot fire.
   - Hooks for "taking fire" (S5) and "hostile detected within 20 km" (S7) drop it to tactical speed. In S3 they are fired by tests only.
+    > *Note (2026-11-07):* S5a now fires both from its engagement step (D-114). The 20 km trigger counts any hostile ship in space within range, until S7 adds detection.
 - **Obstacles and separation** (Q96):
   - Station modules whose height range crosses the ship plane are circular obstacles (footprint radius), avoided by look-ahead steering.
   - Ships keep a soft separation from each other.
@@ -90,6 +92,8 @@ Ships exist in the simulation, move in 2D, form fleets, follow the doc 15 §3.4 
 | Retreat | Go to the nearest owned holding by route time, and dock |
 | **Jump** | Route over lanes (shortest time: in-system legs at fleet cruise speed, plus lane transit, plus spool-up). Then: move to the gate (within 2 km) → **5 s spool-up** (cancelled if the ship moves away) → **transit timer** (invisible, cannot be interrupted) → **arrival** within 2 km of the destination gate, scattered by the seeded stream, with a **10 s shroud** → continue the route |
 | Rules of engagement | Stored on the fleet; used from S5 |
+
+> *Note (2026-11-07):* S5a gave Attack and Attack-move their fire: attack-move fires as if *weapons free* and pauses while a hostile is in engagement range, and an explicit Attack target is fired at under *return fire* (D-188). S5b added Attack on a holding, which closes to weapon range of the dome's edge (D-227). S6a added the order lapse: 120 s after a disconnect, direct orders lapse and fleets station-keep until A1's doctrine (D-162).
 
 Orders either replace the queue or are appended to it (a queue flag, if the N1 wire shape lacks one).
 

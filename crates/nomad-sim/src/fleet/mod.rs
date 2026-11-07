@@ -11,7 +11,7 @@
 //! | `Ship` | ship | class, owner, fleet |
 //! | `Motion` | ship, fleet anchor | position (m), velocity (m/s), heading (rad) |
 //! | `Shroud` | ship | the tick the jump shroud ends (D-055) |
-//! | `Fleet` | fleet | owner, place, members with formation offsets, rules of engagement, the active order and the queue |
+//! | `Fleet` | fleet | owner, place, members with formation offsets, rules of engagement, the engagement deadline, the active order and the queue |
 //!
 //! Where a fleet is, docked, in a system or in lane transit, is its [`Place`]; its ships
 //! share it. Tactical or cruise mode is not stored: it follows from where the anchor is and
@@ -87,6 +87,16 @@ pub enum Place {
         /// The tick it arrives.
         arrive: Tick,
     },
+    /// In an emergency jump (S6b; D-057, D-166): an uninterruptible transit to `site`
+    /// along the fastest route, untargetable and invisible like lane transit. On arrival it
+    /// docks at the owner's holding there if there is room, and otherwise station-keeps by
+    /// the core.
+    EmergencyJump {
+        /// The site it jumps to.
+        site: crate::galaxy::SiteId,
+        /// The tick it arrives.
+        arrive: Tick,
+    },
 }
 
 /// Tactical or cruise mode (doc 15 §3.3).
@@ -106,9 +116,9 @@ pub(crate) struct Fleet {
     /// Members with their formation offsets, in the fleet frame: +x ahead, +y to the left.
     pub(crate) members: BTreeMap<ShipId, Vec2>,
     pub(crate) rules_of_engagement: RulesOfEngagement,
-    /// Set by the "taking fire" and "hostile detected" hooks; drops the fleet out of cruise
-    /// mode (doc 15 §3.3).
-    pub(crate) engaged: bool,
+    /// While set and later than the current tick, the fleet is engaged and cannot cruise
+    /// (doc 15 §3.3). Taking fire and a hostile within 20 km move it 30 s ahead (D-114).
+    pub(crate) engaged_until: Option<Tick>,
     pub(crate) active: Option<ActiveOrder>,
     pub(crate) queue: VecDeque<FleetOrder>,
 }
@@ -138,8 +148,17 @@ pub(crate) enum Task {
     KeepStationOn { target: SimId, offset: Vec2 },
     /// Stay within the guard radius of an object, following it.
     Guard { object: SimId },
-    /// Close to weapon range of a target and hold (S3: no weapons yet).
-    Attack { target: SimId },
+    /// Close to weapon range of a target and hold; combat fires at it (S5). For a ship or a
+    /// fleet, `seen` is where its commander last saw it, followed while it is detected; a
+    /// structure does not move and is followed where it stands (`None`; D-180).
+    Attack {
+        target: SimId,
+        seen: Option<PositionMetres>,
+    },
+    /// An Attack whose target went out of detection: go to where it was last seen and hold
+    /// there; the order completes with [`FleetEvent::TargetLost`] unless the target is
+    /// detected again on the way (D-180).
+    Pursue { target: SimId, to: PositionMetres },
     /// Approach a holding and dock.
     Dock { holding: HoldingId },
     /// Follow a route over lanes, hop by hop, then dock if `then_dock` is set.
@@ -193,10 +212,13 @@ pub struct FleetView {
     pub heading_rad: f64,
     /// Tactical or cruise.
     pub mode: MotionMode,
-    /// Its rules of engagement (used from S5).
+    /// Its rules of engagement.
     pub rules_of_engagement: RulesOfEngagement,
-    /// Whether a hook marked it engaged.
+    /// Whether it is engaged: it took fire or had a hostile within 20 km in the last 30 s
+    /// (D-114).
     pub engaged: bool,
+    /// When its engagement ends, if it is engaged.
+    pub engaged_until: Option<Tick>,
     /// The order it is carrying out.
     pub order: Option<FleetOrder>,
     /// The orders after it.
@@ -226,6 +248,10 @@ pub struct ShipView {
     pub heading_rad: f64,
     /// The tick its jump shroud ends, if it has one.
     pub shroud_until: Option<Tick>,
+    /// Hull points left.
+    pub hull: u32,
+    /// Hull points of an undamaged ship of its class.
+    pub max_hull: u32,
 }
 
 /// Formation offsets of the default compact grid (S3 plan §4.3): about √n columns,
@@ -311,7 +337,8 @@ impl UniverseState {
             heading_rad: anchor.heading_rad,
             mode,
             rules_of_engagement: fleet.rules_of_engagement,
-            engaged: fleet.engaged,
+            engaged: self.engaged(&fleet),
+            engaged_until: fleet.engaged_until.filter(|_| self.engaged(&fleet)),
             order: fleet.active.map(|a| a.order),
             queued: fleet.queue.into_iter().collect(),
             travel,
@@ -325,6 +352,7 @@ impl UniverseState {
         let place = self
             .entities
             .with::<Fleet, _>(ship.fleet.sim_id(), |f| f.place)?;
+        let (hull, max_hull) = self.ship_hull(id)?;
         Some(ShipView {
             id,
             class: ship.class,
@@ -338,7 +366,14 @@ impl UniverseState {
                 .entities
                 .get::<Shroud>(id.sim_id())
                 .map(|shroud| shroud.until),
+            hull,
+            max_hull,
         })
+    }
+
+    /// Whether `fleet` is engaged after the last completed tick (D-114).
+    pub(crate) fn engaged(&self, fleet: &Fleet) -> bool {
+        fleet.engaged_until.is_some_and(|until| until > self.tick)
     }
 
     /// Whether `fleet` travels in tactical or cruise mode now: cruise outside every ops area
@@ -347,7 +382,7 @@ impl UniverseState {
     pub fn fleet_mode(&self, fleet: FleetId) -> Option<MotionMode> {
         let (place, engaged) = self
             .entities
-            .with::<Fleet, _>(fleet.sim_id(), |f| (f.place, f.engaged))?;
+            .with::<Fleet, _>(fleet.sim_id(), |f| (f.place, self.engaged(f)))?;
         let anchor = self.entities.get::<Motion>(fleet.sim_id())?;
         let Place::InSystem(system) = place else {
             return Some(MotionMode::Tactical);
@@ -402,7 +437,11 @@ impl UniverseState {
         } else {
             docking.core_ships
         };
-        core.saturating_add(docking.dry_dock_ships.saturating_mul(h.dry_docks))
+        core.saturating_add(
+            docking
+                .dry_dock_ships
+                .saturating_mul(self.dry_docks(holding)),
+        )
     }
 
     /// Checks the ships and fleets for broken invariants and returns what is wrong, if
@@ -451,6 +490,11 @@ impl UniverseState {
             {
                 problems.push(format!("{id:?} is in a lane with no transit timer"));
             }
+            if let Place::EmergencyJump { arrive, .. } = fleet.place
+                && !crate::siege::jump_pending(self, id, arrive)
+            {
+                problems.push(format!("{id:?} is in an emergency jump with no arrival"));
+            }
         }
         for &holding in self.holdings.keys() {
             if self.docked_ships(holding) > self.docking_capacity(holding) {
@@ -467,14 +511,15 @@ impl UniverseState {
             .any(|(deadline, f)| f == &fleet && deadline == arrive)
     }
 
-    /// Marks `fleet` as engaged or not. Engaged fleets drop to tactical speed (doc 15 §3.3).
+    /// Engages `fleet` for one engagement window from now, or ends its engagement at once.
+    /// Engaged fleets drop to tactical speed (doc 15 §3.3; D-114).
     ///
-    /// The hook for "taking fire" (S5) and "hostile detected within 20 km" (S7). Until those
-    /// packages exist only tests call it. When an engagement ends is not designed yet; the
-    /// caller clears the flag.
+    /// Combat engages fleets itself (taking fire, a detected hostile within 20 km); this is
+    /// for tests and the harness.
     pub fn set_fleet_engaged(&mut self, fleet: FleetId, engaged: bool) {
+        let until = engaged.then(|| self.tick.after(crate::combat::engagement_window(self)));
         if let Some(f) = self.entities.get_mut::<Fleet>(fleet.sim_id()) {
-            f.engaged = engaged;
+            f.engaged_until = until;
         }
     }
 }
@@ -507,7 +552,7 @@ pub(crate) fn spawn_start_kits(state: &mut UniverseState) {
             place: Place::Docked(holding),
             members: BTreeMap::new(),
             rules_of_engagement: DEFAULT_RULES_OF_ENGAGEMENT,
-            engaged: false,
+            engaged_until: None,
             active: None,
             queue: VecDeque::new(),
         };

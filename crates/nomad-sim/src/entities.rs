@@ -16,10 +16,12 @@ use std::fmt;
 use hecs::{Component, DynamicBundle, Entity, World};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::combat::{Attackers, Damage, Weapons};
+use crate::economy::{Construction, Disabled, Hull, Module};
 use crate::fleet::{Fleet, Motion, Ship, Shroud};
 use crate::id::SimId;
 
-/// The simulation's entities: ships and fleets, with their components.
+/// The simulation's entities: ships, fleets and station modules, with their components.
 #[derive(Default)]
 pub(crate) struct Entities {
     world: World,
@@ -108,6 +110,13 @@ impl Entities {
             fleets: self.table(),
             motions: self.table(),
             shrouds: self.table(),
+            damages: self.table(),
+            weapons: self.table(),
+            attackers: self.table(),
+            modules: self.table(),
+            hulls: self.table(),
+            constructions: self.table(),
+            disabled: self.table(),
         }
     }
 
@@ -125,11 +134,25 @@ impl Entities {
             fleets,
             motions,
             shrouds,
+            damages,
+            weapons,
+            attackers,
+            modules,
+            hulls,
+            constructions,
+            disabled,
         } = tables;
         check_sorted(&ships, "ships")?;
         check_sorted(&fleets, "fleets")?;
         check_sorted(&motions, "motions")?;
         check_sorted(&shrouds, "shrouds")?;
+        check_sorted(&damages, "damages")?;
+        check_sorted(&weapons, "weapons")?;
+        check_sorted(&attackers, "attackers")?;
+        check_sorted(&modules, "modules")?;
+        check_sorted(&hulls, "hulls")?;
+        check_sorted(&constructions, "constructions")?;
+        check_sorted(&disabled, "disabled")?;
 
         let mut entities = Self::default();
         // Ships and fleets are the entities; the other tables add components to them.
@@ -151,6 +174,47 @@ impl Entities {
             }
             entities.attach(id, shroud)?;
         }
+        // Combat state (S5a): damage and weapons on ships, attackers on fleets.
+        for (id, damage) in damages {
+            if !entities.has::<Ship>(id) {
+                return Err(TableError::Orphan(id));
+            }
+            entities.attach(id, damage)?;
+        }
+        for (id, w) in weapons {
+            if !entities.has::<Ship>(id) {
+                return Err(TableError::Orphan(id));
+            }
+            entities.attach(id, w)?;
+        }
+        for (id, a) in attackers {
+            if !entities.has::<Fleet>(id) {
+                return Err(TableError::Orphan(id));
+            }
+            entities.attach(id, a)?;
+        }
+        // Modules are entities too (S4); hull, construction and disabled attach to them.
+        for (id, module) in modules {
+            if entities.contains(id) {
+                return Err(TableError::Duplicate(id));
+            }
+            entities.spawn(id, (module,));
+        }
+        for (id, hull) in hulls {
+            entities.attach(id, hull)?;
+        }
+        for (id, construction) in constructions {
+            if !entities.has::<Module>(id) {
+                return Err(TableError::Orphan(id));
+            }
+            entities.attach(id, construction)?;
+        }
+        for (id, off) in disabled {
+            if !entities.has::<Module>(id) {
+                return Err(TableError::Orphan(id));
+            }
+            entities.attach(id, off)?;
+        }
         Ok(entities)
     }
 
@@ -169,6 +233,13 @@ struct EntityTables {
     fleets: Vec<(SimId, Fleet)>,
     motions: Vec<(SimId, Motion)>,
     shrouds: Vec<(SimId, Shroud)>,
+    damages: Vec<(SimId, Damage)>,
+    weapons: Vec<(SimId, Weapons)>,
+    attackers: Vec<(SimId, Attackers)>,
+    modules: Vec<(SimId, Module)>,
+    hulls: Vec<(SimId, Hull)>,
+    constructions: Vec<(SimId, Construction)>,
+    disabled: Vec<(SimId, Disabled)>,
 }
 
 /// Why entity tables from a snapshot were rejected. Snapshots come from outside the process,
@@ -185,7 +256,7 @@ impl fmt::Display for TableError {
         match self {
             Self::Unsorted(table) => write!(f, "entity table {table} is not sorted by SimId"),
             Self::Duplicate(id) => write!(f, "entity {id:?} appears twice"),
-            Self::Orphan(id) => write!(f, "component of {id:?}, which is no ship or fleet"),
+            Self::Orphan(id) => write!(f, "component of {id:?}, which has no entity of its kind"),
         }
     }
 }

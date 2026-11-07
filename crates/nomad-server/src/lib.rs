@@ -4,19 +4,26 @@
 //! One server hosts one Universe (D-026, D-085). This crate creates it, runs it in real
 //! time, saves it continuously, recovers it after a crash and catches it up after
 //! downtime. It contains no game rules: those live in `nomad-sim`, which this crate drives
-//! through `step`, the snapshot codec and the state hash (D-050). There is no networking
-//! yet; N3 puts [`ServerHandle`] behind QUIC.
+//! through `step`, the snapshot codec and the state hash (D-050). Clients reach it over QUIC
+//! (N3).
 //!
 //! - [`create()`] generates the MVP stage-1 Universe and writes its `meta` row and tick-0
-//!   snapshot (doc 10 §4.4; D-106, D-107).
+//!   snapshot (doc 10 §4.4; D-106, D-107). The human's exposure window starts where
+//!   `create --window` says, by default local 19:00 ([`WindowSpec`], D-157).
 //! - [`ServerHandle::start`] takes the Universe's lock, loads the latest snapshot and
-//!   replays the journal (refusing a journal from another build, D-048), then starts two
-//!   threads (doc 20 §4):
+//!   replays the journal (refusing a journal from another build, D-048, and checking its
+//!   state-hash checkpoints, D-109), then starts two threads (doc 20 §4):
 //!   - the **simulation** thread catches up to the wall clock with journaled catch-up
 //!     markers (D-047) and then paces one tick per 100 ms, publishing [`ServerEvent`]s and
-//!     tick-time statistics;
+//!     tick-time statistics. It journals a state-hash checkpoint every 600 ticks (D-109),
+//!     and at the season's final tick it stops advancing (D-116);
 //!   - the **persistence** thread commits journal batches at least once per second and
-//!     writes a snapshot every 3,000 ticks, applying retention (doc 11 §8).
+//!     writes a snapshot every 3,000 ticks, applying retention (doc 11 §8; the journal is
+//!     kept for 48 h, D-110);
+//!   - with [`ServerConfig::net`], the **network** thread runs the endpoint: QUIC on UDP,
+//!     127.0.0.1 and [`DEFAULT_PORT`] by default (D-150), with the identity of D-151 and
+//!     the connection file `server.json` (D-120). Sessions authenticate with the token,
+//!     send commands and receive their outcomes (N3 plan).
 //! - [`ServerHandle::shutdown`], or [`ShutdownTrigger::shutdown`] from a Ctrl+C handler,
 //!   stops cleanly with a final snapshot. Dropping the handle stops like a crash.
 //! - [`status::inspect`] reports what is on disk without running anything.
@@ -31,34 +38,44 @@ mod create;
 mod error;
 mod ids;
 mod journal;
+mod net;
 mod paths;
 mod persist;
 mod recovery;
+mod reject;
 mod retention;
 mod server;
 mod sim;
 pub mod status;
 mod store;
 mod timefmt;
+mod window;
 
 pub use clock::{Alarm, Clock, FakeClock, SystemClock};
 pub use create::{
     CreateParams, Created, DEFAULT_SEASON_WEEKS, HUMAN_COMMANDER, NAME_MAX_CHARS, SEASON_WEEKS,
-    STAGE1_AI_COMMANDERS, create,
+    STAGE1_AI_COMMANDERS, create, stage1_roster,
 };
 pub use error::ServerError;
 pub use ids::{
     Difficulty, ParseDifficultyError, ParseUniverseIdError, UNIVERSE_ID_LEN, parse_universe_id,
     random_universe_id, universe_id_text,
 };
+pub use net::identity::{IDENTITY_FILE, Identity};
+pub use net::{BIND_ENV, DEFAULT_PORT, Limits, NetConfig, PORT_ENV, local_connect_address};
 pub use paths::{DATA_DIR_ENV, DATABASE_FILE, DataDir, LOCK_FILE, UniverseLock};
-pub use retention::{HOURLY_WINDOW, KEEP_LATEST, RetentionPlan, plan as retention_plan};
+pub use recovery::{CheckpointMismatch, ReplayCheck};
+pub use reject::wire_reason;
+pub use retention::{RetentionPlan, RetentionPolicy, plan as retention_plan};
 pub use server::{
-    CatchUpProgress, Input, Phase, SNAPSHOT_INTERVAL, ServerConfig, ServerEvent, ServerHandle,
-    ServerStatus, ShutdownReport, ShutdownTrigger, StartReport, SubmitError,
+    CHECKPOINT_INTERVAL, CatchUpProgress, Input, Phase, SNAPSHOT_INTERVAL, ServerConfig,
+    ServerEvent, ServerHandle, ServerStatus, ShutdownReport, ShutdownTrigger, StartReport,
+    SubmitError, season_end_tick,
 };
+pub use store::read_model::ReadModelSync;
 pub use store::{JournalStats, Meta, SCHEMA_FORMAT, SnapshotInfo};
 pub use timefmt::{duration_text, ticks_text, utc_text};
+pub use window::{WindowSpec, local_offset_minutes, window_text};
 
 /// This build's identity: the git commit it was built from, or `unknown` (N2 plan §4.6).
 /// Snapshots and journal entries record it, and a journal is replayed only by the build

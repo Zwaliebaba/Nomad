@@ -2,11 +2,16 @@
 
 use nomad_types::{Command, Owner};
 
+use crate::announce::Announcement;
+use crate::combat::CombatEvent;
 use crate::command::{CommandRejection, execute};
+use crate::defence::DefenceEvent;
+use crate::economy::EconomyEvent;
 use crate::fleet::FleetEvent;
 use crate::id::CommanderId;
 use crate::input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 use crate::rng::{StreamKey, purpose};
+use crate::sensors::VisibilityEvent;
 use crate::state::{ScheduledEvent, UniverseState};
 use crate::time::{Tick, Ticks};
 
@@ -23,6 +28,22 @@ pub struct TickOutputs {
     pub commands: Vec<CommandResult>,
     /// What happened to fleets (S3 plan §4.4).
     pub fleet_events: Vec<FleetEvent>,
+    /// What combat did: damage, destroyed ships and fleets (S5 plan §4.3).
+    pub combat_events: Vec<CombatEvent>,
+    /// What the economy did (S4 plan §4.8).
+    pub economy_events: Vec<EconomyEvent>,
+    /// What station combat did: sector and module damage, breaches, cores down (S5b).
+    pub defence_events: Vec<DefenceEvent>,
+
+    // S6: offline and siege rules.
+    /// What commanders are told: window moves and lapsed orders (S6 plan §4.8), and control,
+    /// standings, the near-win warning and the season's end (S8 plan §4.5).
+    pub announcements: Vec<Announcement>,
+
+    // S7: sensors and fog of war.
+    /// What came into and went out of each observer's view, and observed departures
+    /// (S7 plan §4.3, §4.5).
+    pub visibility_events: Vec<VisibilityEvent>,
 }
 
 /// The outcome of one command input.
@@ -38,10 +59,29 @@ pub struct CommandResult {
 
 /// Computes the next tick: applies `inputs`, fires due timers and advances the tick counter.
 ///
-/// Phase order follows Design doc 11 §4.1. Phase 5 (movement and transit) runs ships and
-/// fleets (S3); phases 3–4 and 6–9 (AI, Deputy, sensors, combat, economy, derived state)
-/// arrive with their work packages (D-051).
+/// Phase order follows Design doc 11 §4.1. Phase 1 ends by bringing commanders' presence up
+/// to date, phase 2 also fires siege deadlines (exits, siege ends, emergency-jump arrivals;
+/// S6b) and then commander deadlines (window closes, grace ends; S6a), phase 5 (movement and
+/// transit) runs ships and fleets (S3), phase 6 the sensors on every fifth tick and observed
+/// departures on every tick (S7), phase 7 ship and station combat (S5a, S5b) and then the
+/// breaches and cores down it caused (S6b), phase 8 the economy (S4) and phase 9 the activity
+/// samples (S6a) and the standings, the early win and the season end (S8). Phases 3–4 (AI,
+/// Deputy) and the rest of phase 9 arrive with their work packages (D-051). Once the season's
+/// result is fixed, `step` changes nothing (D-116).
 pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
+    // The season is over (D-116): no tick follows the final one. Nothing changes, and every
+    // input counts as rejected (S8 plan §4.4).
+    if state.season_over() {
+        let inputs = inputs
+            .operator
+            .len()
+            .saturating_add(inputs.commanders.len());
+        return TickOutputs {
+            tick: state.tick,
+            inputs_rejected: u32::try_from(inputs).unwrap_or(u32::MAX),
+            ..TickOutputs::default()
+        };
+    }
     let now = state.tick.next();
     let mut out = TickOutputs {
         tick: now,
@@ -55,6 +95,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
             out.inputs_rejected = out.inputs_rejected.saturating_add(1);
         }
     }
+    // Presence can change only through these inputs (S6a).
+    let mut presence_inputs = !inputs.operator.is_empty();
     let mut commander_inputs: Vec<&CommanderInput> = inputs.commanders.iter().collect();
     commander_inputs.sort_by_key(|input| (input.commander, input.client_seq));
     for input in commander_inputs {
@@ -69,6 +111,7 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
                 outcome.is_ok()
             }
             CommanderInputKind::Connected | CommanderInputKind::Disconnected => {
+                presence_inputs = true;
                 apply_commander(state, input)
             }
         };
@@ -76,15 +119,53 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
             out.inputs_rejected = out.inputs_rejected.saturating_add(1);
         }
     }
+    // Who is online after this tick's inputs (S6 plan §4.1).
+    if presence_inputs {
+        crate::commander::sync_presence(state, now);
+    }
 
     // Phase 2: fire every timer due at or before this tick, in (deadline, SimId) order.
     while let Some((_id, _deadline, event)) = state.timers.pop_due(now) {
         fire(state, now, &event);
         out.timers_fired = out.timers_fired.saturating_add(1);
     }
+    // Siege deadlines: exits, siege ends and emergency-jump arrivals (S6 plan §4.4, §4.6).
+    // Before the commanders', so a siege that ends as its window closes is over by then.
+    crate::siege::fire_due(state, now, &mut out);
+    // Commander deadlines: window closes and grace ends (S6 plan §4.2, §4.3).
+    crate::commander::fire_due(state, now, &mut out);
 
-    // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4).
+    // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4). On a sensors tick,
+    // where fleets were before it moves them: what observers last saw (S7 plan §4.4).
+    let anchors = crate::sensors::before_movement(state, now);
     crate::fleet::movement::run(state, now, &mut out.fleet_events);
+
+    // Phase 6: sensors and visibility, 2 Hz (D-173), and departures seen (D-179).
+    crate::sensors::run(
+        state,
+        now,
+        anchors.as_ref(),
+        &out.fleet_events,
+        &mut out.visibility_events,
+    );
+
+    // Phase 7: ship combat (S5 plan §4.2–§4.4) and station combat (§4.5–§4.8).
+    crate::combat::run(
+        state,
+        now,
+        &mut out.combat_events,
+        &mut out.defence_events,
+        &mut out.economy_events,
+    );
+    // The breaches and cores down of this tick's combat (S6 plan §4.4–§4.6).
+    crate::siege::after_combat(state, now, &mut out);
+    // Phase 8: the economy, each holding once a second in its slot (S4 plan §4.1).
+    crate::economy::run(state, now, &mut out.economy_events, &mut out.fleet_events);
+    // Phase 9: activity samples, once a minute per commander (D-154).
+    crate::commander::sample_activity(state, now);
+    // Phase 9: the standings on a tick that changed holdings, then the early win and the
+    // season's final tick (S8; D-191, D-192, D-195).
+    crate::season::run(state, now, &mut out.announcements);
 
     state.tick = now;
     out
@@ -106,6 +187,10 @@ fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) -> b
         // rejected, so a server bug shows up in the outputs instead of passing silently.
         OperatorInput::CatchUpStart => !std::mem::replace(&mut state.catching_up, true),
         OperatorInput::CatchUpEnd => std::mem::replace(&mut state.catching_up, false),
+        // AI presence until A5's schedules (S6 plan §4.1).
+        OperatorInput::SetPresence { commander, online } => {
+            crate::commander::set_presence(state, commander, online)
+        }
     }
 }
 
@@ -130,6 +215,7 @@ fn apply_command(
         Owner::Commander(commander),
         command,
         &mut out.fleet_events,
+        &mut out.economy_events,
     )
 }
 
@@ -160,10 +246,7 @@ mod tests {
     use crate::{CommanderId, SeasonConfig};
 
     fn universe() -> UniverseState {
-        UniverseState::new(SeasonConfig {
-            seed: 1,
-            season_start_unix_ms: 0,
-        })
+        UniverseState::new(SeasonConfig::new(1, 0))
     }
 
     #[test]

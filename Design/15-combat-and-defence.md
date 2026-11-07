@@ -91,7 +91,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 
 ## 4. Weapons and damage
 
-*Agreed (D-052).*
+*Agreed (D-052).* Details agreed with the S5 plan: a ship's hit radius is half its model's short side (D-143); auto-targeting prefers the highest multiplier, then the nearest, then the lowest `SimId` (D-144); there is no friendly fire (D-146); return fire covers hostiles that hit the fleet or its commander's structures in range in the last 30 s (D-145). SHLD SURGE stays at 20% (D-147); FLAK SCREEN is defined in D-148. S5b's readings (structures need explicit Attack orders, flak never hits structures, a new dome starts full, and more) are D-227. Ties that rules broke by the lower `CommanderId`, such as D-057's capture tie, use a seeded draw instead (D-229).
 
 - **Projectiles:** each weapon has damage per shot, a fire interval, projectile speed, range, and a spread that narrows as **lock** builds. Bolts fly at about 800 m/s, matching the phase-1 HUD's "TTI 1.1 s" at 0.9 km. Torpedoes are slower, about 350 m/s, and do not home.
 - **Lock:**
@@ -118,10 +118,11 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 - A hostile projectile that crosses the dome circle damages the sector whose arc it crosses, then stops (phase 1: projectiles stop at the dome).
 - **The dome is one-way.** Outgoing fire from turrets and docked defenders launching from inside passes through it.
 - **Pylons are inside the dome and cannot be targeted separately.** A sector's strength *is* its pylon's projection.
+- *Agreed with the S5 plan:* a sector's maximum is 25% from the core plus 75% from its own pylon (D-140, superseding D-053's 25% per pylon). Every core has the same dome (D-141). Regeneration is allocated MW × 50/120 per second, scaling with the sector's maximum (D-142); power is allocated as in D-128.
 - A sector below 50% shows as weak (phase 1). A sector at 0 is a **breach**, and the holding enters Reinforced (D-015, D-033).
 - During Reinforced, the dome is immune to hostile fire (doc 12).
 - During a Siege, the breached sector is open: no regeneration, no blocking. Projectiles entering through the open arc can hit modules.
-- **Minimal dome** (RK-09): every core module projects a four-sector dome. A core with no pylons has 25% of full sector strength. Each pylon adds 25% of full strength to its sector. The mother station starts with four pylons.
+- **Minimal dome** (RK-09): every core module projects a four-sector dome. A core with no pylons has 25% of full sector strength. Each pylon adds 25% of full strength to its sector. The mother station starts with four pylons. *(Superseded in part by D-140: the core gives 25% and each sector's own pylon the other 75%.)*
 
 ### 5.2 Power and regeneration
 
@@ -166,11 +167,13 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 - **Held:** every sector instantly restores to 50% and regenerates normally afterwards; 48 h of immunity follows (D-015).
 - **Fallen:** capture, or an emergency jump (§7).
 
+> **Settled with the S6 plan (D-158 to D-168):** the Reinforced exit is the earliest stagger slot at least 12 h after the breach (D-158), and a sector worn to 0 during protection is no breach (D-159). Online at the siege start includes the 120 s grace (D-160). Any commander hostile to the owner can damage modules through the open sector, and capture goes to the most core damage among all of them; NPC raiders deal no damage inside the dome (D-163). A fallen mother station's destination, journey and comeback grant are D-164 to D-167, superseding D-034's destination; what a capture cancels and keeps is D-168.
+
 ## 7. Capture and the emergency jump
 
 *Agreed (D-057), detailing D-017 and D-034.*
 
-- **Who captures:** the attacker who dealt the most core damage during the siege. Ties go to the larger total damage dealt to the holding, then to the lower `CommanderId`. This deters a third party from sniping the core in the final second.
+- **Who captures:** the attacker who dealt the most core damage during the siege. Ties go to the larger total damage dealt to the holding, then to the lower `CommanderId`. This deters a third party from sniping the core in the final second. *(D-229: the last tie-break is a draw from the season's seeded random streams instead of the lower `CommanderId`, so no rule favours the human.)*
 - **Normal holding:**
   - The core changes owner and restores to 25% hull; the dome sectors restore to 25%.
   - Surviving modules transfer to the new owner. Build queues are cancelled.
@@ -188,6 +191,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 - A **MULE** carries a **core kit** (cost in doc 14) to a free site and deploys it. The site becomes an **outpost**, and its construction takes **2 h**. When complete, the site becomes a holding with a minimal dome (§5.1).
 - **An outpost under construction can be destroyed at any time.** This is an exception to doc 12's disable-only rule. Without it, nobody could contest a land grab outside the claimant's window. The claimant chose to expose the kit.
 - Only one outpost can exist on a site at a time. Outposts do not count for control (D-041).
+- *Settled since:* claiming is built in S4 (D-135), and a core kit's price grows with the commander's size (D-189). A core under construction has a hull that grows from 10% to 100% of its maximum over the 2 h (D-224).
 
 ## 9. Gates
 
@@ -210,9 +214,10 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 
 - Raider havens send out raid groups: strike craft, and sometimes a heavy cruiser.
 - **Raiders do zero damage to domes, so they can never breach or siege.** This is guaranteed mechanically, not left to AI behaviour.
-- Raiders target convoys, ships outside docks, outposts, and peripheral structures. Peripheral structures can only be disabled, as for anyone (doc 12).
+- Raiders target convoys, ships outside docks, outposts, and peripheral structures. Peripheral structures can only be disabled, as for anyone (doc 12). *(D-223: raiders only disable them, inside the owner's window too, where a commander's hit destroys one, D-169.)*
 - Raid strength scales with the target commander's fleet strength (doc 13).
 - No new raids start during catch-up (D-047).
+- *Settled with the A3 plan:* a raid's launch, target and strength are a simulation rule, and the director AI only steers the spawned group (D-219). Strength comes from the target's fleet value, with a floor of 2 strike craft (D-220); each raid spawns a fresh group (D-221); its 10 minutes start on arrival (D-222).
 
 ## 11. Time-to-kill targets
 

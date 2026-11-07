@@ -7,12 +7,14 @@ use nomad_server::{DataDir, UniverseLock};
 
 use crate::common::TestDir;
 
-fn nomad_server(data: &Path, args: &[&str]) -> Output {
+pub(crate) fn nomad_server(data: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_nomad-server"))
         .args(args)
         .arg("--data-dir")
         .arg(data)
         .env_remove("RUST_LOG")
+        .env_remove(nomad_server::BIND_ENV)
+        .env_remove(nomad_server::PORT_ENV)
         .output()
         .expect("nomad-server runs")
 }
@@ -21,12 +23,12 @@ fn stdout(output: &Output) -> String {
     String::from_utf8_lossy(&output.stdout).into_owned()
 }
 
-fn stderr(output: &Output) -> String {
+pub(crate) fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
 }
 
 /// Creates a Universe through the binary and returns its ID.
-fn create(data: &Path, extra: &[&str]) -> String {
+pub(crate) fn create(data: &Path, extra: &[&str]) -> String {
     let mut args = vec!["create", "--seed", "42"];
     args.extend_from_slice(extra);
     let output = nomad_server(data, &args);
@@ -85,6 +87,33 @@ fn create_then_status() {
 }
 
 #[test]
+fn create_takes_the_human_window() {
+    // D-157: `--window` in UTC here, so the test does not depend on the machine's time zone.
+    let dir = TestDir::new("cli-window");
+    let output = nomad_server(dir.path(), &["create", "--seed", "1", "--window", "18:30Z"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(
+        text.contains("Your window  18:30–22:30 UTC"),
+        "no window in:\n{text}"
+    );
+    // Without --window: local 19:00, whatever that is in UTC.
+    let output = nomad_server(dir.path(), &["create", "--seed", "1"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("Your window  "));
+    // Off the quarter hour in UTC: refused.
+    let output = nomad_server(dir.path(), &["create", "--window", "18:40Z"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stderr(&output).contains("quarter hour"),
+        "{}",
+        stderr(&output)
+    );
+    let output = nomad_server(dir.path(), &["create", "--window", "noon"]);
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
 fn bad_arguments_are_refused() {
     let dir = TestDir::new("cli-bad");
     let output = nomad_server(dir.path(), &["create", "--season-weeks", "13"]);
@@ -114,6 +143,7 @@ fn bad_arguments_are_refused() {
 }
 
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn run_is_refused_while_another_server_holds_the_universe() {
     let dir = TestDir::new("cli-lock");
     let id = create(dir.path(), &[]);
@@ -135,6 +165,7 @@ fn run_is_refused_while_another_server_holds_the_universe() {
 /// test cannot target without unsafe code; the shutdown path after the signal is the same.
 #[cfg(unix)]
 #[test]
+#[ignore = "network: opens sockets on localhost; CI runs fast tests only (D-190), run with --ignored"]
 fn run_stops_cleanly_on_sigint() {
     use std::io::{BufRead, BufReader};
     use std::process::Stdio;
@@ -142,7 +173,7 @@ fn run_stops_cleanly_on_sigint() {
     let dir = TestDir::new("cli-sigint");
     let id = create(dir.path(), &[]);
     let mut child = Command::new(env!("CARGO_BIN_EXE_nomad-server"))
-        .args(["run", "--universe", &id, "--data-dir"])
+        .args(["run", "--universe", &id, "--port", "0", "--data-dir"])
         .arg(dir.path())
         .env("RUST_LOG", "info")
         .stderr(Stdio::piped())
@@ -184,4 +215,66 @@ fn run_stops_cleanly_on_sigint() {
     assert!(text.contains("not running"), "{text}");
     assert!(text.contains(&format!("Last tick    {saved} ")), "{text}");
     assert!(text.contains(&format!("tick {saved:>10}")), "{text}");
+}
+
+/// `connect-info` prints what a client needs; `rotate-token` replaces the token, and with
+/// `--certificate` the certificate, only while the Universe is stopped (D-151).
+#[test]
+fn connect_info_and_rotate_token() {
+    let dir = TestDir::new("cli-identity");
+    let id = create(dir.path(), &[]);
+    let field = |text: &str, name: &str| {
+        text.lines()
+            .find_map(|line| line.strip_prefix(name))
+            .map_or_else(
+                || panic!("no {name} in:\n{text}"),
+                |rest| rest.trim().to_owned(),
+            )
+    };
+    let info = |extra: &[&str]| {
+        let mut args = vec!["connect-info"];
+        args.extend_from_slice(extra);
+        let output = nomad_server(dir.path(), &args);
+        assert!(output.status.success(), "{}", stderr(&output));
+        stdout(&output)
+    };
+
+    let first = info(&[]);
+    assert!(first.contains("127.0.0.1:31790  (not running)"), "{first}");
+    let import = field(&first, "Import");
+    let parsed = nomad_protocol::ConnectInfo::parse(&import).expect("import string");
+    assert_eq!(parsed.fingerprint.to_hex(), field(&first, "Fingerprint"));
+    assert_eq!(parsed.token.as_str(), field(&first, "Token"));
+    // The token is warned about, on stderr.
+    let output = nomad_server(dir.path(), &["connect-info"]);
+    assert!(stderr(&output).contains("Keep it private"));
+    // --host and --port override the address the client is told.
+    assert!(info(&["--host", "::1", "--port", "4000"]).contains("[::1]:4000"));
+    // The identity is kept: asking again changes nothing.
+    assert_eq!(field(&info(&[]), "Token"), field(&first, "Token"));
+
+    // Refused while the Universe is in use.
+    let universe = dir.path().join("universes").join(&id);
+    let lock = UniverseLock::acquire(&universe).expect("lock");
+    let output = nomad_server(dir.path(), &["rotate-token"]);
+    drop(lock);
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("stop it first"),
+        "{}",
+        stderr(&output)
+    );
+
+    let output = nomad_server(dir.path(), &["rotate-token"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let rotated = info(&[]);
+    assert_ne!(field(&rotated, "Token"), field(&first, "Token"));
+    assert_eq!(field(&rotated, "Fingerprint"), field(&first, "Fingerprint"));
+
+    let output = nomad_server(dir.path(), &["rotate-token", "--certificate"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_ne!(
+        field(&info(&[]), "Fingerprint"),
+        field(&first, "Fingerprint")
+    );
 }

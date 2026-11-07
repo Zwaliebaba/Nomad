@@ -64,6 +64,8 @@ struct Stats {
     launched: u64,
     completed: u64,
     dropped: u64,
+    /// Attacks that ended where their target was last seen (D-180).
+    lost: u64,
     checks: u64,
     errors: Vec<String>,
     tick_micros: Vec<f64>,
@@ -76,6 +78,7 @@ impl Stats {
             FleetEvent::Docked { .. } => self.docked += 1,
             FleetEvent::OrderCompleted { .. } => self.completed += 1,
             FleetEvent::OrderDropped { .. } => self.dropped += 1,
+            FleetEvent::TargetLost { .. } => self.lost += 1,
             FleetEvent::SpoolUpStarted { .. } => self.spool_ups += 1,
             FleetEvent::SpoolUpCancelled { .. } => self.spool_cancels += 1,
             FleetEvent::Departed { fleet, .. } => {
@@ -94,15 +97,9 @@ impl Stats {
 
 /// Runs the fleet demo and writes its report to `out`.
 pub fn run(out: &mut impl Write, args: FleetRun) -> Result<(), String> {
-    let mut state = generate_stage1_with_rules(
-        SeasonConfig {
-            seed: args.seed,
-            season_start_unix_ms: 0,
-        },
-        COMMANDERS,
-        args.rules,
-    )
-    .map_err(|e| e.to_string())?;
+    let mut state =
+        generate_stage1_with_rules(SeasonConfig::new(args.seed, 0), COMMANDERS, args.rules)
+            .map_err(|e| e.to_string())?;
     let mut orders = RngStreams::new(args.seed ^ 0x6f72_6465_7273); // "orders"
     let interval = (args.order_interval_secs * TICKS_PER_SECOND).max(1);
     let mut stats = Stats::default();
@@ -297,6 +294,8 @@ fn order_start(state: &UniverseState, view: &FleetView, queue: Queueing) -> Opti
         Place::Docked(holding) => return Some(Start::DockedNow(holding)),
         Place::InTransit { to_gate, .. } => state.galaxy().gate(to_gate)?.system,
         Place::InSystem(system) => system,
+        // An emergency jump takes no orders (S6b).
+        Place::EmergencyJump { .. } => return None,
     };
     if queue == Queueing::Replace {
         return Some(Start::InSystem(here));
@@ -475,12 +474,13 @@ fn report(
         .count();
     writeln!(
         out,
-        "fleets: {} launches, {} dockings, {} orders completed, {} dropped | at the end {} \
-         fleets ({in_space} in space), {} ships",
+        "fleets: {} launches, {} dockings, {} orders completed, {} dropped, {} targets lost | \
+         at the end {} fleets ({in_space} in space), {} ships",
         stats.launched,
         stats.docked,
         stats.completed,
         stats.dropped,
+        stats.lost,
         state.fleet_ids().len(),
         state.ship_ids().len(),
     )?;

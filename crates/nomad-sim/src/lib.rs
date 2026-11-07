@@ -18,7 +18,22 @@
 //! - ships and fleets ([`fleet`], doc 15 §3; S3): `hecs` entities ordered by `SimId`, the
 //!   start kit, fleet management, 2D kinematics with formations, cruise mode, obstacles and
 //!   separation, the fleet orders, routing over lanes and jumps (D-042, D-055);
-//! - the single command validator ([`validate_command`], D-077).
+//! - the single command validator ([`validate_command`], D-077);
+//! - commander records (S6a; doc 12 §4, §5.3): human or AI, presence with the 120 s
+//!   disconnect grace and the lapse of direct orders after it (D-160 to D-162), the activity
+//!   history and the activity-derived exposure window (D-032, D-154 to D-157, D-171), see
+//!   [`UniverseState::commander`];
+//! - announcements to commanders, as data ([`Announcement`], S6 plan §4.8);
+//! - the season's standings, the early win and the season end ([`season`], S8: D-191 to
+//!   D-198), with the final tick in [`SeasonConfig`] (D-195);
+//! - the siege lifecycle (S6b; doc 12 §3–§4, doc 15 §6–§8): breach, Reinforced with its
+//!   stagger slot, the siege and its clock, Held, capture and the emergency jumps of docked
+//!   ships and of a fallen mother station, the comeback grant, protections, the window rule
+//!   for peripheral structures and the outpost exception (D-015, D-033, D-034, D-054, D-057,
+//!   D-138, D-158 to D-170, D-223, D-229), see [`UniverseState::siege`].
+//! - sensors and fog of war ([`sensors`], S7; doc 16): visibility per observer every fifth
+//!   tick, last-known memory, lane traffic, and [`CommanderView`], the read-only projection
+//!   through which the AI and replication see the Universe (D-077, D-199, D-182).
 //!
 //! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
@@ -33,11 +48,22 @@
 //!
 //! **Game rules arrive as their design is agreed (D-051).** So far: the Universe structure
 //! (doc 10), deposit data and values (doc 14 §5, D-066), system control (D-041), and
-//! movement, fleets and orders (doc 15 §3, §9; D-101 to D-105). Claims, economy flows,
-//! weapons, sensors and the Deputy are not here yet. Until weapons exist (S5) attacks only
-//! close to weapon range; until sensors exist (S7) every entity counts as visible.
+//! movement, fleets and orders (doc 15 §3, §9; D-101 to D-105), the economy with claims
+//! (doc 14; S4, D-126 to D-138, D-189, D-217), the season standings (S8) and sensors (doc 16;
+//! D-072 to D-077, D-173 to D-181). The AI (A1–A3) follows. Ship combat is ([`combat`], S5a:
+//! weapons, lock, projectiles, the multiplier table, engagement), and so is station combat
+//! ([`defence`], S5b: dome sectors, regeneration, breaches, damage to modules and its
+//! recovery, turrets, SHLD SURGE and FLAK SCREEN, the damage ledger). Commands, orders,
+//! targeting, lock and engagement go only by what the issuer's sensors detect (S7). The
+//! offline rules (doc 12) are here: presence, the disconnect grace and exposure windows
+//! (S6a), and the siege lifecycle (S6b).
 
+mod announce;
+pub mod combat;
 mod command;
+mod commander;
+pub mod defence;
+pub mod economy;
 mod entities;
 pub mod fleet;
 pub mod galaxy;
@@ -47,6 +73,10 @@ mod id;
 mod input;
 mod rng;
 pub mod rules;
+pub mod scenario;
+pub mod season;
+pub mod sensors;
+mod siege;
 pub mod snapshot;
 mod state;
 mod step;
@@ -56,7 +86,17 @@ mod time;
 mod timers;
 mod util;
 
+pub use announce::{Announcement, AnnouncementKind, HeldReason, Recipients};
+pub use combat::{CombatEvent, ProjectileId};
 pub use command::{CommandRejection, validate_command};
+pub use commander::{
+    CommanderError, CommanderRecord, CommanderSetup, DEFAULT_WINDOW_START, ExposureWindow, Presence,
+};
+pub use defence::{DefenceEvent, DefenceView, LedgerView, SectorView};
+pub use economy::{
+    BuildLane, Cargo, CommanderEconomy, EconomyEvent, HoldingEconomyView, ModuleView,
+    PowerAllocation, QueueItemView, Shortage, Stock,
+};
 pub use fleet::{
     FleetEvent, FleetId, FleetView, MotionMode, Place, ShipClass, ShipId, ShipView, TravelStage,
 };
@@ -69,11 +109,24 @@ pub use holding::{
 };
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
-pub use nomad_types::{Command, FleetOrder, HoldingOrder, Owner, Queueing, RulesOfEngagement};
-pub use nomad_types::{Location, PositionMetres};
+pub use nomad_types::{
+    BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,
+    PowerProfile, QuarterHour, Queueing, RulesOfEngagement, Slot, StationAbility,
+};
+pub use nomad_types::{FactionId, Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};
-pub use state::{ScheduledEvent, SeasonConfig, UniverseState};
+pub use sensors::{
+    ClassSeen, CommanderView, DetectionStats, HoldingSighting, LaneTraffic, LastKnownFleet,
+    LastKnownHolding, ModuleSeen, PublicHolding, SectorSeen, SensedFleet, SensedShip,
+    VisibilityEvent,
+};
+pub use siege::{DefenceState, SiegeView, StationJumpView, StationLeg};
+pub use state::{ScheduledEvent, SeasonConfig, UniverseState, final_tick_after_weeks};
+
+// S8: season standings and the result.
+pub use nomad_types::{SeasonEndReason, SeasonResult, Standing};
+pub use season::Standings;
 pub use step::{CommandResult, TickOutputs, step};
 pub use time::{SeasonClock, TICK_MILLIS, TICKS_PER_SECOND, Tick, Ticks, runs_on};
 pub use timers::TimerQueue;

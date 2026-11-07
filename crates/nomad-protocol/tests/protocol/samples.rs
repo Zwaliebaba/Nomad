@@ -8,9 +8,10 @@ use nomad_protocol::{
     PROTOCOL_VERSION, RejectReason, ServerMessage, ViewChanges, ViewSnapshot,
 };
 use nomad_types::{
-    Command, CommanderId, ControlState, FactionId, FleetId, FleetOrder, HoldingId, HoldingOrder,
-    LaneKind, Owner, PositionMetres, Queueing, RulesOfEngagement, SeasonClock, ShipId, SimId,
-    SystemId, SystemKind, Tick, UniverseId,
+    BuildItem, Command, CommanderId, ControlState, EconomyCommand, FactionId, FleetId, FleetOrder,
+    HoldingId, HoldingOrder, InvalidReason, LaneKind, ModuleKind, Owner, PositionMetres,
+    PowerProfile, QuarterHour, Queueing, RulesOfEngagement, SeasonClock, ShipClass, ShipId, SimId,
+    SiteId, Slot, StationAbility, SystemId, SystemKind, Tick, UniverseId,
 };
 
 pub const YOU: CommanderId = CommanderId(1);
@@ -86,6 +87,22 @@ pub fn commands() -> Vec<Command> {
             holding: HoldingId(id(16)),
             order: HoldingOrder::LaunchReady,
         },
+        Command::Holding {
+            holding: HoldingId(id(16)),
+            order: HoldingOrder::Ability {
+                ability: StationAbility::ShieldSurge { sector: 2 },
+            },
+        },
+        Command::Holding {
+            holding: HoldingId(id(16)),
+            order: HoldingOrder::Ability {
+                ability: StationAbility::FlakScreen,
+            },
+        },
+        Command::Holding {
+            holding: HoldingId(id(16)),
+            order: HoldingOrder::TurretsHold { hold: true },
+        },
         Command::CreateFleet {
             ships: vec![ShipId(id(601)), ShipId(id(602))],
         },
@@ -93,6 +110,56 @@ pub fn commands() -> Vec<Command> {
         Command::MergeFleets {
             fleet: FleetId(id(502)),
             into: FleetId(id(501)),
+        },
+        Command::Economy(EconomyCommand::Build {
+            holding: HoldingId(id(16)),
+            item: BuildItem::Module {
+                kind: ModuleKind::Refinery,
+                slot: Slot::Inner(2),
+            },
+        }),
+        Command::Economy(EconomyCommand::Build {
+            holding: HoldingId(id(16)),
+            item: BuildItem::Ship {
+                class: ShipClass::Warden,
+            },
+        }),
+        Command::Economy(EconomyCommand::Build {
+            holding: HoldingId(id(16)),
+            item: BuildItem::CoreKit,
+        }),
+        Command::Economy(EconomyCommand::Cancel {
+            holding: HoldingId(id(16)),
+            item: id(700),
+        }),
+        Command::Economy(EconomyCommand::SetPowerProfile {
+            holding: HoldingId(id(16)),
+            profile: PowerProfile::ShieldsFirst,
+        }),
+        Command::Economy(EconomyCommand::SetRally {
+            holding: HoldingId(id(16)),
+            fleet: Some(FleetId(id(501))),
+        }),
+        Command::Economy(EconomyCommand::SetRepair {
+            holding: HoldingId(id(16)),
+            on: true,
+        }),
+        Command::Economy(EconomyCommand::Convoy {
+            fleet: FleetId(id(501)),
+            route: vec![HoldingId(id(17)), HoldingId(id(16))],
+        }),
+        Command::Economy(EconomyCommand::LoadCoreKit {
+            fleet: FleetId(id(501)),
+        }),
+        Command::Economy(EconomyCommand::DeployCoreKit {
+            fleet: FleetId(id(501)),
+            site: SiteId(id(40)),
+        }),
+        Command::SetExposureWindow {
+            start: QuarterHour::at(19, 0).expect("19:00 is a quarter hour"),
+        },
+        Command::SetExposureWindow {
+            start: QuarterHour::at(23, 45).expect("23:45 is a quarter hour"),
         },
     ]
 }
@@ -107,7 +174,8 @@ pub fn client_messages() -> Vec<ClientMessage> {
         ClientMessage::Auth {
             token: AuthToken::new("0123456789abcdef".to_owned()),
         },
-        ClientMessage::Ping,
+        ClientMessage::Ping { nonce: 0 },
+        ClientMessage::Ping { nonce: u64::MAX },
     ];
     for (seq, order) in (1_u64..).zip(fleet_orders()) {
         messages.push(ClientMessage::Command {
@@ -326,7 +394,8 @@ pub fn server_messages() -> Vec<ServerMessage> {
             holding: HoldingId(id(16)),
             siege_end: Tick::new(536_000),
         }),
-        ServerMessage::Pong,
+        ServerMessage::Pong { nonce: 0 },
+        ServerMessage::Pong { nonce: u64::MAX },
     ];
     for reason in [
         ByeReason::VersionMismatch {
@@ -335,6 +404,9 @@ pub fn server_messages() -> Vec<ServerMessage> {
         ByeReason::AuthenticationFailed,
         ByeReason::ShuttingDown,
         ByeReason::ProtocolViolation,
+        ByeReason::HandshakeTimeout,
+        ByeReason::Resync,
+        ByeReason::Replaced,
     ] {
         messages.push(ServerMessage::Bye { reason });
     }
@@ -342,7 +414,22 @@ pub fn server_messages() -> Vec<ServerMessage> {
         RejectReason::CatchingUp,
         RejectReason::RateLimited,
         RejectReason::NotAuthenticated,
-        RejectReason::Invalid,
+        RejectReason::Invalid {
+            reason: InvalidReason::NotFound,
+        },
+        RejectReason::Invalid {
+            reason: InvalidReason::NothingToLaunch,
+        },
+        RejectReason::Invalid {
+            reason: InvalidReason::AbilityCooldown,
+        },
+        RejectReason::Invalid {
+            reason: InvalidReason::InvalidWindow,
+        },
+        RejectReason::Invalid {
+            reason: InvalidReason::WindowLocked,
+        },
+        RejectReason::SeasonOver,
     ]) {
         messages.push(ServerMessage::CommandResult {
             client_seq: seq,
@@ -370,7 +457,7 @@ pub const fn client_variant(message: &ClientMessage) -> usize {
         ClientMessage::Hello { .. } => 0,
         ClientMessage::Auth { .. } => 1,
         ClientMessage::Command { .. } => 2,
-        ClientMessage::Ping => 3,
+        ClientMessage::Ping { .. } => 3,
     }
 }
 
@@ -388,7 +475,7 @@ pub const fn server_variant(message: &ServerMessage) -> usize {
         ServerMessage::ViewDelta { .. } => 5,
         ServerMessage::Announcement(_) => 6,
         ServerMessage::Notification(_) => 7,
-        ServerMessage::Pong => 8,
+        ServerMessage::Pong { .. } => 8,
     }
 }
 
@@ -422,8 +509,10 @@ pub const fn command_variant(command: &Command) -> usize {
         Command::Holding { .. } => 1,
         Command::CreateFleet { .. } => 2,
         Command::MergeFleets { .. } => 3,
+        Command::Economy(..) => 4,
+        Command::SetExposureWindow { .. } => 5,
     }
 }
 
 /// Number of [`Command`] variants.
-pub const COMMAND_VARIANTS: usize = 4;
+pub const COMMAND_VARIANTS: usize = 6;

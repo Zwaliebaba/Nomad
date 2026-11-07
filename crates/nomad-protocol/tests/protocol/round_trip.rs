@@ -133,6 +133,26 @@ fn handshake_layout_is_frozen() {
 }
 
 #[test]
+fn a_version_1_hello_reads_as_version_1() {
+    // What an N1 client sends: variant 0, protocol 1, then its build string. A version-2
+    // server reads the version from the frozen prefix and reports the mismatch.
+    let mut body = vec![0, 1, 3];
+    body.extend_from_slice(b"old");
+    assert_eq!(hello_protocol(&body).unwrap(), 1);
+    assert!(nomad_protocol::check_version(1).is_err());
+    // And the Bye it gets back decodes with N1's layout: variant 0, variant 0, the version.
+    let bye = frame(&ServerMessage::Bye {
+        reason: ByeReason::VersionMismatch {
+            server: PROTOCOL_VERSION,
+        },
+    });
+    assert_eq!(
+        &bye[HEADER_LEN..],
+        &[0, 0, u8::try_from(PROTOCOL_VERSION).unwrap()]
+    );
+}
+
+#[test]
 fn auth_token_is_not_logged() {
     let token = AuthToken::new("secret-value".to_owned());
     let message = ClientMessage::Auth {

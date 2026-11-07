@@ -8,15 +8,15 @@ Nomad (working title) is a persistent multiplayer space RTS in Rust:
 
 - Commanders grow an empire from a mother station in one shared **Universe** (up to 100 commanders, seasons of 8–12 weeks) that keeps running while they are offline.
 - A **Deputy** AI always executes each commander's standing orders (doctrine). While the player is away it runs the empire alone. Offline protection is clock-based: see `Design/12-offline-play-and-deputy.md`.
-- MVP: one human player and up to 9 AI commanders, on a local headless server.
-- Client: a custom `wgpu` + `winit` renderer drawing an isometric voxel scene, on Windows. Server: Linux; `hecs`, `tokio` + `quinn`, SQLite (D-029, D-030).
+- MVP: one human player and up to 9 AI commanders, on a local headless server in Docker Desktop (D-236). Multiplayer with up to 4 humans follows as MP-1 (D-237).
+- Client: a custom `wgpu` + `winit` renderer drawing an isometric voxel scene. Players use it in a browser on Windows; the native build is for development (D-235; how it is built for the browser is `Design/21-browser-client-and-local-container.md`). Server: Linux, in a container; `hecs`, `tokio` + `quinn` (the transport is changing, doc 21 §5), SQLite (D-029, D-030).
 - License: proprietary (D-031). Only permissively licensed dependencies may ship.
 
 ## Current phase: build (the MVP design is complete)
 
 - `Design/` is the source of truth. Read `Design/README.md` first, then `Design/00-glossary.md`.
 - Implement only what an agreed design document or decision covers. Every MVP document is agreed. Pick work packages from `Design/30-mvp-scope-and-milestones.md` §2, in the order of §4.
-- The `nomad-sim` core (doc 11: tick, deadline timers, `SimId`, random streams, snapshots, headless harness) is built (S1), and rules are added package by package (S2 and S3 so far). **Game rules** come only from agreed design documents: Universe structure (doc 10), offline rules and the Deputy (doc 12), economy (doc 14), combat and defence (doc 15), information model and fog of war (doc 16), AI commanders, the Deputy and raiders (doc 13). Do not invent rules.
+- The `nomad-sim` core (doc 11: tick, deadline timers, `SimId`, random streams, snapshots, headless harness) is built (S1), and rules are added package by package (so far S2–S8; doc 30 §2 tracks the status). **Game rules** come only from agreed design documents: Universe structure (doc 10), offline rules and the Deputy (doc 12), economy (doc 14), combat and defence (doc 15), information model and fog of war (doc 16), AI commanders, the Deputy and raiders (doc 13). Do not invent rules.
 - Do not invent gameplay rules in code. If a task needs a design decision that does not exist yet, stop and say so. Then propose the decision, or add a question to `Design/02-open-questions.md`.
 - `Design/03-decision-log.md` holds every decision:
   - **Agreed** decisions are binding. Do not reopen them silently.
@@ -46,13 +46,14 @@ cargo build --workspace
 cargo test --workspace
 ```
 
-After changing render code, also run the GPU tests, which CI cannot run: `cargo test -p nomad-client -- --ignored`.
+CI runs only fast tests (D-190). Network tests and long simulations are `#[ignore]` with a reason. Run them before merging work that touches the server, the network or the simulation's long-run behaviour: `cargo test --workspace -- --ignored` (the GPU tests among them need a GPU adapter or a software Vulkan driver). After changing render code, run the GPU tests: `cargo test -p nomad-client -- --ignored`.
 
 ## CI rules
 
 - CI builds the **Debug** profile only (D-010). Do not add `--release` builds or a build-configuration matrix.
-- CI runs on Linux and Windows (D-011). Code must build on both. Put platform-specific code behind `cfg`.
+- CI runs on Linux and Windows (D-011). Code must build on both. Put platform-specific code behind `cfg`. A wasm32 build and clippy of the client joins CI with the browser client (D-250).
 - Never weaken lints, skip tests or remove CI steps to get a green build. Fix the code instead. A local suppression must use `#[expect(lint, reason = "...")]` on the smallest possible scope.
+- A test leaves CI only by D-190's rule (it opens a socket, or simulates long enough to take more than a few seconds in Debug): `#[ignore = "reason"]`, and it still has to pass locally. Never ignore a failing test to get a green build.
 
 ## Coding rules (summary)
 
@@ -68,18 +69,22 @@ After changing render code, also run the GPU tests, which CI cannot run: `cargo 
 
 ```
 Design/          Design documents; phase1-visual-slice/ holds the owner's phase-1 package and assets
-crates/          nomad-client (phase 1), nomad-sim (deterministic core, doc 11), nomad-harness (headless runner),
-                 nomad-types (shared primitives, doc 20 §3), nomad-protocol (wire messages and framing, doc 20 §5),
-                 nomad-server (server shell: persistence, recovery, catch-up; N2 plan); further crates follow doc 20 §3
+crates/          nomad-client (phase 1), nomad-sim (deterministic core and game rules, doc 11),
+                 nomad-harness (headless runner and scenario modes), nomad-types (shared primitives, doc 20 §3),
+                 nomad-protocol (wire messages and framing, doc 20 §5),
+                 nomad-server (server: persistence, recovery, catch-up, QUIC sessions; N2, N3 plans),
+                 nomad-link (client side of the connection, D-125); nomad-ai (all AI logic, D-199) is planned
+                 with A1; further crates follow doc 20 §3
 tools/preview/   WebGL preview of the phase-1 scene for design review (not the game client)
 tools/station-spread/  Rebuilds the phase-1 station layout with the buildings spread out (D-111)
 .github/         CI, Dependabot, PR template
+Dockerfile       Linux image of nomad-server, a developer and soak-test mode (D-152)
 ```
 
 ## Git
 
 - Commit subject: imperative mood, at most 72 characters. The body explains *why* and cites design IDs.
-- Do not commit `target/`, local screenshots or downloaded fonts. The fonts are OFL-licensed and the phase-1 package says they are not bundled. Milestone screenshots under `screenshots/milestones/` are the exception (phase-1 doc 06).
+- Do not commit `target/`, screenshots or downloaded fonts. The fonts are OFL-licensed and the phase-1 package says they are not bundled. Milestone screenshots are not committed either (D-232).
 - Do not rewrite history on shared branches. Do not push to `main` directly.
 
 ## When unsure

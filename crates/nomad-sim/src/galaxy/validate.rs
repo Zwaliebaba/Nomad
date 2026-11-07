@@ -921,14 +921,7 @@ mod tests {
 
     /// A generated stage-1 galaxy and an allocator that continues after its identities.
     fn stage1(seed: u64) -> (Galaxy, SimIdAllocator) {
-        let state = generate_stage1(
-            SeasonConfig {
-                seed,
-                season_start_unix_ms: 0,
-            },
-            COMMANDERS,
-        )
-        .unwrap();
+        let state = generate_stage1(SeasonConfig::new(seed, 0), COMMANDERS).unwrap();
         (state.galaxy, state.ids)
     }
 

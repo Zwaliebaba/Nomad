@@ -27,7 +27,8 @@ pub use deposit::{
     richness_per_mille,
 };
 pub use generate::{
-    GenerationError, STAGE1_COMMANDERS, generate_stage1, generate_stage1_with_rules, stage1_sites,
+    GenerationError, STAGE1_COMMANDERS, generate_stage1, generate_stage1_roster,
+    generate_stage1_with_rules, stage1_sites,
 };
 pub use validate::{
     GalaxyReport, InvariantLimits, SectorReport, Violation, WorstTrip, allowed_gates,

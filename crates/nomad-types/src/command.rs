@@ -14,10 +14,14 @@
 //! rejects it.
 //!
 //! Commands are grouped by what they act on (doc 20 §5): a fleet, a holding, or fleet
-//! management. Economy and doctrine commands arrive with their work packages (docs 12–14).
+//! management, plus economy commands ([`EconomyCommand`], doc 14) and the commander's own
+//! settings ([`Command::SetExposureWindow`], doc 12 §4). Doctrine commands arrive with their
+//! work package (doc 12).
 
 use serde::{Deserialize, Serialize};
 
+use crate::commander::QuarterHour;
+use crate::economy::EconomyCommand;
 use crate::id::{FleetId, HoldingId, ShipId, SimId, SystemId};
 use crate::position::Location;
 
@@ -55,6 +59,16 @@ pub enum Command {
         fleet: FleetId,
         /// The fleet that absorbs it.
         into: FleetId,
+    },
+    /// An economy command: building, power, rally, repair, convoys and claims (doc 14;
+    /// S4 plan §4.7).
+    Economy(EconomyCommand),
+    /// Chooses the commander's exposure window: from the next time the current window
+    /// closes, it starts at `start`, UTC. Open in the commander's first 7 days; after that
+    /// only activity moves the window (D-032, D-157; S6 plan §4.3).
+    SetExposureWindow {
+        /// The new start.
+        start: QuarterHour,
     },
 }
 
@@ -131,6 +145,30 @@ pub enum FleetOrder {
 pub enum HoldingOrder {
     /// LAUNCH (L), "6 READY": undock the ships that are ready.
     LaunchReady,
+    /// Use a station ability: SHLD SURGE (Q) or FLAK SCREEN (W) (doc 15 §5.3; S5b).
+    Ability {
+        /// Which one.
+        ability: StationAbility,
+    },
+    /// STOP (S), "ALL TURRETS": every turret of the holding holds fire, or fires again
+    /// (doc 15 §5.3; S5b).
+    TurretsHold {
+        /// Hold fire (`true`) or fire again (`false`).
+        hold: bool,
+    },
+}
+
+/// A station ability on the phase-1 command card (doc 15 §5.3). PWR ROUTE and REPAIR are
+/// economy commands ([`crate::EconomyCommand`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum StationAbility {
+    /// SHLD SURGE (Q): restores part of one shield sector at once.
+    ShieldSurge {
+        /// The sector, by pylon slot index (0–3).
+        sector: u8,
+    },
+    /// FLAK SCREEN (W): flak bursts around the station for a while.
+    FlakScreen,
 }
 
 /// Rules of engagement, set per fleet (doc 15 §3.4).

@@ -8,7 +8,7 @@ use std::path::Path;
 
 use glyphon::fontdb;
 
-use crate::config::{self, ConfigError, FontRole, HudLayout, SceneConfig};
+use crate::config::{self, ConfigError, Fixture, FontRole, HudLayout, SceneConfig};
 use voxel::StationScene;
 
 /// Everything the renderer is built from, loaded once at startup.
@@ -16,13 +16,16 @@ pub struct SceneAssets {
     pub config: SceneConfig,
     pub station: StationScene,
     pub hud: HudLayout,
+    /// The phase-1 data feed (D-028): so far only the shield pylons' strengths (M4).
+    pub fixture: Fixture,
     /// The fonts found under `<asset root>/fonts/`; possibly none (they are not bundled).
     pub fonts: fontdb::Database,
 }
 
 impl SceneAssets {
-    /// Loads the configuration, station and HUD layout under `asset_root`, and whatever fonts
-    /// are installed. Missing fonts are a warning, not an error.
+    /// Loads the configuration, station, HUD layout and fixture under `asset_root`, and
+    /// whatever fonts are installed. Missing fonts are a warning, not an error. Every shield
+    /// sector's pylon must have a strength in the fixture.
     pub fn load(asset_root: &Path) -> Result<Self, ConfigError> {
         let config_path = config::scene_config_path(asset_root);
         tracing::info!(path = %config_path.display(), "loading scene config");
@@ -37,6 +40,24 @@ impl SceneAssets {
         let hud_path = config::hud_layout_path(asset_root);
         tracing::info!(path = %hud_path.display(), "loading HUD layout");
         let hud = config::load_hud_layout(&hud_path)?;
+        let fixture_path = config::fixture_path(asset_root);
+        tracing::info!(path = %fixture_path.display(), "loading fixture");
+        let fixture = config::load_fixture(&fixture_path)?;
+        if let Some(sector) = config
+            .shield
+            .sectors
+            .iter()
+            .find(|s| fixture.pylon_strength(&s.pylon).is_none())
+        {
+            return Err(ConfigError::Invalid {
+                path: fixture_path,
+                field: "selection.pylons",
+                reason: format!(
+                    "no strength for {}, which feeds a shield sector in scene_config.json",
+                    sector.pylon
+                ),
+            });
+        }
         let fonts_dir = config::fonts_dir(asset_root);
         let fonts = fonts::load_fonts(&fonts_dir);
         for role in [FontRole::Mono, FontRole::Display] {
@@ -54,6 +75,7 @@ impl SceneAssets {
             config,
             station,
             hud,
+            fixture,
             fonts,
         })
     }

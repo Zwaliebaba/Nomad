@@ -6,7 +6,7 @@ use std::path::PathBuf;
 pub const USAGE: &str = "\
 usage: nomad-client [--windowed] [--size WxH] [--view N] [--zoom Z]
        nomad-client --screenshot OUT.png [--size WxH] [--view N] [--zoom Z]
-                    [--hover X,Y] [--turn-ms MS]
+                    [--hover X,Y] [--turn-ms MS] [--shield-ms MS]
 
   --screenshot OUT.png  render one frame offscreen (no window) and write it as a PNG
   --windowed            open a window instead of borderless fullscreen (the default)
@@ -18,6 +18,8 @@ usage: nomad-client [--windowed] [--size WxH] [--view N] [--zoom Z]
                         and ELEV tag)
   --turn-ms MS          screenshot only: render MS milliseconds into a +90° turn (E) from
                         --view, 0-250
+  --shield-ms MS        screenshot only: render MS milliseconds into the shield's scripted
+                        hit loop (default 0)
 
 environment:
   NOMAD_ASSETS          asset root (default: Design/phase1-visual-slice/assets in this workspace)
@@ -43,6 +45,8 @@ pub struct Options {
     pub hover: Option<(f32, f32)>,
     /// Screenshot only: milliseconds into a +90° turn from `view`.
     pub turn_ms: Option<u32>,
+    /// Screenshot only: milliseconds into the shield's hit loop (doc 06 M4).
+    pub shield_ms: Option<u32>,
 }
 
 impl Default for Options {
@@ -55,6 +59,7 @@ impl Default for Options {
             zoom: None,
             hover: None,
             turn_ms: None,
+            shield_ms: None,
         }
     }
 }
@@ -108,12 +113,21 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, String
                         .ok_or_else(|| format!("--turn-ms must be 0 to {TURN_MS}, got {text:?}"))?,
                 );
             }
+            "--shield-ms" => {
+                let text = utf8(value()?)?;
+                options.shield_ms = Some(
+                    text.parse()
+                        .map_err(|_| format!("--shield-ms needs milliseconds, got {text:?}"))?,
+                );
+            }
             "--help" | "-h" => return Ok(Command::Help),
             other => return Err(format!("unknown argument {other:?}")),
         }
     }
-    if options.screenshot.is_none() && (options.hover.is_some() || options.turn_ms.is_some()) {
-        return Err("--hover and --turn-ms only apply to --screenshot".into());
+    if options.screenshot.is_none()
+        && (options.hover.is_some() || options.turn_ms.is_some() || options.shield_ms.is_some())
+    {
+        return Err("--hover, --turn-ms and --shield-ms only apply to --screenshot".into());
     }
     Ok(Command::Run(options))
 }
@@ -190,6 +204,8 @@ mod tests {
             "700,420.5",
             "--turn-ms",
             "125",
+            "--shield-ms",
+            "450",
         ]);
         assert_eq!(
             parsed,
@@ -201,6 +217,7 @@ mod tests {
                 zoom: Some(0.5),
                 hover: Some((700.0, 420.5)),
                 turn_ms: Some(125),
+                shield_ms: Some(450),
             }))
         );
     }
@@ -222,6 +239,8 @@ mod tests {
             &["--screenshot", "a.png", "--turn-ms", "251"],
             &["--hover", "700,420"],
             &["--turn-ms", "100"],
+            &["--shield-ms", "450"],
+            &["--screenshot", "a.png", "--shield-ms", "-1"],
         ] {
             assert!(run(args).is_err(), "{args:?} should be rejected");
         }

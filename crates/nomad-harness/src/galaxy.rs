@@ -24,15 +24,8 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// Generates the stage-1 sector for `seed` with `rules` and writes its summary to `out`.
 pub fn print(out: &mut impl Write, seed: u64, rules: Rules) -> Result<(), String> {
-    let state = generate_stage1_with_rules(
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: 0,
-        },
-        COMMANDERS,
-        rules,
-    )
-    .map_err(|e| e.to_string())?;
+    let state = generate_stage1_with_rules(SeasonConfig::new(seed, 0), COMMANDERS, rules)
+        .map_err(|e| e.to_string())?;
     let limits = InvariantLimits::from_rules(state.rules());
     let report = validate(state.galaxy(), &limits);
     let hash = state_hash(&state).map_err(|e| e.to_string())?;

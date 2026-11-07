@@ -18,14 +18,24 @@
 //! - **Time:** every time on the wire is a [`Tick`](nomad_types::Tick) deadline, never a
 //!   countdown (doc 11 §3). Positions are metres in the system frame (D-099).
 //!
-//! No networking: the QUIC transport belongs to the server and the client (doc 20 §5).
+//! - **Connection details:** the connection file `server.json` and the `nomad://` import
+//!   string carry a server's address, certificate fingerprint and token ([`ConnectInfo`],
+//!   [`ConnectionFile`]; D-120, D-150, D-151).
+//!
+//! No networking: the QUIC transport belongs to the server and the client link (doc 20 §5;
+//! D-125).
 
+pub mod connect;
 mod error;
 mod frame;
 mod message;
 pub mod version;
 mod view;
 
+pub use connect::{
+    CONNECTION_FILE, CONNECTION_FILE_FORMAT, ConnectInfo, ConnectInfoError, ConnectionFile,
+    Fingerprint,
+};
 pub use error::{MalformedBody, ProtocolError};
 pub use frame::{
     FrameDecoder, HEADER_LEN, MAX_CLIENT_FRAME_LEN, MAX_FRAME_LEN, MAX_SERVER_FRAME_LEN,

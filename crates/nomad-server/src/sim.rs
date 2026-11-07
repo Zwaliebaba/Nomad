@@ -10,13 +10,33 @@
 //!   `CatchUpEnd`, both journaled, so the simulation sees the mode and replay is identical.
 //!   The target tick itself therefore runs live, and the Universe ends catch-up at exactly
 //!   the state an uninterrupted run would have. If the wall clock moved on by more than a
-//!   second meanwhile, catch-up continues to the new target first.
+//!   second meanwhile, catch-up continues to the new target first. Every commander is
+//!   offline throughout (D-047): the first catch-up tick also carries a journaled
+//!   `Disconnected` input for each commander who still counts as connected, and commander
+//!   inputs that reach the thread during catch-up are dropped (inputs are refused then, so
+//!   only one sent just as catch-up began can arrive). Catch-up ticks are not published
+//!   one by one, except one that carries command outcomes, so that commands submitted just
+//!   before the catch-up get their results (N3 plan §4.5).
+//! - **Restart without catch-up:** commanders restored as connected from the snapshot have
+//!   no session any more, so the first tick disconnects them, before any new session's
+//!   `Connected` of the same tick (N3).
 //! - **Live:** one tick per 100 ms against the monotonic clock. Overruns run back to back,
-//!   with a warning when the thread is more than 10 ticks behind. *Derived* from doc 11 §2
-//!   (Universe time is UTC): if the Universe falls more than a minute behind the wall
-//!   clock, as after the computer slept, the thread catches up again.
+//!   with a warning when the thread is more than 10 ticks behind. If the Universe falls
+//!   more than a minute behind the wall clock, as after the computer slept, the thread
+//!   catches up again (D-117; doc 11 §2: Universe time is UTC).
+//! - **Season end** (D-116, D-195): the simulation fixes the season's result, at its
+//!   scheduled final tick or on the tick of an early win (D-192), and the thread stops
+//!   stepping as soon as the state holds a result, live or in catch-up. That tick runs
+//!   normally, and no tick follows it; catch-up never goes past the scheduled final tick and
+//!   ends early at an early win, leaving the final state in catch-up mode, since no tick
+//!   remains to carry `CatchUpEnd`. The thread then writes a snapshot and idles: the
+//!   Universe serves its final state, inputs are refused, and only a shutdown ends it.
+//! - **The season read model** (D-196): the standings changes and the result each tick
+//!   announces go to the persistence thread for `standings_history` and `season_result`.
 //! - **Snapshots** every 3,000 ticks, at ticks that are multiples of the interval so that
 //!   retention's hours and days line up, and a final one on a clean stop.
+//! - **State-hash checkpoints** in the journal every 600 ticks, after that tick's inputs
+//!   (doc 11 §5, D-109). Replay compares them; they are never simulation inputs.
 //! - **Journal commits** at least once per 10 ticks (1 s) while rows are pending (D-048).
 
 use std::sync::Arc;
@@ -25,8 +45,8 @@ use std::time::Duration;
 
 use nomad_sim::snapshot::{self, encode, state_hash};
 use nomad_sim::{
-    OperatorInput, SeasonClock, TICK_MILLIS, Tick, TickInputs, TickOutputs, Ticks, UniverseState,
-    step,
+    AnnouncementKind, CommanderId, CommanderInput, CommanderInputKind, OperatorInput, SeasonClock,
+    SeasonResult, TICK_MILLIS, Tick, TickInputs, TickOutputs, Ticks, UniverseState, step,
 };
 use tracing::{debug, info, warn};
 
@@ -49,6 +69,16 @@ const STARTUP_CATCH_UP_TICKS: u64 = 10;
 const LIVE_CATCH_UP_TICKS: u64 = 600;
 /// How often, in ticks, live play compares the Universe with the wall clock.
 const WALL_CHECK_TICKS: u64 = 10;
+/// The `client_seq` of the `Disconnected` inputs the server journals when catch-up starts
+/// (D-047). The highest value, so it applies after the commander's own inputs of that tick.
+pub(crate) const SERVER_DISCONNECT_SEQ: u64 = u64::MAX;
+/// The `client_seq` of the `Disconnected` inputs for commanders restored as connected at a
+/// start without catch-up. The lowest value, so that a new session's `Connected` in the
+/// same tick applies after it (the network hands out sequence numbers from 1, N3).
+pub(crate) const STARTUP_DISCONNECT_SEQ: u64 = 0;
+/// After the season ends, the idle thread wakes at least this often (it also wakes for
+/// every request).
+const SEASON_OVER_WAKE: Duration = Duration::from_hours(1);
 /// Catch-up is done when the wall clock moved at most this many ticks past the target.
 const SETTLED_TICKS: u64 = 10;
 /// Pending journal rows are committed once they span this many ticks (1 s, D-048).
@@ -106,14 +136,17 @@ pub(crate) struct Sim {
     pub shared: Arc<Shared>,
     pub build: String,
     pub snapshot_interval: Ticks,
-    /// The last tick of the season (D-020).
-    pub season_end: Tick,
+    /// Ticks between state-hash checkpoints (D-109).
+    pub checkpoint_interval: Ticks,
 }
 
 /// The running loop, built from [`Sim`].
 struct Runner {
     sim: Sim,
     snapshot_interval: u64,
+    checkpoint_interval: u64,
+    /// The tick of the last snapshot this run sent, so the same state is not encoded twice.
+    last_snapshot: Option<Tick>,
     /// Inputs for the next tick.
     pending: TickInputs,
     /// First tick of the journal rows sent but not yet committed.
@@ -128,9 +161,12 @@ impl Sim {
     /// Runs the thread to the end and reports how it stopped.
     pub fn run(self) -> Result<Stop, ServerError> {
         let snapshot_interval = self.snapshot_interval.get().max(1);
+        let checkpoint_interval = self.checkpoint_interval.get().max(1);
         let mut runner = Runner {
             sim: self,
             snapshot_interval,
+            checkpoint_interval,
+            last_snapshot: None,
             pending: TickInputs::default(),
             batch_start: None,
             stop: None,
@@ -160,8 +196,8 @@ impl Sim {
 impl Runner {
     fn run_phases(&mut self) -> Result<(), ServerError> {
         let tick = self.sim.state.tick();
-        if tick >= self.sim.season_end {
-            warn_season_over(tick);
+        if let Some(result) = self.sim.state.season_result().cloned() {
+            return self.season_over(&result);
         }
         let target = self.wall_target();
         if target.get() > tick.get() + STARTUP_CATCH_UP_TICKS {
@@ -178,11 +214,51 @@ impl Runner {
                 // Stopped right at the end of a catch-up: end the mode on the next tick.
                 self.pending.operator.insert(0, OperatorInput::CatchUpEnd);
             }
+            self.disconnect_restored();
         }
         if self.stop.is_none() {
             self.live()?;
         }
         Ok(())
+    }
+
+    /// After the season's final tick (D-116), with its `result`: snapshot the final state,
+    /// then serve it until shutdown. The Universe no longer advances, and inputs are refused;
+    /// a new season is a new Universe (D-020).
+    fn season_over(&mut self, result: &SeasonResult) -> Result<(), ServerError> {
+        let tick = self.sim.state.tick();
+        self.send_snapshot(false, None)?;
+        self.sim.shared.publish(&ServerEvent::SeasonOver {
+            tick,
+            result: result.clone(),
+        });
+        self.sim.shared.set_phase(Phase::SeasonOver, tick);
+        info!(
+            tick = tick.get(),
+            reason = ?result.reason,
+            winners = ?result.winners,
+            "the season has ended: the Universe no longer advances and serves its final \
+             state until it is shut down (D-116)"
+        );
+        loop {
+            self.sim.alarm.reset();
+            self.drain_inbox()?;
+            self.drop_pending("the season has ended");
+            if self.stop.is_some() {
+                return Ok(());
+            }
+            let deadline = self.sim.clock.monotonic().saturating_add(SEASON_OVER_WAKE);
+            self.sim.clock.sleep_until(deadline, &self.sim.alarm);
+        }
+    }
+
+    /// Drops inputs that can no longer apply, with a warning saying `why`.
+    fn drop_pending(&mut self, why: &str) {
+        let unapplied = self.pending.operator.len() + self.pending.commanders.len();
+        if unapplied > 0 {
+            warn!(inputs = unapplied, "inputs dropped: {why}");
+            self.pending = TickInputs::default();
+        }
     }
 
     fn finish(&mut self) -> Result<(), ServerError> {
@@ -193,14 +269,8 @@ impl Runner {
                 let _ = self.sim.persist.send(PersistMessage::Abort);
             }
             Some(Stop::Clean) | None => {
-                let unapplied = self.pending.operator.len() + self.pending.commanders.len();
-                if unapplied > 0 {
-                    warn!(
-                        inputs = unapplied,
-                        "inputs submitted after the last tick are dropped"
-                    );
-                }
-                self.send_snapshot(true)?;
+                self.drop_pending("they were submitted after the last tick");
+                self.send_snapshot(true, None)?;
                 self.send(PersistMessage::Stop)?;
                 info!(
                     tick = self.sim.state.tick().get(),
@@ -214,12 +284,18 @@ impl Runner {
     // ---------------------------------------------------------------- live
 
     fn live(&mut self) -> Result<(), ServerError> {
+        if let Some(result) = self.sim.state.season_result().cloned() {
+            return self.season_over(&result);
+        }
         self.go_live();
         loop {
             self.sim.alarm.reset();
             self.drain_inbox()?;
             if self.stop.is_some() {
                 return Ok(());
+            }
+            if let Some(result) = self.sim.state.season_result().cloned() {
+                return self.season_over(&result);
             }
             let next = self.sim.state.tick().next();
             let now = self.monotonic_nanos();
@@ -241,6 +317,10 @@ impl Runner {
                 self.catch_up()?;
                 if self.stop.is_some() {
                     return Ok(());
+                }
+                // An early win during the catch-up ended the season (D-192).
+                if let Some(result) = self.sim.state.season_result().cloned() {
+                    return self.season_over(&result);
                 }
                 self.go_live();
                 continue;
@@ -303,6 +383,91 @@ impl Runner {
 
     // ------------------------------------------------------------ catch-up
 
+    /// Every commander is offline during catch-up (doc 11 §7, D-047). Commanders can still
+    /// count as connected when it starts: after a sleep (D-117) the live session is cut off,
+    /// and after a restart the snapshot or the replayed journal keeps whoever was connected
+    /// before the stop or crash. So the first catch-up tick gets a journaled `Disconnected`
+    /// input for each of them, applied after the tick's other inputs: replay sees the same
+    /// inputs, and the simulation needs no rule of its own. No input can connect anyone until
+    /// catch-up ends, because inputs are taken only while live.
+    fn disconnect_everyone(&mut self) {
+        // Who is connected once the pending inputs have applied. The simulation applies a
+        // commander's inputs in `client_seq` order and connection changes as set operations
+        // (an input that changes nothing is rejected and leaves the set as it was).
+        let mut connected = self.sim.state.connected().clone();
+        let mut pending: Vec<&CommanderInput> = self.pending.commanders.iter().collect();
+        pending.sort_by_key(|input| (input.commander, input.client_seq));
+        for input in pending {
+            match input.kind {
+                CommanderInputKind::Connected => {
+                    connected.insert(input.commander);
+                }
+                CommanderInputKind::Disconnected => {
+                    connected.remove(&input.commander);
+                }
+                CommanderInputKind::Command(_) => {}
+            }
+        }
+        if !connected.is_empty() {
+            info!(
+                commanders = connected.len(),
+                "catch-up: connected commanders go offline (D-047)"
+            );
+        }
+        // The highest sequence number sorts after the commander's own inputs in this tick.
+        self.pending
+            .commanders
+            .extend(connected.into_iter().map(|commander| CommanderInput {
+                commander,
+                client_seq: SERVER_DISCONNECT_SEQ,
+                kind: CommanderInputKind::Disconnected,
+            }));
+    }
+
+    /// At a start without catch-up, commanders restored as connected from the snapshot or
+    /// the journal have no session any more: the first tick disconnects them (N3). Their
+    /// inputs sort first in the tick, so a session that connects at once stays connected.
+    fn disconnect_restored(&mut self) {
+        let restored: Vec<CommanderId> = self.sim.state.connected().iter().copied().collect();
+        if restored.is_empty() {
+            return;
+        }
+        info!(
+            commanders = restored.len(),
+            "start: commanders restored as connected go offline until they reconnect"
+        );
+        self.pending
+            .commanders
+            .extend(restored.into_iter().map(|commander| CommanderInput {
+                commander,
+                client_seq: STARTUP_DISCONNECT_SEQ,
+                kind: CommanderInputKind::Disconnected,
+            }));
+    }
+
+    /// Drops commander inputs that reached the thread during catch-up: nobody is online
+    /// then (D-047), and inputs are refused, so only one sent just as catch-up began can
+    /// arrive. The network answers such a command with `CatchingUp` when the server is live
+    /// again (N3 plan §4.5).
+    fn drop_catch_up_commander_inputs(&mut self) {
+        if !self.pending.commanders.is_empty() {
+            warn!(
+                inputs = self.pending.commanders.len(),
+                "commander inputs dropped: they arrived during catch-up"
+            );
+            self.pending.commanders.clear();
+        }
+    }
+
+    /// Publishes a catch-up tick if it carries command outcomes, so the commands submitted
+    /// just before the catch-up get their results; other catch-up ticks are not published
+    /// (doc 20 §7).
+    fn publish_catch_up_tick(&self, outputs: &TickOutputs) {
+        if !outputs.commands.is_empty() {
+            self.sim.shared.publish(&ServerEvent::Tick(outputs.clone()));
+        }
+    }
+
     /// Fast-forwards to the wall clock (doc 11 §7, D-047). The caller has checked that the
     /// target is at least 2 ticks ahead.
     fn catch_up(&mut self) -> Result<(), ServerError> {
@@ -321,15 +486,23 @@ impl Runner {
         if !self.sim.state.catching_up() {
             self.pending.operator.insert(0, OperatorInput::CatchUpStart);
         }
+        self.disconnect_everyone();
         let started = self.sim.clock.monotonic();
         let mut progress = ProgressReporter::new(started);
         self.report_progress(&mut progress, from, target, true);
         loop {
             while self.sim.state.tick().next() < target {
                 let outputs = self.advance()?;
+                self.publish_catch_up_tick(&outputs);
+                if self.sim.state.season_over() {
+                    // An early win (D-192): catch-up never runs past the season's end.
+                    self.end_catch_up(from, started, outputs.tick);
+                    return Ok(());
+                }
                 if outputs.tick.get().is_multiple_of(CATCH_UP_POLL_TICKS) {
                     self.sim.alarm.reset();
                     self.drain_inbox()?;
+                    self.drop_catch_up_commander_inputs();
                     if self.stop.is_some() {
                         info!(
                             tick = outputs.tick.get(),
@@ -349,15 +522,34 @@ impl Runner {
             }
             target = next_target;
         }
+        // Whatever arrived during catch-up is read now; commander inputs among it are
+        // dropped, so every command answered after this ran live.
+        self.drain_inbox()?;
+        self.drop_catch_up_commander_inputs();
+        if self.stop.is_some() {
+            info!(
+                tick = self.sim.state.tick().get(),
+                "catch-up interrupted; it resumes at the next start"
+            );
+            return Ok(());
+        }
         // The target tick runs live: the mode ends as it begins.
         self.pending.operator.insert(0, OperatorInput::CatchUpEnd);
         let outputs = self.advance()?;
+        self.publish_catch_up_tick(&outputs);
+        self.end_catch_up(from, started, outputs.tick);
+        Ok(())
+    }
+
+    /// Reports a catch-up from `from` that ended at `tick`: at its target, or at an early
+    /// win before it (D-192).
+    fn end_catch_up(&self, from: Tick, started: Duration, tick: Tick) {
         let elapsed = self.sim.clock.monotonic().saturating_sub(started);
-        let done = outputs.tick.since(from);
+        let done = tick.since(from);
         let final_progress = CatchUpProgress {
             from,
-            target: outputs.tick,
-            tick: outputs.tick,
+            target: tick,
+            tick,
             elapsed,
         };
         info!(
@@ -366,13 +558,13 @@ impl Runner {
             elapsed = %duration_text(elapsed),
             speed = format_args!("{:.0}x real time", final_progress.speed()),
             ticks_per_second = format_args!("{:.0}", final_progress.ticks_per_second()),
+            season_over = self.sim.state.season_over(),
             "caught up"
         );
         self.sim
             .shared
             .publish(&ServerEvent::CatchUp(final_progress));
         self.sim.shared.set_catch_up(final_progress);
-        Ok(())
     }
 
     fn report_progress(
@@ -409,15 +601,12 @@ impl Runner {
 
     // ---------------------------------------------------------------- ticks
 
-    /// Computes the next tick with the pending inputs, journals them and takes a snapshot
-    /// when one is due.
+    /// Computes the next tick with the pending inputs, journals them with a state-hash
+    /// checkpoint when one is due (D-109), and takes a snapshot when one is due.
     fn advance(&mut self) -> Result<TickOutputs, ServerError> {
         let inputs = std::mem::take(&mut self.pending);
         let outputs = step(&mut self.sim.state, &inputs);
         let tick = outputs.tick;
-        if tick == self.sim.season_end {
-            warn_season_over(tick);
-        }
         if outputs.inputs_rejected > 0 {
             debug!(
                 tick = tick.get(),
@@ -425,13 +614,19 @@ impl Runner {
                 "inputs rejected by the simulation"
             );
         }
-        let entries = journal::encode(tick, &inputs, &self.sim.build)?;
+        let checkpoint = if tick.get().is_multiple_of(self.checkpoint_interval) {
+            Some(state_hash(&self.sim.state)?)
+        } else {
+            None
+        };
+        let entries = journal::encode(tick, &inputs, checkpoint, &self.sim.build)?;
         if !entries.is_empty() {
             self.send(PersistMessage::Journal(entries))?;
             self.batch_start.get_or_insert(tick);
         }
+        self.send_read_model(&outputs)?;
         if tick.get().is_multiple_of(self.snapshot_interval) {
-            self.send_snapshot(false)?;
+            self.send_snapshot(false, checkpoint)?;
         } else if self
             .batch_start
             .is_some_and(|start| tick.since(start).get() + 1 >= COMMIT_TICKS)
@@ -442,18 +637,53 @@ impl Runner {
         Ok(outputs)
     }
 
-    fn send_snapshot(&mut self, announce: bool) -> Result<(), ServerError> {
+    /// Sends a snapshot of the current state, unless this run already sent one of this
+    /// tick: the state is the same, so only the pending journal is committed. `known_hash`
+    /// is the state hash when this tick's checkpoint already computed it (D-109).
+    fn send_snapshot(
+        &mut self,
+        announce: bool,
+        known_hash: Option<u64>,
+    ) -> Result<(), ServerError> {
         let state = &self.sim.state;
-        let record = SnapshotRecord {
-            tick: state.tick(),
-            build: self.sim.build.clone(),
-            format: snapshot::FORMAT,
-            state_hash: state_hash(state)?,
-            bytes: encode(state)?,
-        };
+        let tick = state.tick();
         // The persistence thread commits the pending journal before the snapshot.
         self.batch_start = None;
+        if self.last_snapshot == Some(tick) {
+            return self.send(PersistMessage::Commit);
+        }
+        let state_hash = match known_hash {
+            Some(hash) => hash,
+            None => state_hash(state)?,
+        };
+        let record = SnapshotRecord {
+            tick,
+            build: self.sim.build.clone(),
+            format: snapshot::FORMAT,
+            state_hash,
+            bytes: encode(state)?,
+        };
+        self.last_snapshot = Some(tick);
         self.send(PersistMessage::Snapshot { record, announce })
+    }
+
+    /// Sends this tick's standings change and result, if any, to the read model (D-196).
+    fn send_read_model(&self, outputs: &TickOutputs) -> Result<(), ServerError> {
+        for announcement in &outputs.announcements {
+            match &announcement.kind {
+                AnnouncementKind::StandingsChanged { standings } => {
+                    self.send(PersistMessage::Standings {
+                        tick: announcement.tick,
+                        standings: standings.clone(),
+                    })?;
+                }
+                AnnouncementKind::SeasonEnded { result, .. } => {
+                    self.send(PersistMessage::SeasonResult(result.clone()))?;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     fn send(&self, message: PersistMessage) -> Result<(), ServerError> {
@@ -499,21 +729,15 @@ impl Runner {
 
     // ----------------------------------------------------------------- time
 
+    /// Where the wall clock says the Universe should be, but never past the season's final
+    /// tick (D-116, D-195).
     fn wall_target(&self) -> Tick {
-        wall_tick(self.sim.state.clock(), self.sim.clock.utc_ms())
+        wall_tick(self.sim.state.clock(), self.sim.clock.utc_ms()).min(self.sim.state.final_tick())
     }
 
     fn monotonic_nanos(&self) -> i128 {
         i128::try_from(self.sim.clock.monotonic().as_nanos()).unwrap_or(i128::MAX)
     }
-}
-
-/// What happens at the season end (D-020) is not designed yet, so the Universe runs on.
-fn warn_season_over(tick: Tick) {
-    warn!(
-        tick = tick.get(),
-        "the season has ended; season end is not designed yet, so the Universe keeps running"
-    );
 }
 
 /// The last tick whose Universe time is at or before `unix_ms`: where the Universe should

@@ -18,10 +18,7 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 ];
 
 fn season(seed: u64) -> SeasonConfig {
-    SeasonConfig {
-        seed,
-        season_start_unix_ms: 1_793_923_200_000,
-    }
+    SeasonConfig::new(seed, 1_793_923_200_000)
 }
 
 #[test]

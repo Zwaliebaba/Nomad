@@ -88,13 +88,15 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 | **Doctrine editor** | A preset picker (Fortress / Balanced / Trader, D-082), advanced parameters (doc 13 §9), the replacement list with its daily budget, convoy routes, and roles and leashes per fleet. Set per holding, per fleet and for the economy. | Doc 12 §5, doc 13 |
 | **Deputy status** (top bar) | "DEPUTY · BALANCED", and whether units are under direct control (RK-10) | D-013 |
 | **Away report** (on login, plus a 7-day history) | Raids repelled or lost; losses; disabled structures; Reinforced timers and scheduled sieges in local time; captures; decisions the Deputy deferred; income and how much was lost to full storage. Sorted by importance; each entry jumps to its location. | Doc 12 §5.3 |
-| **Window and siege panel** | Your exposure window today and its upcoming shift (D-032); all Reinforced timers involving you; the siege clock during a siege (it replaces the objective timer) | D-015, D-033, D-057 |
-| **Build menu and queue** | A slot diagram of the holding (pylon / peripheral / inner slots on the ops grid, D-067); the module catalogue with cost, time and power; reordering and cancelling the queue, with refund rules (D-068); saving and applying blueprints | Doc 14 §9 |
-| **Economy panel** | The pool, with its cap and "full in 6 h 20 min"; income per holding; buffers and convoy status (D-064); power per holding with its profile; the command cap | Doc 14 |
+| **Window and siege panel** | Your exposure window today and its upcoming shift (D-032); all Reinforced timers involving you; the siege clock during a siege (it replaces the objective timer) | D-015, D-033, D-057; how the window moves and the first week's choice (D-155 to D-157, D-226) |
+| **Build menu and queue** | A slot diagram of the holding (pylon / peripheral / inner slots on the ops grid, D-067); the module catalogue with cost, time and power; reordering and cancelling the queue, with refund rules (D-068); saving and applying blueprints | Doc 14 §9; the blueprint type is shared with the AI's built-in blueprints (D-215) |
+| **Economy panel** | The pool, with its cap and "full in 6 h 20 min"; income per holding; buffers and convoy status (D-064); power per holding with its profile; the command cap | Doc 14; the diminishing-yield factor (D-217) |
 | **Fleet panel** | Fleets with composition, current orders, rules of engagement and doctrine role; creating, splitting and merging fleets. It extends the phase-1 roster. | Doc 15 §3.4 |
-| **Season panel** | Standings, the season clock, progress toward the early win | D-020, D-041 |
+| **Season panel** | Standings, the season clock, progress toward the early win | D-020, D-041; the history of standings changes (D-196) and the near-win warning (D-197) |
 | **Start screen** | Create a Universe (seed, number of AI commanders, difficulty per AI); continue a Universe; catch-up progress; shut down the Universe; "start with Windows" | Doc 20 §2, §7 |
 | **Notifications** | The in-client alert banner (phase-1 amber) and toasts for breaches, sieges and raids, plus a **Windows toast while the client is running but minimised**. Notifications that reach you outside the client are hosting work. | Doc 12 §5.3 |
+
+> **Changing (D-235, D-236; doc 21):** in the browser the start screen is served by the server, "start with Windows" becomes Docker Desktop's start at sign-in, and "shut down" stops the simulation inside the server (Q237); the Windows toast becomes a browser notification (Q241). The panels themselves are unchanged.
 
 ## 7. Hotkeys
 
@@ -110,6 +112,8 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 | Phase-1 extras | Home, H (HUD on/off), F10 (menu), F11 (fullscreen), F12 (screenshot), unchanged |
 
 *Why:* the phase-1 bindings already conflict (Q rotates the camera and is also SHLD SURGE; W and S are both card buttons and pan keys). A positional grid is the standard RTS answer, and it keeps every card reachable with one hand.
+
+> **Changing (D-235; doc 21 §7.5):** a browser reserves some of these keys, among them Ctrl+1–9, mouse buttons 4 and 5, F11, F12 and Esc. Q240 proposes keeping this scheme except where a browser reserves a key, with U7 testing every binding on Edge, Chrome and Firefox.
 
 ## 8. MVP limits
 

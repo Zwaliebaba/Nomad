@@ -8,12 +8,13 @@ use std::time::Duration;
 
 use nomad_server::{
     CreateParams, Created, DataDir, FakeClock, Input, ServerConfig, ServerHandle, create,
+    stage1_roster,
 };
-use nomad_sim::galaxy::generate_stage1;
+use nomad_sim::galaxy::generate_stage1_roster;
 use nomad_sim::snapshot::state_hash;
 use nomad_sim::{
-    CommanderId, CommanderInput, CommanderInputKind, OperatorInput, SeasonConfig, Tick, TickInputs,
-    Ticks, step,
+    CommanderId, CommanderInput, CommanderInputKind, OperatorInput, Rules, SeasonConfig, Tick,
+    TickInputs, Ticks, UniverseState, step,
 };
 
 /// 2026-11-06T00:00:00Z.
@@ -63,6 +64,17 @@ impl Drop for TestDir {
 pub fn create_universe(dir: &TestDir, seed: u64, clock: &FakeClock) -> Created {
     let params = CreateParams {
         seed: Some(seed),
+        ..CreateParams::default()
+    };
+    create(&dir.data(), &params, clock, BUILD).expect("create")
+}
+
+/// Like [`create_universe`], with a season that ends at tick `end` instead of after 8
+/// weeks: the simulation holds the final tick (D-195).
+pub fn create_short_season(dir: &TestDir, seed: u64, clock: &FakeClock, end: u64) -> Created {
+    let params = CreateParams {
+        seed: Some(seed),
+        final_tick: Some(Tick::new(end)),
         ..CreateParams::default()
     };
     create(&dir.data(), &params, clock, BUILD).expect("create")
@@ -168,18 +180,30 @@ pub fn play(server: &ServerHandle, clock: &FakeClock, script: &[(u64, Input)], u
 /// The state hash after `until` ticks of a pure `nomad-sim` run of the Universe created
 /// with `seed` at `start_ms`, applying each script entry on the tick after its own.
 pub fn reference_hash(seed: u64, start_ms: i64, script: &[(u64, Input)], until: u64) -> u64 {
-    let commanders = [
-        CommanderId(1),
-        CommanderId(2),
-        CommanderId(3),
-        CommanderId(4),
-    ];
-    let mut state = generate_stage1(
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: start_ms,
-        },
-        commanders,
+    reference_hash_with(SeasonConfig::new(seed, start_ms), script, until)
+}
+
+/// Like [`reference_hash`], for a season that ends at tick `end` ([`create_short_season`]).
+pub fn reference_hash_short(
+    seed: u64,
+    start_ms: i64,
+    end: u64,
+    script: &[(u64, Input)],
+    until: u64,
+) -> u64 {
+    let season = SeasonConfig {
+        final_tick: Tick::new(end),
+        ..SeasonConfig::new(seed, start_ms)
+    };
+    reference_hash_with(season, script, until)
+}
+
+fn reference_hash_with(season: SeasonConfig, script: &[(u64, Input)], until: u64) -> u64 {
+    // The roster `create` uses: commander 1 is the human (S6a).
+    let mut state = generate_stage1_roster(
+        season,
+        stage1_roster(CreateParams::default().window_start),
+        Rules::embedded(),
     )
     .expect("generate");
     for tick in 1..=until {
@@ -231,6 +255,34 @@ pub fn journaled_operator_inputs(universe_dir: &Path) -> Vec<(u64, OperatorInput
             )
         })
         .collect()
+}
+
+/// The commander inputs in the journal, with their ticks.
+pub fn journaled_commander_inputs(universe_dir: &Path) -> Vec<(u64, CommanderInput)> {
+    journal_rows(universe_dir)
+        .into_iter()
+        .filter(|(_, kind, _)| kind == "commander")
+        .map(|(tick, _, payload)| {
+            (
+                tick,
+                postcard::from_bytes(&payload).expect("commander input decodes"),
+            )
+        })
+        .collect()
+}
+
+/// The Universe state saved in the snapshot of `tick`.
+pub fn snapshot_state(universe_dir: &Path, tick: u64) -> UniverseState {
+    let conn = rusqlite::Connection::open(universe_dir.join(nomad_server::DATABASE_FILE))
+        .expect("open database");
+    let bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT bytes FROM snapshots WHERE tick = ?1",
+            [tick.cast_signed()],
+            |row| row.get(0),
+        )
+        .expect("the snapshot exists");
+    nomad_sim::snapshot::decode(&bytes).expect("the snapshot decodes")
 }
 
 /// Runs SQL against a Universe's database, to damage it on purpose.

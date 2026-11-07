@@ -441,6 +441,19 @@ fn fleets_sent_to_one_point_keep_a_soft_separation() {
     }
 }
 
+/// Sets `fleets` to hold fire. The movement tests (S3) use it where a target must survive to
+/// be followed; firing is tested in `combat::tests` (S5a).
+fn hold_fire(state: &mut UniverseState, fleets: &[FleetId]) {
+    for fleet in fleets {
+        if let Some(f) = state
+            .entities
+            .get_mut::<crate::fleet::Fleet>(fleet.sim_id())
+        {
+            f.rules_of_engagement = nomad_types::RulesOfEngagement::HoldFire;
+        }
+    }
+}
+
 #[test]
 fn patrol_guard_station_keep_and_attack() {
     let mut state = stage1(3);
@@ -481,6 +494,7 @@ fn patrol_guard_station_keep_and_attack() {
         start + Vec2::new(-3_000.0, 0.0),
         &[VX, WARDEN],
     );
+    hold_fire(&mut state, &[patrol, guard, keeper, attacker]);
     for (fleet, o) in [
         (
             guard,

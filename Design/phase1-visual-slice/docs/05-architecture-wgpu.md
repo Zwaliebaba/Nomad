@@ -43,7 +43,7 @@ tests/
 7. FX (additive)
 8. Bloom on emissive + FX
 9. World labels and markers (screen space, after projecting anchors)
-10. HUD panels + minimap
+10. HUD panels + minimap *(Design D-240: in the browser client the HUD is HTML over the canvas, held to doc 06's ±4 px; labels and markers in the scene stay in wgpu.)*
 11. Present; optional F12 screenshot
 
 ## Rendering notes

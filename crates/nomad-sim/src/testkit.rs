@@ -27,14 +27,7 @@ pub(crate) const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// A generated stage-1 Universe with the start kits.
 pub(crate) fn stage1(seed: u64) -> UniverseState {
-    generate_stage1(
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: 0,
-        },
-        COMMANDERS,
-    )
-    .expect("stage 1 generates")
+    generate_stage1(SeasonConfig::new(seed, 0), COMMANDERS).expect("stage 1 generates")
 }
 
 /// Commander `n`'s owner identity.
@@ -125,8 +118,27 @@ pub(crate) fn site_position(state: &UniverseState, system: SystemId, index: usiz
 }
 
 /// Places a new fleet of `classes` for `owner` at rest in space at `centre`, in formation,
-/// facing east.
+/// facing east, and runs a sensors pass so it is seen at once ([`spawn_unseen`] does not).
 pub(crate) fn spawn_fleet(
+    state: &mut UniverseState,
+    owner: Owner,
+    system: SystemId,
+    centre: Vec2,
+    classes: &[ShipClass],
+) -> FleetId {
+    let fleet = spawn_unseen(state, owner, system, centre, classes);
+    sense(state);
+    fleet
+}
+
+/// Runs a sensors pass now, as on a pass tick (S7): a fixture for state changed outside the
+/// step.
+pub(crate) fn sense(state: &mut UniverseState) {
+    crate::sensors::refresh(state);
+}
+
+/// As [`spawn_fleet`], without the sensors pass: the fleet is detected from the next pass.
+pub(crate) fn spawn_unseen(
     state: &mut UniverseState,
     owner: Owner,
     system: SystemId,
@@ -167,7 +179,7 @@ pub(crate) fn spawn_fleet(
                 place: Place::InSystem(system),
                 members,
                 rules_of_engagement: DEFAULT_RULES_OF_ENGAGEMENT,
-                engaged: false,
+                engaged_until: None,
                 active: None,
                 queue: VecDeque::new(),
             },

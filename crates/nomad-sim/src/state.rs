@@ -4,6 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use crate::combat::Projectiles;
+use crate::commander::Commanders;
+use crate::defence::Defence;
+use crate::economy::Economy;
 use crate::entities::Entities;
 use crate::fleet::FleetId;
 use crate::galaxy::{Galaxy, SiteId, SystemId};
@@ -11,6 +15,9 @@ use crate::holding::{self, ControlState, Holding, HoldingError, HoldingId};
 use crate::id::{CommanderId, SimIdAllocator};
 use crate::rng::RngStreams;
 use crate::rules::{Rules, RulesError};
+use crate::season::SeasonRecord;
+use crate::sensors::Sensors;
+use crate::siege::Sieges;
 use crate::time::{SeasonClock, Tick, Ticks};
 use crate::timers::TimerQueue;
 
@@ -21,6 +28,29 @@ pub struct SeasonConfig {
     pub seed: u64,
     /// Universe time (UTC, ms since the Unix epoch) of tick 0.
     pub season_start_unix_ms: i64,
+    /// The season's scheduled final tick, set at creation from the season length (D-195,
+    /// D-106). The step that computes it fixes the result, unless an early win came first
+    /// (D-192), and no tick follows it (D-116).
+    pub final_tick: Tick,
+}
+
+impl SeasonConfig {
+    /// The default season length in weeks (D-106); `create` allows 8 to 12 (D-020).
+    pub const DEFAULT_WEEKS: u32 = 8;
+
+    /// A season of the default length, [`SeasonConfig::DEFAULT_WEEKS`].
+    pub const fn new(seed: u64, season_start_unix_ms: i64) -> Self {
+        Self {
+            seed,
+            season_start_unix_ms,
+            final_tick: final_tick_after_weeks(Self::DEFAULT_WEEKS),
+        }
+    }
+}
+
+/// The final tick of a season `weeks` long: the last tick of its last day (D-020, D-116).
+pub const fn final_tick_after_weeks(weeks: u32) -> Tick {
+    Tick::ZERO.after(Ticks::from_days(7 * weeks as u64))
 }
 
 /// Work scheduled on the timer queue.
@@ -63,6 +93,25 @@ pub struct UniverseState {
     /// The jump-transit queue: fleets in lane transit, by arrival tick (doc 11 §4.1 phase 5,
     /// D-042).
     pub(crate) transits: TimerQueue<FleetId>,
+    /// Projectiles in flight (doc 15 §4; S5 plan §4.3).
+    pub(crate) projectiles: Projectiles,
+    /// Pools, holding economies, convoys and cargo (doc 14; S4). Modules are entities.
+    pub(crate) economy: Economy,
+    /// Domes, turret state, abilities and the damage ledger (doc 15 §5; S5b).
+    pub(crate) defence: Defence,
+    /// Commander records: presence, the disconnect grace, activity and exposure windows
+    /// (doc 12 §4, §5.3; S6a).
+    pub(crate) commanders: Commanders,
+
+    // S8: season standings and the result.
+    /// The cached control map, the standings and the result (D-191; S8 plan §4.2).
+    pub(crate) season_record: SeasonRecord,
+    /// Defence states, protections and emergency jumps (doc 12 §4, doc 15 §6–§7; S6b).
+    pub(crate) sieges: Sieges,
+    // S7: sensors and fog of war.
+    /// Each observer's picture from the last sensors pass, last-known memory and lane
+    /// traffic (doc 16 §3–§5; S7).
+    pub(crate) sensors: Sensors,
 }
 
 impl UniverseState {
@@ -93,6 +142,13 @@ impl UniverseState {
             catching_up: false,
             entities: Entities::default(),
             transits: TimerQueue::default(),
+            projectiles: Projectiles::default(),
+            economy: Economy::default(),
+            defence: Defence::default(),
+            commanders: Commanders::default(),
+            season_record: SeasonRecord::default(),
+            sieges: Sieges::default(),
+            sensors: Sensors::default(),
         }
     }
 
@@ -116,7 +172,9 @@ impl UniverseState {
         self.clock
     }
 
-    /// Commanders whose client is currently connected.
+    /// Commanders whose client is currently connected: the journaled `Connected` and
+    /// `Disconnected` inputs (doc 11 §6). A human is online exactly while connected; see
+    /// [`UniverseState::commander`] for presence.
     pub const fn connected(&self) -> &BTreeSet<CommanderId> {
         &self.connected
     }
@@ -154,26 +212,28 @@ impl UniverseState {
     }
 
     /// The control state of `system`, or `None` if it does not exist or cannot be claimed,
-    /// such as a raider haven (doc 10 §6, D-041).
+    /// such as a raider haven (doc 10 §6, D-041). Read from the cache phase 9 keeps (D-191);
+    /// after a change to completed holdings or their owners earlier in the tick, recounted.
     pub fn control_state(&self, system: SystemId) -> Option<ControlState> {
-        holding::control_state(&self.galaxy, &self.holdings, system)
+        self.cached_control_state(system)
     }
 
-    /// The control state of every claimable system, in system order (doc 10 §6, D-041).
+    /// The control state of every claimable system, in system order (doc 10 §6, D-041), as
+    /// [`UniverseState::control_state`] gives it.
     pub fn control_states(&self) -> BTreeMap<SystemId, ControlState> {
-        holding::control_states(&self.galaxy, &self.holdings)
+        self.cached_control_states()
     }
 
     /// Places a holding, or an outpost if `core_complete` is false, on a free, claimable
-    /// site. Claim costs and timing are doc 15 rules; callers here are the generator and
-    /// tests.
+    /// site. Callers are the generator, claims ([`crate::economy`], D-135) and tests; the
+    /// economy adds the core module.
     pub(crate) fn insert_holding(
         &mut self,
         site: SiteId,
         owner: CommanderId,
         core_complete: bool,
     ) -> Result<HoldingId, HoldingError> {
-        holding::insert(
+        let id = holding::insert(
             &self.galaxy,
             &mut self.ids,
             &mut self.holdings,
@@ -182,8 +242,11 @@ impl UniverseState {
                 owner,
                 core_complete,
                 mother_station: false,
-                dry_docks: 0,
             },
-        )
+        )?;
+        if core_complete {
+            crate::season::mark_dirty(self);
+        }
+        Ok(id)
     }
 }

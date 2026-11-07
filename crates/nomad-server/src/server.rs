@@ -1,26 +1,40 @@
 //! The in-process server API: start a Universe, submit inputs, follow its outputs, shut it
-//! down (N2 plan §3, §4.4–4.5; doc 20 §4, §7). N3 puts this behind the network.
+//! down (N2 plan §3, §4.4–4.5; doc 20 §4, §7). With [`ServerConfig::net`] set, the network
+//! endpoint serves the same API to clients (N3).
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TrySendError};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use nomad_sim::{CommanderInput, OperatorInput, TICKS_PER_SECOND, Tick, TickOutputs, Ticks};
+use nomad_sim::{
+    CommanderInput, OperatorInput, SeasonResult, TICKS_PER_SECOND, Tick, TickOutputs, Ticks,
+    UniverseState,
+};
 use tracing::{info, warn};
 
 use crate::BUILD_ID;
 use crate::clock::{Alarm, Clock};
 use crate::error::ServerError;
+use crate::ids::parse_universe_id;
+use crate::net::hub::Submit;
+use crate::net::identity::Identity;
+use crate::net::{NetConfig, Network, UniverseInfo};
 use crate::paths::{DATABASE_FILE, UniverseLock};
 use crate::persist::{self, CHANNEL_BOUND};
-use crate::recovery;
+use crate::recovery::{self, ReplayCheck};
+use crate::retention::RetentionPolicy;
 use crate::sim::{Control, Sim, Stop};
+use crate::store::read_model::ReadModelSync;
 use crate::store::{Meta, Store};
 
 /// Snapshot interval: 5 min of Universe time, 3,000 ticks (doc 11 §8, D-048).
 pub const SNAPSHOT_INTERVAL: Ticks = Ticks::from_minutes(5);
+
+/// State-hash checkpoint interval: 60 s of Universe time, 600 ticks (doc 11 §5, D-109).
+pub const CHECKPOINT_INTERVAL: Ticks = Ticks::from_secs(60);
 
 /// Events a subscriber can fall behind by before newer events are dropped for it.
 const SUBSCRIBER_BOUND: usize = 4_096;
@@ -35,6 +49,16 @@ pub struct ServerConfig {
     pub build: String,
     /// Ticks between periodic snapshots. [`SNAPSHOT_INTERVAL`] outside tests.
     pub snapshot_interval: Ticks,
+    /// Ticks between state-hash checkpoints in the journal (D-109). [`CHECKPOINT_INTERVAL`]
+    /// outside tests.
+    pub checkpoint_interval: Ticks,
+    /// Which snapshots and how much journal to keep (doc 11 §8, D-048, D-110).
+    /// [`RetentionPolicy::default`] outside tests. Tests may run it in scaled time
+    /// ([`RetentionPolicy::scaled`]), with the two intervals above scaled alike so that the
+    /// snapshot interval still divides the hour.
+    pub retention: RetentionPolicy,
+    /// The network endpoint (N3; D-150). `None` runs without one, as most tests do.
+    pub net: Option<NetConfig>,
 }
 
 impl ServerConfig {
@@ -44,8 +68,18 @@ impl ServerConfig {
             universe_dir: universe_dir.into(),
             build: BUILD_ID.to_owned(),
             snapshot_interval: SNAPSHOT_INTERVAL,
+            checkpoint_interval: CHECKPOINT_INTERVAL,
+            retention: RetentionPolicy::default(),
+            net: None,
         }
     }
+}
+
+/// The scheduled final tick of a season of `weeks` (D-020), which `create` puts into the
+/// simulation's season configuration (D-195): the Universe stops advancing after it, or
+/// after an early win before it (D-116, D-192).
+pub fn season_end_tick(weeks: u32) -> Tick {
+    nomad_sim::final_tick_after_weeks(weeks)
 }
 
 /// An external input for the simulation (doc 11 §6). It applies on the tick after the one
@@ -64,9 +98,13 @@ pub enum SubmitError {
     /// The server is starting or catching up; inputs are taken only while live (doc 20 §7).
     #[error("the server is not live")]
     NotLive,
-    /// The catch-up markers are written by the server only.
-    #[error("this input is reserved for the server")]
+    /// The catch-up markers are written by the server only, and `SetPresence` is for the
+    /// headless harness only, until A5 gives AI commanders schedules (S6 plan §4.1).
+    #[error("this input is reserved for the server or the harness")]
     Reserved,
+    /// The season has ended and the Universe no longer advances (D-116).
+    #[error("the season has ended")]
+    SeasonOver,
     /// The server has stopped.
     #[error("the server has stopped")]
     Stopped,
@@ -81,6 +119,9 @@ pub enum Phase {
     CatchingUp,
     /// One tick every 100 ms.
     Live,
+    /// The season's final tick has been computed: the Universe no longer advances, and the
+    /// server serves its final state until it is shut down (D-116).
+    SeasonOver,
     /// The simulation thread has ended.
     Stopped,
 }
@@ -160,6 +201,15 @@ pub enum ServerEvent {
         /// The last tick computed before live play.
         tick: Tick,
     },
+    /// The season ended: this is the final tick, and the Universe no longer advances
+    /// (D-116). Sent at the scheduled final tick or at an early win (D-192, D-195), and
+    /// again on every start of an ended season.
+    SeasonOver {
+        /// The season's final tick.
+        tick: Tick,
+        /// The result the simulation fixed.
+        result: SeasonResult,
+    },
     /// The simulation thread ended.
     Stopped,
 }
@@ -178,10 +228,21 @@ pub struct StartReport {
     pub meta: Meta,
     /// The snapshot recovery started from.
     pub snapshot_tick: Tick,
-    /// Journal entries replayed after it.
+    /// Journal input entries replayed after it, not counting checkpoints.
     pub replayed_entries: usize,
+    /// What the state-hash checkpoints met during replay showed (D-109).
+    pub replay_check: ReplayCheck,
     /// The tick after replay, where catch-up or live play starts.
     pub tick: Tick,
+    /// The season's final tick (D-116): the scheduled one from the simulation's season
+    /// configuration, or the tick of an early win once the result is fixed (D-192, D-195).
+    pub season_end: Tick,
+    /// The season's result, if the recovered Universe holds one.
+    pub result: Option<SeasonResult>,
+    /// What re-syncing the season read model with the recovered state changed (D-196).
+    pub read_model: ReadModelSync,
+    /// Where the network endpoint listens, if it runs (N3; D-150).
+    pub endpoint: Option<SocketAddr>,
 }
 
 /// Requests a clean shutdown from another thread, for example a Ctrl+C handler.
@@ -213,14 +274,18 @@ pub struct ServerHandle {
     shared: Arc<Shared>,
     sim: Option<JoinHandle<Result<Stop, ServerError>>>,
     persist: Option<JoinHandle<Result<(), ServerError>>>,
+    /// The network endpoint, if it runs (N3).
+    network: Option<Network>,
     // Dropped after the threads have been joined.
     _lock: UniverseLock,
 }
 
 impl ServerHandle {
     /// Starts the Universe in `config.universe_dir`: takes its lock, loads the latest
-    /// snapshot and replays the journal, then starts the threads. The simulation thread
-    /// catches up to `clock`'s wall-clock time and then runs live.
+    /// snapshot and replays the journal, checking its state-hash checkpoints (D-109;
+    /// [`StartReport::replay_check`]), then starts the threads. The simulation thread
+    /// catches up to `clock`'s wall-clock time and then runs live, until the season's final
+    /// tick, after which it serves the final state until shutdown (D-116).
     ///
     /// Fails without starting anything if the Universe is locked, damaged, in a format this
     /// build cannot read, or has a journal written by another build.
@@ -231,7 +296,7 @@ impl ServerHandle {
             return Err(ServerError::UniverseNotFound { path: dir });
         }
         let lock = UniverseLock::acquire(&dir)?;
-        let store = Store::open(&db_path)?;
+        let mut store = Store::open(&db_path)?;
         let meta = store.meta()?;
         if dir.file_name().and_then(|name| name.to_str()) != Some(meta.universe_id.as_str()) {
             warn!(
@@ -247,20 +312,38 @@ impl ServerHandle {
             "opening Universe"
         );
         let recovered = recovery::recover(&store, &meta, &config.build)?;
-        let report = StartReport {
+        let read_model = recovery::sync_read_model(&mut store, &recovered.state)?;
+        let mut report = StartReport {
             meta,
             snapshot_tick: recovered.snapshot_tick,
             replayed_entries: recovered.replayed_entries,
+            replay_check: recovered.check,
             tick: recovered.state.tick(),
+            season_end: recovered.state.final_tick(),
+            result: recovered.state.season_result().cloned(),
+            read_model,
+            endpoint: None,
         };
 
         let shared = Arc::new(Shared::new(recovered.state.tick()));
+        let network = match config.net {
+            Some(net) => Some(PreparedNetwork::prepare(
+                net,
+                &dir,
+                &report.meta,
+                &recovered.state,
+                &shared,
+                &config.build,
+            )?),
+            None => None,
+        };
         let alarm = Alarm::new();
         let (persist_tx, persist_rx) = mpsc::sync_channel(CHANNEL_BOUND);
         let persist_clock = Arc::clone(&clock);
+        let retention = config.retention;
         let persist = thread::Builder::new()
             .name("nomad-persist".to_owned())
-            .spawn(move || persist::run(store, &persist_rx, &*persist_clock))
+            .spawn(move || persist::run(store, &persist_rx, &*persist_clock, retention))
             .map_err(|e| ServerError::io("cannot start the persistence thread", e))?;
         let (inbox_tx, inbox_rx) = mpsc::channel();
         let sim = Sim {
@@ -272,7 +355,7 @@ impl ServerHandle {
             shared: Arc::clone(&shared),
             build: config.build,
             snapshot_interval: config.snapshot_interval,
-            season_end: Tick::ZERO.after(Ticks::from_days(7 * u64::from(report.meta.season_weeks))),
+            checkpoint_interval: config.checkpoint_interval,
         };
         let sim = match thread::Builder::new()
             .name("nomad-sim".to_owned())
@@ -285,15 +368,32 @@ impl ServerHandle {
                 return Err(ServerError::io("cannot start the simulation thread", e));
             }
         };
-        Ok(Self {
-            report,
+        let mut handle = Self {
+            report: report.clone(),
             inbox: inbox_tx,
             alarm,
             shared,
             sim: Some(sim),
             persist: Some(persist),
+            network: None,
             _lock: lock,
-        })
+        };
+        if let Some(prepared) = network {
+            // On failure the handle is dropped, which stops the threads like a crash.
+            let network = prepared.start(handle.access())?;
+            report.endpoint = Some(network.local_addr);
+            handle.report = report;
+            handle.network = Some(network);
+        }
+        Ok(handle)
+    }
+
+    /// The submit part of the handle, for the network thread.
+    pub(crate) fn access(&self) -> ServerAccess {
+        ServerAccess {
+            inbox: self.inbox.clone(),
+            shared: Arc::clone(&self.shared),
+        }
     }
 
     /// What startup found on disk.
@@ -303,20 +403,7 @@ impl ServerHandle {
 
     /// Submits an input. It applies on the next tick the server computes (doc 11 §6).
     pub fn submit(&self, input: Input) -> Result<(), SubmitError> {
-        if matches!(
-            input,
-            Input::Operator(OperatorInput::CatchUpStart | OperatorInput::CatchUpEnd)
-        ) {
-            return Err(SubmitError::Reserved);
-        }
-        match self.status().phase {
-            Phase::Live => {}
-            Phase::Stopped => return Err(SubmitError::Stopped),
-            Phase::Starting | Phase::CatchingUp => return Err(SubmitError::NotLive),
-        }
-        self.inbox
-            .send(Control::Input(input))
-            .map_err(|_| SubmitError::Stopped)
+        submit(&self.inbox, &self.shared, input)
     }
 
     /// Subscribes to [`ServerEvent`]s from now on. A subscriber that falls more than a few
@@ -392,6 +479,12 @@ impl ServerHandle {
     pub fn join(mut self) -> Result<ShutdownReport, ServerError> {
         let sim = self.sim.take().map(JoinHandle::join);
         let persist = self.persist.take().map(JoinHandle::join);
+        // The network thread ends once the simulation has published that it stopped. The
+        // connection file goes only after a clean stop (N3 plan §4.2).
+        let clean = matches!(sim, Some(Ok(Ok(Stop::Clean)))) && matches!(persist, Some(Ok(Ok(()))));
+        if let Some(network) = self.network.take() {
+            network.join(clean);
+        }
         // A persistence failure is the root cause of the simulation stopping, so report it
         // first.
         match persist {
@@ -430,6 +523,98 @@ impl Drop for ServerHandle {
         if let Some(persist) = self.persist.take() {
             let _ = persist.join();
         }
+        // Stops like a crash: the connection file stays, and the free lock marks it stale.
+        if let Some(network) = self.network.take() {
+            network.join(false);
+        }
+    }
+}
+
+/// What the network endpoint needs before the server's threads start (N3): the identity,
+/// loaded first so a damaged one stops the start (D-151); the event subscription, made
+/// before the simulation runs so no event is missed; and the bound socket, so a busy port
+/// stops the start cleanly (D-150).
+struct PreparedNetwork {
+    net: NetConfig,
+    identity: Identity,
+    info: UniverseInfo,
+    events: Receiver<ServerEvent>,
+    socket: std::net::UdpSocket,
+}
+
+impl PreparedNetwork {
+    fn prepare(
+        net: NetConfig,
+        dir: &std::path::Path,
+        meta: &Meta,
+        state: &UniverseState,
+        shared: &Shared,
+        build: &str,
+    ) -> Result<Self, ServerError> {
+        let identity = Identity::load_or_create(dir)?;
+        let universe = parse_universe_id(&meta.universe_id)
+            .map_err(|e| ServerError::InvalidParameter(format!("the Universe ID in meta: {e}")))?;
+        let socket = crate::net::bind(&net)?;
+        Ok(Self {
+            net,
+            identity,
+            info: UniverseInfo {
+                dir: dir.to_owned(),
+                universe,
+                clock: state.clock(),
+                tick: state.tick(),
+                build: build.to_owned(),
+            },
+            events: shared.subscribe(),
+            socket,
+        })
+    }
+
+    fn start(self, server: ServerAccess) -> Result<Network, ServerError> {
+        Network::start(
+            self.socket,
+            &self.net,
+            self.identity,
+            &self.info,
+            server,
+            self.events,
+        )
+    }
+}
+
+/// The checks and hand-over of [`ServerHandle::submit`], shared with [`ServerAccess`].
+fn submit(inbox: &Sender<Control>, shared: &Shared, input: Input) -> Result<(), SubmitError> {
+    if matches!(
+        input,
+        Input::Operator(
+            OperatorInput::CatchUpStart
+                | OperatorInput::CatchUpEnd
+                | OperatorInput::SetPresence { .. }
+        )
+    ) {
+        return Err(SubmitError::Reserved);
+    }
+    match shared.status().phase {
+        Phase::Live => {}
+        Phase::SeasonOver => return Err(SubmitError::SeasonOver),
+        Phase::Stopped => return Err(SubmitError::Stopped),
+        Phase::Starting | Phase::CatchingUp => return Err(SubmitError::NotLive),
+    }
+    inbox
+        .send(Control::Input(input))
+        .map_err(|_| SubmitError::Stopped)
+}
+
+/// What the network thread may do with a running server: submit inputs (N3).
+#[derive(Clone, Debug)]
+pub(crate) struct ServerAccess {
+    inbox: Sender<Control>,
+    shared: Arc<Shared>,
+}
+
+impl Submit for ServerAccess {
+    fn submit(&self, input: Input) -> Result<(), SubmitError> {
+        submit(&self.inbox, &self.shared, input)
     }
 }
 

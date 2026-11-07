@@ -1,6 +1,6 @@
 # 06 — Milestones and acceptance criteria
 
-Each milestone ends in a runnable build plus an F12 screenshot committed to `screenshots/milestones/`.
+Each milestone ends in a runnable build plus an F12 screenshot committed to `screenshots/milestones/`. *(Design D-232: screenshots are no longer committed; milestones are tracked in Design doc 30 and verified by the GPU tests.)*
 
 ## M1 — Window, camera, grid
 - A winit window with a wgpu surface at 1920×1080, resizable. *(Design D-108: the client now opens borderless fullscreen by default; `--windowed` gives the 1920×1080 window.)*

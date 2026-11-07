@@ -10,6 +10,30 @@
 //! start kits under scripted and seeded random orders, by default for 6 simulated hours,
 //! reporting commands, jumps, docking, a consistency check and the tick time.
 //!
+//! With `--combat skirmish|battle|stress` it runs the time-to-kill scenarios of D-058 (S5
+//! plan §7 task 7): two fleets attack each other, and it reports the time to kill against
+//! the target and the tick time. `--combat breach|core` runs the station scenarios (S5 plan
+//! §7 task 13): a mid-size fleet breaches a full mother-station sector, or kills the core
+//! through an open sector, measured as D-147 says.
+//!
+//! With `--windows` it runs the exposure-window scenario (S6 plan §8 "Windows"): the four
+//! stage-1 commanders on scripted AI presence for 30 simulated days by default, reporting
+//! each window move, choice and lapse of orders, and checking D-155 on every tick.
+//!
+//! With `--season` it runs a scripted season to its result (S8 plan §7 task 6): scripted
+//! claims by the four stage-1 commanders, 14 days by default, `--early-win` to drive an early
+//! win, printing the control and standings history and the result, checked against a
+//! brute-force recount of the final holdings.
+//!
+//! With `--siege` it runs the siege scenarios (S6 plan §8): breach, Reinforced, siege, Held
+//! and Fallen, capture, the emergency jump of a mother station, protections and peripheral
+//! structures, each end to end from scripted commands, with its timeline and checks.
+//!
+//! With `--fog` it runs the fog-of-war check (S7 plan §6 tasks 8 and 9): scripted fleets of
+//! two commanders and an NPC group for a simulated day by default, every observer's picture
+//! compared with brute-force ground truth after every sensors pass, the sensors pass's cost
+//! at stage 1 and in a stage-2 stress layout, and two fleets finding each other.
+//!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
 //!
@@ -19,10 +43,24 @@
 //! nomad-harness --galaxy [--seed N] [--rules PATH]
 //! nomad-harness --fleets [--seed N] [--hours N | --ticks N] [--order-interval-secs N]
 //!               [--restore-at N] [--rules PATH]
+//! nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] [--rules PATH]
+//! nomad-harness --economy [--seed N] [--days N] [--rules PATH]
+//! nomad-harness --windows [--seed N] [--days N] [--rules PATH]
+//! nomad-harness --season [--seed N] [--days N] [--claim-hours N] [--early-win]
+//!               [--restore-at N] [--rules PATH]
+//! nomad-harness --siege [--seed N] [--rules PATH]
+//! nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]
 //! ```
 
+mod combat;
+mod economy;
 mod fleets;
+mod fog;
 mod galaxy;
+mod season;
+mod siege;
+mod station;
+mod windows;
 
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -34,17 +72,32 @@ use nomad_sim::{
     OperatorInput, Rules, SeasonConfig, TICKS_PER_SECOND, TickInputs, Ticks, UniverseState, step,
 };
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one flag per mode, as given on the command line"
+)]
 struct Args {
     seed: u64,
     ticks: Option<u64>,
     hours: u64,
+    hours_given: bool,
     order_interval_secs: u64,
     fleets: bool,
     diagnostics: u32,
     mean_interval_secs: u64,
     restore_at: Option<u64>,
     galaxy: bool,
+    combat: Option<combat::Set>,
+    economy: bool,
+    windows: bool,
+    siege: bool,
+    fog: bool,
+    days: Option<u64>,
     rules: Option<PathBuf>,
+    // S8: `--season`.
+    season: bool,
+    claim_hours: u64,
+    early_win: bool,
 }
 
 impl Default for Args {
@@ -53,13 +106,23 @@ impl Default for Args {
             seed: 1,
             ticks: None,
             hours: 6,
+            hours_given: false,
             order_interval_secs: 60,
             fleets: false,
             diagnostics: 10_000,
             mean_interval_secs: 10,
             restore_at: None,
             galaxy: false,
+            combat: None,
+            economy: false,
+            windows: false,
+            siege: false,
+            fog: false,
+            days: None,
             rules: None,
+            season: false,
+            claim_hours: 12,
+            early_win: false,
         }
     }
 }
@@ -72,21 +135,41 @@ fn parse_args() -> Result<Args, String> {
         match flag.as_str() {
             "--seed" => args.seed = parse(&value()?)?,
             "--ticks" => args.ticks = Some(parse(&value()?)?),
-            "--hours" => args.hours = parse(&value()?)?,
+            "--hours" => {
+                args.hours = parse(&value()?)?;
+                args.hours_given = true;
+            }
             "--order-interval-secs" => args.order_interval_secs = parse(&value()?)?,
             "--fleets" => args.fleets = true,
             "--diagnostics" => args.diagnostics = parse(&value()?)?,
             "--mean-interval-secs" => args.mean_interval_secs = parse(&value()?)?,
             "--restore-at" => args.restore_at = Some(parse(&value()?)?),
             "--galaxy" => args.galaxy = true,
+            "--combat" => args.combat = Some(combat::Set::parse(&value()?)?),
+            "--economy" => args.economy = true,
+            "--windows" => args.windows = true,
+            "--siege" => args.siege = true,
+            "--fog" => args.fog = true,
+            "--days" => args.days = Some(parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
+            "--season" => args.season = true,
+            "--claim-hours" => args.claim_hours = parse(&value()?)?,
+            "--early-win" => args.early_win = true,
             "--help" | "-h" => {
                 return Err(
                     "usage: nomad-harness [--seed N] [--ticks N] [--diagnostics N] \
                             [--mean-interval-secs N] [--restore-at N] [--rules PATH]\n       \
                      nomad-harness --galaxy [--seed N] [--rules PATH]\n       \
                      nomad-harness --fleets [--seed N] [--hours N | --ticks N] \
-                            [--order-interval-secs N] [--restore-at N] [--rules PATH]"
+                            [--order-interval-secs N] [--restore-at N] [--rules PATH]\n       \
+                     nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] \
+                            [--rules PATH]\n       \
+                     nomad-harness --economy [--seed N] [--days N] [--rules PATH]\n       \
+                     nomad-harness --windows [--seed N] [--days N] [--rules PATH]\n       \
+                     nomad-harness --season [--seed N] [--days N] [--claim-hours N] \
+                            [--early-win] [--restore-at N] [--rules PATH]\n       \
+                     nomad-harness --siege [--seed N] [--rules PATH]\n       \
+                     nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -117,6 +200,63 @@ fn run() -> Result<(), String> {
     if args.galaxy {
         return galaxy::print(&mut io::stdout().lock(), args.seed, rules);
     }
+    if let Some(set) = args.combat {
+        return combat::run(&mut io::stdout().lock(), set, args.seed, &rules);
+    }
+    if args.economy {
+        return economy::run(
+            &mut io::stdout().lock(),
+            economy::EconomyRun {
+                seed: args.seed,
+                days: args.days.unwrap_or(7),
+                rules,
+            },
+        );
+    }
+    if args.season {
+        return season::run(
+            &mut io::stdout().lock(),
+            season::SeasonRun {
+                seed: args.seed,
+                final_tick: nomad_sim::Tick::ZERO.after(Ticks::from_days(args.days.unwrap_or(14))),
+                claim_hours: args.claim_hours,
+                early_win: args.early_win,
+                restore_at: args.restore_at,
+                rules,
+            },
+        );
+    }
+    if args.windows {
+        return windows::run(
+            &mut io::stdout().lock(),
+            windows::WindowRun {
+                seed: args.seed,
+                days: args.days.unwrap_or(30),
+                rules,
+            },
+        );
+    }
+    if args.siege {
+        return siege::run(
+            &mut io::stdout().lock(),
+            &siege::SiegeRun {
+                seed: args.seed,
+                rules,
+            },
+        );
+    }
+    if args.fog {
+        // A simulated day unless --hours or --ticks says otherwise.
+        let hours = if args.hours_given { args.hours } else { 24 };
+        return fog::run(
+            &mut io::stdout().lock(),
+            &fog::FogRun {
+                seed: args.seed,
+                ticks: args.ticks.unwrap_or(Ticks::from_hours(hours).get()),
+                rules,
+            },
+        );
+    }
     if args.fleets {
         let hours = Ticks::from_hours(args.hours).get();
         return fleets::run(
@@ -130,16 +270,15 @@ fn run() -> Result<(), String> {
             },
         );
     }
+    diagnostics(&args, rules)
+}
+
+/// The default run: diagnostic timers for `--ticks`, reporting the hash and the speed.
+fn diagnostics(args: &Args, rules: Rules) -> Result<(), String> {
     // One hour of Universe time by default.
     let ticks = args.ticks.unwrap_or(36_000);
-    let mut state = UniverseState::with_rules(
-        SeasonConfig {
-            seed: args.seed,
-            season_start_unix_ms: 0,
-        },
-        rules,
-    )
-    .map_err(|e| e.to_string())?;
+    let mut state = UniverseState::with_rules(SeasonConfig::new(args.seed, 0), rules)
+        .map_err(|e| e.to_string())?;
     let spawn = TickInputs {
         operator: vec![OperatorInput::SpawnDiagnostics {
             count: args.diagnostics,

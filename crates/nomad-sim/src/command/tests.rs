@@ -12,13 +12,58 @@ use crate::geometry::Vec2;
 use crate::holding::HoldingId;
 use crate::state::UniverseState;
 use crate::testkit::{
-    at, commander, home, kit_fleet, order, send, site_position, spawn_fleet, stage1, then,
+    at, commander, home, kit_fleet, order, send, site_position, spawn_fleet, spawn_unseen, stage1,
+    then,
 };
 use crate::time::Tick;
 
+/// The economy's reasons (S4), produced by `economy::tests`; the test below covers the rest.
+pub(crate) fn economy_reasons() -> BTreeSet<R> {
+    [
+        R::Outpost,
+        R::NotBuildable,
+        R::NoSuchSlot,
+        R::WrongSlot,
+        R::SlotTaken,
+        R::QueueFull,
+        R::UnknownItem,
+        R::NoMule,
+        R::CargoFull,
+        R::NoKit,
+        R::UnknownSite,
+        R::NotClaimable,
+        R::SiteTaken,
+        R::TooFar,
+        R::RouteTooLong,
+        R::DuplicateStop,
+        R::NotDepot,
+    ]
+    .into_iter()
+    .collect()
+}
+
+/// The station orders' reasons (S5b), produced by `defence::tests`.
+pub(crate) fn defence_reasons() -> BTreeSet<R> {
+    [
+        R::NoSuchSector,
+        R::AbilityCooldown,
+        R::SectorOpen,
+        R::NoPower,
+    ]
+    .into_iter()
+    .collect()
+}
+
+/// The commander-settings reasons (S6a), produced by `commander::tests`.
+pub(crate) fn commander_reasons() -> BTreeSet<R> {
+    [R::UnknownCommander, R::InvalidWindow, R::WindowLocked]
+        .into_iter()
+        .collect()
+}
+
 /// Every reason, by an exhaustive match: a new reason does not compile until it is listed,
-/// and the test below fails until a scenario produces it.
-fn all_reasons() -> BTreeSet<R> {
+/// and the tests fail until a scenario produces it.
+pub(crate) fn all_reasons() -> BTreeSet<R> {
     let every = [
         R::UnknownFleet,
         R::UnknownShip,
@@ -45,37 +90,93 @@ fn all_reasons() -> BTreeSet<R> {
         R::DuplicateShip,
         R::NotTogether,
         R::NothingToLaunch,
+        R::Outpost,
+        R::NotBuildable,
+        R::NoSuchSlot,
+        R::WrongSlot,
+        R::SlotTaken,
+        R::QueueFull,
+        R::UnknownItem,
+        R::NoMule,
+        R::CargoFull,
+        R::NoKit,
+        R::UnknownSite,
+        R::NotClaimable,
+        R::SiteTaken,
+        R::TooFar,
+        R::RouteTooLong,
+        R::DuplicateStop,
+        R::NotDepot,
+        R::NoSuchSector,
+        R::AbilityCooldown,
+        R::SectorOpen,
+        R::NoPower,
+        // S6a.
+        R::UnknownCommander,
+        R::InvalidWindow,
+        R::WindowLocked,
+        // S7.
+        R::NotVisible,
     ];
-    for reason in every {
-        match reason {
-            R::UnknownFleet
-            | R::UnknownShip
-            | R::UnknownHolding
-            | R::UnknownTarget
-            | R::UnknownSystem
-            | R::NotOwner
-            | R::HoldingNotOwned
-            | R::InvalidPosition
-            | R::WrongSystem
-            | R::Unreachable
-            | R::AlreadyThere
-            | R::Docked
-            | R::NotDocked
-            | R::InTransit
-            | R::NoCapacity
-            | R::NoDryDock
-            | R::NoHolding
-            | R::NoWeapons
-            | R::FriendlyTarget
-            | R::SelfTarget
-            | R::EmptyRoute
-            | R::EmptyFleet
-            | R::DuplicateShip
-            | R::NotTogether
-            | R::NothingToLaunch => {}
-        }
-    }
+    assert!(every.into_iter().all(listed));
     every.into_iter().collect()
+}
+
+/// The exhaustive match behind [`all_reasons`]: a new reason does not compile until it is
+/// listed here and there.
+const fn listed(reason: R) -> bool {
+    match reason {
+        R::UnknownFleet
+        | R::UnknownShip
+        | R::UnknownHolding
+        | R::UnknownTarget
+        | R::UnknownSystem
+        | R::NotOwner
+        | R::HoldingNotOwned
+        | R::InvalidPosition
+        | R::WrongSystem
+        | R::Unreachable
+        | R::AlreadyThere
+        | R::Docked
+        | R::NotDocked
+        | R::InTransit
+        | R::NoCapacity
+        | R::NoDryDock
+        | R::NoHolding
+        | R::NoWeapons
+        | R::FriendlyTarget
+        | R::SelfTarget
+        | R::EmptyRoute
+        | R::EmptyFleet
+        | R::DuplicateShip
+        | R::NotTogether
+        | R::NothingToLaunch
+        | R::Outpost
+        | R::NotBuildable
+        | R::NoSuchSlot
+        | R::WrongSlot
+        | R::SlotTaken
+        | R::QueueFull
+        | R::UnknownItem
+        | R::NoMule
+        | R::CargoFull
+        | R::NoKit
+        | R::UnknownSite
+        | R::NotClaimable
+        | R::SiteTaken
+        | R::TooFar
+        | R::RouteTooLong
+        | R::DuplicateStop
+        | R::NotDepot
+        | R::NoSuchSector
+        | R::AbilityCooldown
+        | R::SectorOpen
+        | R::NoPower
+        | R::UnknownCommander
+        | R::InvalidWindow
+        | R::WindowLocked
+        | R::NotVisible => true,
+    }
 }
 
 fn check(state: &UniverseState, n: u32, command: &Command) -> Result<(), R> {
@@ -192,6 +293,23 @@ fn every_rejection_reason_is_produced() {
         };
     }
     let travelling_ship = s.state.fleet(travelling).unwrap().ships[0];
+    // Hostiles that arrived after the last sensors pass (S7): one here, beside the fleet, and
+    // one in the neighbouring system, which must not be told apart from it (D-123).
+    let unseen = spawn_unseen(
+        &mut s.state,
+        commander(2),
+        s.home,
+        s.spot + Vec2::new(500.0, 0.0),
+        &[ShipClass::Vx],
+    );
+    let unseen_ship = s.state.fleet(unseen).unwrap().ships[0];
+    let elsewhere = spawn_unseen(
+        &mut s.state,
+        commander(2),
+        other_system,
+        Vec2::ZERO,
+        &[ShipClass::Vx],
+    );
 
     let fleet_cmd = |fleet, o| order(fleet, o);
     let cases: Vec<(u32, Command, R)> = vec![
@@ -434,6 +552,37 @@ fn every_rejection_reason_is_produced() {
             },
             R::NotTogether,
         ),
+        // S7: what the issuer does not detect cannot be named, wherever it is.
+        (
+            1,
+            fleet_cmd(
+                s.fleet,
+                FleetOrder::Attack {
+                    target: unseen.sim_id(),
+                },
+            ),
+            R::NotVisible,
+        ),
+        (
+            1,
+            fleet_cmd(
+                s.fleet,
+                FleetOrder::Guard {
+                    object: unseen_ship.sim_id(),
+                },
+            ),
+            R::NotVisible,
+        ),
+        (
+            1,
+            fleet_cmd(
+                s.fleet,
+                FleetOrder::Attack {
+                    target: elsewhere.sim_id(),
+                },
+            ),
+            R::NotVisible,
+        ),
     ];
 
     let mut seen = BTreeSet::new();
@@ -442,16 +591,18 @@ fn every_rejection_reason_is_produced() {
         seen.insert(*expected);
     }
 
-    // Frigates dock only where there is a dry dock (D-102).
-    if let Some(h) = s.state.holdings.get_mut(&s.mother) {
-        h.dry_docks = 0;
-    }
+    // Frigates dock only where there is a completed dry dock (D-102).
+    let dock_module = s.state.economy.holdings[&s.mother].slots[&nomad_types::Slot::Dock];
+    s.state.entities.insert(
+        dock_module,
+        crate::economy::Construction { remaining_ms: 1 },
+    );
     let dock = fleet_cmd(s.warden, FleetOrder::Dock { at: s.mother });
     assert_eq!(check(&s.state, 1, &dock), Err(R::NoDryDock));
     seen.insert(R::NoDryDock);
-    if let Some(h) = s.state.holdings.get_mut(&s.mother) {
-        h.dry_docks = 1;
-    }
+    s.state
+        .entities
+        .remove::<crate::economy::Construction>(dock_module);
     assert_eq!(check(&s.state, 1, &dock), Ok(()));
 
     // Nothing left to launch once the start kit is out.
@@ -464,7 +615,19 @@ fn every_rejection_reason_is_produced() {
     assert_eq!(check(&s.state, 1, &launch), Err(R::NothingToLaunch));
     seen.insert(R::NothingToLaunch);
 
-    assert_eq!(seen, all_reasons());
+    let fleet_reasons: BTreeSet<R> = all_reasons()
+        .difference(
+            &economy_reasons()
+                .union(&defence_reasons())
+                .copied()
+                .collect(),
+        )
+        .copied()
+        .collect::<BTreeSet<R>>()
+        .difference(&commander_reasons())
+        .copied()
+        .collect();
+    assert_eq!(seen, fleet_reasons);
 }
 
 #[test]

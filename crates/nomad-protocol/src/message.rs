@@ -10,7 +10,9 @@
 
 use std::fmt;
 
-use nomad_types::{Command, CommanderId, HoldingId, SeasonClock, SimId, Tick, UniverseId};
+use nomad_types::{
+    Command, CommanderId, HoldingId, InvalidReason, SeasonClock, SimId, Tick, UniverseId,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::frame::{MAX_CLIENT_FRAME_LEN, MAX_SERVER_FRAME_LEN, WireMessage};
@@ -37,13 +39,18 @@ pub enum ClientMessage {
     /// tick *t* applies at *t + 1* (doc 11 §6).
     Command {
         /// The client's sequence number for this command, echoed in
-        /// [`ServerMessage::CommandResult`]. Orders a commander's commands within a tick.
+        /// [`ServerMessage::CommandResult`]. It must strictly increase within a session; the
+        /// server ends a session that repeats or lowers it (N3 plan §4.4).
         client_seq: u64,
         /// The command.
         command: Command,
     },
-    /// Liveness and round-trip time. The server answers with [`ServerMessage::Pong`].
-    Ping,
+    /// Liveness and round-trip time. The server answers at once with
+    /// [`ServerMessage::Pong`] carrying the same nonce, outside the tick.
+    Ping {
+        /// Any value; echoed in the `Pong`, so the client can match replies to requests.
+        nonce: u64,
+    },
 }
 
 impl WireMessage for ClientMessage {
@@ -97,7 +104,10 @@ pub enum ServerMessage {
     /// An alert for the client's notification banner and toasts (doc 17 §6, D-092).
     Notification(Notification),
     /// The reply to [`ClientMessage::Ping`].
-    Pong,
+    Pong {
+        /// The `Ping`'s nonce.
+        nonce: u64,
+    },
 }
 
 impl WireMessage for ServerMessage {
@@ -141,8 +151,17 @@ pub enum ByeReason {
     /// The server is shutting down cleanly (doc 20 §7).
     ShuttingDown,
     /// The client sent something the protocol does not allow, such as a malformed or
-    /// oversized frame (doc 20 §9).
+    /// oversized frame, a message out of order or a `client_seq` that did not increase
+    /// (doc 20 §9).
     ProtocolViolation,
+    /// `Hello` or `Auth` did not arrive in time (N3 plan §4.6).
+    HandshakeTimeout,
+    /// The server lost track of this session's results, for example because it fell behind
+    /// on the simulation's events. Reconnect; commands without a result may or may not have
+    /// applied (N3 plan §4.1).
+    Resync,
+    /// A newer session for the same commander replaced this one (D-124).
+    Replaced,
 }
 
 /// How far a catch-up has got (D-047). Two ticks, not a percentage, so that the client
@@ -171,7 +190,7 @@ pub enum CommandOutcome {
 }
 
 /// Why a command was rejected. The envelope reasons come from doc 20 §5, §7 and §9; the
-/// validator's reasons arrive with the validator (D-077).
+/// simulation's validator gives [`RejectReason::Invalid`] (D-077, D-123).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RejectReason {
     /// The server is still catching up (doc 20 §7).
@@ -180,8 +199,14 @@ pub enum RejectReason {
     RateLimited,
     /// The session is not authenticated.
     NotAuthenticated,
-    /// The simulation's validator rejected it (D-077).
-    Invalid,
+    /// The simulation's validator rejected it (D-077). The reason withholds whether unseen
+    /// entities exist (D-123).
+    Invalid {
+        /// Why.
+        reason: InvalidReason,
+    },
+    /// The season has ended; the Universe no longer advances (D-116).
+    SeasonOver,
 }
 
 /// Siege information (doc 12 §4; doc 16 §2). It goes to the owner and to the commanders with

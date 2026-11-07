@@ -7,16 +7,28 @@
 //! - **ownership:** the issuer owns the fleet, ships or holding it commands;
 //! - **targets exist:** fleets, ships, holdings, systems, and positions that are finite and
 //!   inside the system;
+//! - **targets are seen** (S7; D-039, D-077): an order that names another owner's ship,
+//!   fleet or module (Attack, Guard, station-keeping on it) needs it in the issuer's picture
+//!   from the last sensors pass, or the reason is [`CommandRejection::NotVisible`]. Own
+//!   entities and public objects (holdings, sites, gates) can always be named. The check
+//!   comes before every reason that depends on where the target is, such as
+//!   [`CommandRejection::WrongSystem`], so a refusal says nothing about an unseen entity; the
+//!   wire collapses `NotVisible` into "not found" with the unknown and the not-own (D-123);
 //! - **the order applies:** a docked fleet must launch first; a target must be in the system
 //!   the fleet will be in when the order starts (S3 plan §6 task 0); fleets in lane transit
 //!   cannot be reorganised;
 //! - **reachability:** a jump destination has a route; a point is not inside an obstacle;
 //! - **the fleet's composition:** attacks need an armed ship; frigates dock only where there
-//!   is a dry dock (D-102); docking needs room for every ship.
+//!   is a dry dock (D-102); docking needs room for every ship;
+//! - **station orders** (S5b, [`crate::defence`]): abilities need a completed holding, an
+//!   existing sector that is not open, an elapsed cooldown and their power (D-128).
+//! - **the commander's own settings** (S6a): an exposure window is chosen by a commander of
+//!   the Universe, starts on a quarter hour, and only in the first 7 days (D-157).
+//! - **emergency jumps** (S6b): a fleet in one takes no orders but its rules of engagement,
+//!   like a fleet in lane transit (D-166), and a site a fallen mother station is jumping to
+//!   counts as taken (D-164).
 //!
-//! A rejection carries its reason ([`CommandRejection`]). The visibility check ("you can
-//! only target what you detect", D-039) is added with sensors in S7; until then every entity
-//! counts as visible.
+//! A rejection carries its reason ([`CommandRejection`]).
 //!
 //! **Where the fleet will be:** an order that replaces the queue starts from where the fleet
 //! is (or, in lane transit, where it will arrive: transit cannot be interrupted, D-042). An
@@ -118,6 +130,88 @@ pub enum CommandRejection {
     /// Launch-ready at a holding where none of the issuer's fleets is docked.
     #[error("nothing to launch")]
     NothingToLaunch,
+    /// The holding is an outpost: its core is not complete yet (D-041).
+    #[error("the holding is an outpost")]
+    Outpost,
+    /// Cores and NPC classes cannot be built.
+    #[error("cannot be built")]
+    NotBuildable,
+    /// The holding has no such slot (D-130, D-131).
+    #[error("no such slot")]
+    NoSuchSlot,
+    /// The module kind does not go into that slot, or the deposit there does not suit it.
+    #[error("wrong slot for this module")]
+    WrongSlot,
+    /// The slot has a module, or one is queued for it.
+    #[error("the slot is taken")]
+    SlotTaken,
+    /// The holding's build queue is full.
+    #[error("the build queue is full")]
+    QueueFull,
+    /// No such item in the holding's queue.
+    #[error("no such queue item")]
+    UnknownItem,
+    /// The fleet has no MULE.
+    #[error("the fleet has no MULE")]
+    NoMule,
+    /// Every MULE of the fleet carries something.
+    #[error("no empty MULE")]
+    CargoFull,
+    /// No core kit to load or deploy.
+    #[error("no core kit")]
+    NoKit,
+    /// The site does not exist.
+    #[error("no such site")]
+    UnknownSite,
+    /// The site is in a system that cannot be claimed.
+    #[error("the site cannot be claimed")]
+    NotClaimable,
+    /// The site has a holding or an outpost.
+    #[error("the site is taken")]
+    SiteTaken,
+    /// The fleet is not close enough to the site.
+    #[error("too far away")]
+    TooFar,
+    /// A convoy route with more stops than the rules allow.
+    #[error("the route has too many stops")]
+    RouteTooLong,
+    /// A convoy route lists a holding twice.
+    #[error("a stop is listed twice")]
+    DuplicateStop,
+    /// A convoy route does not end at a depot (D-134).
+    #[error("the route must end at a depot")]
+    NotDepot,
+
+    // Station orders (S5b; doc 15 §5.3).
+    /// The holding's dome has no such sector.
+    #[error("no such shield sector")]
+    NoSuchSector,
+    /// The ability is cooling down.
+    #[error("the ability is cooling down")]
+    AbilityCooldown,
+    /// SHLD SURGE on an open sector (doc 15 §5.3).
+    #[error("the sector is open")]
+    SectorOpen,
+    /// The holding cannot supply the ability's power draw (D-128).
+    #[error("not enough power")]
+    NoPower,
+
+    // S6: offline and siege rules.
+    /// The issuer is not a commander of this Universe.
+    #[error("no such commander")]
+    UnknownCommander,
+    /// The window start is not a quarter hour of the day (D-155).
+    #[error("not a quarter hour of the day")]
+    InvalidWindow,
+    /// The free choice of the exposure window is over: the first 7 days have passed (D-157).
+    #[error("the window can no longer be chosen")]
+    WindowLocked,
+
+    // S7: sensors and fog of war.
+    /// The target is another owner's ship, fleet or module that the issuer's sensors do not
+    /// detect (D-039, D-174, D-175).
+    #[error("the target is not seen")]
+    NotVisible,
 }
 
 /// Checks `command` from `issuer` against the current state (D-077).
@@ -137,6 +231,10 @@ pub fn validate_command(
         }
         Command::CreateFleet { ships } => validate_create(state, issuer, ships),
         Command::MergeFleets { fleet, into } => validate_merge(state, issuer, *fleet, *into),
+        Command::Economy(command) => crate::economy::validate(state, issuer, command),
+        Command::SetExposureWindow { start } => {
+            crate::commander::validate_window_choice(state, issuer, *start)
+        }
     }
 }
 
@@ -146,6 +244,7 @@ pub(crate) fn execute(
     issuer: Owner,
     command: &Command,
     events: &mut Vec<FleetEvent>,
+    economy_events: &mut Vec<crate::economy::EconomyEvent>,
 ) -> Result<(), CommandRejection> {
     validate_command(state, issuer, command)?;
     match command {
@@ -153,7 +252,11 @@ pub(crate) fn execute(
             fleet,
             order,
             queue,
-        } => crate::fleet::orders::give(state, *fleet, order.clone(), *queue, events),
+        } => {
+            // An order to a convoy fleet ends its route (D-134).
+            crate::economy::end_convoy(state, *fleet, economy_events);
+            crate::fleet::orders::give(state, *fleet, order.clone(), *queue, events);
+        }
         Command::Holding {
             holding,
             order: HoldingOrder::LaunchReady,
@@ -162,10 +265,16 @@ pub(crate) fn execute(
                 crate::fleet::orders::launch(state, fleet, events);
             }
         }
+        // Station orders (S5b).
+        Command::Holding { holding, order } => crate::defence::execute(state, *holding, *order),
         Command::CreateFleet { ships } => {
             crate::fleet::create_fleet(state, issuer, ships);
         }
         Command::MergeFleets { fleet, into } => crate::fleet::merge_fleets(state, *fleet, *into),
+        Command::Economy(command) => crate::economy::execute(state, command, economy_events),
+        Command::SetExposureWindow { start } => {
+            crate::commander::choose_window(state, issuer, *start);
+        }
     }
     Ok(())
 }
@@ -179,7 +288,8 @@ pub(crate) struct Context {
     pub(crate) position: Option<Vec2>,
 }
 
-/// Something an order can aim at, in space (S3: every entity counts as visible).
+/// Something an order can aim at, in space. Whether the issuer sees it is
+/// [`crate::sensors::sees`] (S7).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Target {
     pub(crate) system: SystemId,
@@ -194,7 +304,7 @@ pub(crate) struct Target {
 pub(crate) fn locate(state: &UniverseState, id: SimId) -> Option<Target> {
     let in_space = |fleet: &Fleet| match fleet.place {
         Place::InSystem(system) => Some(system),
-        Place::Docked(_) | Place::InTransit { .. } => None,
+        Place::Docked(_) | Place::InTransit { .. } | Place::EmergencyJump { .. } => None,
     };
     if let Some((system, owner)) = state
         .entities
@@ -235,6 +345,15 @@ pub(crate) fn locate(state: &UniverseState, id: SimId) -> Option<Target> {
             system: site.system,
             position: site.position.into(),
             owner: None,
+            fleet: None,
+        });
+    }
+    // A module (S5b): any but a pylon, which cannot be targeted (D-053).
+    if let Some((system, position, owner)) = crate::defence::locate_module(state, id) {
+        return Some(Target {
+            system,
+            position,
+            owner: Some(owner),
             fleet: None,
         });
     }
@@ -311,7 +430,7 @@ pub(crate) fn dock_check(
     if fleet.owner != Owner::Commander(h.owner) {
         return Err(CommandRejection::HoldingNotOwned);
     }
-    if has_frigate(state, fleet) && h.dry_docks == 0 {
+    if has_frigate(state, fleet) && state.dry_docks(holding) == 0 {
         return Err(CommandRejection::NoDryDock);
     }
     let size = u32::try_from(fleet.members.len()).unwrap_or(u32::MAX);
@@ -361,6 +480,8 @@ fn current_context(state: &UniverseState, id: FleetId, fleet: &Fleet) -> Option<
                 position: Some(gate.position.into()),
             })
         }
+        // Refused before this is asked: an emergency jump takes no orders (S6b).
+        Place::EmergencyJump { .. } => None,
     }
 }
 
@@ -435,7 +556,8 @@ fn after_task(state: &UniverseState, ctx: Context, active: &ActiveOrder) -> Cont
         | Task::StationKeep { .. }
         | Task::KeepStationOn { .. }
         | Task::Guard { .. }
-        | Task::Attack { .. } => ctx,
+        | Task::Attack { .. }
+        | Task::Pursue { .. } => ctx,
     }
 }
 
@@ -515,6 +637,11 @@ fn validate_order(
     if let FleetOrder::SetRulesOfEngagement { .. } = order {
         return Ok(());
     }
+    // An emergency jump cannot be interrupted, and where it ends is not known until it does:
+    // docked if there is room, otherwise in space (D-166).
+    if matches!(fleet.place, Place::EmergencyJump { .. }) {
+        return Err(R::InTransit);
+    }
     let ctx = order_context(state, id, &fleet, queue).ok_or(R::UnknownFleet)?;
     match order {
         FleetOrder::Launch => {
@@ -544,7 +671,7 @@ fn validate_order(
             route.iter().try_for_each(|to| check_point(state, ctx, to))
         }
         FleetOrder::Attack { target } => {
-            let t = check_target(state, id, ctx, *target)?;
+            let t = check_target(state, issuer, id, ctx, *target)?;
             if t.owner == Some(issuer) {
                 return Err(R::FriendlyTarget);
             }
@@ -554,9 +681,9 @@ fn validate_order(
                 Err(R::NoWeapons)
             }
         }
-        FleetOrder::Guard { object } => check_target(state, id, ctx, *object).map(drop),
+        FleetOrder::Guard { object } => check_target(state, issuer, id, ctx, *object).map(drop),
         FleetOrder::StationKeep { relative_to } => match relative_to {
-            Some(target) => check_target(state, id, ctx, *target).map(drop),
+            Some(target) => check_target(state, issuer, id, ctx, *target).map(drop),
             None => Ok(()),
         },
         FleetOrder::Dock { at } => {
@@ -606,16 +733,21 @@ fn check_point(state: &UniverseState, ctx: Context, to: &Location) -> Result<(),
     Ok(())
 }
 
-/// A target or object in the fleet's system that is not the fleet itself or one of its
-/// ships.
+/// A target or object that `issuer` sees, in the fleet's system, that is not the fleet
+/// itself or one of its ships. Whether it is seen is checked first, so the reasons after it
+/// say nothing about an unseen entity (D-123).
 fn check_target(
     state: &UniverseState,
+    issuer: Owner,
     fleet: FleetId,
     ctx: Context,
     target: SimId,
 ) -> Result<Target, CommandRejection> {
     use CommandRejection as R;
     let t = locate(state, target).ok_or(R::UnknownTarget)?;
+    if !crate::sensors::sees(state, issuer, t.system, target) {
+        return Err(R::NotVisible);
+    }
     if t.fleet == Some(fleet) {
         return Err(R::SelfTarget);
     }
@@ -665,6 +797,10 @@ fn validate_holding_order(
                 Ok(())
             }
         }
+        // Station orders (S5b).
+        HoldingOrder::Ability { .. } | HoldingOrder::TurretsHold { .. } => {
+            crate::defence::validate(state, holding, order)
+        }
     }
 }
 
@@ -690,7 +826,8 @@ fn ship_place(
 /// Two places count as together if they are one system in space or one holding.
 fn together(a: Place, b: Place) -> Result<(), CommandRejection> {
     match (a, b) {
-        (Place::InTransit { .. }, _) | (_, Place::InTransit { .. }) => {
+        (Place::InTransit { .. } | Place::EmergencyJump { .. }, _)
+        | (_, Place::InTransit { .. } | Place::EmergencyJump { .. }) => {
             Err(CommandRejection::InTransit)
         }
         (Place::InSystem(x), Place::InSystem(y)) if x == y => Ok(()),
@@ -741,4 +878,4 @@ fn validate_merge(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

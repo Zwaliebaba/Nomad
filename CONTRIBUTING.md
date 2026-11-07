@@ -27,13 +27,19 @@ cargo build --workspace
 cargo test --workspace
 ```
 
-CI cannot run the GPU tests. After changing render code, also run them locally (D-089):
+CI runs only fast tests (D-190). Network tests, long simulations and the GPU tests are `#[ignore]`. Before merging work that touches the server, the network or long-run simulation behaviour, run them all locally:
+
+```bash
+cargo test --workspace -- --ignored
+```
+
+After changing render code, run at least the GPU tests (they need a GPU adapter or a software Vulkan driver):
 
 ```bash
 cargo test -p nomad-client -- --ignored
 ```
 
-In VS Code, the `Local checks` and `GPU tests` tasks run these.
+In VS Code, the `Local checks`, `GPU tests` and `Ignored tests (network, long simulations, GPU)` tasks run these.
 
 ## Commit messages
 
@@ -43,6 +49,8 @@ The subject line is in imperative mood ("Add ops grid pass", not "Added …") an
 
 - Debug profile only (D-010). There are no Release builds in CI.
 - Linux and Windows runners (D-011).
+- Fast tests only (D-190): the `#[ignore]`d network tests, long simulations and GPU tests run locally, as above.
+- `cargo deny` checks licences and advisories against `deny.toml` (D-031).
 - Pushes to any branch run CI. Same-repository PRs show those results; PRs from forks run CI themselves.
 
 ## Coding standards

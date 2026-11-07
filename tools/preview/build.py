@@ -14,6 +14,13 @@ def main() -> None:
     ships = json.load(open(f"{assets}/voxels/ships_placeholder.json", encoding="utf-8"))
     placement = json.load(open(f"{assets}/layout/ships_placement.json", encoding="utf-8"))
     config = json.load(open(f"{assets}/layout/scene_config.json", encoding="utf-8"))
+    fixture = json.load(open(f"{assets}/fixtures/siege_kr114.json", encoding="utf-8"))
+
+    # Sector strengths are live data and come from the fixture (phase-1 doc 07 item 28):
+    # sector "pylon_e" takes selection.pylons["E"].
+    pylons = fixture["selection"]["pylons"]
+    for sector in config["shield"]["sectors"]:
+        sector["strength"] = pylons[sector["pylon"].removeprefix("pylon_").upper()]
 
     # Station voxels packed as int8 x, int8 y, int8 z, uint8 pad, uint16 palette index.
     packed = bytearray()

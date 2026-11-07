@@ -17,10 +17,7 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 ];
 
 fn season(seed: u64) -> SeasonConfig {
-    SeasonConfig {
-        seed,
-        season_start_unix_ms: 1_793_923_200_000,
-    }
+    SeasonConfig::new(seed, 1_793_923_200_000)
 }
 
 /// A Universe with no galaxy, as the diagnostics harness uses.
@@ -115,10 +112,7 @@ fn arrival_order_of_commander_inputs_does_not_matter() {
     reversed.reverse();
 
     let hash_after = |commanders: Vec<CommanderInput>| {
-        let mut state = UniverseState::new(SeasonConfig {
-            seed: 1,
-            season_start_unix_ms: 0,
-        });
+        let mut state = UniverseState::new(SeasonConfig::new(1, 0));
         step(
             &mut state,
             &TickInputs {

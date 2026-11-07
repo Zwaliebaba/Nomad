@@ -24,8 +24,34 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// - 5: galaxy positions in metres instead of km (D-099 item 2);
 /// - 6: ships and fleets as canonical entity tables, the jump-transit queue, mother-station
 ///   and dry-dock fields on holdings, and the rules without the separation response time
-///   (S3 plan §4.2).
-pub const FORMAT: u32 = 6;
+///   (S3 plan §4.2);
+/// - 7: the rules gain the combat section (S5 plan §4.1);
+/// - 8: ship combat state: damage, weapons, attackers, engagement deadlines and projectiles
+///   in flight (S5 plan §4.9);
+/// - 9: station modules as entities (module, hull, construction and disabled tables) and the
+///   economy: pools, holding economies, queues, convoys and cargo (S4); rules format 3, which
+///   holds both the combat and the economy sections;
+/// - 10: each queue item keeps the price fixed when it was queued, and the rules gain the
+///   core kit's growth per further holding (D-189); rules format 4;
+/// - 11: station combat (S5b): domes with their sectors, switches, ability cooldowns and the
+///   damage ledger, turret weapon state; projectiles name their shooter and gun, and weapons
+///   may aim at structures; rules format 5, which adds the defence section.
+/// - 12: commander records with presence, the disconnect grace, the activity history and
+///   the exposure window, and their deadlines (S6a); the rules gain the sieges section,
+///   rules format 6.
+/// - 13: the economy rules gain D-217's diminishing yield F; rules format 7.
+/// - 14: the season's final tick in the season configuration (D-195) and the season record:
+///   the cached control map, the standings with their *since*, the near-win set and the
+///   result (S8; D-191); the rules gain the season section, rules format 8.
+/// - 15: the siege lifecycle (S6b): each holding's defence state with its exit or siege
+///   deadline and credited attackers, its protection, fallen mother stations in their
+///   emergency jump, and siege deadlines; fleets gain the emergency-jump place; rules format
+///   9, which adds the siege values and the outpost's starting hull (D-224).
+/// - 16: sensors and fog of war (S7): each observer's picture from the last sensors pass,
+///   last-known memory and lane traffic; an Attack task keeps where its target was last
+///   seen, and a new task follows a lost target there (D-180); the rules gain the sensors
+///   section and a sensor kind per ship class, rules format 10.
+pub const FORMAT: u32 = 16;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]
@@ -103,10 +129,7 @@ mod tests {
     use crate::{CommanderId, SeasonConfig, TickInputs, step};
 
     fn universe() -> UniverseState {
-        UniverseState::new(SeasonConfig {
-            seed: 5,
-            season_start_unix_ms: 1_793_923_200_000,
-        })
+        UniverseState::new(SeasonConfig::new(5, 1_793_923_200_000))
     }
 
     #[test]

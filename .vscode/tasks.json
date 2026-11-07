@@ -48,6 +48,13 @@
       "command": "cargo test -p nomad-client -- --ignored",
       "group": "test",
       "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "Ignored tests (network, long simulations, GPU)",
+      "type": "shell",
+      "command": "cargo test --workspace -- --ignored",
+      "group": "test",
+      "problemMatcher": ["$rustc"]
     }
   ]
 }
