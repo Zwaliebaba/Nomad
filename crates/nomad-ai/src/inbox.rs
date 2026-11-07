@@ -7,8 +7,13 @@
 //! it has read.
 //!
 //! *Proposed* (A1a): announcements other than lapsed orders, and public season events, join
-//! the inbox when a layer reads them (A2, A3). Attackers are named by owner; which of their
-//! fleets fired is not in the simulation's events yet (A1b).
+//! the inbox when a layer reads them (A2, A3).
+//!
+//! **Attackers** (A1 plan §4.4): damage names the attacking owner, and the attacking fleet
+//! when the owner detects it. *Proposed* (A1b): damage is summed per entity, attacking owner
+//! and attacking fleet, so two fleets of one owner give two entries; hits whose fleet the
+//! owner does not detect, and hits from turrets and FLAK SCREEN, sum into one entry without a
+//! fleet.
 
 use nomad_types::{
     Command, FleetId, GateId, HoldingId, ModuleKind, Owner, ShipClass, ShipId, SimId, Slot,
@@ -38,6 +43,8 @@ pub enum InboxEvent {
         fleet: FleetId,
         /// Whose weapons hit it.
         by: Owner,
+        /// The attacking fleet, if the owner detects it.
+        by_fleet: Option<FleetId>,
         /// Hull points lost.
         hull: u64,
     },
@@ -50,6 +57,8 @@ pub enum InboxEvent {
         sector: u8,
         /// Whose weapons hit it.
         by: Owner,
+        /// The attacking fleet, if the owner detects it.
+        by_fleet: Option<FleetId>,
         /// Strength lost, milli-points.
         amount_milli: u64,
     },
@@ -61,6 +70,8 @@ pub enum InboxEvent {
         module: SimId,
         /// Whose weapons hit it.
         by: Owner,
+        /// The attacking fleet, if the owner detects it.
+        by_fleet: Option<FleetId>,
         /// Hull points lost.
         hull: u64,
     },

@@ -55,7 +55,9 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   counters; commander records keep an AI's difficulty; every commander's doctrine and the
 ///   fleets under direct control; a convoy keeps the contested gate it holds for; the rules
 ///   gain the AI section and the gates' contested radius, rules format 11.
-pub const FORMAT: u32 = 17;
+/// - 18: the Deputy's second half (A1b): damage in the inbox names the attacking fleet when
+///   it is detected.
+pub const FORMAT: u32 = 18;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

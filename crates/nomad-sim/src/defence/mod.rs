@@ -62,7 +62,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::combat::{ShipIndex, WeaponSlot};
 use crate::economy::EconomyEvent;
-use crate::fleet::{Fleet, ShipId};
+use crate::fleet::{Fleet, FleetId, ShipId};
 use crate::galaxy::SystemId;
 use crate::geometry::Vec2;
 use crate::holding::HoldingId;
@@ -137,7 +137,8 @@ pub(crate) struct FlakScreen {
 /// Something station combat produced during a tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DefenceEvent {
-    /// A sector took damage this tick from one owner's weapons, summed over the tick.
+    /// A sector took damage this tick from one owner's weapons, summed over the tick per
+    /// attacking fleet.
     SectorDamaged {
         /// The holding.
         holding: HoldingId,
@@ -145,6 +146,8 @@ pub enum DefenceEvent {
         sector: u8,
         /// Whose weapons.
         by: Owner,
+        /// The fleet of the ship that fired, if a ship fired and still exists.
+        by_fleet: Option<FleetId>,
         /// Strength lost, milli-points.
         amount_milli: u64,
     },
@@ -160,7 +163,7 @@ pub enum DefenceEvent {
         tick: Tick,
     },
     /// A module took damage this tick from one owner's weapons, summed over the tick: the
-    /// `DamageApplied` of the S4/S5 interface (S5 plan §4.6).
+    /// `DamageApplied` of the S4/S5 interface (S5 plan §4.6), per attacking fleet.
     ModuleDamaged {
         /// The holding.
         holding: HoldingId,
@@ -168,6 +171,8 @@ pub enum DefenceEvent {
         module: SimId,
         /// Whose weapons.
         by: Owner,
+        /// The fleet of the ship that fired, if a ship fired and still exists.
+        by_fleet: Option<FleetId>,
         /// Hull points lost.
         amount: u32,
     },

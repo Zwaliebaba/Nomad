@@ -158,7 +158,8 @@ pub(crate) struct Attackers {
 /// Something combat produced during a tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CombatEvent {
-    /// A ship took damage this tick from one owner's weapons, summed over the tick.
+    /// A ship took damage this tick from one owner's weapons, summed over the tick per
+    /// attacking fleet (A1 plan §4.4).
     ShipDamaged {
         /// The ship.
         ship: ShipId,
@@ -166,6 +167,9 @@ pub enum CombatEvent {
         fleet: FleetId,
         /// Whose weapons hit it.
         by: Owner,
+        /// The fleet of the ship that fired, if a ship fired and still exists; `None` for a
+        /// turret or FLAK SCREEN.
+        by_fleet: Option<FleetId>,
         /// Hull points lost.
         amount: u32,
     },
@@ -346,7 +350,7 @@ pub(crate) fn run(
 /// destroys ships at 0 hull.
 fn apply(state: &mut UniverseState, now: Tick, mut hits: Vec<Hit>, events: &mut Vec<CombatEvent>) {
     hits.sort_by_key(|h| (h.target, h.projectile));
-    let mut damaged: BTreeMap<(ShipId, Owner), (FleetId, u32)> = BTreeMap::new();
+    let mut damaged: BTreeMap<(ShipId, Owner, Option<FleetId>), (FleetId, u32)> = BTreeMap::new();
     let mut killed: Vec<(ShipId, Owner)> = Vec::new();
     for hit in hits {
         let Some(ship) = state.entities.get::<Ship>(hit.target.sim_id()) else {
@@ -366,8 +370,9 @@ fn apply(state: &mut UniverseState, now: Tick, mut hits: Vec<Hit>, events: &mut 
             state
                 .entities
                 .insert(hit.target.sim_id(), Damage { taken: after });
+            let by_fleet = shooter_fleet(state, hit.shooter);
             let entry = damaged
-                .entry((hit.target, hit.owner))
+                .entry((hit.target, hit.owner, by_fleet))
                 .or_insert((ship.fleet, 0));
             entry.1 = entry.1.saturating_add(after - taken);
         }
@@ -382,17 +387,25 @@ fn apply(state: &mut UniverseState, now: Tick, mut hits: Vec<Hit>, events: &mut 
             }
         }
     }
-    for ((ship, by), (fleet, amount)) in damaged {
+    for ((ship, by, by_fleet), (fleet, amount)) in damaged {
         events.push(CombatEvent::ShipDamaged {
             ship,
             fleet,
             by,
+            by_fleet,
             amount,
         });
     }
     for (ship, by) in killed {
         destroy(state, ship, by, events);
     }
+}
+
+/// The fleet of the ship that fired a hit, if a ship fired it and still exists: the attacker
+/// the inbox names when its owner detects it (A1 plan §4.4, §5.5).
+pub(crate) fn shooter_fleet(state: &UniverseState, shooter: Shooter) -> Option<FleetId> {
+    let ship = shooter.ship()?;
+    state.entities.with::<Ship, _>(ship.sim_id(), |s| s.fleet)
 }
 
 /// Removes a destroyed ship: it leaves its fleet, which re-forms, or dissolves if empty.
