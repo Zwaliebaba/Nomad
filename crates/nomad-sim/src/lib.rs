@@ -40,8 +40,9 @@
 //!
 //! **Game rules arrive as their design is agreed (D-051).** So far: the Universe structure
 //! (doc 10), deposit data and values (doc 14 §5, D-066), system control (D-041), and
-//! movement, fleets and orders (doc 15 §3, §9; D-101 to D-105). Claims, economy flows,
-//! sensors and the Deputy are not here yet. Ship combat is ([`combat`], S5a: weapons, lock,
+//! movement, fleets and orders (doc 15 §3, §9; D-101 to D-105), the economy with claims
+//! (doc 14; S4, D-126 to D-138, D-189, D-217) and the season standings (S8). Sensors (S7),
+//! the siege lifecycle (S6b) and the AI (A1–A3) follow. Ship combat is ([`combat`], S5a: weapons, lock,
 //! projectiles, the multiplier table, engagement), and so is station combat ([`defence`],
 //! S5b: dome sectors, regeneration, breaches, damage to modules and its recovery, turrets,
 //! SHLD SURGE and FLAK SCREEN, the damage ledger). Until sensors exist (S7) every entity
