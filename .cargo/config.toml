@@ -1,0 +1,7 @@
+# Keep debug info in the object files on Linux instead of copying it into every linked
+# binary: the workspace has many test binaries, and each one carried its own copy, which
+# dominated the size of target/. Debuggers (gdb, lldb, VS Code) still find it there.
+# Linux only: Windows MSVC already keeps debug info in separate .pdb files and supports
+# only `packed`. Owner's request to use less disk space during builds.
+[target.'cfg(target_os = "linux")']
+rustflags = ["-C", "split-debuginfo=unpacked"]
