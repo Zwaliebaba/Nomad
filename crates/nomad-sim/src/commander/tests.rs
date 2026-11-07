@@ -748,6 +748,12 @@ fn direct_orders_lapse_when_the_grace_ends() {
     assert!(state.economy.convoys.contains_key(&three));
     assert_eq!(state.fleet(idle_fleet).unwrap().order, None);
     assert!(state.fleet_problems().is_empty());
+    // Next time, a fleet still station-keeping where it is has nothing to lose.
+    let back = run(&mut state, vec![], vec![connection(1, 3, true)]).tick;
+    let gone = run(&mut state, vec![], vec![connection(1, 4, false)]).tick;
+    assert!(gone > back);
+    let outputs = idle(&mut state, GRACE + 1);
+    assert!(outputs.iter().all(|o| o.announcements.is_empty()));
 }
 
 #[test]

@@ -11,7 +11,8 @@
 //!   before it ends cancels it.
 //! - **When the grace ends** the commander's direct fleet orders lapse (D-162): each fleet
 //!   with an order or a queue drops them and station-keeps where it is, the doctrine until
-//!   the Deputy exists (A1). A fleet in lane transit finishes its hop first (D-042) and
+//!   the Deputy exists (A1). A fleet that already station-keeps where it is, with nothing
+//!   queued, is at that doctrine and has nothing to lose. A fleet in lane transit finishes its hop first (D-042) and
 //!   station-keeps on arrival; a docked fleet stays docked. Convoy routes are doctrine and
 //!   continue (doc 12 §5.2, D-162). Rules of engagement are a standing setting of the fleet,
 //!   not an order, and stay (*Proposed*: D-162 does not say). The owner is told which fleets
@@ -135,10 +136,14 @@ pub(super) fn grace_ends(
             continue;
         }
         let Some((owned, place, has_orders)) = state.entities.with::<Fleet, _>(id.sim_id(), |f| {
+            let at_doctrine = f
+                .active
+                .as_ref()
+                .is_none_or(|active| active.order == FleetOrder::StationKeep { relative_to: None });
             (
                 f.owner == owner,
                 f.place,
-                f.active.is_some() || !f.queue.is_empty(),
+                !at_doctrine || !f.queue.is_empty(),
             )
         }) else {
             continue;
