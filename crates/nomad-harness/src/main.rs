@@ -20,6 +20,11 @@
 //! stage-1 commanders on scripted AI presence for 30 simulated days by default, reporting
 //! each window move, choice and lapse of orders, and checking D-155 on every tick.
 //!
+//! With `--season` it runs a scripted season to its result (S8 plan §7 task 6): scripted
+//! claims by the four stage-1 commanders, 14 days by default, `--early-win` to drive an early
+//! win, printing the control and standings history and the result, checked against a
+//! brute-force recount of the final holdings.
+//!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
 //!
@@ -32,12 +37,15 @@
 //! nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] [--rules PATH]
 //! nomad-harness --economy [--seed N] [--days N] [--rules PATH]
 //! nomad-harness --windows [--seed N] [--days N] [--rules PATH]
+//! nomad-harness --season [--seed N] [--days N] [--claim-hours N] [--early-win]
+//!               [--restore-at N] [--rules PATH]
 //! ```
 
 mod combat;
 mod economy;
 mod fleets;
 mod galaxy;
+mod season;
 mod station;
 mod windows;
 
@@ -70,6 +78,10 @@ struct Args {
     windows: bool,
     days: Option<u64>,
     rules: Option<PathBuf>,
+    // S8: `--season`.
+    season: bool,
+    claim_hours: u64,
+    early_win: bool,
 }
 
 impl Default for Args {
@@ -89,6 +101,9 @@ impl Default for Args {
             windows: false,
             days: None,
             rules: None,
+            season: false,
+            claim_hours: 12,
+            early_win: false,
         }
     }
 }
@@ -113,6 +128,9 @@ fn parse_args() -> Result<Args, String> {
             "--windows" => args.windows = true,
             "--days" => args.days = Some(parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
+            "--season" => args.season = true,
+            "--claim-hours" => args.claim_hours = parse(&value()?)?,
+            "--early-win" => args.early_win = true,
             "--help" | "-h" => {
                 return Err(
                     "usage: nomad-harness [--seed N] [--ticks N] [--diagnostics N] \
@@ -123,7 +141,9 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --combat skirmish|battle|stress|breach|core [--seed N] \
                             [--rules PATH]\n       \
                      nomad-harness --economy [--seed N] [--days N] [--rules PATH]\n       \
-                     nomad-harness --windows [--seed N] [--days N] [--rules PATH]"
+                     nomad-harness --windows [--seed N] [--days N] [--rules PATH]\n       \
+                     nomad-harness --season [--seed N] [--days N] [--claim-hours N] \
+                            [--early-win] [--restore-at N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -163,6 +183,19 @@ fn run() -> Result<(), String> {
             economy::EconomyRun {
                 seed: args.seed,
                 days: args.days.unwrap_or(7),
+                rules,
+            },
+        );
+    }
+    if args.season {
+        return season::run(
+            &mut io::stdout().lock(),
+            season::SeasonRun {
+                seed: args.seed,
+                final_tick: nomad_sim::Tick::ZERO.after(Ticks::from_days(args.days.unwrap_or(14))),
+                claim_hours: args.claim_hours,
+                early_win: args.early_win,
+                restore_at: args.restore_at,
                 rules,
             },
         );

@@ -217,9 +217,10 @@ impl UniverseState {
         &self.season_record.standings
     }
 
-    /// The standings counted from the current holdings, at any point in a tick: what phase 9
-    /// would store if it ran now (S8 plan §4.2). S6b's comeback grant reads the standings
-    /// leader from it after the fall, before phase 9 (D-167).
+    /// The standings counted from the current holdings, at any point in a tick (S8 plan
+    /// §4.2). S6b's comeback grant reads the standings leader from it after the fall, before
+    /// phase 9 (D-167). A commander whose triple changed in the tick being computed gets the
+    /// last completed tick as its *since*; phase 9 then stores the tick itself.
     pub fn standings_now(&self) -> Standings {
         recount(self, self.tick).1
     }
