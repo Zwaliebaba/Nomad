@@ -4,8 +4,8 @@
 //! crystal (D-064), fed by harvesting, refining and extraction at holdings in a depot's
 //! system, and by convoys from the local buffers of other holdings. Each holding has power
 //! (D-127, D-128), build slots (D-130, D-131) and a build queue (D-068). A commander's
-//! producing holdings other than the mother station share a diminishing yield (D-217), which
-//! the views show ([`CommanderEconomy::yield_permille`]).
+//! holdings other than the mother station share a diminishing yield (D-217), counted per
+//! resource (D-281), which the views show ([`CommanderEconomy::yield_permille`]).
 //!
 //! **Modules are entities** ([`crate::entities`]) with these components:
 //!
@@ -202,6 +202,15 @@ pub(crate) struct Convoy {
     pub(crate) next: usize,
     /// The contested gate it holds for, if it is holding at its last stop (D-055).
     pub(crate) held: Option<crate::galaxy::GateId>,
+}
+
+/// A value per pooled resource: D-281 counts and scales alloy and crystal separately.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PerResource<T> {
+    /// The alloy value.
+    pub alloy: T,
+    /// The crystal value.
+    pub crystal: T,
 }
 
 /// What a MULE carries (D-133).
@@ -441,10 +450,6 @@ pub struct QueueItemView {
 
 /// One holding's economy as seen from outside (S4 plan §4.8).
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "a read-only view of independent facts, not a state machine"
-)]
 pub struct HoldingEconomyView {
     /// The holding.
     pub holding: HoldingId,
@@ -470,12 +475,12 @@ pub struct HoldingEconomyView {
     pub kits: u32,
     /// Whether REPAIR is on.
     pub repairing: bool,
-    /// Whether it counts as producing for D-217: its completed producers give it a nominal
-    /// alloy or crystal output.
-    pub producing: bool,
-    /// D-217's factor on its alloy and crystal output, per mille: 1,000 at the mother
+    /// Which resources it produces for D-217 and D-281: those its completed producers give it
+    /// a nominal output of.
+    pub producing: PerResource<bool>,
+    /// D-281's factors on its alloy and crystal output, per mille: 1,000 at the mother
     /// station, otherwise its owner's [`CommanderEconomy::yield_permille`].
-    pub yield_permille: u32,
+    pub yield_permille: PerResource<u32>,
 }
 
 /// A commander's economy as seen from outside (S4 plan §4.8). S7 wraps it into the
@@ -498,11 +503,12 @@ pub struct CommanderEconomy {
     pub command_cap: u32,
     /// What a core kit queued now would cost (D-189).
     pub core_kit_price: Stock,
-    /// Producing holdings other than the mother station: D-217's n.
-    pub producing_holdings: u32,
-    /// D-217's diminishing yield on those holdings' alloy and crystal output, per mille,
-    /// rounded down: min(1, F ÷ n). The simulation applies the exact fraction.
-    pub yield_permille: u32,
+    /// Holdings other than the mother station that produce alloy and crystal: D-281's n per
+    /// resource.
+    pub producing_holdings: PerResource<u32>,
+    /// D-281's diminishing yield on those holdings' alloy and crystal output, per mille,
+    /// rounded down: min(1, F ÷ n) per resource. The simulation applies the exact fraction.
+    pub yield_permille: PerResource<u32>,
     /// Every holding and outpost, in identity order.
     pub holdings: Vec<HoldingEconomyView>,
 }
@@ -541,24 +547,30 @@ impl UniverseState {
         }
     }
 
-    /// A commander's producing holdings other than the mother station: D-217's n.
-    pub fn producing_holdings(&self, commander: CommanderId) -> u32 {
-        let count = self
-            .holdings
-            .iter()
-            .filter(|(_, h)| h.owner == commander && !h.mother_station)
-            .filter(|&(&id, _)| tick::is_producing(self, id))
-            .count();
-        u32::try_from(count).unwrap_or(u32::MAX)
+    /// A commander's holdings other than the mother station that produce alloy and crystal:
+    /// D-281's n per resource.
+    pub fn producing_holdings(&self, commander: CommanderId) -> PerResource<u32> {
+        let mut count = PerResource::<u32>::default();
+        for (&id, h) in &self.holdings {
+            if h.owner != commander || h.mother_station {
+                continue;
+            }
+            let produces = tick::produces(self, id);
+            count.alloy += u32::from(produces.alloy);
+            count.crystal += u32::from(produces.crystal);
+        }
+        count
     }
 
-    /// D-217's factor on the alloy and crystal output of a commander's producing holdings
-    /// other than the mother station, per mille, rounded down: min(1, F ÷ n).
-    pub fn yield_permille(&self, commander: CommanderId) -> u32 {
-        rules::yield_permille(
-            self.rules.economy.diminishing_yield_permille,
-            u64::from(self.producing_holdings(commander)),
-        )
+    /// D-281's factors on the alloy and crystal output of a commander's holdings other than
+    /// the mother station, per mille, rounded down: min(1, F ÷ n) per resource.
+    pub fn yield_permille(&self, commander: CommanderId) -> PerResource<u32> {
+        let f = self.rules.economy.diminishing_yield_permille;
+        let n = self.producing_holdings(commander);
+        PerResource {
+            alloy: rules::yield_permille(f, u64::from(n.alloy)),
+            crystal: rules::yield_permille(f, u64::from(n.crystal)),
+        }
     }
 
     /// One holding's economy, or `None` if it does not exist.
@@ -605,9 +617,13 @@ impl UniverseState {
             delivers_to_pool: self.delivers_to_pool(holding),
             kits: economy.map_or(0, |e| e.kits),
             repairing: economy.is_some_and(|e| e.repairing) && h.core_complete,
-            producing: tick::is_producing(self, holding),
+            producing: tick::produces(self, holding),
             yield_permille: if h.mother_station {
-                u32::try_from(MILLI).unwrap_or(u32::MAX)
+                let full = u32::try_from(MILLI).unwrap_or(u32::MAX);
+                PerResource {
+                    alloy: full,
+                    crystal: full,
+                }
             } else {
                 self.yield_permille(h.owner)
             },
@@ -869,30 +885,36 @@ impl UniverseState {
     }
 
     /// The local buffer's capacity: 2 h of the holding's nominal production (D-064), after
-    /// D-217's diminishing yield (*Derived:* the buffer holds 2 h of that holding's
-    /// production, doc 14 §4, and D-217 scales the production).
+    /// D-281's per-resource diminishing yield (*Derived:* the buffer holds 2 h of that
+    /// holding's production, doc 14 §4, and D-217 scales the production).
     pub fn buffer_cap(&self, holding: HoldingId) -> Stock {
         self.buffer_cap_at(holding, self.holding_yield_factor(holding))
     }
 
-    /// [`UniverseState::buffer_cap`] with D-217's factor already known.
-    pub(crate) fn buffer_cap_at(&self, holding: HoldingId, factor: (u64, u64)) -> Stock {
+    /// [`UniverseState::buffer_cap`] with D-281's factors already known.
+    pub(crate) fn buffer_cap_at(&self, holding: HoldingId, factor: rules::YieldFactors) -> Stock {
         let hours = self.rules.economy.storage.buffer_h;
         let (alloy, crystal) = tick::nominal_output_per_h(self, holding);
         Stock {
-            alloy: rules::scaled(alloy, factor).saturating_mul(hours),
-            crystal: rules::scaled(crystal, factor).saturating_mul(hours),
+            alloy: rules::scaled(alloy, factor.alloy).saturating_mul(hours),
+            crystal: rules::scaled(crystal, factor.crystal).saturating_mul(hours),
         }
     }
 
-    /// D-217's factor on `holding`'s output: 1 at the mother station.
-    fn holding_yield_factor(&self, holding: HoldingId) -> (u64, u64) {
+    /// D-281's factors on `holding`'s output: none at the mother station.
+    fn holding_yield_factor(&self, holding: HoldingId) -> rules::YieldFactors {
         match self.holdings.get(&holding) {
-            Some(h) if !h.mother_station => rules::yield_factor(
-                self.rules.economy.diminishing_yield_permille,
-                u64::from(self.producing_holdings(h.owner)),
-            ),
-            _ => (1, 1),
+            Some(h) if !h.mother_station => {
+                let n = self.producing_holdings(h.owner);
+                rules::YieldFactors::new(
+                    self.rules.economy.diminishing_yield_permille,
+                    PerResource {
+                        alloy: u64::from(n.alloy),
+                        crystal: u64::from(n.crystal),
+                    },
+                )
+            }
+            _ => rules::YieldFactors::FULL,
         }
     }
 

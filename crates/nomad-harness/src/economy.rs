@@ -15,8 +15,9 @@
 //! storage raises the cap, the pool cannot hold its price, so it cannot be bought (doc 14
 //! §13).
 //!
-//! Remote producers share D-217's diminishing yield, min(1, F ÷ producing holdings other
-//! than the mother station); each commander's line gives the factor and that count.
+//! Remote producers share D-217's diminishing yield per resource (D-281): alloy output is
+//! scaled by min(1, F ÷ alloy-producing holdings other than the mother station), crystal by
+//! the same over crystal-producing ones; each commander's line gives both factors and counts.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
@@ -688,13 +689,15 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
         }
         writeln!(
             out,
-            "  C{}: {holdings} holdings (completions at {} h) | income {:.0} A/h {:.0} C/h | D-217 yield {}‰ over {} producing | pool {:.0} A {:.0} C of {:.0}/{:.0} | lost {:.0} A {:.0} C | command {}/{} | first kit {} | first remote build-out {}",
+            "  C{}: {holdings} holdings (completions at {} h) | income {:.0} A/h {:.0} C/h | D-281 yield {}‰ over {} alloy, {}‰ over {} crystal producers | pool {:.0} A {:.0} C of {:.0}/{:.0} | lost {:.0} A {:.0} C | command {}/{} | first kit {} | first remote build-out {}",
             c.0,
             b.completions.iter().map(|&t| format!("{:.1}", hours(t))).collect::<Vec<_>>().join(", "),
             units(income.alloy),
             units(income.crystal),
-            e.yield_permille,
-            e.producing_holdings,
+            e.yield_permille.alloy,
+            e.producing_holdings.alloy,
+            e.yield_permille.crystal,
+            e.producing_holdings.crystal,
             units(e.pool.alloy),
             units(e.pool.crystal),
             units(e.cap.alloy),

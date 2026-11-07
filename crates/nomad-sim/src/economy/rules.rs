@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use nomad_types::{ModuleKind, ShipClass, Slot};
 use serde::{Deserialize, Serialize};
 
-use super::Stock;
+use super::{PerResource, Stock};
 use crate::rules::RulesError;
 
 /// Milli-units per unit (D-049).
@@ -30,9 +30,10 @@ pub struct EconomyRules {
     /// k of D-189, in per mille: each further holding, outpost under construction and core
     /// kit not yet deployed adds this share of the base price to the next core kit.
     pub core_kit_growth_permille: u32,
-    /// F of D-217, in per mille: each producing holding other than the mother station has
-    /// its alloy and crystal output scaled by min(1, F ÷ the commander's producing holdings
-    /// other than the mother station); see [`yield_factor`]. A starting value, tuned at α.
+    /// F of D-217, in per mille: a holding other than the mother station has its alloy output
+    /// scaled by min(1, F ÷ the commander's alloy-producing holdings other than the mother
+    /// station) and its crystal output by the same over its crystal-producing holdings
+    /// (D-281); see [`yield_factor`]. Tuned at α.
     pub diminishing_yield_permille: u32,
     /// Every other module kind (doc 14 §9.3).
     pub modules: BTreeMap<ModuleKind, ModuleRules>,
@@ -316,12 +317,41 @@ pub fn core_kit_price(base: Cost, growth_permille: u32, n: u64) -> Stock {
 }
 
 /// D-217's diminishing yield as an exact fraction `(numerator, denominator)`: min(1, F ÷
-/// `producing`), with F = `f_permille` / 1000 and `producing` the commander's producing
-/// holdings other than the mother station. A rate scaled by it stays integer (D-049).
+/// `producing`), with F = `f_permille` / 1000 and `producing` the commander's holdings other
+/// than the mother station that produce the resource being scaled (D-281). A rate scaled by
+/// it stays integer (D-049).
 pub fn yield_factor(f_permille: u32, producing: u64) -> (u64, u64) {
     let f = u64::from(f_permille);
     let n = producing.saturating_mul(MILLI);
     if n <= f { (1, 1) } else { (f, n) }
+}
+
+/// D-217's diminishing yield counted per resource (D-281): the exact fractions on a holding's
+/// alloy and crystal output, each [`yield_factor`] over the commander's holdings other than
+/// the mother station that produce that resource.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct YieldFactors {
+    /// The factor on harvesting and refining.
+    pub alloy: (u64, u64),
+    /// The factor on extraction.
+    pub crystal: (u64, u64),
+}
+
+impl YieldFactors {
+    /// No scaling: the mother station's.
+    pub const FULL: Self = Self {
+        alloy: (1, 1),
+        crystal: (1, 1),
+    };
+
+    /// The factors for a commander with `producing` alloy- and crystal-producing holdings
+    /// other than the mother station.
+    pub fn new(f_permille: u32, producing: PerResource<u64>) -> Self {
+        Self {
+            alloy: yield_factor(f_permille, producing.alloy),
+            crystal: yield_factor(f_permille, producing.crystal),
+        }
+    }
 }
 
 /// [`yield_factor`] in per mille, rounded down, as views show it.

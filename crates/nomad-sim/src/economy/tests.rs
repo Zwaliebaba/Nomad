@@ -1537,9 +1537,57 @@ fn yield_factor_is_min_of_one_and_f_over_n() {
     assert_eq!(scaled(u64::MAX, (2_000, 4_000)), u64::MAX / 2);
 }
 
+/// Seed 7's stage-1 Universe with D-217's F set to `f_permille`, so these tests do not depend
+/// on the embedded value.
+fn stage1_with_f(f_permille: u32) -> UniverseState {
+    let mut rules = Rules::embedded();
+    rules.economy.diminishing_yield_permille = f_permille;
+    crate::galaxy::generate_stage1_with_rules(stage1(7).season(), crate::testkit::COMMANDERS, rules)
+        .unwrap()
+}
+
+/// Places a completed holding of commander 1 with an extractor on a crystal vein and no
+/// harvester, on a free claimable site outside its home system: a holding that produces
+/// crystal only. Returns it and its nominal crystal per hour, milli-units.
+fn remote_crystal_holding(state: &mut UniverseState) -> (HoldingId, u64) {
+    let (_, home_system) = home(state, 1);
+    let (site, vein) = state
+        .galaxy()
+        .sites()
+        .filter(|(id, s)| {
+            s.system != home_system
+                && state.holding_at(*id).is_none()
+                && state
+                    .galaxy()
+                    .system(s.system)
+                    .is_some_and(|sys| crate::galaxy::is_claimable(sys.kind))
+        })
+        .find_map(|(id, s)| {
+            s.deposits
+                .iter()
+                .position(|d| d.kind == DepositKind::CrystalVein)
+                .map(|i| (id, i))
+        })
+        .expect("a free crystal site elsewhere");
+    let richness = state.galaxy().site(site).unwrap().deposits[vein].richness;
+    let holding = state.insert_holding(site, CommanderId(1), true).unwrap();
+    spawn_module(state, holding, Slot::Core, ModuleKind::Core, None);
+    spawn_module(
+        state,
+        holding,
+        Slot::Deposit(u8::try_from(vein).unwrap()),
+        ModuleKind::Extractor,
+        None,
+    );
+    spawn_module(state, holding, Slot::Solar, ModuleKind::Solar, None);
+    let per_h =
+        state.rules().economy.production.extractor_crystal_per_h * richness_permille(richness);
+    (holding, per_h)
+}
+
 #[test]
 fn diminishing_yield_scales_remote_producers_but_never_the_mother_station() {
-    let mut state = stage1(7);
+    let mut state = stage1_with_f(2_000);
     let you = CommanderId(1);
     let (mother, _) = home(&state, 1);
     let mut remotes: Vec<HoldingId> = (0..2).map(|_| remote_ore_holding(&mut state)).collect();
@@ -1547,14 +1595,18 @@ fn diminishing_yield_scales_remote_producers_but_never_the_mother_station() {
     let bare = bare_remote_holding(&mut state);
     let economy = state.economy_of(you);
     assert_eq!(
-        (economy.producing_holdings, economy.yield_permille),
+        (
+            economy.producing_holdings.alloy,
+            economy.yield_permille.alloy
+        ),
         (2, 1_000)
     );
     idle(&mut state, ONE_HOUR);
     for &remote in &remotes {
         let view = state.holding_economy(remote).unwrap();
-        assert!(view.producing);
-        assert_eq!(view.yield_permille, 1_000);
+        assert!(view.producing.alloy);
+        assert!(!view.producing.crystal);
+        assert_eq!(view.yield_permille.alloy, 1_000);
         assert_eq!(
             view.buffer.alloy,
             nominal_alloy_per_h(&state, remote),
@@ -1573,25 +1625,127 @@ fn diminishing_yield_scales_remote_producers_but_never_the_mother_station() {
         let view = state.holding_economy(remote).unwrap();
         let nominal = nominal_alloy_per_h(&state, remote);
         assert_eq!(view.buffer.alloy, nominal * 2 / 3, "{remote:?}");
-        assert_eq!(view.yield_permille, 666);
+        assert_eq!(view.yield_permille.alloy, 666);
         // The buffer holds 2 h of the scaled production (D-064).
         assert_eq!(view.buffer_cap.alloy, nominal * 2 / 3 * 2);
     }
     // The mother station is never scaled: 600 A an hour into the pool.
     assert_eq!(state.pool(you).alloy - pool.alloy, 600_000);
     let mother_view = state.holding_economy(mother).unwrap();
-    assert_eq!(mother_view.yield_permille, 1_000);
-    assert!(mother_view.producing);
+    assert_eq!(
+        mother_view.yield_permille,
+        PerResource {
+            alloy: 1_000,
+            crystal: 1_000
+        }
+    );
+    assert!(mother_view.producing.alloy);
     let bare_view = state.holding_economy(bare).unwrap();
-    assert!(!bare_view.producing);
+    assert_eq!(bare_view.producing, PerResource::default());
     assert_eq!(bare_view.buffer, Stock::ZERO);
     let economy = state.economy_of(you);
     assert_eq!(
         (economy.producing_holdings, economy.yield_permille),
-        (3, 666)
+        (
+            PerResource {
+                alloy: 3,
+                crystal: 0
+            },
+            PerResource {
+                alloy: 666,
+                crystal: 1_000
+            }
+        )
     );
     // Other commanders are not affected.
-    assert_eq!(state.economy_of(CommanderId(2)).yield_permille, 1_000);
+    assert_eq!(state.economy_of(CommanderId(2)).yield_permille.alloy, 1_000);
+}
+
+#[test]
+fn a_holding_that_does_not_produce_a_resource_never_lowers_its_output() {
+    // D-281: each resource has its own count, so ore-only holdings never lower crystal.
+    let mut state = stage1_with_f(2_000);
+    let you = CommanderId(1);
+    let (crystal, per_h) = remote_crystal_holding(&mut state);
+    idle(&mut state, ONE_HOUR);
+    assert_eq!(
+        state.holding_economy(crystal).unwrap().buffer.crystal,
+        per_h
+    );
+
+    // Four ore-only holdings: twice F for alloy, while crystal still has one producer.
+    let ores: Vec<HoldingId> = (0..4).map(|_| remote_ore_holding(&mut state)).collect();
+    let economy = state.economy_of(you);
+    assert_eq!(
+        economy.producing_holdings,
+        PerResource {
+            alloy: 4,
+            crystal: 1
+        }
+    );
+    assert_eq!(
+        economy.yield_permille,
+        PerResource {
+            alloy: 500,
+            crystal: 1_000
+        }
+    );
+    state.economy.holdings.get_mut(&crystal).unwrap().buffer = Stock::ZERO;
+    idle(&mut state, ONE_HOUR);
+    let view = state.holding_economy(crystal).unwrap();
+    assert_eq!(
+        view.buffer.crystal, per_h,
+        "ore-only holdings never lower crystal"
+    );
+    assert_eq!(view.buffer.alloy, 0);
+    assert_eq!(
+        view.producing,
+        PerResource {
+            alloy: false,
+            crystal: true
+        }
+    );
+    assert_eq!(view.yield_permille.crystal, 1_000);
+    assert_eq!(view.buffer_cap.crystal, per_h * 2);
+    for &ore in &ores {
+        let view = state.holding_economy(ore).unwrap();
+        assert_eq!(view.buffer.alloy, nominal_alloy_per_h(&state, ore) / 2);
+        assert_eq!(view.buffer.crystal, 0);
+    }
+
+    // And crystal producers beyond F share the crystal factor, leaving alloy alone.
+    let (second, second_per_h) = remote_crystal_holding(&mut state);
+    let (third, third_per_h) = remote_crystal_holding(&mut state);
+    let economy = state.economy_of(you);
+    assert_eq!(
+        economy.producing_holdings,
+        PerResource {
+            alloy: 4,
+            crystal: 3
+        }
+    );
+    assert_eq!(economy.yield_permille.crystal, 666);
+    for &h in [crystal, second, third].iter().chain(&ores) {
+        state.economy.holdings.get_mut(&h).unwrap().buffer = Stock::ZERO;
+    }
+    idle(&mut state, ONE_HOUR);
+    for (h, nominal) in [
+        (crystal, per_h),
+        (second, second_per_h),
+        (third, third_per_h),
+    ] {
+        assert_eq!(
+            state.holding_economy(h).unwrap().buffer.crystal,
+            nominal * 2 / 3
+        );
+    }
+    for &ore in &ores {
+        assert_eq!(
+            state.holding_economy(ore).unwrap().buffer.alloy,
+            nominal_alloy_per_h(&state, ore) / 2,
+            "crystal producers never lower alloy"
+        );
+    }
 }
 
 #[test]
@@ -1605,7 +1759,7 @@ fn diminishing_yield_follows_the_rules_value() {
     )
     .unwrap();
     let remotes: Vec<HoldingId> = (0..2).map(|_| remote_ore_holding(&mut state)).collect();
-    assert_eq!(state.economy_of(CommanderId(1)).yield_permille, 500);
+    assert_eq!(state.economy_of(CommanderId(1)).yield_permille.alloy, 500);
     idle(&mut state, ONE_HOUR);
     for &remote in &remotes {
         assert_eq!(
