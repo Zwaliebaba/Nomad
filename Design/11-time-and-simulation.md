@@ -45,6 +45,7 @@ Network replication and interest management belong to docs 16 and 20.
 - Due timers fire from a min-heap ordered by `(deadline_tick, SimId)`.
 - Calendar deadlines, such as "the start of the first window at least 12 h after the breach", are converted to a deadline tick when they are created, using the Universe-time mapping.
 - Clients receive **deadlines, not countdowns**, and render countdowns locally. That keeps the HUD smooth without per-tick updates.
+- *Amended by D-230:* work whose rate depends on power or another changing share (construction, deployment, a dry-dock lane) is a progress counter, not a deadline; the client receives its progress, current rate and an estimated completion tick, recomputed when the rate changes.
 
 ## 4. The tick
 

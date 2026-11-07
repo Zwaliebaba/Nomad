@@ -69,7 +69,7 @@ These rules apply to all Rust code in this repository. Tools enforce formatting 
 - Every simulated object has a `SimId(u64)`, assigned in increasing order and never reused. A `hecs` `Entity` is a storage handle only and never leaves the simulation.
 - Positions and headings are `f64`. Transcendental functions come from the `libm` crate, never from `std`'s platform maths. No fast-math.
 - Resources are integer milli-units, never floats.
-- Timers are absolute deadline ticks, fired in `(deadline_tick, SimId)` order.
+- Timers are absolute deadline ticks, fired in `(deadline_tick, SimId)` order. Work whose rate changes (power-dependent construction, for example) is a progress counter instead, and the client gets its progress, rate and estimated completion (D-230).
 - `nomad-sim` does no I/O, reads no clock, starts no threads and uses no `tokio`.
 - Offline and online commanders are simulated by the same code paths and at the same fidelity (design W-05).
 

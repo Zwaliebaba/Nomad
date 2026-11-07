@@ -84,7 +84,7 @@ Dockerfile       Linux image of nomad-server, a developer and soak-test mode (D-
 ## Git
 
 - Commit subject: imperative mood, at most 72 characters. The body explains *why* and cites design IDs.
-- Do not commit `target/`, local screenshots or downloaded fonts. The fonts are OFL-licensed and the phase-1 package says they are not bundled. Milestone screenshots under `screenshots/milestones/` are the exception (phase-1 doc 06).
+- Do not commit `target/`, screenshots or downloaded fonts. The fonts are OFL-licensed and the phase-1 package says they are not bundled. Milestone screenshots are not committed either (D-232).
 - Do not rewrite history on shared branches. Do not push to `main` directly.
 
 ## When unsure

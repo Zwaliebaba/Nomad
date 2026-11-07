@@ -20,9 +20,8 @@ rustc-ice-*.txt
 # locally (phase-1 README, ground rule 4; AGENTS.md).
 /Design/phase1-visual-slice/assets/fonts/
 
-# Local F12 screenshots from nomad-client. Milestone screenshots are committed (phase-1 doc 06).
-/screenshots/*
-!/screenshots/milestones/
+# Local F12 screenshots from nomad-client. None are committed, milestones included (D-232).
+/screenshots/
 
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

@@ -2,7 +2,7 @@
 
 This folder holds every design document for the game. Nothing outside `Design/` is a design source of truth.
 
-**Status:** the MVP design is complete. All questions Q1–Q226 are answered (D-001 to D-229), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097), in the order of doc 30 §4 as D-205 amended it. Built so far (doc 30 §2): S1–S5, S6a and S8 in the simulation; N1–N3 on the server side; phase-1 M1–M4 in the client. Next towards α: S6b, S7 and A1a, then A1b, A2 and A3.
+**Status:** the MVP design is complete. All questions Q1–Q226 are answered (D-001 to D-234), and every document is agreed. Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097), in the order of doc 30 §4 as D-205 amended it. Built so far (doc 30 §2): S1–S5, S6a and S8 in the simulation; N1–N3 on the server side; phase-1 M1–M4 in the client. Next towards α: S6b, S7 and A1a, then A1b, A2 and A3.
 
 ## Documents
 
