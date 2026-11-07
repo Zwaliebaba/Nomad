@@ -297,7 +297,7 @@ impl<'a> CommanderView<'a> {
         self.own_ship(ship).map(|_| self.state.cargo(ship))
     }
 
-    fn own_fleet_ids(&self) -> Vec<FleetId> {
+    pub(crate) fn own_fleet_ids(&self) -> Vec<FleetId> {
         let observer = self.observer;
         self.state
             .entities

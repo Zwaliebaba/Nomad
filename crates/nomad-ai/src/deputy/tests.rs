@@ -21,6 +21,7 @@ fn holding(h: HoldingId, system: u64) -> OwnHolding {
         id: h,
         system: SystemId(id(system)),
         complete: true,
+        centre: nomad_types::PositionMetres::ORIGIN,
     }
 }
 
@@ -40,6 +41,7 @@ fn scene() -> Fake {
                 (ShipId(id(502)), ShipClass::Vx),
             ],
             busy: false,
+            ..super::fake::idle_fleet()
         },
     );
     fake.replacement = vec![ReplacementEntry {
@@ -283,19 +285,40 @@ fn a_lost_fleet_is_rebuilt_as_a_new_one_which_the_entry_then_keeps() {
             place: FleetPlace::Docked(FORWARD),
             ships: vec![],
             busy: false,
+            ..super::fake::idle_fleet()
         },
     );
     fake.rally.insert(FORWARD, new_fleet);
     lost(&mut fake, new_fleet, ShipClass::Vx);
     let out = run(&mut fake, &mut memory);
+    let issued = commands(&out);
     assert_eq!(
-        commands(&out),
-        vec![build(
+        issued[0],
+        build(
             FORWARD,
             BuildItem::Ship {
                 class: ShipClass::Vx
             }
-        )]
+        )
+    );
+    // The new fleet takes the entry's role: the mother station's garrison, so it goes there
+    // to dock (D-207, A1 plan §5.7).
+    assert_eq!(
+        issued[1..],
+        [
+            Command::Fleet {
+                fleet: new_fleet,
+                order: FleetOrder::Launch,
+                queue: Queueing::Replace,
+                retreat: false,
+            },
+            Command::Fleet {
+                fleet: new_fleet,
+                order: FleetOrder::Retreat { to: Some(MOTHER) },
+                queue: Queueing::Append,
+                retreat: false,
+            },
+        ]
     );
 }
 
@@ -353,6 +376,7 @@ fn convoy_scene() -> Fake {
             place: FleetPlace::Docked(FORWARD),
             ships: vec![(ShipId(id(601)), ShipClass::Mule)],
             busy: false,
+            ..super::fake::idle_fleet()
         },
     );
     fake.convoys = vec![crate::view::OwnConvoy {

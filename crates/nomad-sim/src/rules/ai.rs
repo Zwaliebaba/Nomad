@@ -9,6 +9,8 @@
 //! | Inbox kept 60 s; waiting commands expire after 10 s | D-202, D-201 |
 //! | Repair at dock on for every preset | *Proposed*: doc 13 §9 gives no value, and the A1 plan §5.6 describes repair at dock as the default behaviour |
 //! | At most 32 replacement-list entries | *Proposed*: a bound on input from the network, no design value |
+//! | The Deputy: an alert ends 60 s after its last event; target priority 1 and *return fire* look back 30 s; FLAK SCREEN counts light hostiles within 3 km; an evacuated convoy resumes 60 s after the last hostile | Doc 13 §4, §9; A1 plan §5.5; D-145, D-210 |
+//! | The Deputy: a fleet within 1 km of its holding's launch point is "by the core" | *Proposed* (A1b): no design value; about a formation's width |
 //!
 //! The section is copied into the Universe with the rest of the rules (D-104), so a season
 //! keeps its AI and replay stays exact; A6 tunes it with `--rules`. A2 adds the Strategist's
@@ -43,6 +45,8 @@ pub struct AiRules {
     pub command_expiry_s: u64,
     /// The longest replacement list a commander may set.
     pub max_replacement_entries: u32,
+    /// The Deputy's timings and distances (A1 plan §5.3 to §5.8).
+    pub deputy: nomad_ai::DeputyParams,
 }
 
 /// One difficulty's numbers (D-079).
@@ -116,6 +120,20 @@ impl AiRules {
             ("ai.deputy_interval_ticks", self.deputy_interval_ticks),
             ("ai.inbox_retention_s", self.inbox_retention_s),
             ("ai.command_expiry_s", self.command_expiry_s),
+            ("ai.deputy.alert_window_s", self.deputy.alert_window_s),
+            ("ai.deputy.attacker_window_s", self.deputy.attacker_window_s),
+            (
+                "ai.deputy.flak_trigger_radius_m",
+                u64::from(self.deputy.flak_trigger_radius_m),
+            ),
+            (
+                "ai.deputy.evacuation_resume_s",
+                self.deputy.evacuation_resume_s,
+            ),
+            (
+                "ai.deputy.anchor_radius_m",
+                u64::from(self.deputy.anchor_radius_m),
+            ),
         ] {
             if value == 0 {
                 return Err(invalid(field.to_owned(), "must be positive"));
@@ -218,6 +236,11 @@ mod tests {
         assert_eq!(ai.human_deputy.commands_per_window, 4);
         assert_eq!(ai.rate_window_ticks, 10);
         assert_eq!(ai.deputy_interval_ticks, 5);
+        // Doc 13 §4 and §9, D-210.
+        assert_eq!(ai.deputy.alert_window_s, 60);
+        assert_eq!(ai.deputy.attacker_window_s, 30);
+        assert_eq!(ai.deputy.flak_trigger_radius_m, 3_000);
+        assert_eq!(ai.deputy.evacuation_resume_s, 60);
     }
 
     #[test]

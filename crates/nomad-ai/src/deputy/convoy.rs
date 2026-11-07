@@ -56,6 +56,13 @@ enum Watched {
     },
 }
 
+impl ConvoyMemory {
+    /// The fleets it looks after off their convoy route: on a detour, or holding.
+    pub(super) fn watched(&self) -> impl Iterator<Item = FleetId> + '_ {
+        self.convoys.keys().copied()
+    }
+}
+
 /// Reads the answers to the Deputy's detour orders.
 pub(super) fn read(memory: &mut ConvoyMemory, fresh: &[&InboxEntry], out: &mut Vec<FleetId>) {
     for entry in fresh {

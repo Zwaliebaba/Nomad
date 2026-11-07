@@ -23,7 +23,15 @@ use crate::input::{OperatorInput, TickInputs};
 use crate::snapshot::{decode, encode, state_hash};
 use crate::state::UniverseState;
 use crate::step::{TickOutputs, step};
-use crate::testkit::{commander, home, idle, kit_fleet, order, send, spawn_fleet, stage1};
+use crate::testkit::{commander, home, idle, kit_fleet, order, send, spawn_fleet};
+
+/// A stage-1 Universe whose Deputies stay out of these mechanics tests
+/// ([`crate::testkit::passive`]).
+fn stage1(seed: u64) -> UniverseState {
+    let mut state = crate::testkit::stage1(seed);
+    crate::testkit::passive_all(&mut state);
+    state
+}
 use crate::time::{TICKS_PER_SECOND, Tick, Ticks};
 use crate::validate_command;
 
@@ -130,6 +138,7 @@ impl Scene {
             .get_mut::<Fleet>(docked.sim_id())
             .unwrap()
             .place = Place::Docked(target);
+        crate::testkit::passive(&mut state, DEFENDER);
         Self::around(state, target, system)
     }
 

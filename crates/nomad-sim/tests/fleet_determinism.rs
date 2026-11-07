@@ -89,6 +89,13 @@ fn script(state: &UniverseState) -> Script {
             _ => vec![
                 // A rejected command is part of the script too: the fleet is in space.
                 (2, FleetOrder::Launch, Queueing::Replace),
+                // A direct order keeps it out until the retreat (RK-10): LAUNCH READY, a
+                // holding order, left it to the Deputy, which docks a garrison with no alert.
+                (
+                    3,
+                    FleetOrder::StationKeep { relative_to: None },
+                    Queueing::Replace,
+                ),
                 (2_500, FleetOrder::Retreat { to: None }, Queueing::Replace),
             ],
         };

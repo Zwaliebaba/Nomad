@@ -9,12 +9,20 @@
 //! completed since the last one (D-202). A quiet evaluation changes no memory.
 //!
 //! **Authority (D-016, PR-3):** it acts only through ordinary commands, and never attacks,
-//! expands, claims, changes doctrine or starts a project. So far (A1a) it rebuilds losses
-//! (`rebuild`, D-208) and reroutes or holds convoys at contested gates (`convoy`, D-210).
-//! Threat, alert, abilities, engagement, roles and convoy evacuation arrive with A1b.
+//! expands, claims, changes doctrine or starts a project. It weighs threats and puts
+//! holdings on alert, with the alert power profile and the abilities on their triggers
+//! (`threat`, D-206); runs each fleet's role, with target priority, leash and retreat
+//! (`fleets`, D-207); rebuilds losses (`rebuild`, D-208); and keeps convoys out of harm's
+//! way (`convoy`, D-210). Its engagement is defence: it attacks only hostiles near its own
+//! holdings, routes and escortees, up to the leash (D-016: "anything that fires on us, up to
+//! the leash").
 
 mod convoy;
+mod fleets;
 mod rebuild;
+mod threat;
+
+use std::collections::BTreeSet;
 
 use nomad_types::{FleetId, GateId, HoldingId, ModuleKind, ShipClass, Slot, Tick};
 use serde::{Deserialize, Serialize};
@@ -48,11 +56,25 @@ pub struct DeputyMemory {
     pub(crate) rebuild: rebuild::RebuildMemory,
     /// Convoys holding at a contested gate or on a detour around one (D-210).
     pub(crate) convoys: convoy::ConvoyMemory,
+    /// Alerts per holding (A1 plan §5.3).
+    pub(crate) threat: threat::ThreatMemory,
+    /// Fleets' homes and unanswered orders (A1 plan §5.6).
+    pub(crate) fleets: fleets::FleetMemory,
 }
 
-/// What the Deputy reports for the away report (doc 12 §5.3; A1 plan §5.7, §5.8).
+/// What the Deputy reports for the away report (doc 12 §5.3; A1 plan §5.3, §5.7, §5.8).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeputyEvent {
+    /// A holding went on alert (A1 plan §5.3).
+    AlertStarted {
+        /// The holding.
+        holding: HoldingId,
+    },
+    /// A holding's alert ended, 60 s after its last event.
+    AlertEnded {
+        /// The holding.
+        holding: HoldingId,
+    },
     /// A replacement could not be queued; the Deputy retries when the budget changes
     /// (doc 12 §5.3: "decisions the Deputy deferred").
     Deferred {
@@ -131,14 +153,27 @@ pub fn evaluate(view: &impl View, memory: &mut DeputyMemory, stagger: Stagger, o
     if let Some(newest) = fresh.last() {
         memory.read_until = Some(newest.tick);
     }
+    threat::read(view, &mut memory.threat, &fresh);
+    fleets::read(view, &mut memory.fleets, &fresh);
     rebuild::read(view, &mut memory.rebuild, &fresh);
     rebuild::sample(view, &mut memory.rebuild);
     rebuild::act(view, &mut memory.rebuild, stagger, out);
     let mut failed = Vec::new();
     convoy::read(&mut memory.convoys, &fresh, &mut failed);
     convoy::act(view, &mut memory.convoys, &failed, stagger, out);
+    threat::act(view, &mut memory.threat, stagger, out);
+    let mut convoys: BTreeSet<FleetId> = view.own_convoys().iter().map(|c| c.fleet).collect();
+    convoys.extend(memory.convoys.watched());
+    let ctx = fleets::Context {
+        threat: &memory.threat,
+        convoys,
+        successor_roles: memory.rebuild.successor_roles(view),
+    };
+    fleets::act(view, &mut memory.fleets, &ctx, stagger, out);
 }
 
+#[cfg(test)]
+mod defence_tests;
 #[cfg(test)]
 pub(crate) mod fake;
 #[cfg(test)]

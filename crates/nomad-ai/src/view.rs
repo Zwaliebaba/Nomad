@@ -12,10 +12,11 @@
 //! whole milliseconds, so the AI compares integers (D-049, A1 plan §4.6).
 
 use nomad_types::{
-    BuildItem, DirectControl, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetId, GateId,
-    HoldingDoctrine, HoldingId, Location, Owner, ReplacementEntry, ShipClass, ShipId, Stock,
-    SystemId, Tick,
+    BuildItem, Command, DirectControl, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetId,
+    FleetOrder, GateId, HoldingDoctrine, HoldingId, Location, Owner, PositionMetres, PowerProfile,
+    ReplacementEntry, RulesOfEngagement, ShipClass, ShipId, Stock, SystemId, Tick,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::inbox::InboxEntry;
 
@@ -30,6 +31,81 @@ pub struct OwnFleet {
     pub ships: Vec<(ShipId, ShipClass)>,
     /// Whether it has an active order or a queue.
     pub busy: bool,
+    /// Hull points left, summed over its ships.
+    pub hull: u64,
+    /// Hull points of its ships undamaged, summed.
+    pub max_hull: u64,
+    /// The order it is carrying out.
+    pub order: Option<FleetOrder>,
+    /// Its rules of engagement.
+    pub rules: RulesOfEngagement,
+    /// Whether it is engaged (D-114).
+    pub engaged: bool,
+}
+
+/// Another owner's ship that the observer detects (D-072, D-174).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SensedShip {
+    /// The ship.
+    pub id: ShipId,
+    /// Its class.
+    pub class: ShipClass,
+    /// Where it is now.
+    pub position: PositionMetres,
+    /// Under the arrival shroud: seen, but it cannot be targeted (D-055).
+    pub shrouded: bool,
+}
+
+/// Another owner's fleet with at least one detected ship, listing only those (D-174).
+#[derive(Clone, Debug, PartialEq)]
+pub struct SensedFleet {
+    /// The fleet.
+    pub id: FleetId,
+    /// Its owner: hostile, as every other owner is (D-040).
+    pub owner: Owner,
+    /// Its anchor.
+    pub position: PositionMetres,
+    /// Its detected ships, in identity order.
+    pub ships: Vec<SensedShip>,
+}
+
+/// One shield sector of an own holding (S5b).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Sector {
+    /// Strength, milli-points.
+    pub strength_milli: u64,
+    /// Maximum, milli-points.
+    pub max_milli: u64,
+    /// Open in a siege: SHLD SURGE is refused on it (doc 15 §5.3).
+    pub open: bool,
+}
+
+/// An own holding's dome (S5b).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HoldingDefence {
+    /// Whether it projects a dome.
+    pub dome: bool,
+    /// The sectors, in pylon slot order.
+    pub sectors: [Sector; 4],
+}
+
+/// The Deputy's timings and distances from the rules file (D-211; A1 plan §5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeputyParams {
+    /// An alert ends this long after its last event (doc 13 §4).
+    pub alert_window_s: u64,
+    /// Target priority 1 and *return fire* look this far back in the inbox (A1 plan §5.5,
+    /// D-145).
+    pub attacker_window_s: u64,
+    /// FLAK SCREEN counts light hostiles within this distance of the dome centre (doc 13
+    /// §9).
+    pub flak_trigger_radius_m: u32,
+    /// An evacuated convoy resumes this long after no hostile is within its radius (D-210).
+    pub evacuation_resume_s: u64,
+    /// A fleet within this distance of its holding's launch point is by the core
+    /// (*Proposed*).
+    pub anchor_radius_m: u32,
 }
 
 /// An own fleet's convoy route (D-134), as the AI reads it.
@@ -57,7 +133,7 @@ pub enum FleetPlace {
 }
 
 /// An own holding as the AI reads it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct OwnHolding {
     /// The holding.
     pub id: HoldingId,
@@ -65,6 +141,8 @@ pub struct OwnHolding {
     pub system: SystemId,
     /// Whether its core is complete (an outpost's is not, D-041).
     pub complete: bool,
+    /// Its site: the centre of its dome and defended zone.
+    pub centre: PositionMetres,
 }
 
 /// Whether a holding could queue an item now, as the validator would answer (D-077).
@@ -164,10 +242,57 @@ pub trait View {
     /// Whether an own fleet is under direct control (RK-10).
     fn direct_control(&self, fleet: FleetId) -> Option<DirectControl>;
 
+    /// The Deputy's timings and distances: rules data (D-211).
+    fn deputy_params(&self) -> DeputyParams;
+
     // --- Own assets and economy (doc 16 §2).
+
+    /// The observer's fleets, in identity order.
+    fn own_fleet_ids(&self) -> Vec<FleetId>;
 
     /// An own fleet.
     fn own_fleet(&self, fleet: FleetId) -> Option<OwnFleet>;
+
+    /// An own holding's dome and sectors.
+    fn defence(&self, holding: HoldingId) -> Option<HoldingDefence>;
+
+    /// An own holding's power profile.
+    fn power_profile(&self, holding: HoldingId) -> Option<PowerProfile>;
+
+    /// Whether an own fleet could dock at an own holding now: room (D-102), a dry dock for
+    /// a frigate.
+    fn can_dock(&self, fleet: FleetId, holding: HoldingId) -> bool;
+
+    /// Whether the validator would accept `command` from the observer now, as it would
+    /// answer a client (D-077, D-123).
+    fn accepts(&self, command: &Command) -> bool;
+
+    // --- Sensed (doc 16 §3; D-173): the last sensors pass, through the per-system index.
+
+    /// The tick of the last sensors pass.
+    fn picture_tick(&self) -> Tick;
+
+    /// Whether the last pass detected anything of another owner in `system`: the cheap
+    /// check of a calm evaluation (A1 plan §4.5).
+    fn anything_sensed_in(&self, system: SystemId) -> bool;
+
+    /// The detected fleets in `system`, in identity order.
+    fn sensed_fleets_in(&self, system: SystemId) -> Vec<SensedFleet>;
+
+    // --- Rules (public, D-104).
+
+    /// Whether a class carries a weapon.
+    fn class_armed(&self, class: ShipClass) -> bool;
+
+    /// The hull points of an undamaged ship of a class.
+    fn class_hull(&self, class: ShipClass) -> u64;
+
+    /// Whether a class is of the Light size (doc 15 §3.1).
+    fn class_light(&self, class: ShipClass) -> bool;
+
+    /// The multiplier, percent, of `shooter`'s first weapon against a ship of `target`'s
+    /// size (D-052); 0 for an unarmed class.
+    fn multiplier_percent(&self, shooter: ShipClass, target: ShipClass) -> u32;
 
     /// The observer's holdings and outposts, in identity order.
     fn own_holdings(&self) -> Vec<OwnHolding>;

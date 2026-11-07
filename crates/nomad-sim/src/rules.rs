@@ -50,7 +50,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@11";
+pub const RULES_FORMAT: &str = "nomad-rules@12";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -581,8 +581,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@11", "nomad-rules@10"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@10"
+            swap("nomad-rules@12", "nomad-rules@11"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@11"
         ));
         // The sieges section (S6a): whole quarter hours, a window shorter than a day.
         for (from, to) in [

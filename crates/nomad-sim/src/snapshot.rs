@@ -56,7 +56,8 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   fleets under direct control; a convoy keeps the contested gate it holds for; the rules
 ///   gain the AI section and the gates' contested radius, rules format 11.
 /// - 18: the Deputy's second half (A1b): damage in the inbox names the attacking fleet when
-///   it is detected.
+///   it is detected; the Deputy's memory keeps each holding's alert and each fleet's home and
+///   unanswered order; the rules gain the Deputy's timings and distances, rules format 12.
 pub const FORMAT: u32 = 18;
 
 /// Why a snapshot could not be written or read.

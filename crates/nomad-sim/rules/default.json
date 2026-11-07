@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@11",
+  "format": "nomad-rules@12",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -356,6 +356,13 @@
     "deputy_interval_ticks": 5,
     "inbox_retention_s": 60,
     "command_expiry_s": 10,
-    "max_replacement_entries": 32
+    "max_replacement_entries": 32,
+    "deputy": {
+      "alert_window_s": 60,
+      "attacker_window_s": 30,
+      "flak_trigger_radius_m": 3000,
+      "evacuation_resume_s": 60,
+      "anchor_radius_m": 1000
+    }
   }
 }

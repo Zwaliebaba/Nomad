@@ -25,7 +25,9 @@
 //! integer scores. The same `clippy.toml` rules as `nomad-sim` apply.
 //!
 //! **Layers.** The Deputy ([`deputy`], A1) runs for every commander, online or offline, at
-//! 2 Hz (D-203); so far it rebuilds losses within the budget (D-208). The Strategist ([`strategist`], A2) runs only while its commander is online;
+//! 2 Hz (D-203): threat and alert, fleet roles and engagement, rebuilding and convoy safety
+//! (doc 13 §4, D-206 to D-210). The Strategist ([`strategist`], A2) runs only while its
+//! commander is online;
 //! until A2 it decides nothing. The raider director arrives with A3.
 
 pub mod deputy;
@@ -38,8 +40,8 @@ pub use deputy::{DeferReason, DeputyEvent, Rebuild};
 pub use inbox::{CommandOutcome, DropReason, FleetHappening, InboxEntry, InboxEvent};
 pub use memory::{CommanderMemory, Memory};
 pub use view::{
-    BuildCheck, FleetPlace, OwnConvoy, OwnFleet, OwnHolding, RouteHop, RouteQuery, RouteSpeed,
-    RouteSummary, RouteTo, View,
+    BuildCheck, DeputyParams, FleetPlace, HoldingDefence, OwnConvoy, OwnFleet, OwnHolding,
+    RouteHop, RouteQuery, RouteSpeed, RouteSummary, RouteTo, Sector, SensedFleet, SensedShip, View,
 };
 
 use nomad_types::{Command, Tick};

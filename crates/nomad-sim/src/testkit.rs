@@ -124,6 +124,66 @@ fn kit_of(state: &UniverseState, n: u32, class: ShipClass) -> FleetId {
         .expect("every commander has its start-kit fleets")
 }
 
+/// Keeps commander `n`'s Deputy out of a mechanics test, through ordinary doctrine (A1 plan
+/// §5.1; a test fixture, not a game rule): every holding of theirs gets a doctrine that
+/// neither switches its power profile nor uses an ability, and every fleet of theirs docked
+/// at one of them becomes that holding's reserve, which the Deputy never launches (D-207).
+/// Fleets in space with no known home are left alone by the Deputy anyway.
+pub(crate) fn passive(state: &mut UniverseState, n: u32) {
+    let me = CommanderId(n);
+    let preset = *state.rules.ai.preset(state.doctrine_preset(me));
+    let holdings: Vec<(HoldingId, nomad_types::PowerProfile)> = state
+        .holdings()
+        .filter(|(_, h)| h.owner == me)
+        .map(|(id, _)| {
+            let profile = state
+                .holding_economy(id)
+                .map(|e| e.profile)
+                .unwrap_or_default();
+            (id, profile)
+        })
+        .collect();
+    let docked: Vec<(FleetId, HoldingId)> = state
+        .fleet_ids()
+        .into_iter()
+        .filter_map(|f| {
+            let view = state.fleet(f)?;
+            match view.place {
+                Place::Docked(at) if view.owner == commander(n) => Some((f, at)),
+                _ => None,
+            }
+        })
+        .collect();
+    let doctrine = state.doctrine.commanders.entry(me).or_default();
+    for (holding, profile) in holdings {
+        doctrine.holdings.insert(
+            holding,
+            nomad_types::HoldingDoctrine {
+                alert_profile: profile,
+                surge_below_permille: 0,
+                flak_light_hostiles: None,
+                ..preset.holding
+            },
+        );
+    }
+    for (fleet, holding) in docked {
+        doctrine.fleets.insert(
+            fleet,
+            nomad_types::FleetDoctrine {
+                role: Some(nomad_types::FleetRole::Reserve { holding }),
+                ..preset.fleet()
+            },
+        );
+    }
+}
+
+/// [`passive`] for every stage-1 commander.
+pub(crate) fn passive_all(state: &mut UniverseState) {
+    for n in 1..=4 {
+        passive(state, n);
+    }
+}
+
 /// The position of site `index` of `system`.
 pub(crate) fn site_position(state: &UniverseState, system: SystemId, index: usize) -> Vec2 {
     let site = state.galaxy().system(system).expect("system exists").sites[index];

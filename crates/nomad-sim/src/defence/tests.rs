@@ -20,7 +20,15 @@ use crate::id::{CommanderId, SimId};
 use crate::snapshot::{decode, encode, state_hash};
 use crate::state::UniverseState;
 use crate::step::TickOutputs;
-use crate::testkit::{commander, home, idle, order, send, spawn_fleet, stage1};
+use crate::testkit::{commander, home, idle, order, send, spawn_fleet};
+
+/// A stage-1 Universe whose Deputies stay out of these mechanics tests
+/// ([`crate::testkit::passive`]).
+fn stage1(seed: u64) -> UniverseState {
+    let mut state = crate::testkit::stage1(seed);
+    crate::testkit::passive_all(&mut state);
+    state
+}
 use crate::time::{TICKS_PER_SECOND, Tick};
 use crate::validate_command;
 
