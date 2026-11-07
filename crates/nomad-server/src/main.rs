@@ -3,6 +3,7 @@
 //! ```text
 //! nomad-server create       [--seed N] [--ai N] [--difficulty easy|normal|hard]
 //!                           [--season-weeks 8..12] [--name TEXT] [--backdate-hours N]
+//!                           [--window HH:MM[Z|±hh:mm]]
 //! nomad-server run          [--universe ID] [--bind ADDR] [--port N]
 //! nomad-server status       [--universe ID]
 //! nomad-server connect-info [--universe ID] [--host ADDR] [--port N]
@@ -14,7 +15,8 @@
 //! one Universe. `run` listens on 127.0.0.1 and UDP port 31790 unless `--bind`/`NOMAD_BIND`
 //! or `--port`/`NOMAD_PORT` say otherwise (D-150), and stops cleanly on Ctrl+C (and SIGTERM
 //! on Linux). `connect-info` prints what a client needs to connect, as text and as an
-//! import string (D-151). Logs go to stderr; `RUST_LOG` sets the filter.
+//! import string (D-151). `create --window` sets where the human's exposure window starts,
+//! by default local 19:00 (D-157). Logs go to stderr; `RUST_LOG` sets the filter.
 
 use std::io::{self, IsTerminal, Write};
 use std::net::{IpAddr, SocketAddr};
@@ -26,11 +28,13 @@ use std::time::Duration;
 use nomad_protocol::{CONNECTION_FILE, ConnectInfo, ConnectionFile};
 use nomad_server::{
     BIND_ENV, BUILD_ID, CreateParams, DEFAULT_PORT, DataDir, Difficulty, Identity, NetConfig,
-    PORT_ENV, ServerConfig, ServerError, ServerHandle, SystemClock, UniverseLock, create,
-    local_connect_address, parse_universe_id, short_build, status, utc_text,
+    PORT_ENV, ServerConfig, ServerError, ServerHandle, SystemClock, UniverseLock, WindowSpec,
+    create, local_connect_address, local_offset_minutes, parse_universe_id, short_build, status,
+    utc_text, window_text,
 };
+use nomad_sim::Rules;
 use nomad_types::UniverseId;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 const USAGE: &str = "\
@@ -44,6 +48,8 @@ commands:
              --season-weeks N       season length, 8 to 12 weeks (default 8)
              --name TEXT            display name
              --backdate-hours N     start the season N hours ago (to test catch-up)
+             --window HH:MM         where your exposure window starts (D-157): local time,
+                                    HH:MMZ for UTC, HH:MM+hh:mm with an offset (default 19:00)
   run      run a Universe until Ctrl+C
              --universe ID          the Universe (optional if there is only one)
              --bind ADDR            address to listen on (default: NOMAD_BIND, else 127.0.0.1)
@@ -66,7 +72,11 @@ options for every command:
 
 #[derive(Debug, PartialEq, Eq)]
 enum Command {
-    Create(CreateParams),
+    Create {
+        params: CreateParams,
+        /// The human's window start, resolved to UTC in `main` (D-157).
+        window: WindowSpec,
+    },
     Run {
         universe: Option<UniverseId>,
         bind: Option<IpAddr>,
@@ -97,6 +107,7 @@ struct Cli {
 struct Options {
     universe: Option<UniverseId>,
     params: CreateParams,
+    window: Option<WindowSpec>,
     bind: Option<IpAddr>,
     host: Option<IpAddr>,
     port: Option<u16>,
@@ -108,13 +119,17 @@ impl Options {
         let Self {
             universe,
             params,
+            window,
             bind,
             host,
             port,
             certificate,
         } = self;
         match command {
-            "create" => Command::Create(params),
+            "create" => Command::Create {
+                params,
+                window: window.unwrap_or(WindowSpec::DEFAULT),
+            },
             "run" => Command::Run {
                 universe,
                 bind,
@@ -206,6 +221,10 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Cli, String> {
                 let hours: u64 = number(&value()?)?;
                 o.params.backdate = Duration::from_secs(hours.saturating_mul(3_600));
             }
+            "--window" => {
+                create_only()?;
+                o.window = Some(value()?.parse::<WindowSpec>()?);
+            }
             "--bind" => {
                 only(&["run"])?;
                 o.bind = Some(address(&value()?)?);
@@ -287,9 +306,12 @@ fn main() -> ExitCode {
         Command::Help => {
             writeln!(io::stdout(), "{USAGE}").map_err(|e| ServerError::io("stdout", e))
         }
-        Command::Create(params) => {
+        Command::Create { mut params, window } => {
             init_logging("warn");
-            DataDir::resolve(cli.data_dir).and_then(|data| run_create(&data, &params))
+            human_window(window)
+                .map(|start| params.window_start = start)
+                .and_then(|()| DataDir::resolve(cli.data_dir))
+                .and_then(|data| run_create(&data, &params))
         }
         Command::Run {
             universe,
@@ -333,6 +355,20 @@ fn main() -> ExitCode {
     }
 }
 
+/// The human's window start in UTC (D-157). A local time needs this computer's UTC offset;
+/// if the system cannot tell, the default falls back to 19:00 UTC with a warning, and an
+/// explicit local time is refused.
+fn human_window(window: WindowSpec) -> Result<nomad_sim::QuarterHour, ServerError> {
+    let offset = window.is_local().then(local_offset_minutes).flatten();
+    match window.resolve(offset) {
+        Err(_) if window.is_local() && offset.is_none() && window == WindowSpec::DEFAULT => {
+            warn!("the local UTC offset is unknown: the exposure window starts at 19:00 UTC");
+            window.resolve(Some(0))
+        }
+        result => result,
+    }
+}
+
 fn run_create(data: &DataDir, params: &CreateParams) -> Result<(), ServerError> {
     let created = create(data, params, &SystemClock::new(), BUILD_ID)?;
     let meta = &created.meta;
@@ -346,14 +382,15 @@ fn run_create(data: &DataDir, params: &CreateParams) -> Result<(), ServerError> 
     writeln!(
         out,
         "Directory    {}\nSeed         {}\nSeason       {} weeks from {} (tick 0)\n\
-         Commanders   1 human, {} AI ({})\nBuild        {}\nState hash   {:016x}\n\
-         Run it with: nomad-server run --universe {}",
+         Commanders   1 human, {} AI ({})\nYour window  {} (D-157)\nBuild        {}\n\
+         State hash   {:016x}\nRun it with: nomad-server run --universe {}",
         created.dir.display(),
         meta.seed,
         meta.season_weeks,
         utc_text(meta.season_start_unix_ms),
         meta.ai_commanders,
         meta.difficulty,
+        window_text(params.window_start, Rules::embedded().sieges.window_minutes),
         short_build(&meta.build),
         created.state_hash,
         meta.universe_id,
@@ -616,14 +653,35 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(cli.data_dir, Some(PathBuf::from("d")));
-        let Command::Create(params) = cli.command else {
+        let Command::Create { params, window } = cli.command else {
             panic!("not create");
         };
+        // Without --window, local 19:00 (D-157).
+        assert_eq!(window, WindowSpec::DEFAULT);
         assert_eq!(params.seed, Some(42));
         assert_eq!(params.difficulty, Difficulty::Hard);
         assert_eq!(params.season_weeks, 10);
         assert_eq!(params.name.as_deref(), Some("Kestrel"));
         assert_eq!(params.backdate, Duration::from_hours(6));
+    }
+
+    #[test]
+    fn the_window_is_local_utc_or_offset() {
+        let window = |args: &[&str]| match parse(args).unwrap().command {
+            Command::Create { window, .. } => window,
+            other => panic!("not create: {other:?}"),
+        };
+        assert_eq!(
+            window(&["create", "--window", "18:30Z"]),
+            "18:30Z".parse().unwrap()
+        );
+        assert_eq!(
+            human_window(window(&["create", "--window", "06:00+02:00"])).unwrap(),
+            nomad_sim::QuarterHour::at(4, 0).unwrap()
+        );
+        // The default is local 19:00, or 19:00 UTC where the offset is unknown.
+        assert!(human_window(WindowSpec::DEFAULT).is_ok());
+        assert!(human_window("19:05Z".parse().unwrap()).is_err());
     }
 
     #[test]
@@ -691,6 +749,9 @@ mod tests {
             &["create", "--bind", "0.0.0.0"],
             &["run", "--certificate"],
             &["connect-info", "--bind", "0.0.0.0"],
+            &["create", "--window", "25:00"],
+            &["create", "--window"],
+            &["run", "--window", "19:00"],
         ] {
             assert!(parse(args).is_err(), "{args:?}");
         }

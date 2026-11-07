@@ -87,6 +87,33 @@ fn create_then_status() {
 }
 
 #[test]
+fn create_takes_the_human_window() {
+    // D-157: `--window` in UTC here, so the test does not depend on the machine's time zone.
+    let dir = TestDir::new("cli-window");
+    let output = nomad_server(dir.path(), &["create", "--seed", "1", "--window", "18:30Z"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(
+        text.contains("Your window  18:30–22:30 UTC"),
+        "no window in:\n{text}"
+    );
+    // Without --window: local 19:00, whatever that is in UTC.
+    let output = nomad_server(dir.path(), &["create", "--seed", "1"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("Your window  "));
+    // Off the quarter hour in UTC: refused.
+    let output = nomad_server(dir.path(), &["create", "--window", "18:40Z"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stderr(&output).contains("quarter hour"),
+        "{}",
+        stderr(&output)
+    );
+    let output = nomad_server(dir.path(), &["create", "--window", "noon"]);
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
 fn bad_arguments_are_refused() {
     let dir = TestDir::new("cli-bad");
     let output = nomad_server(dir.path(), &["create", "--season-weeks", "13"]);

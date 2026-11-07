@@ -99,8 +99,9 @@ pub enum SubmitError {
     /// The server is starting or catching up; inputs are taken only while live (doc 20 §7).
     #[error("the server is not live")]
     NotLive,
-    /// The catch-up markers are written by the server only.
-    #[error("this input is reserved for the server")]
+    /// The catch-up markers are written by the server only, and `SetPresence` is for the
+    /// headless harness only, until A5 gives AI commanders schedules (S6 plan §4.1).
+    #[error("this input is reserved for the server or the harness")]
     Reserved,
     /// The season has ended and the Universe no longer advances (D-116).
     #[error("the season has ended")]
@@ -579,7 +580,11 @@ impl PreparedNetwork {
 fn submit(inbox: &Sender<Control>, shared: &Shared, input: Input) -> Result<(), SubmitError> {
     if matches!(
         input,
-        Input::Operator(OperatorInput::CatchUpStart | OperatorInput::CatchUpEnd)
+        Input::Operator(
+            OperatorInput::CatchUpStart
+                | OperatorInput::CatchUpEnd
+                | OperatorInput::SetPresence { .. }
+        )
     ) {
         return Err(SubmitError::Reserved);
     }

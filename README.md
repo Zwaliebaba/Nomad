@@ -96,6 +96,7 @@ cargo run -p nomad-server -- rotate-token            # new token (stopped server
 - When the season's final tick has run, the Universe stops advancing: the server saves it and keeps serving that final state until Ctrl+C, and refuses inputs. `run` on an ended season catches up only to the season end, and `status` says the season has ended (Design D-116). A new season is a new Universe.
 - Every 60 s of Universe time the journal records a state hash, and a restart checks the replay against it. A mismatch is logged as an error, and the Universe still starts (D-109). The journal is kept for 48 h (D-110).
 - `create --backdate-hours N` starts the season N hours in the past, so the first `run` catches up. Use it to test catch-up.
+- `create --window HH:MM` sets where your daily exposure window starts, in local time; `HH:MMZ` gives it in UTC and `HH:MM+hh:mm` with an offset, for a server whose time zone differs from yours (a container). The default is local 19:00, and the start must fall on a quarter hour in UTC (Design D-155, D-157). For your first 7 days the client may change it; after that your activity moves it, by at most 1 h a day (D-032).
 - `RUST_LOG` sets the log filter (default `info` for `run`). Logs go to stderr.
 
 ### Run the server in Docker

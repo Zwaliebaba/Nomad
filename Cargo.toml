@@ -43,6 +43,9 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
 # SHA-256 fingerprints and random tokens.
 ring = "0.17"
+# The local UTC offset, for `create --window`'s default of local 19:00 (D-157). Already in the
+# tree through rcgen; `local-offset` adds only num_threads. MIT or Apache-2.0.
+time = { version = "0.3.55", default-features = false, features = ["std", "local-offset"] }
 
 # Client (phase-1 visual slice, Design D-004, phase-1 doc 05).
 bytemuck = { version = "1.25", features = ["derive"] }

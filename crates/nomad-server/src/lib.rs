@@ -8,7 +8,8 @@
 //! (N3).
 //!
 //! - [`create()`] generates the MVP stage-1 Universe and writes its `meta` row and tick-0
-//!   snapshot (doc 10 §4.4; D-106, D-107).
+//!   snapshot (doc 10 §4.4; D-106, D-107). The human's exposure window starts where
+//!   `create --window` says, by default local 19:00 ([`WindowSpec`], D-157).
 //! - [`ServerHandle::start`] takes the Universe's lock, loads the latest snapshot and
 //!   replays the journal (refusing a journal from another build, D-048, and checking its
 //!   state-hash checkpoints, D-109), then starts two threads (doc 20 §4):
@@ -48,6 +49,7 @@ mod sim;
 pub mod status;
 mod store;
 mod timefmt;
+mod window;
 
 pub use clock::{Alarm, Clock, FakeClock, SystemClock};
 pub use create::{
@@ -72,6 +74,7 @@ pub use server::{
 };
 pub use store::{JournalStats, Meta, SCHEMA_FORMAT, SnapshotInfo};
 pub use timefmt::{duration_text, ticks_text, utc_text};
+pub use window::{WindowSpec, local_offset_minutes, window_text};
 
 /// This build's identity: the git commit it was built from, or `unknown` (N2 plan §4.6).
 /// Snapshots and journal entries record it, and a journal is replayed only by the build
