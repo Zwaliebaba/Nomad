@@ -21,7 +21,7 @@ use rusqlite::{Connection, ErrorCode, OpenFlags, OptionalExtension, Transaction,
 use crate::error::ServerError;
 use crate::ids::Difficulty;
 use crate::journal::{EntryKind, JournalEntry};
-use crate::retention::{self, RetentionPlan};
+use crate::retention::{self, RetentionPlan, RetentionPolicy};
 
 /// The database layout this build reads and writes. Bumped whenever a table changes.
 pub const SCHEMA_FORMAT: i64 = 1;
@@ -506,11 +506,12 @@ impl Store {
         tx.commit().map_err(|e| db_error(path, "commit journal", e))
     }
 
-    /// Writes a snapshot and applies retention (doc 11 §8), in one transaction. Returns
-    /// what retention kept and deleted.
+    /// Writes a snapshot and applies retention under `policy` (doc 11 §8), in one
+    /// transaction. Returns what retention kept and deleted.
     pub fn write_snapshot(
         &mut self,
         snapshot: &SnapshotRecord,
+        policy: RetentionPolicy,
     ) -> Result<RetentionPlan, ServerError> {
         let path = self.path.as_path();
         let fail = |context| move |e| db_error(path, context, e);
@@ -535,7 +536,7 @@ impl Store {
             }
             ticks
         };
-        let plan = retention::plan(&ticks);
+        let plan = retention::plan(&ticks, policy);
         {
             let mut delete = tx
                 .prepare_cached("DELETE FROM snapshots WHERE tick = ?1")

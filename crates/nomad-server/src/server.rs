@@ -24,6 +24,7 @@ use crate::net::{NetConfig, Network, UniverseInfo};
 use crate::paths::{DATABASE_FILE, UniverseLock};
 use crate::persist::{self, CHANNEL_BOUND};
 use crate::recovery::{self, ReplayCheck};
+use crate::retention::RetentionPolicy;
 use crate::sim::{Control, Sim, Stop};
 use crate::store::{Meta, Store};
 
@@ -49,6 +50,11 @@ pub struct ServerConfig {
     /// Ticks between state-hash checkpoints in the journal (D-109). [`CHECKPOINT_INTERVAL`]
     /// outside tests.
     pub checkpoint_interval: Ticks,
+    /// Which snapshots and how much journal to keep (doc 11 §8, D-048, D-110).
+    /// [`RetentionPolicy::default`] outside tests. Tests may run it in scaled time
+    /// ([`RetentionPolicy::scaled`]), with the two intervals above scaled alike so that the
+    /// snapshot interval still divides the hour.
+    pub retention: RetentionPolicy,
     /// The season's final tick, after which the Universe stops advancing (D-116). `None`
     /// takes it from the Universe's season length (D-020, D-106); tests set a short season.
     pub season_end: Option<Tick>,
@@ -64,6 +70,7 @@ impl ServerConfig {
             build: BUILD_ID.to_owned(),
             snapshot_interval: SNAPSHOT_INTERVAL,
             checkpoint_interval: CHECKPOINT_INTERVAL,
+            retention: RetentionPolicy::default(),
             season_end: None,
             net: None,
         }
@@ -325,9 +332,10 @@ impl ServerHandle {
         let alarm = Alarm::new();
         let (persist_tx, persist_rx) = mpsc::sync_channel(CHANNEL_BOUND);
         let persist_clock = Arc::clone(&clock);
+        let retention = config.retention;
         let persist = thread::Builder::new()
             .name("nomad-persist".to_owned())
-            .spawn(move || persist::run(store, &persist_rx, &*persist_clock))
+            .spawn(move || persist::run(store, &persist_rx, &*persist_clock, retention))
             .map_err(|e| ServerError::io("cannot start the persistence thread", e))?;
         let (inbox_tx, inbox_rx) = mpsc::channel();
         let sim = Sim {

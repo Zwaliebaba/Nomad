@@ -64,9 +64,7 @@ pub use net::{BIND_ENV, DEFAULT_PORT, Limits, NetConfig, PORT_ENV, local_connect
 pub use paths::{DATA_DIR_ENV, DATABASE_FILE, DataDir, LOCK_FILE, UniverseLock};
 pub use recovery::{CheckpointMismatch, ReplayCheck};
 pub use reject::wire_reason;
-pub use retention::{
-    HOURLY_WINDOW, JOURNAL_WINDOW, KEEP_LATEST, RetentionPlan, plan as retention_plan,
-};
+pub use retention::{RetentionPlan, RetentionPolicy, plan as retention_plan};
 pub use server::{
     CHECKPOINT_INTERVAL, CatchUpProgress, Input, Phase, SNAPSHOT_INTERVAL, ServerConfig,
     ServerEvent, ServerHandle, ServerStatus, ShutdownReport, ShutdownTrigger, StartReport,

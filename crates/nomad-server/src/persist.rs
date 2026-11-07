@@ -15,6 +15,7 @@ use tracing::{debug, error, info};
 use crate::clock::Clock;
 use crate::error::ServerError;
 use crate::journal::JournalEntry;
+use crate::retention::RetentionPolicy;
 use crate::store::{SnapshotRecord, Store};
 
 /// Bound of the channel from the simulation thread. Live play sends a few messages per
@@ -43,13 +44,15 @@ pub(crate) enum PersistMessage {
     Abort,
 }
 
-/// Runs the persistence thread until [`PersistMessage::Stop`] or [`PersistMessage::Abort`].
+/// Runs the persistence thread until [`PersistMessage::Stop`] or [`PersistMessage::Abort`],
+/// applying `retention` after every snapshot.
 pub(crate) fn run(
     mut store: Store,
     inbox: &Receiver<PersistMessage>,
     clock: &dyn Clock,
+    retention: RetentionPolicy,
 ) -> Result<(), ServerError> {
-    let result = serve(&mut store, inbox, clock);
+    let result = serve(&mut store, inbox, clock, retention);
     if let Err(e) = &result {
         error!(error = %e, "persistence failed; the server stops");
     }
@@ -60,6 +63,7 @@ fn serve(
     store: &mut Store,
     inbox: &Receiver<PersistMessage>,
     clock: &dyn Clock,
+    retention: RetentionPolicy,
 ) -> Result<(), ServerError> {
     let mut pending: Vec<JournalEntry> = Vec::new();
     // A closed channel means the simulation thread is gone without saying how; treat it as
@@ -71,7 +75,7 @@ fn serve(
             PersistMessage::Snapshot { record, announce } => {
                 commit(store, &mut pending)?;
                 let started = clock.monotonic();
-                let plan = store.write_snapshot(&record)?;
+                let plan = store.write_snapshot(&record, retention)?;
                 let elapsed_ms = format_args!(
                     "{:.1}",
                     clock.monotonic().saturating_sub(started).as_secs_f64() * 1_000.0
