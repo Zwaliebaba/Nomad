@@ -7,8 +7,9 @@
 //! validator reason does not compile until it is mapped here.
 //!
 //! The mapping hides only what the reason itself says. A reason that depends on where an
-//! unseen target is (for example `WrongSystem`, or `SiteTaken` for an undetected outpost) would still leak; the visibility check that
-//! S7 adds to the validator must therefore come before such checks.
+//! unseen target is, such as `WrongSystem`, would still leak, so the validator checks
+//! visibility (`NotVisible`, S7) before every such reason. `SiteTaken` leaks nothing: a
+//! holding's existence, site and owner are public, outposts included (D-044, D-175).
 
 use nomad_sim::CommandRejection;
 use nomad_types::InvalidReason;
@@ -30,7 +31,9 @@ pub fn wire_reason(rejection: CommandRejection) -> InvalidReason {
         | C::UnknownItem
         | C::UnknownSite
         // A command from someone who is not a commander of this Universe (S6a).
-        | C::UnknownCommander => W::NotFound,
+        | C::UnknownCommander
+        // Another owner's ship, fleet or module the commander does not detect (S7).
+        | C::NotVisible => W::NotFound,
         C::InvalidPosition => W::InvalidPosition,
         C::WrongSystem => W::WrongSystem,
         C::Unreachable => W::Unreachable,
@@ -82,7 +85,7 @@ mod tests {
 
     /// Every validator reason. The guard below has no wildcard, so a new reason fails to
     /// compile until it is listed.
-    const ALL: [CommandRejection; 49] = [
+    const ALL: [CommandRejection; 50] = [
         CommandRejection::UnknownFleet,
         CommandRejection::UnknownShip,
         CommandRejection::UnknownHolding,
@@ -132,6 +135,7 @@ mod tests {
         CommandRejection::UnknownCommander,
         CommandRejection::InvalidWindow,
         CommandRejection::WindowLocked,
+        CommandRejection::NotVisible,
     ];
 
     const fn listed(rejection: CommandRejection) -> bool {
@@ -184,7 +188,8 @@ mod tests {
             | CommandRejection::NoPower
             | CommandRejection::UnknownCommander
             | CommandRejection::InvalidWindow
-            | CommandRejection::WindowLocked => true,
+            | CommandRejection::WindowLocked
+            | CommandRejection::NotVisible => true,
         }
     }
 
@@ -203,6 +208,7 @@ mod tests {
             CommandRejection::UnknownItem,
             CommandRejection::UnknownSite,
             CommandRejection::UnknownCommander,
+            CommandRejection::NotVisible,
         ];
         for rejection in ALL {
             let wire = wire_reason(rejection);

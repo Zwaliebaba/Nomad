@@ -3,7 +3,7 @@
 //! nothing, and the order in which commands arrive within a tick does not matter.
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
-use nomad_sim::scenario::place_fleet;
+use nomad_sim::scenario::{place_fleet, sense};
 use nomad_sim::snapshot::{decode, encode, state_hash};
 use nomad_sim::{
     CombatEvent, Command, CommanderId, CommanderInput, CommanderInputKind, FleetId, FleetOrder,
@@ -69,6 +69,8 @@ fn battle(seed: u64) -> Battle {
         0.0,
         &[VX, VX, LANCER],
     );
+    // The fleets were there at the last sensors pass (S7).
+    sense(&mut state);
     Battle {
         state,
         system,

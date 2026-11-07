@@ -8,7 +8,7 @@
 //! | Patrol | Loop through the waypoints |
 //! | Guard | Stay within the guard radius of the object, following it |
 //! | Station-keep | Hold the position, or the present offset from a target, following it |
-//! | Attack | Close to weapon range of the target, hold and fire at it; completes when it is destroyed (S5). A holding's dome is a circle: the fleet closes to weapon range of its edge (S5b) |
+//! | Attack | Close to weapon range of the target, hold and fire at it; completes when it is destroyed in sight (S5). A holding's dome is a circle: the fleet closes to weapon range of its edge (S5b). A ship or fleet that goes out of detection is followed to where it was last seen, where the fleet holds and the order completes with `TargetLost` unless it is detected again on the way (D-180) |
 //! | Dock | Approach the holding's launch point and dock, if there is room (D-102) |
 //! | Launch | Undock at once, at the holding's launch point |
 //! | Retreat | Route to the nearest (or the given) owned holding by time, and dock |
@@ -18,10 +18,16 @@
 //! An order that cannot start when its turn comes, because things changed since it was
 //! validated, is dropped with a [`FleetEvent::OrderDropped`]. So is an order whose target
 //! disappears.
+//!
+//! **Fog of war (S7):** orders follow only what their commander sees. An order on another
+//! owner's ship, fleet or module starts only while it is in the picture of the last sensors
+//! pass; Guard and station-keeping on such a target are dropped when it goes out of view, as
+//! when it leaves the system (*Derived* from S3's rule and doc 16: following its true
+//! position would use information the commander does not have); Attack follows D-180.
 
 use std::collections::VecDeque;
 
-use nomad_types::{FleetOrder, Queueing, RulesOfEngagement};
+use nomad_types::{FleetOrder, PositionMetres, Queueing, RulesOfEngagement};
 use tracing::debug;
 
 use crate::combat::hostile_ship_within;
@@ -56,6 +62,11 @@ pub enum FleetEvent {
     },
     /// Its active order finished.
     OrderCompleted {
+        /// The fleet.
+        fleet: FleetId,
+    },
+    /// An Attack ended where its target was last seen, without seeing it again (D-180).
+    TargetLost {
         /// The fleet.
         fleet: FleetId,
     },
@@ -209,8 +220,14 @@ fn activate(state: &UniverseState, id: FleetId, fleet: &Fleet, order: &FleetOrde
         Place::InTransit { .. } | Place::EmergencyJump { .. } => return Start::Dropped,
     };
     let here = |loc: &nomad_types::Location| loc.system == system;
-    let target_here =
-        |target| locate(state, target).filter(|t| t.system == system && t.fleet != Some(id));
+    // Only what the commander sees can be followed (S7).
+    let target_here = |target| {
+        locate(state, target).filter(|t| {
+            t.system == system
+                && t.fleet != Some(id)
+                && crate::sensors::sees(state, fleet.owner, system, target)
+        })
+    };
     let task = match order {
         FleetOrder::Move { to } | FleetOrder::AttackMove { to } if here(to) => {
             Task::MoveTo { to: to.position }
@@ -234,47 +251,20 @@ fn activate(state: &UniverseState, id: FleetId, fleet: &Fleet, order: &FleetOrde
             },
             None => return Start::Dropped,
         },
-        FleetOrder::Attack { target } if target_here(*target).is_some() => {
-            Task::Attack { target: *target }
-        }
+        FleetOrder::Attack { target } => match target_here(*target) {
+            Some(t) => Task::Attack {
+                target: *target,
+                seen: t.fleet.map(|_| t.position.into()),
+            },
+            None => return Start::Dropped,
+        },
         FleetOrder::Dock { at } if holding_system(state, *at) == Some(system) => {
             Task::Dock { holding: *at }
         }
-        FleetOrder::Retreat { to } => {
-            let ctx = Context {
-                system,
-                docked: None,
-                position: Some(anchor),
-            };
-            let Some(holding) = to.or_else(|| nearest_holding(state, fleet, ctx).map(|(h, _)| h))
-            else {
-                return Start::Dropped;
-            };
-            if dock_check(state, fleet, holding).is_err() {
-                return Start::Dropped;
-            }
-            let (Some(dest), Some(point)) = (
-                holding_system(state, holding),
-                station::launch_point(state, holding),
-            ) else {
-                return Start::Dropped;
-            };
-            match plan(
-                state,
-                fleet,
-                system,
-                anchor,
-                RouteEnd::Point(dest, point.into()),
-            ) {
-                Some(hops) if hops.is_empty() => Task::Dock { holding },
-                Some(hops) => Task::Travel {
-                    hops,
-                    stage: TravelStage::Approach,
-                    then_dock: Some(holding),
-                },
-                None => return Start::Dropped,
-            }
-        }
+        FleetOrder::Retreat { to } => match retreat(state, fleet, system, anchor, *to) {
+            Some(task) => task,
+            None => return Start::Dropped,
+        },
         FleetOrder::Jump { system: dest } if *dest != system => {
             match plan(state, fleet, system, anchor, RouteEnd::System(*dest)) {
                 Some(hops) if !hops.is_empty() => Task::Travel {
@@ -288,6 +278,42 @@ fn activate(state: &UniverseState, id: FleetId, fleet: &Fleet, order: &FleetOrde
         _ => return Start::Dropped,
     };
     Start::Task(task)
+}
+
+/// A Retreat's task: dock at `to`, or the nearest own holding that can take the fleet, by
+/// route time (S3 plan §4.4); `None` if there is none.
+fn retreat(
+    state: &UniverseState,
+    fleet: &Fleet,
+    system: SystemId,
+    anchor: Vec2,
+    to: Option<HoldingId>,
+) -> Option<Task> {
+    let ctx = Context {
+        system,
+        docked: None,
+        position: Some(anchor),
+    };
+    let holding = to.or_else(|| nearest_holding(state, fleet, ctx).map(|(h, _)| h))?;
+    dock_check(state, fleet, holding).ok()?;
+    let dest = holding_system(state, holding)?;
+    let point = station::launch_point(state, holding)?;
+    let hops = plan(
+        state,
+        fleet,
+        system,
+        anchor,
+        RouteEnd::Point(dest, point.into()),
+    )?;
+    Some(if hops.is_empty() {
+        Task::Dock { holding }
+    } else {
+        Task::Travel {
+            hops,
+            stage: TravelStage::Approach,
+            then_dock: Some(holding),
+        }
+    })
 }
 
 fn plan(
@@ -383,6 +409,8 @@ pub(crate) enum Change {
     Complete,
     /// The order lost its target.
     Drop,
+    /// An Attack reached where its target was last seen (D-180).
+    TargetLost,
     /// Dock at this holding now.
     DockNow(HoldingId),
     /// Enter the lane of the first hop now.
@@ -408,7 +436,7 @@ fn engagement_range_m(state: &UniverseState, fleet: &Fleet) -> Option<f64> {
 /// Decides `fleet`'s goal and task change for this tick.
 pub(crate) fn decide(state: &UniverseState, id: FleetId, fleet: &Fleet, now: Tick) -> Decision {
     let anchor = state.entities.get::<Motion>(id.sim_id()).unwrap_or(Motion {
-        position: nomad_types::PositionMetres::ORIGIN,
+        position: PositionMetres::ORIGIN,
         velocity: Vec2::ZERO,
         heading_rad: 0.0,
     });
@@ -425,7 +453,12 @@ pub(crate) fn decide(state: &UniverseState, id: FleetId, fleet: &Fleet, now: Tic
             change: Change::None,
         };
     };
-    let track = |target| locate(state, target).filter(|t| t.system == system);
+    // Only what the commander sees is followed (S7).
+    let track = |target| {
+        locate(state, target).filter(|t| {
+            t.system == system && crate::sensors::sees(state, fleet.owner, system, target)
+        })
+    };
     let keep = |goal| Decision {
         goal,
         change: Change::None,
@@ -472,7 +505,8 @@ pub(crate) fn decide(state: &UniverseState, id: FleetId, fleet: &Fleet, now: Tic
             }
             None => drop_order(),
         },
-        Task::Attack { target } => decide_attack(state, fleet, *target, system, here),
+        Task::Attack { target, seen } => decide_attack(state, fleet, *target, *seen, system, here),
+        Task::Pursue { target, to } => decide_pursuit(state, fleet, *target, *to, system, &anchor),
         Task::Dock { holding } => match station::launch_point(state, *holding) {
             Some(point) if holding_system(state, *holding) == Some(system) => {
                 let point = Vec2::from(point);
@@ -514,34 +548,94 @@ fn attack_move_pauses(
 /// holding with a dome, weapon range of the dome's edge (S5b): the dome is what is hit, and
 /// strike craft breaching from their full range stay out of reach of the turrets inside
 /// (S5 plan §5).
+///
+/// A ship or fleet (`seen` is set) is followed while the commander detects it, and `seen`
+/// keeps up with it. One that is gone while still in the picture was destroyed in sight: the
+/// attack succeeded. One that is out of the picture, or no longer in space here (it docked
+/// or jumped), is lost: the fleet goes to where it was last seen (D-180). A structure does not
+/// move: it is followed where it stands, and the attack succeeds when it is gone (S5b).
 fn decide_attack(
     state: &UniverseState,
     fleet: &Fleet,
     target: crate::id::SimId,
+    seen: Option<PositionMetres>,
     system: SystemId,
     here: Vec2,
 ) -> Decision {
-    let tracked = locate(state, target).filter(|t| t.system == system);
-    match (tracked, engagement_range_m(state, fleet)) {
-        (Some(t), Some(range)) => {
-            let edge = crate::defence::attack_edge_m(state, target);
-            Decision {
-                goal: hold_within_edge(here, t.position, edge, range, 0.9),
-                change: Change::None,
-            }
+    let detected = seen.is_none() || crate::sensors::sees(state, fleet.owner, system, target);
+    let tracked = locate(state, target).filter(|t| detected && t.system == system);
+    let range = engagement_range_m(state, fleet);
+    if let (Some(t), Some(range)) = (tracked, range) {
+        let edge = crate::defence::attack_edge_m(state, target);
+        let now_seen = t.fleet.map(|_| PositionMetres::from(t.position));
+        return Decision {
+            goal: hold_within_edge(here, t.position, edge, range, 0.9),
+            change: if now_seen == seen {
+                Change::None
+            } else {
+                Change::Update(Task::Attack {
+                    target,
+                    seen: now_seen,
+                })
+            },
+        };
+    }
+    if detected && gone(state, target) {
+        return Decision {
+            goal: Goal::Stop,
+            change: Change::Complete,
+        };
+    }
+    match (seen, range) {
+        (Some(to), Some(_)) => Decision {
+            goal: Goal::Point(to.into()),
+            change: Change::Update(Task::Pursue { target, to }),
+        },
+        _ => drop_order(),
+    }
+}
+
+/// Whether `target` no longer exists: a destroyed ship, fleet or module.
+fn gone(state: &UniverseState, target: crate::id::SimId) -> bool {
+    !state.entities.contains(target) && !state.holdings.contains_key(&HoldingId(target))
+}
+
+/// An Attack whose target was lost (D-180): resume it if the target is detected again on the
+/// way, succeed if it was destroyed in sight, else go to where it was last seen and end there
+/// with `TargetLost`. The fleet then holds, unless another order is queued.
+fn decide_pursuit(
+    state: &UniverseState,
+    fleet: &Fleet,
+    target: crate::id::SimId,
+    to: PositionMetres,
+    system: SystemId,
+    anchor: &Motion,
+) -> Decision {
+    if crate::sensors::sees(state, fleet.owner, system, target) {
+        if let Some(t) = locate(state, target).filter(|t| t.system == system) {
+            return Decision {
+                goal: Goal::Point(t.position),
+                change: Change::Update(Task::Attack {
+                    target,
+                    seen: Some(t.position.into()),
+                }),
+            };
         }
-        // A destroyed ship or fleet no longer exists: the attack succeeded. One that docked,
-        // jumped or left the system still exists: the order lost its target.
-        (None, _)
-            if !state.entities.contains(target)
-                && !state.holdings.contains_key(&HoldingId(target)) =>
-        {
-            Decision {
+        if gone(state, target) {
+            return Decision {
                 goal: Goal::Stop,
                 change: Change::Complete,
-            }
+            };
         }
-        _ => drop_order(),
+    }
+    let point = Vec2::from(to);
+    Decision {
+        goal: Goal::Point(point),
+        change: if arrived(anchor, point) {
+            Change::TargetLost
+        } else {
+            Change::None
+        },
     }
 }
 
@@ -684,6 +778,7 @@ pub(crate) fn apply(
         }
         Change::Complete => finish(state, id, FleetEvent::OrderCompleted { fleet: id }, events),
         Change::Drop => finish(state, id, FleetEvent::OrderDropped { fleet: id }, events),
+        Change::TargetLost => finish(state, id, FleetEvent::TargetLost { fleet: id }, events),
         Change::DockNow(holding) => {
             let Some(fleet) = state.entities.get::<Fleet>(id.sim_id()) else {
                 return;

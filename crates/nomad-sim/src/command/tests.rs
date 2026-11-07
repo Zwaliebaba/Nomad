@@ -12,7 +12,8 @@ use crate::geometry::Vec2;
 use crate::holding::HoldingId;
 use crate::state::UniverseState;
 use crate::testkit::{
-    at, commander, home, kit_fleet, order, send, site_position, spawn_fleet, stage1, then,
+    at, commander, home, kit_fleet, order, send, site_position, spawn_fleet, spawn_unseen, stage1,
+    then,
 };
 use crate::time::Tick;
 
@@ -114,6 +115,8 @@ pub(crate) fn all_reasons() -> BTreeSet<R> {
         R::UnknownCommander,
         R::InvalidWindow,
         R::WindowLocked,
+        // S7.
+        R::NotVisible,
     ];
     assert!(every.into_iter().all(listed));
     every.into_iter().collect()
@@ -171,7 +174,8 @@ const fn listed(reason: R) -> bool {
         | R::NoPower
         | R::UnknownCommander
         | R::InvalidWindow
-        | R::WindowLocked => true,
+        | R::WindowLocked
+        | R::NotVisible => true,
     }
 }
 
@@ -289,6 +293,23 @@ fn every_rejection_reason_is_produced() {
         };
     }
     let travelling_ship = s.state.fleet(travelling).unwrap().ships[0];
+    // Hostiles that arrived after the last sensors pass (S7): one here, beside the fleet, and
+    // one in the neighbouring system, which must not be told apart from it (D-123).
+    let unseen = spawn_unseen(
+        &mut s.state,
+        commander(2),
+        s.home,
+        s.spot + Vec2::new(500.0, 0.0),
+        &[ShipClass::Vx],
+    );
+    let unseen_ship = s.state.fleet(unseen).unwrap().ships[0];
+    let elsewhere = spawn_unseen(
+        &mut s.state,
+        commander(2),
+        other_system,
+        Vec2::ZERO,
+        &[ShipClass::Vx],
+    );
 
     let fleet_cmd = |fleet, o| order(fleet, o);
     let cases: Vec<(u32, Command, R)> = vec![
@@ -530,6 +551,37 @@ fn every_rejection_reason_is_produced() {
                 into: s.mules,
             },
             R::NotTogether,
+        ),
+        // S7: what the issuer does not detect cannot be named, wherever it is.
+        (
+            1,
+            fleet_cmd(
+                s.fleet,
+                FleetOrder::Attack {
+                    target: unseen.sim_id(),
+                },
+            ),
+            R::NotVisible,
+        ),
+        (
+            1,
+            fleet_cmd(
+                s.fleet,
+                FleetOrder::Guard {
+                    object: unseen_ship.sim_id(),
+                },
+            ),
+            R::NotVisible,
+        ),
+        (
+            1,
+            fleet_cmd(
+                s.fleet,
+                FleetOrder::Attack {
+                    target: elsewhere.sim_id(),
+                },
+            ),
+            R::NotVisible,
         ),
     ];
 

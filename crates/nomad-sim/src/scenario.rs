@@ -77,6 +77,20 @@ pub fn place_fleet(
     id
 }
 
+/// Sets `fleet`'s rules of engagement directly, for measurements that need fleets of any
+/// owner, NPC factions included, to hold fire or fire freely. Returns whether the fleet exists.
+pub fn set_rules_of_engagement(
+    state: &mut UniverseState,
+    fleet: FleetId,
+    rules: nomad_types::RulesOfEngagement,
+) -> bool {
+    state
+        .entities
+        .get_mut::<Fleet>(fleet.sim_id())
+        .map(|f| f.rules_of_engagement = rules)
+        .is_some()
+}
+
 /// Runs a sensors pass now, as on a pass tick (S7), so fleets placed directly are in every
 /// picture that would detect them, as if they had been there at the last pass.
 pub fn sense(state: &mut UniverseState) {

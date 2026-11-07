@@ -24,6 +24,7 @@ use crate::fleet::ShipId;
 use crate::geometry::Vec2;
 use crate::holding::HoldingId;
 use crate::rules::combat::SizeClass;
+use crate::sensors::Seen;
 use crate::state::UniverseState;
 use crate::time::{TICK_MILLIS, Tick, Ticks};
 
@@ -138,8 +139,9 @@ fn surge(state: &mut UniverseState, holding: HoldingId, sector: u8, now: Tick) {
     }
 }
 
-/// FLAK SCREEN's volleys this tick (D-148), holding by holding.
-pub(crate) fn flak_screens(state: &mut UniverseState, now: Tick, index: &ShipIndex) {
+/// FLAK SCREEN's volleys this tick (D-148), holding by holding, at hostiles the owner
+/// detects (S7).
+pub(crate) fn flak_screens(state: &mut UniverseState, now: Tick, index: &ShipIndex, seen: &Seen) {
     let firing: Vec<(HoldingId, Tick)> = state
         .defence
         .holdings
@@ -177,7 +179,7 @@ pub(crate) fn flak_screens(state: &mut UniverseState, now: Tick, index: &ShipInd
         let mut targets: Vec<(f64, ShipId, Vec2, Vec2)> = ships
             .near(centre, rules.reach_m)
             .map(|j| &ships.entries[j])
-            .filter(|t| hostile(owner, t.owner) && !t.shrouded)
+            .filter(|t| hostile(owner, t.owner) && !t.shrouded && seen.ship(owner, system, t.id))
             .filter(|t| {
                 matches!(
                     state.rules.combat.class(t.class).size,

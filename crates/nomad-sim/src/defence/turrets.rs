@@ -3,11 +3,12 @@
 //! A turret is a module with a Turret-class weapon. It fires while it is complete, not
 //! disabled, powered (S4 gives it its full 40 MW or nothing, D-128) and its holding's STOP is
 //! not set; otherwise it drops its target and lock. It takes the auto-target rule (D-144):
-//! the hostile ship in range with the highest multiplier, then the nearest, then the lowest
-//! `SimId`, kept while it stays valid. Its shots start at the module and pass outward through
-//! the holding's own dome (D-053). Lock, spread and lead aim work as for ships' weapons
-//! ([`crate::combat`]); turrets fire after the ships, holding by holding and in module
-//! `SimId` order, and draw from the same combat stream of the system (D-049).
+//! the hostile ship in range that its owner detects (S7) with the highest multiplier, then
+//! the nearest, then the lowest `SimId`, kept while it stays valid. Its shots start at the
+//! module and pass outward through the holding's own dome (D-053). Lock, spread and lead aim
+//! work as for ships' weapons ([`crate::combat`]); turrets fire after the ships, holding by
+//! holding and in module `SimId` order, and draw from the same combat stream of the system
+//! (D-049).
 
 use std::collections::BTreeSet;
 
@@ -20,6 +21,7 @@ use crate::economy::Module;
 use crate::holding::HoldingId;
 use crate::id::SimId;
 use crate::rules::combat::TargetClass;
+use crate::sensors::Seen;
 use crate::state::UniverseState;
 use crate::time::{TICK_MILLIS, Tick};
 
@@ -43,7 +45,7 @@ fn turrets_of(state: &UniverseState, holding: HoldingId) -> Vec<SimId> {
 
 /// Fires every turret, holding by holding. Only holdings in systems with ships in space have
 /// anything to aim at; turrets elsewhere drop their targets and lock.
-pub(crate) fn run(state: &mut UniverseState, now: Tick, index: &ShipIndex) {
+pub(crate) fn run(state: &mut UniverseState, now: Tick, index: &ShipIndex, seen: &Seen) {
     state
         .defence
         .turrets
@@ -61,7 +63,7 @@ pub(crate) fn run(state: &mut UniverseState, now: Tick, index: &ShipIndex) {
         .collect();
     for &holding in &in_play {
         for turret in turrets_of(state, holding) {
-            fire_turret(state, now, index, holding, turret);
+            fire_turret(state, now, index, seen, holding, turret);
         }
     }
     let idle: Vec<SimId> = state
@@ -111,6 +113,7 @@ fn fire_turret(
     state: &mut UniverseState,
     now: Tick,
     index: &ShipIndex,
+    seen: &Seen,
     holding: HoldingId,
     id: SimId,
 ) {
@@ -133,7 +136,10 @@ fn fire_turret(
     let rules = state.rules.defence.turret.clone();
     let weapon = &rules.weapon;
     let valid = |t: &ShipEntry| {
-        hostile(owner, t.owner) && !t.shrouded && (t.position - position).length() <= weapon.range_m
+        hostile(owner, t.owner)
+            && !t.shrouded
+            && (t.position - position).length() <= weapon.range_m
+            && seen.ship(owner, system, t.id)
     };
     let current = slot
         .ship_target()

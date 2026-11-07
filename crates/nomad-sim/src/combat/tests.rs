@@ -544,7 +544,7 @@ fn engagement_ends_thirty_seconds_after_the_last_trigger() {
 }
 
 #[test]
-fn a_hostile_within_twenty_km_engages_a_fleet() {
+fn a_detected_hostile_within_twenty_km_engages_a_fleet() {
     let (mut state, system, _) = arena();
     let fleet = place(
         &mut state,
@@ -576,10 +576,27 @@ fn a_hostile_within_twenty_km_engages_a_fleet() {
         &[MULE],
         RulesOfEngagement::HoldFire,
     );
+    // Within 20 km but undetected: a VX sees a Medium ship at 15 km, a MULE at 8 km (D-073),
+    // and the hostile's MULE sees neither (D-114 reads detection since S7).
+    idle(&mut state, 1);
+    for f in [fleet, friend, hostile] {
+        assert_eq!(state.fleet(f).map(|f| f.engaged), Some(false), "{f:?}");
+    }
+    // A WARDEN of commander 1, 24 km from the hostile, sees it (25 km): its commander's one
+    // picture engages every fleet of commander 1 within 20 km of it (doc 16 §3), while the
+    // hostile, which sees nobody, stays unengaged.
+    place(
+        &mut state,
+        commander(1),
+        system,
+        Vec2::new(-5_000.0, 0.0),
+        &[WARDEN],
+        RulesOfEngagement::HoldFire,
+    );
     idle(&mut state, 1);
     assert_eq!(state.fleet(fleet).map(|f| f.engaged), Some(true));
-    assert_eq!(state.fleet(hostile).map(|f| f.engaged), Some(true));
     assert_eq!(state.fleet(friend).map(|f| f.engaged), Some(true));
+    assert_eq!(state.fleet(hostile).map(|f| f.engaged), Some(false));
 }
 
 #[test]

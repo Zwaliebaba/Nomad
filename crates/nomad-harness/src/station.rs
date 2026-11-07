@@ -28,7 +28,7 @@ use std::io::Write;
 use std::time::Instant;
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1_with_rules};
-use nomad_sim::scenario::{open_sector, place_fleet, place_module};
+use nomad_sim::scenario::{open_sector, place_fleet, place_module, sense};
 use nomad_sim::{
     Command, CommanderId, CommanderInput, CommanderInputKind, DefenceEvent, FleetId, FleetOrder,
     HoldingId, HoldingOrder, ModuleKind, Owner, Queueing, Rules, SeasonConfig, ShipClass, SimId,
@@ -258,6 +258,8 @@ fn set_up(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Setup, String
         (direction * -1.0).angle(),
         &attackers(),
     );
+    // The fleet was there at the last sensors pass (S7): the station and it see each other.
+    sense(&mut state);
     // A siege opens the attacked sector; the dome comes up with it, or else in the holding's
     // first economy slot.
     step(&mut state, &TickInputs::default());

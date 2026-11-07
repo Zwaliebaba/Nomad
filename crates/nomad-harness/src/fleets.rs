@@ -64,6 +64,8 @@ struct Stats {
     launched: u64,
     completed: u64,
     dropped: u64,
+    /// Attacks that ended where their target was last seen (D-180).
+    lost: u64,
     checks: u64,
     errors: Vec<String>,
     tick_micros: Vec<f64>,
@@ -76,6 +78,7 @@ impl Stats {
             FleetEvent::Docked { .. } => self.docked += 1,
             FleetEvent::OrderCompleted { .. } => self.completed += 1,
             FleetEvent::OrderDropped { .. } => self.dropped += 1,
+            FleetEvent::TargetLost { .. } => self.lost += 1,
             FleetEvent::SpoolUpStarted { .. } => self.spool_ups += 1,
             FleetEvent::SpoolUpCancelled { .. } => self.spool_cancels += 1,
             FleetEvent::Departed { fleet, .. } => {
@@ -471,12 +474,13 @@ fn report(
         .count();
     writeln!(
         out,
-        "fleets: {} launches, {} dockings, {} orders completed, {} dropped | at the end {} \
-         fleets ({in_space} in space), {} ships",
+        "fleets: {} launches, {} dockings, {} orders completed, {} dropped, {} targets lost | \
+         at the end {} fleets ({in_space} in space), {} ships",
         stats.launched,
         stats.docked,
         stats.completed,
         stats.dropped,
+        stats.lost,
         state.fleet_ids().len(),
         state.ship_ids().len(),
     )?;

@@ -41,6 +41,8 @@
 mod detect;
 pub(crate) mod memory;
 #[cfg(test)]
+mod switch_tests;
+#[cfg(test)]
 mod tests;
 pub(crate) mod traffic;
 pub mod view;
@@ -54,10 +56,10 @@ pub use view::{CommanderView, PublicHolding, SensedFleet, SensedShip};
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use nomad_types::{FleetId, HoldingId, Owner, ShipId, SystemId};
+use nomad_types::{FleetId, GateId, HoldingId, Owner, ShipId, SimId, SiteId, SystemId};
 use serde::{Deserialize, Serialize};
 
-use crate::fleet::{Fleet, FleetEvent, Motion, Place};
+use crate::fleet::{Fleet, FleetEvent, Motion, Place, Ship};
 use crate::state::UniverseState;
 use crate::time::Tick;
 
@@ -357,6 +359,95 @@ pub(crate) fn refresh(state: &mut UniverseState) {
     let now = state.tick;
     let anchors = capture(state);
     pass(state, now, &anchors, &mut Vec::new());
+}
+
+/// The picture of `observer` in `system`, if it detects anything there.
+pub(crate) fn picture_of(
+    state: &UniverseState,
+    observer: Owner,
+    system: SystemId,
+) -> Option<&SystemPicture> {
+    state
+        .sensors
+        .observers
+        .get(&observer)?
+        .picture
+        .system(system)
+}
+
+/// Whether `observer` may know where `target`, an object in `system`, is now, by the last
+/// pass (doc 16 §2–§3): public objects (holdings, sites and gates; D-044) and its own
+/// entities always; another owner's ship or fleet while it is in the picture (D-174); a
+/// module while its holding is (D-175). An identity the picture holds counts even if its
+/// entity was destroyed since the pass, so callers can tell a target destroyed in sight from
+/// one that went out of view (D-180).
+pub(crate) fn sees(
+    state: &UniverseState,
+    observer: Owner,
+    system: SystemId,
+    target: SimId,
+) -> bool {
+    if state.holdings.contains_key(&HoldingId(target))
+        || state.galaxy.site(SiteId(target)).is_some()
+        || state.galaxy.gate(GateId(target)).is_some()
+        || owner_of(state, target) == Some(observer)
+    {
+        return true;
+    }
+    let Some(picture) = picture_of(state, observer, system) else {
+        return false;
+    };
+    picture.has_ship(ShipId(target))
+        || picture.has_fleet(FleetId(target))
+        || state
+            .entities
+            .with::<crate::economy::Module, _>(target, |m| m.holding)
+            .is_some_and(|holding| picture.has_holding(holding))
+}
+
+/// The owner of a ship, fleet or module, if it exists.
+fn owner_of(state: &UniverseState, id: SimId) -> Option<Owner> {
+    if let Some(owner) = state.entities.with::<Ship, _>(id, |s| s.owner) {
+        return Some(owner);
+    }
+    if let Some(owner) = state.entities.with::<Fleet, _>(id, |f| f.owner) {
+        return Some(owner);
+    }
+    let holding = state
+        .entities
+        .with::<crate::economy::Module, _>(id, |m| m.holding)?;
+    state
+        .holdings
+        .get(&holding)
+        .map(|h| Owner::Commander(h.owner))
+}
+
+/// The pictures of the last pass for one phase that reads them while it changes the rest of
+/// the state: combat (phase 7) takes them out of the state and puts them back, so its weapons
+/// can ask what their owner sees without borrowing the state (doc 15 §4, D-114).
+pub(crate) struct Seen(Sensors);
+
+impl Seen {
+    /// Takes the pictures out of `state`; [`Seen::restore`] puts them back.
+    pub(crate) fn take(state: &mut UniverseState) -> Self {
+        Self(std::mem::take(&mut state.sensors))
+    }
+
+    /// Puts the pictures back.
+    pub(crate) fn restore(self, state: &mut UniverseState) {
+        state.sensors = self.0;
+    }
+
+    /// What `observer` detects in `system`.
+    pub(crate) fn picture(&self, observer: Owner, system: SystemId) -> Option<&SystemPicture> {
+        self.0.observers.get(&observer)?.picture.system(system)
+    }
+
+    /// Whether `observer` detects `ship` in `system`.
+    pub(crate) fn ship(&self, observer: Owner, system: SystemId, ship: ShipId) -> bool {
+        self.picture(observer, system)
+            .is_some_and(|p| p.has_ship(ship))
+    }
 }
 
 impl UniverseState {

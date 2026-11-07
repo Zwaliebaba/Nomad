@@ -53,10 +53,10 @@
 //! D-072 to D-077, D-173 to D-181). The AI (A1–A3) follows. Ship combat is ([`combat`], S5a:
 //! weapons, lock, projectiles, the multiplier table, engagement), and so is station combat
 //! ([`defence`], S5b: dome sectors, regeneration, breaches, damage to modules and its
-//! recovery, turrets, SHLD SURGE and FLAK SCREEN, the damage ledger). The validator and
-//! combat still count every entity as visible; S7's switch-over follows. The offline rules
-//! (doc 12) are here: presence, the disconnect grace and exposure windows (S6a), and the
-//! siege lifecycle (S6b).
+//! recovery, turrets, SHLD SURGE and FLAK SCREEN, the damage ledger). Commands, orders,
+//! targeting, lock and engagement go only by what the issuer's sensors detect (S7). The
+//! offline rules (doc 12) are here: presence, the disconnect grace and exposure windows
+//! (S6a), and the siege lifecycle (S6b).
 
 mod announce;
 pub mod combat;
@@ -113,7 +113,7 @@ pub use nomad_types::{
     BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,
     PowerProfile, QuarterHour, Queueing, RulesOfEngagement, Slot, StationAbility,
 };
-pub use nomad_types::{Location, PositionMetres};
+pub use nomad_types::{FactionId, Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};
 pub use sensors::{

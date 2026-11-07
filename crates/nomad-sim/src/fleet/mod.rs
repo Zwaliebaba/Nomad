@@ -148,8 +148,17 @@ pub(crate) enum Task {
     KeepStationOn { target: SimId, offset: Vec2 },
     /// Stay within the guard radius of an object, following it.
     Guard { object: SimId },
-    /// Close to weapon range of a target and hold (S3: no weapons yet).
-    Attack { target: SimId },
+    /// Close to weapon range of a target and hold; combat fires at it (S5). For a ship or a
+    /// fleet, `seen` is where its commander last saw it, followed while it is detected; a
+    /// structure does not move and is followed where it stands (`None`; D-180).
+    Attack {
+        target: SimId,
+        seen: Option<PositionMetres>,
+    },
+    /// An Attack whose target went out of detection: go to where it was last seen and hold
+    /// there; the order completes with [`FleetEvent::TargetLost`] unless the target is
+    /// detected again on the way (D-180).
+    Pursue { target: SimId, to: PositionMetres },
     /// Approach a holding and dock.
     Dock { holding: HoldingId },
     /// Follow a route over lanes, hop by hop, then dock if `then_dock` is set.
@@ -505,8 +514,8 @@ impl UniverseState {
     /// Engages `fleet` for one engagement window from now, or ends its engagement at once.
     /// Engaged fleets drop to tactical speed (doc 15 §3.3; D-114).
     ///
-    /// Combat engages fleets itself (taking fire, a hostile within 20 km); this is the hook
-    /// for S7's detection and for tests.
+    /// Combat engages fleets itself (taking fire, a detected hostile within 20 km); this is
+    /// for tests and the harness.
     pub fn set_fleet_engaged(&mut self, fleet: FleetId, engaged: bool) {
         let until = engaged.then(|| self.tick.after(crate::combat::engagement_window(self)));
         if let Some(f) = self.entities.get_mut::<Fleet>(fleet.sim_id()) {

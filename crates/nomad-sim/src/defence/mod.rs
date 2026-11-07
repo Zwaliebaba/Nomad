@@ -36,7 +36,8 @@
 //!
 //! **Power** comes from S4 ([`crate::economy`]): the allocation per sector for regeneration,
 //! the powered flag per turret, and ability power through `request_ability_power` (D-128).
-//! **Detection (S7):** until sensors exist every ship counts as visible.
+//! **Detection (S7):** turrets and FLAK SCREEN fire only at ships their holding's owner
+//! detects, by the pictures of the last sensors pass.
 
 mod abilities;
 mod dome;
@@ -66,6 +67,7 @@ use crate::galaxy::SystemId;
 use crate::geometry::Vec2;
 use crate::holding::HoldingId;
 use crate::id::{CommanderId, SimId};
+use crate::sensors::Seen;
 use crate::state::UniverseState;
 use crate::time::Tick;
 
@@ -250,9 +252,9 @@ fn due(state: &UniverseState, now: Tick) -> Vec<HoldingId> {
 }
 
 /// Turrets and FLAK SCREEN fire, holding by holding, after the ships (S5 plan §4.8).
-pub(crate) fn fire(state: &mut UniverseState, now: Tick, index: &ShipIndex) {
-    turrets::run(state, now, index);
-    abilities::flak_screens(state, now, index);
+pub(crate) fn fire(state: &mut UniverseState, now: Tick, index: &ShipIndex, seen: &Seen) {
+    turrets::run(state, now, index, seen);
+    abilities::flak_screens(state, now, index, seen);
 }
 
 /// Applies the tick's hits on sectors and modules in `(target SimId, projectile id)` order

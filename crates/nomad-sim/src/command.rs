@@ -7,6 +7,13 @@
 //! - **ownership:** the issuer owns the fleet, ships or holding it commands;
 //! - **targets exist:** fleets, ships, holdings, systems, and positions that are finite and
 //!   inside the system;
+//! - **targets are seen** (S7; D-039, D-077): an order that names another owner's ship,
+//!   fleet or module (Attack, Guard, station-keeping on it) needs it in the issuer's picture
+//!   from the last sensors pass, or the reason is [`CommandRejection::NotVisible`]. Own
+//!   entities and public objects (holdings, sites, gates) can always be named. The check
+//!   comes before every reason that depends on where the target is, such as
+//!   [`CommandRejection::WrongSystem`], so a refusal says nothing about an unseen entity; the
+//!   wire collapses `NotVisible` into "not found" with the unknown and the not-own (D-123);
 //! - **the order applies:** a docked fleet must launch first; a target must be in the system
 //!   the fleet will be in when the order starts (S3 plan §6 task 0); fleets in lane transit
 //!   cannot be reorganised;
@@ -21,9 +28,7 @@
 //!   like a fleet in lane transit (D-166), and a site a fallen mother station is jumping to
 //!   counts as taken (D-164).
 //!
-//! A rejection carries its reason ([`CommandRejection`]). The visibility check ("you can
-//! only target what you detect", D-039) is added with sensors in S7; until then every entity
-//! counts as visible.
+//! A rejection carries its reason ([`CommandRejection`]).
 //!
 //! **Where the fleet will be:** an order that replaces the queue starts from where the fleet
 //! is (or, in lane transit, where it will arrive: transit cannot be interrupted, D-042). An
@@ -201,6 +206,12 @@ pub enum CommandRejection {
     /// The free choice of the exposure window is over: the first 7 days have passed (D-157).
     #[error("the window can no longer be chosen")]
     WindowLocked,
+
+    // S7: sensors and fog of war.
+    /// The target is another owner's ship, fleet or module that the issuer's sensors do not
+    /// detect (D-039, D-174, D-175).
+    #[error("the target is not seen")]
+    NotVisible,
 }
 
 /// Checks `command` from `issuer` against the current state (D-077).
@@ -277,7 +288,8 @@ pub(crate) struct Context {
     pub(crate) position: Option<Vec2>,
 }
 
-/// Something an order can aim at, in space (S3: every entity counts as visible).
+/// Something an order can aim at, in space. Whether the issuer sees it is
+/// [`crate::sensors::sees`] (S7).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Target {
     pub(crate) system: SystemId,
@@ -544,7 +556,8 @@ fn after_task(state: &UniverseState, ctx: Context, active: &ActiveOrder) -> Cont
         | Task::StationKeep { .. }
         | Task::KeepStationOn { .. }
         | Task::Guard { .. }
-        | Task::Attack { .. } => ctx,
+        | Task::Attack { .. }
+        | Task::Pursue { .. } => ctx,
     }
 }
 
@@ -658,7 +671,7 @@ fn validate_order(
             route.iter().try_for_each(|to| check_point(state, ctx, to))
         }
         FleetOrder::Attack { target } => {
-            let t = check_target(state, id, ctx, *target)?;
+            let t = check_target(state, issuer, id, ctx, *target)?;
             if t.owner == Some(issuer) {
                 return Err(R::FriendlyTarget);
             }
@@ -668,9 +681,9 @@ fn validate_order(
                 Err(R::NoWeapons)
             }
         }
-        FleetOrder::Guard { object } => check_target(state, id, ctx, *object).map(drop),
+        FleetOrder::Guard { object } => check_target(state, issuer, id, ctx, *object).map(drop),
         FleetOrder::StationKeep { relative_to } => match relative_to {
-            Some(target) => check_target(state, id, ctx, *target).map(drop),
+            Some(target) => check_target(state, issuer, id, ctx, *target).map(drop),
             None => Ok(()),
         },
         FleetOrder::Dock { at } => {
@@ -720,16 +733,21 @@ fn check_point(state: &UniverseState, ctx: Context, to: &Location) -> Result<(),
     Ok(())
 }
 
-/// A target or object in the fleet's system that is not the fleet itself or one of its
-/// ships.
+/// A target or object that `issuer` sees, in the fleet's system, that is not the fleet
+/// itself or one of its ships. Whether it is seen is checked first, so the reasons after it
+/// say nothing about an unseen entity (D-123).
 fn check_target(
     state: &UniverseState,
+    issuer: Owner,
     fleet: FleetId,
     ctx: Context,
     target: SimId,
 ) -> Result<Target, CommandRejection> {
     use CommandRejection as R;
     let t = locate(state, target).ok_or(R::UnknownTarget)?;
+    if !crate::sensors::sees(state, issuer, t.system, target) {
+        return Err(R::NotVisible);
+    }
     if t.fleet == Some(fleet) {
         return Err(R::SelfTarget);
     }

@@ -5,9 +5,9 @@
 //!
 //! 1. **Domes** are kept up to date and regenerate from their allocated power
 //!    ([`crate::defence`]).
-//! 2. **Engagement** (D-114): a fleet with a hostile ship within the cruise-drop range
-//!    (20 km; everything counts as visible until S7) has its engagement deadline refreshed
-//!    30 s ahead. Expired deadlines and stale attacker records are cleared.
+//! 2. **Engagement** (D-114): a fleet with a hostile ship that its commander detects within
+//!    the cruise-drop range (20 km) has its engagement deadline refreshed 30 s ahead. Expired
+//!    deadlines and stale attacker records are cleared.
 //! 3. **Projectiles in flight** move one tick ([`projectile`]). A bolt or torpedo hits the
 //!    first thing its swept segment crosses: a hostile ship's circle (D-143), a hostile
 //!    module's footprint, or a hostile dome's circle where its sector is closed (S5b); it
@@ -35,8 +35,14 @@
 //!
 //! **Structures as targets:** only an explicit Attack order aims ships at a dome or a
 //! module; the auto-target rule picks among ships (S5a), so a fleet on *weapons free* does not
-//! start breaching a dome it passes. **Detection (S7):** until sensors exist every entity
-//! counts as visible; S5 plan §4.7 explains why this cannot change who can be fired on.
+//! start breaching a dome it passes.
+//!
+//! **Detection (S7):** weapons and turrets choose, keep and lock on only targets their
+//! commander's picture from the last sensors pass holds (doc 15 §4, D-052: lock builds only
+//! while the target is detected), and a structure is fired on only while its holding is in
+//! that picture. The rules' range rule keeps every weapon inside its own sensor's reach for
+//! the smallest signature (S5 plan §4.7), so this changes who can be fired on only for the
+//! up to half a second before a pass first holds a ship.
 //!
 //! | Component | Entity | Fields |
 //! |---|---|---|
@@ -70,6 +76,7 @@ use crate::galaxy::SystemId;
 use crate::geometry::Vec2;
 use crate::holding::HoldingId;
 use crate::id::SimId;
+use crate::sensors::Seen;
 use crate::state::UniverseState;
 use crate::time::{TICK_MILLIS, Tick};
 
@@ -319,12 +326,15 @@ pub(crate) fn run(
     economy_events: &mut Vec<EconomyEvent>,
 ) {
     let index = ShipIndex::build(state);
+    // The pictures of the last sensors pass (S7): read, never changed, by the steps below.
+    let seen = Seen::take(state);
     crate::defence::upkeep(state, now);
     let structures = Structures::build(state, &index);
-    engagement::refresh(state, now, &index);
+    engagement::refresh(state, now, &index, &seen);
     let (hits, structure_hits) = projectile::advance(state, &index, &structures);
-    fire::run(state, now, &index, &structures);
-    crate::defence::fire(state, now, &index);
+    fire::run(state, now, &index, &structures, &seen);
+    crate::defence::fire(state, now, &index, &seen);
+    seen.restore(state);
     apply(state, now, hits, events);
     crate::defence::apply(state, now, structure_hits, defence_events, economy_events);
     crate::defence::settle(state, now, &index, economy_events);

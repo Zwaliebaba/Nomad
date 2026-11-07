@@ -13,9 +13,12 @@
 //!   (D-144); under *return fire* the same, among ships that hit the fleet in the last
 //!   30 s (D-145); under *hold fire* nothing.
 //!
-//! A weapon keeps its target until the target leaves range, is destroyed, is shrouded, or
-//! is no longer allowed, so lock is not thrown away. Flak only takes Light and Medium
-//! targets, the only ones its bursts damage (doc 15 §4).
+//! Every candidate must be in the picture of the shooter's commander from the last sensors
+//! pass (S7): weapons choose, keep and lock on only what is detected (doc 15 §4).
+//!
+//! A weapon keeps its target until the target leaves range, is destroyed, is shrouded, goes
+//! out of detection, or is no longer allowed, so lock is not thrown away. Flak only takes
+//! Light and Medium targets, the only ones its bursts damage (doc 15 §4).
 //!
 //! **Structures (S5b):** an Attack order on a holding aims at its dome (at its centre, so
 //! shots meet the circle on the shooter's side), or at its core while it is an outpost
@@ -47,6 +50,7 @@ use crate::galaxy::SystemId;
 use crate::geometry::Vec2;
 use crate::rng::{StreamKey, purpose};
 use crate::rules::combat::{SizeClass, TargetClass, WeaponKind, WeaponRules};
+use crate::sensors::{Seen, SystemPicture};
 use crate::state::UniverseState;
 use crate::time::{TICK_MILLIS, Tick};
 
@@ -83,6 +87,7 @@ pub(crate) fn run(
     now: Tick,
     index: &ShipIndex,
     structures: &Structures,
+    seen: &Seen,
 ) {
     let designated = designations(state, index);
     // What each fleet may fire at, once per tick: it does not change while weapons fire.
@@ -106,6 +111,7 @@ pub(crate) fn run(
                 structures,
                 system,
                 designated: &designated,
+                seen: seen.picture(entry.owner, system),
             };
             fire_ship(state, now, &context, entry, permission);
         }
@@ -177,7 +183,7 @@ pub(crate) fn may_fire(state: &UniverseState, fleet: FleetId, now: Tick) -> Opti
     };
     let mut structure = None;
     let preferred = match f.active.as_ref().map(|a| &a.task) {
-        Some(Task::Attack { target }) => {
+        Some(Task::Attack { target, .. }) => {
             if let Some(members) = state
                 .entities
                 .with::<Fleet, _>(*target, |t| t.members.keys().copied().collect())
@@ -206,6 +212,26 @@ struct Context<'a> {
     structures: &'a Structures,
     system: SystemId,
     designated: &'a BTreeSet<(Owner, ShipId)>,
+    /// What its commander detects in the system (S7).
+    seen: Option<&'a SystemPicture>,
+}
+
+impl Context<'_> {
+    fn detects(&self, ship: ShipId) -> bool {
+        self.seen.is_some_and(|p| p.has_ship(ship))
+    }
+
+    /// Whether the holding of a structure `aim` is detected (D-175).
+    fn detects_structure(&self, state: &UniverseState, aim: Aim) -> bool {
+        let holding = match aim {
+            Aim::Dome(holding) => Some(holding),
+            Aim::Module(module) => state
+                .entities
+                .with::<crate::economy::Module, _>(module, |m| m.holding),
+            Aim::Ship(_) => None,
+        };
+        holding.is_some_and(|h| self.seen.is_some_and(|p| p.has_holding(h)))
+    }
 }
 
 fn fire_ship(
@@ -220,6 +246,7 @@ fn fire_ship(
         structures,
         system,
         designated,
+        ..
     } = *context;
     let class = state.rules.combat.class(shooter.class).clone();
     if class.weapons.is_empty() {
@@ -251,7 +278,8 @@ fn fire_ship(
         let slot = &mut slots[i];
         // The Attack order's structure, while this weapon can damage and reach it (S5b).
         let structure = permission.structure.filter(|&aim| {
-            structures.reachable(state, system, aim, shooter.owner, shooter.position, weapon)
+            context.detects_structure(state, aim)
+                && structures.reachable(state, system, aim, shooter.owner, shooter.position, weapon)
         });
         let target = if structure.is_some() {
             structure
@@ -340,9 +368,10 @@ fn choose_ship(
     let Context { index, system, .. } = *context;
     let ships = index.systems.get(&system)?;
     let valid = |target: ShipId| {
-        index.get(target).is_some_and(|(sys, t)| {
-            sys == system && can_target(shooter, t, weapon, state) && permission.allows(target)
-        })
+        context.detects(target)
+            && index.get(target).is_some_and(|(sys, t)| {
+                sys == system && can_target(shooter, t, weapon, state) && permission.allows(target)
+            })
     };
     let preferred_in_range = || {
         best(
@@ -352,6 +381,7 @@ fn choose_ship(
             permission
                 .preferred
                 .iter()
+                .filter(|&&s| context.detects(s))
                 .filter_map(|&s| index.get(s))
                 .filter(|&(sys, _)| sys == system)
                 .map(|(_, t)| t),
@@ -369,7 +399,7 @@ fn choose_ship(
             let candidates = ships
                 .near(shooter.position, weapon.range_m)
                 .map(|j| &ships.entries[j])
-                .filter(|t| permission.allows(t.id));
+                .filter(|t| permission.allows(t.id) && context.detects(t.id));
             best(state, shooter, weapon, candidates)
         });
     }

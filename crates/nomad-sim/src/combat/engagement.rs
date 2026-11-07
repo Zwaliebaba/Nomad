@@ -3,9 +3,10 @@
 //!
 //! A fleet becomes engaged when it takes fire or when a hostile ship is within the
 //! cruise-drop range (20 km). Each trigger moves its deadline to 30 s after the trigger's
-//! tick; at the deadline the engagement ends and the fleet may cruise again. Until S7 every
-//! ship counts as detected, so "a hostile within 20 km" is any hostile ship in space in the
-//! same system within 20 km of the fleet's anchor.
+//! tick; at the deadline the engagement ends and the fleet may cruise again. "A hostile
+//! within 20 km" is a hostile ship in space in the same system, within 20 km of the fleet's
+//! anchor, that its commander's picture from the last sensors pass holds (D-114, S7): an
+//! undetected fleet neither drops anyone out of cruise nor keeps them engaged.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -15,11 +16,13 @@ use super::{Attackers, ShipIndex, hostile};
 use crate::fleet::{Fleet, FleetId, Motion, Place, ShipId, Shroud};
 use crate::galaxy::SystemId;
 use crate::geometry::Vec2;
+use crate::sensors::Seen;
 use crate::state::UniverseState;
 use crate::time::{Tick, Ticks};
 
-/// Owners and positions of the ships in space, by system and cell of the trigger range.
-type OwnerGrid = BTreeMap<(SystemId, (i64, i64)), Vec<(Owner, Vec2)>>;
+/// Owners, identities and positions of the ships in space, by system and cell of the
+/// trigger range.
+type OwnerGrid = BTreeMap<(SystemId, (i64, i64)), Vec<(Owner, ShipId, Vec2)>>;
 
 /// The engagement window (D-114).
 pub(crate) fn window(state: &UniverseState) -> Ticks {
@@ -27,7 +30,7 @@ pub(crate) fn window(state: &UniverseState) -> Ticks {
 }
 
 /// Phase 7, step 1: the 20 km trigger, then expired deadlines and stale attacker records.
-pub(crate) fn refresh(state: &mut UniverseState, now: Tick, index: &ShipIndex) {
+pub(crate) fn refresh(state: &mut UniverseState, now: Tick, index: &ShipIndex, seen: &Seen) {
     let range = state.rules.movement.cruise_drop_hostile_range_m;
     let until = now.after(window(state));
 
@@ -39,7 +42,7 @@ pub(crate) fn refresh(state: &mut UniverseState, now: Tick, index: &ShipIndex) {
             owners
                 .entry((system, super::cell(entry.position, range)))
                 .or_default()
-                .push((entry.owner, entry.position));
+                .push((entry.owner, entry.id, entry.position));
         }
     }
 
@@ -60,7 +63,11 @@ pub(crate) fn refresh(state: &mut UniverseState, now: Tick, index: &ShipIndex) {
                 .flat_map(|x| (cy - 1..=cy + 1).map(move |y| (x, y)))
                 .filter_map(|c| owners.get(&(system, c)))
                 .flatten()
-                .any(|&(other, p)| hostile(owner, other) && (p - at).length() <= range);
+                .any(|&(other, ship, p)| {
+                    hostile(owner, other)
+                        && (p - at).length() <= range
+                        && seen.ship(owner, system, ship)
+                });
             if threatened {
                 deadline = Some(deadline.map_or(until, |d| d.max(until)));
             }
@@ -121,8 +128,9 @@ pub(crate) fn recent_attackers(state: &UniverseState, fleet: FleetId) -> BTreeSe
         .unwrap_or_default()
 }
 
-/// Whether a ship hostile to `owner` is in space in `system` within `range` of `point`.
-/// For Attack-move, which pauses to fight what it meets (S5 plan §4.2).
+/// Whether a ship hostile to `owner`, which `owner` detects, is in space in `system` within
+/// `range` of `point`. For Attack-move, which pauses to fight what it meets (S5 plan §4.2).
+/// It runs in phase 5, with the pictures in the state.
 pub(crate) fn hostile_ship_within(
     state: &UniverseState,
     system: SystemId,
@@ -130,6 +138,9 @@ pub(crate) fn hostile_ship_within(
     point: Vec2,
     range: f64,
 ) -> bool {
+    let Some(picture) = crate::sensors::picture_of(state, owner, system) else {
+        return false;
+    };
     state.entities.ids_with::<Fleet>().into_iter().any(|id| {
         state
             .entities
@@ -138,7 +149,8 @@ pub(crate) fn hostile_ship_within(
                     && hostile(owner, f.owner)
                     && f.members.keys().any(|s| {
                         // A shrouded ship cannot be fought (D-055), so it does not stop one.
-                        !state.entities.has::<Shroud>(s.sim_id())
+                        picture.has_ship(*s)
+                            && !state.entities.has::<Shroud>(s.sim_id())
                             && state
                                 .entities
                                 .get::<Motion>(s.sim_id())

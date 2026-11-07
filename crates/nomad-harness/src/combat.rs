@@ -20,7 +20,7 @@ use std::io::Write;
 use std::time::Instant;
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1_with_rules};
-use nomad_sim::scenario::place_fleet;
+use nomad_sim::scenario::{place_fleet, sense};
 use nomad_sim::{
     CombatEvent, Command, CommanderId, CommanderInput, CommanderInputKind, FleetId, FleetOrder,
     Owner, Queueing, Rules, SeasonConfig, ShipClass, TICKS_PER_SECOND, TickInputs, Vec2, step,
@@ -202,6 +202,9 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
         std::f64::consts::PI,
         &scenario.b,
     );
+    // Both fleets were there at the last sensors pass, 4 km apart: each sees the other
+    // (S7; a VX sees a Light ship at 9 km).
+    sense(&mut state);
     let attack = |n: u32, fleet: FleetId, target: FleetId| CommanderInput {
         commander: CommanderId(n),
         client_seq: 1,
