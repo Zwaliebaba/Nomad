@@ -477,3 +477,24 @@ Numbered Q200–Q212; A2 continues with Q213–Q219 and A3 with Q220–Q226 (Q22
 4. **RK-10 is decided in doc 04, but doc 12 has no addendum.** A1 task 9 writes it.
 5. **D-095 orders S7 after S6b,** but S7 does not depend on S6b (S7 plan header). Q206 proposes running them in parallel.
 6. **D-162 and PR-3 bind expansion to presence.** That is consistent, but it means a Strategist without a known schedule cannot plan trips (§4.7, Q205).
+
+## 12. As built in A1a
+
+*Derived* unless marked. The owner approved A1a's *Proposed* readings as D-285 to D-288.
+
+- **Versions:** snapshot format 17, rules `nomad-rules@11`, protocol 5 (new wire reason `NotPermitted` for `DoctrineByDeputy`).
+- **Gaps closed:** D-055's contested-gate flag was never built by S4 or S6b; A1a added it (`gates.contested_radius_m`, 5 km, checked on demand in `economy/logistics.rs`). It counts every armed hostile; D-285 makes it count only detected ones, in A1b. `CombatEvent::ShipDestroyed` gained `fleet` and `EconomyEvent::ModuleDestroyed` gained `slot`.
+- **Left for A1b:** the start kit as two fleets (D-286); fleet roles' behaviour, including a lapsed or released fleet returning to its role (it station-keeps until then); attacker fleets in combat events (the inbox names the attacker's owner only); D-285's switch to detection.
+- **Left for A2 and A3:** the AI random streams (§4.6) are not created yet, since nothing draws from them; the inbox carries only the `OrdersLapsed` announcement, and other announcements and public season events arrive with the layer that needs them.
+- **Readings (D-288), by file:**
+  - `crates/nomad-types/src/doctrine.rs`: overrides are whole, `None` follows the preset; distances in whole metres, thresholds per mille.
+  - `crates/nomad-sim/src/rules/ai.rs`: repair at dock on in every preset; at most 32 replacement entries.
+  - `crates/nomad-sim/src/ai/mod.rs`: an NPC owner drains at Normal's values.
+  - `crates/nomad-sim/src/ai/gate.rs`: a rejected command counts against the rate, a dropped one does not; expiry counts from when the command fell due.
+  - `crates/nomad-ai/src/inbox.rs`: other announcements join when a layer needs them; a command outcome withholds the validator's reason (D-123).
+  - `crates/nomad-sim/src/doctrine/mod.rs`: the retreat opt-in is the last direct order's flag; `CreateFleet` takes the control of the first listed ship's fleet, a merge keeps the receiving fleet's; a convoy route releases its fleet; stale overrides are pruned at the end of each tick.
+  - `crates/nomad-ai/src/deputy/rebuild.rs`: "keep at count" counts replacements on their way; one ledger sample per clock hour (the first hour's budget is zero); spending counts at queueing and returns on refusal or drop; with the fleet gone, "nearest" is from the entry role's holding and the rally is cleared so the ship forms a new fleet; a retry's latency counts from the evaluation that retries it; unanswered waits for a new fleet are dropped after a day.
+  - `crates/nomad-ai/src/deputy/convoy.rs`: a detour avoids only the gate the convoy is held for; each jump of a detour is checked to take the detour's lane; a held convoy is reconsidered every evaluation; a failed detour re-issues the route where the fleet is.
+  - `crates/nomad-sim/src/economy/command.rs`: a route given to a fleet docked at one of its stops starts there (D-287).
+  - `crates/nomad-sim/src/commander/presence.rs`: D-162's "direct orders" are the orders of fleets under direct control.
+- **Cost:** in Debug, Deputies add about 4–5% to the mean tick on `--fleets --hours 1`. The release measurement is A1b task 8.
