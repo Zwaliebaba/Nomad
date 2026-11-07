@@ -133,19 +133,8 @@ pub fn place_outpost(
     site: crate::galaxy::SiteId,
 ) -> Option<HoldingId> {
     let holding = state.insert_holding(site, owner, false).ok()?;
-    let deploy_ms = state
-        .rules
-        .economy
-        .core
-        .deploy_s
-        .saturating_mul(crate::economy::rules::MILLI);
-    crate::economy::spawn_module(
-        state,
-        holding,
-        Slot::Core,
-        ModuleKind::Core,
-        Some(deploy_ms),
-    );
+    // Like a deployed kit, its hull grows from 10% over the deployment (D-224).
+    crate::economy::spawn_outpost_core(state, holding);
     Some(holding)
 }
 

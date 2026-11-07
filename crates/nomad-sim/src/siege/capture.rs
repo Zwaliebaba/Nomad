@@ -65,7 +65,8 @@ pub(super) fn capture(
     );
     // The old owner's docked ships, now docked at someone else's holding (D-057).
     jump::docked_fleets_jump(state, now, holding, from, out);
-    super::holdings_changed(state);
+    // The owner changed: the standings are counted again in phase 9 (D-191).
+    crate::season::mark_dirty(state);
     out.announcements.push(Announcement {
         tick: now,
         to: Recipients::Public,

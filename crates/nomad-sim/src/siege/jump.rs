@@ -18,8 +18,10 @@
 //! - the site's other modules are destroyed and its builds cancelled; the site passes to the
 //!   capturer as an outpost with its core under construction, at no kit cost (D-057, D-224);
 //! - the station keeps its holding identity, its core and its docked ships, leaves the
-//!   holdings (it is no holding for control, D-041), and stays its commander's mother station
-//!   for the command cap (S6 plan §4.6);
+//!   holdings (it is no holding for control or the standings, D-041, and
+//!   `holding::counts_for_control` never sees it), and stays its commander's mother station
+//!   for the command cap (S6 plan §4.6); leaving and landing mark the standings for a recount
+//!   (`season::mark_dirty`, D-191);
 //! - the destination (D-164): a free site in the system of the commander's nearest holding by
 //!   route time; if there is none, the free site in the claimable system with the fewest
 //!   holdings, ties to the shortest route from the fallen site and then the lowest `SiteId`
@@ -314,6 +316,8 @@ pub(super) fn mother_falls(
     state.holdings.remove(&holding);
     state.defence.holdings.remove(&holding);
     capture::end_siege(state, holding);
+    // A holding left: the standings are counted again in phase 9 (D-191).
+    crate::season::mark_dirty(state);
 
     // The cleared site passes to the capturer as an outpost (D-057, D-224).
     let outpost = state.insert_holding(site, capturer, false).ok();
@@ -363,7 +367,6 @@ pub(super) fn mother_falls(
             (None, None) => {}
         }
     }
-    super::holdings_changed(state);
 
     if let Some(outpost) = outpost {
         out.announcements.push(Announcement {
@@ -586,7 +589,8 @@ fn land(
             breachable_from,
         },
     );
-    super::holdings_changed(state);
+    // A holding again: the standings are counted again in phase 9 (D-191).
+    crate::season::mark_dirty(state);
     out.announcements.push(Announcement {
         tick: now,
         to: Recipients::Public,

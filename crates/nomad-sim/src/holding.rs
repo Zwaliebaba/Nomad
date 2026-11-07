@@ -39,9 +39,10 @@ pub struct Holding {
 }
 
 /// Whether `holding` counts for control and the standings: its core is complete, so it is a
-/// holding and not an outpost (D-041). The one place that decides it; S6b's mother station in
-/// emergency-jump transit, which counts for nothing until it lands (S6 plan §4.6), belongs
-/// here too.
+/// holding and not an outpost (D-041). The one place that decides it. A fallen mother station
+/// in emergency-jump transit counts for nothing until it lands (S6 plan §4.6): S6b takes it out
+/// of the holdings for the jump (`siege::Sieges::stations`) and puts it back when it lands,
+/// marking the standings dirty both times, so no holding this sees is ever in transit.
 pub(crate) const fn counts_for_control(holding: &Holding) -> bool {
     holding.core_complete
 }

@@ -341,11 +341,6 @@ fn owner_and_attackers(owner: CommanderId, attackers: &[CommanderId]) -> Recipie
     Recipients::Commanders(to.into_iter().collect())
 }
 
-/// Completed holdings or their owners changed: a capture, or a mother station leaving its
-/// site or landing (S8 plan §4.2). **For the S8 merge:** S8 sets its "standings dirty" flag
-/// here, so phase 9 recomputes the standings on this tick (D-191).
-const fn holdings_changed(_state: &mut UniverseState) {}
-
 impl UniverseState {
     /// `holding`'s siege state, or `None` if there is no such holding (S6 plan §4.8).
     pub fn siege(&self, holding: HoldingId) -> Option<SiegeView> {

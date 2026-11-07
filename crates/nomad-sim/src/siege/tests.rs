@@ -556,6 +556,14 @@ fn a_fallen_holding_is_captured_by_the_attacker() {
     // The attacker captures (D-057): owner, caps, core 25%, queue, protection.
     let h = s.state.holding(s.target).unwrap();
     assert_eq!(h.owner, CommanderId(ATTACKER));
+    // The standings were counted again on the tick of the capture (D-191).
+    assert!(
+        s.state.season_problems().is_empty(),
+        "{:?}",
+        s.state.season_problems()
+    );
+    let holdings = |n: u32| s.state.standings().of(CommanderId(n)).unwrap().holdings;
+    assert_eq!((holdings(DEFENDER), holdings(ATTACKER)), (1, 2));
     assert_eq!(
         (
             s.state.command_cap(CommanderId(DEFENDER)),
@@ -688,6 +696,20 @@ fn a_fallen_mother_station_jumps_and_leaves_its_site_to_the_capturer_as_an_outpo
     let fell = out.last().unwrap().tick;
     // The station left: no holding there, the capturer's outpost instead (D-057, D-224).
     assert!(s.state.holding(s.target).is_none());
+    // In its jump it counts for nothing, and the standings were counted again (D-191).
+    assert!(
+        s.state.season_problems().is_empty(),
+        "{:?}",
+        s.state.season_problems()
+    );
+    assert_eq!(
+        s.state
+            .standings()
+            .of(CommanderId(DEFENDER))
+            .unwrap()
+            .holdings,
+        0
+    );
     let (outpost, h) = s.state.holding_at(site).unwrap();
     assert_eq!((h.owner, h.core_complete), (CommanderId(ATTACKER), false));
     let outpost_core = s.state.economy.holdings[&outpost].slots[&Slot::Core];
@@ -749,13 +771,31 @@ fn a_fallen_mother_station_jumps_and_leaves_its_site_to_the_capturer_as_an_outpo
         "{:?}",
         s.state.economy_problems()
     );
-    // The landing: a mother station again on the new site, 72 h protection, the kit docked.
+    land(&mut s, kit, to, arrive);
+}
+
+/// The landing of `s`'s fallen station on `to` at `arrive`: a mother station again on the new
+/// site, 72 h of protection, the kit docked, a minimal dome.
+fn land(s: &mut Scene, kit: FleetId, to: SiteId, arrive: Tick) {
     skip_to(&mut s.state, arrive);
     let out = step(&mut s.state, &TickInputs::default());
     let h = s.state.holding(s.target).unwrap();
     assert_eq!(
         (h.site, h.mother_station, h.core_complete),
         (to, true, true)
+    );
+    assert!(
+        s.state.season_problems().is_empty(),
+        "{:?}",
+        s.state.season_problems()
+    );
+    assert_eq!(
+        s.state
+            .standings()
+            .of(CommanderId(DEFENDER))
+            .unwrap()
+            .holdings,
+        1
     );
     assert_eq!(
         s.view().breachable_from,
