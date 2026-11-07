@@ -8,8 +8,8 @@ Builds a holding's voxel scene from a slot assignment instead of a hand-made dio
 - the slot template these models are placed on: hub and spokes, every inner slot on a spoke
   from the core, the pylons at the end of the diagonal spokes on the dome rim, the solar
   array and the deposits outside the dome on the grid axes (D-130, D-131, D-228);
-- generated trusses: the spokes, the power bus to the solar array and the ore conveyor to
-  a harvester (D-067: trusses are cosmetic and automatic).
+- generated trusses: the spokes and the power bus to the solar array (D-067: trusses are
+  cosmetic and automatic).
 
 The core, the pylons and the asteroids are reused from the phase-1 scene; everything else is
 generated. Output is a `voxel-rts/scene@1` file that the client and tools/preview read.
@@ -39,7 +39,7 @@ TEMPLATE = {
     "inner": [(22, 0), (0, -22), (-22, 0), (-14, -14), (14, -14), (-14, 14)],
     "dock": (0, 23),
     "solar": (-62, 0),
-    "deposits": [(52, 0), (0, 56)],
+    "deposits": [(88, 0), (0, 92)],  # well clear of the station; D-228 needs only > 46
 }
 RADII = {"core": 12, "pylon": 5, "inner": 7, "dock": 11, "solar": 18, "deposit": 10}
 
@@ -381,23 +381,20 @@ def build(layout_name):
         truss_line(bus, (-28, 0), (sx + 3, 0), SPOKE_Z, light_every=4)
         scene["power_bus"] = bus
 
-    # Deposit 0: the ore field. Rocks from phase 1, scattered around the slot at varied
-    # heights, with the harvester clamped on the largest and a conveyor to the refinery.
+    # Deposit 0: the ore field, well out from the station. Rocks from phase 1, spread around
+    # the slot at varied heights, with the harvester clamped on the largest. No conveyor: ore
+    # reaches the refinery abstractly (doc 14 §6), and a long truss read as clutter.
     d = TEMPLATE["deposits"][0]
     rocks = [("asteroid_1", (54, 7, 5), (d[0] - 2, d[1] - 6, 0)),
-             ("asteroid_2", (67, 22, 4), (d[0] + 10, d[1] + 8, 3)),
-             ("asteroid_3", (48, 26, 2), (d[0] + 2, d[1] + 12, 6)),
-             ("asteroid_4", (68, 5, 2), (d[0] + 12, d[1] - 10, 9)),
-             ("asteroid_5", (59, 35, 2), (d[0] - 6, d[1] + 10, 1))]
+             ("asteroid_2", (67, 22, 4), (d[0] + 16, d[1] + 12, 4)),
+             ("asteroid_3", (48, 26, 2), (d[0] + 2, d[1] + 20, 8)),
+             ("asteroid_4", (68, 5, 2), (d[0] + 20, d[1] - 16, 10)),
+             ("asteroid_5", (59, 35, 2), (d[0] - 10, d[1] + 16, 2))]
     for rid, c, (tx, ty, tz) in rocks:
         scene[rid] = phase1_module(phase1, rid, pal, tx - c[0], ty - c[1], tz)
     if lay["deposits"][0]:
         h = MODELS[lay["deposits"][0]](pal).moved(d[0] - 2, d[1] - 6, 4)
         scene["harvester"] = h
-        conv = Model(pal)
-        truss_line(conv, (28, 0), (d[0] - 9, 0), SPOKE_Z + 3, light_every=0)
-        truss_line(conv, (d[0] - 9, 0), (d[0] - 9, -6), SPOKE_Z + 3, light_every=0)
-        scene["conveyor"] = conv
 
     return phase1, pal, scene
 
