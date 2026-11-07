@@ -1,6 +1,6 @@
-//! Scenario fixtures for the harness and integration tests: fleets placed directly in space,
-//! modules placed without the economy, a dome sector opened as a siege would, and outposts
-//! deployed without a MULE trip.
+//! Scenario fixtures for the harness and integration tests: fleets placed directly in space
+//! or docked, holdings and modules placed without the economy, a dome sector opened as a
+//! siege would, and outposts deployed without a MULE trip.
 //!
 //! **Not a game rule.** In a season, ships come from the start kit and later from shipyards
 //! (S4). Measurement runs such as the time-to-kill scenarios (D-058; S5 plan §7 task 7) need
@@ -161,4 +161,33 @@ pub fn place_holding(
     let holding = state.insert_holding(site, owner, true).ok()?;
     crate::economy::spawn_module(state, holding, Slot::Core, ModuleKind::Core, None);
     Some(holding)
+}
+
+/// Places a new fleet of `classes` for `holding`'s owner, docked there, if the holding can take
+/// every ship (D-102). Returns the fleet, or `None` if it cannot.
+pub fn place_docked_fleet(
+    state: &mut UniverseState,
+    holding: HoldingId,
+    classes: &[ShipClass],
+) -> Option<FleetId> {
+    let h = state.holdings.get(&holding)?;
+    let owner = Owner::Commander(h.owner);
+    let system = state.galaxy.site(h.site)?.system;
+    let point = crate::fleet::station::launch_point(state, holding)?;
+    let fleet = place_fleet(state, owner, system, point.into(), 0.0, classes);
+    let docks = state
+        .entities
+        .get::<Fleet>(fleet.sim_id())
+        .is_some_and(|f| crate::command::dock_check(state, &f, holding).is_ok());
+    if !docks {
+        for ship in state.fleet(fleet).map(|f| f.ships).unwrap_or_default() {
+            state.entities.despawn(ship.sim_id());
+        }
+        state.entities.despawn(fleet.sim_id());
+        return None;
+    }
+    if let Some(f) = state.entities.get_mut::<Fleet>(fleet.sim_id()) {
+        f.place = Place::Docked(holding);
+    }
+    Some(fleet)
 }

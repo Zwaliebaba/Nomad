@@ -25,6 +25,10 @@
 //! win, printing the control and standings history and the result, checked against a
 //! brute-force recount of the final holdings.
 //!
+//! With `--siege` it runs the siege scenarios (S6 plan §8): breach, Reinforced, siege, Held
+//! and Fallen, capture, the emergency jump of a mother station, protections and peripheral
+//! structures, each end to end from scripted commands, with its timeline and checks.
+//!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
 //!
@@ -39,6 +43,7 @@
 //! nomad-harness --windows [--seed N] [--days N] [--rules PATH]
 //! nomad-harness --season [--seed N] [--days N] [--claim-hours N] [--early-win]
 //!               [--restore-at N] [--rules PATH]
+//! nomad-harness --siege [--seed N] [--rules PATH]
 //! ```
 
 mod combat;
@@ -46,6 +51,7 @@ mod economy;
 mod fleets;
 mod galaxy;
 mod season;
+mod siege;
 mod station;
 mod windows;
 
@@ -76,6 +82,7 @@ struct Args {
     combat: Option<combat::Set>,
     economy: bool,
     windows: bool,
+    siege: bool,
     days: Option<u64>,
     rules: Option<PathBuf>,
     // S8: `--season`.
@@ -99,6 +106,7 @@ impl Default for Args {
             combat: None,
             economy: false,
             windows: false,
+            siege: false,
             days: None,
             rules: None,
             season: false,
@@ -126,6 +134,7 @@ fn parse_args() -> Result<Args, String> {
             "--combat" => args.combat = Some(combat::Set::parse(&value()?)?),
             "--economy" => args.economy = true,
             "--windows" => args.windows = true,
+            "--siege" => args.siege = true,
             "--days" => args.days = Some(parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--season" => args.season = true,
@@ -143,7 +152,8 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --economy [--seed N] [--days N] [--rules PATH]\n       \
                      nomad-harness --windows [--seed N] [--days N] [--rules PATH]\n       \
                      nomad-harness --season [--seed N] [--days N] [--claim-hours N] \
-                            [--early-win] [--restore-at N] [--rules PATH]"
+                            [--early-win] [--restore-at N] [--rules PATH]\n       \
+                     nomad-harness --siege [--seed N] [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -210,6 +220,15 @@ fn run() -> Result<(), String> {
             },
         );
     }
+    if args.siege {
+        return siege::run(
+            &mut io::stdout().lock(),
+            &siege::SiegeRun {
+                seed: args.seed,
+                rules,
+            },
+        );
+    }
     if args.fleets {
         let hours = Ticks::from_hours(args.hours).get();
         return fleets::run(
@@ -223,6 +242,11 @@ fn run() -> Result<(), String> {
             },
         );
     }
+    diagnostics(&args, rules)
+}
+
+/// The default run: diagnostic timers for `--ticks`, reporting the hash and the speed.
+fn diagnostics(args: &Args, rules: Rules) -> Result<(), String> {
     // One hour of Universe time by default.
     let ticks = args.ticks.unwrap_or(36_000);
     let mut state = UniverseState::with_rules(SeasonConfig::new(args.seed, 0), rules)
