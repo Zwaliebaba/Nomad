@@ -97,7 +97,15 @@ pub enum DeputyEvent {
         /// The contested gate.
         gate: GateId,
     },
-    /// A held or rerouted convoy runs its route again.
+    /// A convoy docked out of harm's way: a sensed hostile came within the evacuation
+    /// radius of it or of its next stop (D-210).
+    ConvoyEvacuated {
+        /// The convoy's fleet.
+        fleet: FleetId,
+        /// Where it docks, if it found an own holding on its route.
+        to: Option<HoldingId>,
+    },
+    /// A held, rerouted or evacuated convoy runs its route again.
     ConvoyResumed {
         /// The convoy's fleet.
         fleet: FleetId,

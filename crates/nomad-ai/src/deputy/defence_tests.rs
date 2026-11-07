@@ -581,6 +581,94 @@ fn patrols_and_escorts_run_their_orders_and_a_released_escort_falls_back() {
 }
 
 #[test]
+fn a_convoy_evacuates_for_hostiles_and_resumes_60_s_after_they_left() {
+    // D-210: within Balanced's 20 km of the convoy, it docks at the nearest stop of its
+    // route, and runs its route again 60 s after no hostile is within the radius.
+    let mut fake = scene();
+    if let Some(f) = fake.fleets.get_mut(&RESERVE) {
+        f.place = here(30_000.0);
+    }
+    let route = vec![MOTHER];
+    fake.convoys.push(crate::view::OwnConvoy {
+        fleet: RESERVE,
+        route: route.clone(),
+        next: 0,
+        held_at: None,
+    });
+    fake.route_ms.insert(MOTHER, 60_000);
+    let mut memory = DeputyMemory::default();
+    assert!(run(&mut fake, &mut memory).events.is_empty());
+    raiders(
+        &mut fake,
+        RAIDERS,
+        &[(901, ShipClass::RaiderStrikeCraft, 45_000.0)],
+    );
+    let out = run(&mut fake, &mut memory);
+    assert_eq!(
+        out.events,
+        vec![DeputyEvent::ConvoyEvacuated {
+            fleet: RESERVE,
+            to: Some(MOTHER)
+        }]
+    );
+    assert_eq!(
+        commands(&out),
+        vec![to(
+            RESERVE,
+            FleetOrder::Retreat { to: Some(MOTHER) },
+            Queueing::Replace
+        )]
+    );
+    applied(&mut fake, &out);
+    // Docked, its route ended (S4); the raiders leave.
+    fake.convoys.clear();
+    if let Some(f) = fake.fleets.get_mut(&RESERVE) {
+        f.place = FleetPlace::Docked(MOTHER);
+    }
+    fake.sensed.clear();
+    let gone = fake.now.next();
+    let out = run(&mut fake, &mut memory);
+    assert!(commands(&out).is_empty(), "{:?}", commands(&out));
+    fake.now = gone.after(Ticks::from_secs(60)).after(Ticks::new(0));
+    let out = run(&mut fake, &mut memory);
+    assert_eq!(
+        out.events,
+        vec![DeputyEvent::ConvoyResumed { fleet: RESERVE }]
+    );
+    assert_eq!(
+        commands(&out),
+        vec![Command::Economy(EconomyCommand::Convoy {
+            fleet: RESERVE,
+            route
+        })]
+    );
+}
+
+#[test]
+fn a_docked_convoy_stays_docked_while_hostiles_are_near() {
+    let mut fake = scene();
+    fake.convoys.push(crate::view::OwnConvoy {
+        fleet: RESERVE,
+        route: vec![MOTHER],
+        next: 0,
+        held_at: None,
+    });
+    raiders(
+        &mut fake,
+        RAIDERS,
+        &[(901, ShipClass::RaiderStrikeCraft, 15_000.0)],
+    );
+    let mut memory = DeputyMemory::default();
+    let out = run(&mut fake, &mut memory);
+    assert!(
+        commands(&out).contains(&Command::Economy(EconomyCommand::Convoy {
+            fleet: RESERVE,
+            route: Vec::new(),
+        }))
+    );
+}
+
+#[test]
 fn a_released_fleet_in_space_returns_to_its_role() {
     // RK-10, D-162: once direct control ends, the fleet's doctrine applies again.
     let mut fake = scene();
