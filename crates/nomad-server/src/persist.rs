@@ -3,13 +3,16 @@
 //! Owns the database connection while the server runs. The simulation thread sends it the
 //! journal rows of each tick with inputs, a commit request at least once per second of
 //! Universe time while rows are pending, and the encoded snapshots. Journal rows are
-//! committed in batches; each snapshot is written with retention in one transaction.
+//! committed in batches; each snapshot is written with retention in one transaction. It also
+//! writes the season read model (S8, D-196) from the standings changes and the result the
+//! simulation announces.
 //!
 //! On a clean stop it commits what is pending. On an abort, the stand-in for a crash, it
 //! drops the uncommitted batch, exactly as a crash would lose it.
 
 use std::sync::mpsc::{Receiver, SyncSender};
 
+use nomad_sim::{SeasonResult, Standing, Tick};
 use tracing::{debug, error, info};
 
 use crate::clock::Clock;
@@ -42,6 +45,17 @@ pub(crate) enum PersistMessage {
     Stop,
     /// Stop without committing: the uncommitted rows are lost, as in a crash.
     Abort,
+
+    // S8: the season read model (D-196).
+    /// The standings changed on `tick`: append them to `standings_history`.
+    Standings {
+        /// The tick of the change.
+        tick: Tick,
+        /// The new standings, best first.
+        standings: Vec<Standing>,
+    },
+    /// The season's result was fixed: write `season_result`.
+    SeasonResult(SeasonResult),
 }
 
 /// Runs the persistence thread until [`PersistMessage::Stop`] or [`PersistMessage::Abort`],
@@ -104,6 +118,22 @@ fn serve(
                 // The requester may have given up waiting; that is not an error here.
                 let _ = reply.send(result.as_ref().map(drop).map_err(ToString::to_string));
                 result?;
+            }
+            // The read model, after the journal before it (D-196). Rare, so written at once.
+            PersistMessage::Standings { tick, standings } => {
+                commit(store, &mut pending)?;
+                store.append_standings(tick, &standings)?;
+                debug!(tick = tick.get(), "standings changed");
+            }
+            PersistMessage::SeasonResult(result) => {
+                commit(store, &mut pending)?;
+                store.write_season_result(&result)?;
+                info!(
+                    tick = result.tick.get(),
+                    reason = ?result.reason,
+                    winners = ?result.winners,
+                    "season result written"
+                );
             }
             PersistMessage::Stop => return commit(store, &mut pending),
             PersistMessage::Abort => {

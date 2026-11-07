@@ -35,7 +35,8 @@ pub struct TickOutputs {
     pub defence_events: Vec<DefenceEvent>,
 
     // S6: offline and siege rules.
-    /// What commanders are told: window moves and lapsed orders so far (S6 plan §4.8).
+    /// What commanders are told: window moves and lapsed orders (S6 plan §4.8), and control,
+    /// standings, the near-win warning and the season's end (S8 plan §4.5).
     pub announcements: Vec<Announcement>,
 }
 
@@ -55,9 +56,24 @@ pub struct CommandResult {
 /// Phase order follows Design doc 11 §4.1. Phase 1 ends by bringing commanders' presence up
 /// to date, phase 2 also fires commander deadlines (window closes, grace ends; S6a), phase 5
 /// (movement and transit) runs ships and fleets (S3), phase 7 ship and station combat (S5a,
-/// S5b), phase 8 the economy (S4) and phase 9 the activity samples (S6a). Phases 3–4 and 6
-/// (AI, Deputy, sensors) and the rest of phase 9 arrive with their work packages (D-051).
+/// S5b), phase 8 the economy (S4) and phase 9 the activity samples (S6a) and the standings,
+/// the early win and the season end (S8). Phases 3–4 and 6 (AI, Deputy, sensors) and the rest
+/// of phase 9 arrive with their work packages (D-051). Once the season's result is fixed,
+/// `step` changes nothing (D-116).
 pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
+    // The season is over (D-116): no tick follows the final one. Nothing changes, and every
+    // input counts as rejected (S8 plan §4.4).
+    if state.season_over() {
+        let inputs = inputs
+            .operator
+            .len()
+            .saturating_add(inputs.commanders.len());
+        return TickOutputs {
+            tick: state.tick,
+            inputs_rejected: u32::try_from(inputs).unwrap_or(u32::MAX),
+            ..TickOutputs::default()
+        };
+    }
     let now = state.tick.next();
     let mut out = TickOutputs {
         tick: now,
@@ -123,6 +139,9 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     crate::economy::run(state, now, &mut out.economy_events, &mut out.fleet_events);
     // Phase 9: activity samples, once a minute per commander (D-154).
     crate::commander::sample_activity(state, now);
+    // Phase 9: the standings on a tick that changed holdings, then the early win and the
+    // season's final tick (S8; D-191, D-192, D-195).
+    crate::season::run(state, now, &mut out.announcements);
 
     state.tick = now;
     out
@@ -203,10 +222,7 @@ mod tests {
     use crate::{CommanderId, SeasonConfig};
 
     fn universe() -> UniverseState {
-        UniverseState::new(SeasonConfig {
-            seed: 1,
-            season_start_unix_ms: 0,
-        })
+        UniverseState::new(SeasonConfig::new(1, 0))
     }
 
     #[test]

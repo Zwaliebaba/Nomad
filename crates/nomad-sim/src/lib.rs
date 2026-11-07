@@ -23,7 +23,9 @@
 //!   disconnect grace and the lapse of direct orders after it (D-160 to D-162), the activity
 //!   history and the activity-derived exposure window (D-032, D-154 to D-157, D-171), see
 //!   [`UniverseState::commander`];
-//! - announcements to commanders, as data ([`Announcement`], S6 plan §4.8).
+//! - announcements to commanders, as data ([`Announcement`], S6 plan §4.8);
+//! - the season's standings, the early win and the season end ([`season`], S8: D-191 to
+//!   D-198), with the final tick in [`SeasonConfig`] (D-195).
 //!
 //! The shared primitives (`SimId`, `CommanderId`, `Tick`, `Ticks`, `SeasonClock`, the typed
 //! galaxy and holding identities, `SystemKind`, `LaneKind`, the deposit types and
@@ -62,6 +64,7 @@ mod input;
 mod rng;
 pub mod rules;
 pub mod scenario;
+pub mod season;
 pub mod snapshot;
 mod state;
 mod step;
@@ -101,7 +104,11 @@ pub use nomad_types::{
 pub use nomad_types::{Location, PositionMetres};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};
-pub use state::{ScheduledEvent, SeasonConfig, UniverseState};
+pub use state::{ScheduledEvent, SeasonConfig, UniverseState, final_tick_after_weeks};
+
+// S8: season standings and the result.
+pub use nomad_types::{SeasonEndReason, SeasonResult, Standing};
+pub use season::Standings;
 pub use step::{CommandResult, TickOutputs, step};
 pub use time::{SeasonClock, TICK_MILLIS, TICKS_PER_SECOND, Tick, Ticks, runs_on};
 pub use timers::TimerQueue;

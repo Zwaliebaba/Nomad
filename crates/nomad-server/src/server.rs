@@ -10,7 +10,8 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use nomad_sim::{
-    CommanderInput, OperatorInput, TICKS_PER_SECOND, Tick, TickOutputs, Ticks, UniverseState,
+    CommanderInput, OperatorInput, SeasonResult, TICKS_PER_SECOND, Tick, TickOutputs, Ticks,
+    UniverseState,
 };
 use tracing::{info, warn};
 
@@ -26,6 +27,7 @@ use crate::persist::{self, CHANNEL_BOUND};
 use crate::recovery::{self, ReplayCheck};
 use crate::retention::RetentionPolicy;
 use crate::sim::{Control, Sim, Stop};
+use crate::store::read_model::ReadModelSync;
 use crate::store::{Meta, Store};
 
 /// Snapshot interval: 5 min of Universe time, 3,000 ticks (doc 11 §8, D-048).
@@ -55,9 +57,6 @@ pub struct ServerConfig {
     /// ([`RetentionPolicy::scaled`]), with the two intervals above scaled alike so that the
     /// snapshot interval still divides the hour.
     pub retention: RetentionPolicy,
-    /// The season's final tick, after which the Universe stops advancing (D-116). `None`
-    /// takes it from the Universe's season length (D-020, D-106); tests set a short season.
-    pub season_end: Option<Tick>,
     /// The network endpoint (N3; D-150). `None` runs without one, as most tests do.
     pub net: Option<NetConfig>,
 }
@@ -71,16 +70,16 @@ impl ServerConfig {
             snapshot_interval: SNAPSHOT_INTERVAL,
             checkpoint_interval: CHECKPOINT_INTERVAL,
             retention: RetentionPolicy::default(),
-            season_end: None,
             net: None,
         }
     }
 }
 
-/// The season's final tick for a season of `weeks` (D-020): the Universe stops advancing
-/// after it (D-116).
+/// The scheduled final tick of a season of `weeks` (D-020), which `create` puts into the
+/// simulation's season configuration (D-195): the Universe stops advancing after it, or
+/// after an early win before it (D-116, D-192).
 pub fn season_end_tick(weeks: u32) -> Tick {
-    Tick::ZERO.after(Ticks::from_days(7 * u64::from(weeks)))
+    nomad_sim::final_tick_after_weeks(weeks)
 }
 
 /// An external input for the simulation (doc 11 §6). It applies on the tick after the one
@@ -203,10 +202,13 @@ pub enum ServerEvent {
         tick: Tick,
     },
     /// The season ended: this is the final tick, and the Universe no longer advances
-    /// (D-116).
+    /// (D-116). Sent at the scheduled final tick or at an early win (D-192, D-195), and
+    /// again on every start of an ended season.
     SeasonOver {
         /// The season's final tick.
         tick: Tick,
+        /// The result the simulation fixed.
+        result: SeasonResult,
     },
     /// The simulation thread ended.
     Stopped,
@@ -232,8 +234,13 @@ pub struct StartReport {
     pub replay_check: ReplayCheck,
     /// The tick after replay, where catch-up or live play starts.
     pub tick: Tick,
-    /// The season's final tick (D-116).
+    /// The season's final tick (D-116): the scheduled one from the simulation's season
+    /// configuration, or the tick of an early win once the result is fixed (D-192, D-195).
     pub season_end: Tick,
+    /// The season's result, if the recovered Universe holds one.
+    pub result: Option<SeasonResult>,
+    /// What re-syncing the season read model with the recovered state changed (D-196).
+    pub read_model: ReadModelSync,
     /// Where the network endpoint listens, if it runs (N3; D-150).
     pub endpoint: Option<SocketAddr>,
 }
@@ -289,7 +296,7 @@ impl ServerHandle {
             return Err(ServerError::UniverseNotFound { path: dir });
         }
         let lock = UniverseLock::acquire(&dir)?;
-        let store = Store::open(&db_path)?;
+        let mut store = Store::open(&db_path)?;
         let meta = store.meta()?;
         if dir.file_name().and_then(|name| name.to_str()) != Some(meta.universe_id.as_str()) {
             warn!(
@@ -305,16 +312,16 @@ impl ServerHandle {
             "opening Universe"
         );
         let recovered = recovery::recover(&store, &meta, &config.build)?;
-        let season_end = config
-            .season_end
-            .unwrap_or_else(|| season_end_tick(meta.season_weeks));
+        let read_model = recovery::sync_read_model(&mut store, &recovered.state)?;
         let mut report = StartReport {
             meta,
             snapshot_tick: recovered.snapshot_tick,
             replayed_entries: recovered.replayed_entries,
             replay_check: recovered.check,
             tick: recovered.state.tick(),
-            season_end,
+            season_end: recovered.state.final_tick(),
+            result: recovered.state.season_result().cloned(),
+            read_model,
             endpoint: None,
         };
 
@@ -349,7 +356,6 @@ impl ServerHandle {
             build: config.build,
             snapshot_interval: config.snapshot_interval,
             checkpoint_interval: config.checkpoint_interval,
-            season_end,
         };
         let sim = match thread::Builder::new()
             .name("nomad-sim".to_owned())

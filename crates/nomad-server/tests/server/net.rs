@@ -20,7 +20,8 @@ use nomad_types::{Command, HoldingId, HoldingOrder, InvalidReason, SimId};
 use tokio::runtime::Runtime;
 
 use crate::common::{
-    T0, TIMEOUT, TestDir, config, create_universe, journaled_commander_inputs, snapshot_state,
+    T0, TIMEOUT, TestDir, config, create_short_season, create_universe, journaled_commander_inputs,
+    snapshot_state,
 };
 
 const BUILD: &str = "net-test";
@@ -488,7 +489,7 @@ fn a_new_session_replaces_the_old_one_and_the_journal_shows_one_connection() {
 fn after_the_season_end_commands_are_refused_and_the_session_stays() {
     let dir = TestDir::new("net-season-end");
     let clock = FakeClock::new(T0);
-    let created = create_universe(&dir, 7, &clock);
+    let created = create_short_season(&dir, 7, &clock, 300);
     let (mine, _) = holdings(&created.dir);
     clock.advance(Duration::from_mins(1));
     let net = NetConfig {
@@ -497,7 +498,6 @@ fn after_the_season_end_commands_are_refused_and_the_session_stays() {
     };
     let config = ServerConfig {
         net: Some(net),
-        season_end: Some(Tick::new(300)),
         ..config(&created.dir)
     };
     let server = ServerHandle::start(config, Arc::new(clock.clone())).unwrap();

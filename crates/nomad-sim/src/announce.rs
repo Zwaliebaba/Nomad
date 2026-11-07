@@ -12,8 +12,11 @@
 //! status is private). The siege kinds (breach, siege start, Held, capture, emergency jump)
 //! arrive with S6b. *Proposed* shapes (S6 plan §4.8); `OrdersLapsed` and the window's
 //! deadlines in `WindowMoved` are additions for the away report and the window panel.
+//!
+//! S8 announces control changes, standings changes, the near-win warning and the season's
+//! end, all public (D-075, D-197; S8 plan §4.5; [`crate::season`]).
 
-use nomad_types::QuarterHour;
+use nomad_types::{ControlState, QuarterHour, SeasonResult, Standing, SystemId};
 
 use crate::fleet::FleetId;
 use crate::id::CommanderId;
@@ -70,6 +73,43 @@ pub enum AnnouncementKind {
         commander: CommanderId,
         /// The fleets, in identity order.
         fleets: Vec<FleetId>,
+    },
+
+    // S8: season standings and the result, all public (D-075; S8 plan §4.5).
+    /// A system's control state changed (D-041).
+    ControlChanged {
+        /// The system.
+        system: SystemId,
+        /// Its state before.
+        from: ControlState,
+        /// Its state now.
+        to: ControlState,
+    },
+    /// The standings changed: at most once per tick (D-191).
+    StandingsChanged {
+        /// The new standings, best first.
+        standings: Vec<Standing>,
+    },
+    /// A commander is one system short of the early win (D-197).
+    NearEarlyWin {
+        /// Who.
+        commander: CommanderId,
+        /// The systems they control.
+        systems: u32,
+        /// The early-win threshold (D-192).
+        threshold: u32,
+    },
+    /// A commander who was one system short of the early win dropped back (D-197).
+    NearEarlyWinEnded {
+        /// Who.
+        commander: CommanderId,
+    },
+    /// The season ended: this is its final tick (D-116, D-192, D-195).
+    SeasonEnded {
+        /// The result.
+        result: SeasonResult,
+        /// The final standings, best first.
+        standings: Vec<Standing>,
     },
 }
 

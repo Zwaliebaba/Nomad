@@ -1,5 +1,6 @@
 //! Scenario fixtures for the harness and integration tests: fleets placed directly in space,
-//! modules placed without the economy, and a dome sector opened as a siege would.
+//! modules placed without the economy, a dome sector opened as a siege would, and outposts
+//! deployed without a MULE trip.
 //!
 //! **Not a game rule.** In a season, ships come from the start kit and later from shipyards
 //! (S4). Measurement runs such as the time-to-kill scenarios (D-058; S5 plan §7 task 7) need
@@ -117,4 +118,47 @@ pub fn place_module(
     Some(crate::economy::spawn_module(
         state, holding, slot, kind, None,
     ))
+}
+
+// S8: claims for the season runs.
+
+/// Deploys an outpost of `owner` on the free, claimable `site`, as a core kit carried there
+/// would be (D-054): its core builds for the rules' deployment time, and the economy completes
+/// it into a holding, which the standings count (D-191). For `nomad-harness --season`, whose
+/// scripted claims stand in for A2's expansion until it exists (S8 plan §7 task 6). Returns
+/// `None` if the site cannot be claimed.
+pub fn place_outpost(
+    state: &mut UniverseState,
+    owner: crate::id::CommanderId,
+    site: crate::galaxy::SiteId,
+) -> Option<HoldingId> {
+    let holding = state.insert_holding(site, owner, false).ok()?;
+    let deploy_ms = state
+        .rules
+        .economy
+        .core
+        .deploy_s
+        .saturating_mul(crate::economy::rules::MILLI);
+    crate::economy::spawn_module(
+        state,
+        holding,
+        Slot::Core,
+        ModuleKind::Core,
+        Some(deploy_ms),
+    );
+    Some(holding)
+}
+
+/// Places a completed holding of `owner`, with its core, on the free, claimable `site`, as if
+/// an outpost there had completed: it counts for control and the standings from the next
+/// tick's phase 9 (D-041, D-191). For scenarios that start with commanders already spread out.
+/// Returns `None` if the site cannot be claimed.
+pub fn place_holding(
+    state: &mut UniverseState,
+    owner: crate::id::CommanderId,
+    site: crate::galaxy::SiteId,
+) -> Option<HoldingId> {
+    let holding = state.insert_holding(site, owner, true).ok()?;
+    crate::economy::spawn_module(state, holding, Slot::Core, ModuleKind::Core, None);
+    Some(holding)
 }

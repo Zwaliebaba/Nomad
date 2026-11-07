@@ -69,6 +69,17 @@ pub fn create_universe(dir: &TestDir, seed: u64, clock: &FakeClock) -> Created {
     create(&dir.data(), &params, clock, BUILD).expect("create")
 }
 
+/// Like [`create_universe`], with a season that ends at tick `end` instead of after 8
+/// weeks: the simulation holds the final tick (D-195).
+pub fn create_short_season(dir: &TestDir, seed: u64, clock: &FakeClock, end: u64) -> Created {
+    let params = CreateParams {
+        seed: Some(seed),
+        final_tick: Some(Tick::new(end)),
+        ..CreateParams::default()
+    };
+    create(&dir.data(), &params, clock, BUILD).expect("create")
+}
+
 /// The test configuration for `universe_dir`: build [`BUILD`], production snapshot interval.
 pub fn config(universe_dir: &Path) -> ServerConfig {
     ServerConfig {
@@ -169,12 +180,28 @@ pub fn play(server: &ServerHandle, clock: &FakeClock, script: &[(u64, Input)], u
 /// The state hash after `until` ticks of a pure `nomad-sim` run of the Universe created
 /// with `seed` at `start_ms`, applying each script entry on the tick after its own.
 pub fn reference_hash(seed: u64, start_ms: i64, script: &[(u64, Input)], until: u64) -> u64 {
+    reference_hash_with(SeasonConfig::new(seed, start_ms), script, until)
+}
+
+/// Like [`reference_hash`], for a season that ends at tick `end` ([`create_short_season`]).
+pub fn reference_hash_short(
+    seed: u64,
+    start_ms: i64,
+    end: u64,
+    script: &[(u64, Input)],
+    until: u64,
+) -> u64 {
+    let season = SeasonConfig {
+        final_tick: Tick::new(end),
+        ..SeasonConfig::new(seed, start_ms)
+    };
+    reference_hash_with(season, script, until)
+}
+
+fn reference_hash_with(season: SeasonConfig, script: &[(u64, Input)], until: u64) -> u64 {
     // The roster `create` uses: commander 1 is the human (S6a).
     let mut state = generate_stage1_roster(
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: start_ms,
-        },
+        season,
         stage1_roster(CreateParams::default().window_start),
         Rules::embedded(),
     )

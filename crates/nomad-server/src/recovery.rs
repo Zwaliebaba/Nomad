@@ -8,6 +8,10 @@
 //! not damage, and it stops startup (D-099). Journal entries written by another build stop
 //! startup too (D-048).
 //!
+//! After recovery the season read model is re-synced with the recovered state, since it is a
+//! projection (doc 11 §8, D-196; [`sync_read_model`]). Replay stops at the season's final
+//! tick: no tick follows it (D-116).
+//!
 //! Replay checks the state-hash checkpoints in the journal (doc 11 §5, D-109). A mismatch
 //! means replay diverged from the run that wrote the journal: a determinism bug. It is
 //! logged as an error with the tick and both hashes and reported in [`ReplayCheck`], and
@@ -19,6 +23,7 @@ use tracing::{error, info, warn};
 
 use crate::error::ServerError;
 use crate::journal;
+use crate::store::read_model::ReadModelSync;
 use crate::store::{Meta, SnapshotInfo, Store};
 
 /// The state after recovery, and how it was reached.
@@ -108,6 +113,16 @@ pub(crate) fn recover(store: &Store, meta: &Meta, build: &str) -> Result<Recover
     if let Some(last) = replay.last_tick() {
         let empty = TickInputs::default();
         while state.tick() < last {
+            if let Some(result) = state.season_result() {
+                // No tick follows the final one (D-116): the server never journals past it.
+                warn!(
+                    tick = state.tick().get(),
+                    last_journaled = last.get(),
+                    reason = ?result.reason,
+                    "the journal goes past the season's final tick; the rest is not replayed"
+                );
+                break;
+            }
             let next = state.tick().next();
             let outputs = step(&mut state, replay.inputs.get(&next).unwrap_or(&empty));
             rejected += u64::from(outputs.inputs_rejected);
@@ -131,6 +146,25 @@ pub(crate) fn recover(store: &Store, meta: &Meta, build: &str) -> Result<Recover
         replayed_entries: replay.input_entries,
         check,
     })
+}
+
+/// Re-syncs the season read model with the recovered `state` (D-196): it is a projection,
+/// so it follows the state (doc 11 §8).
+pub(crate) fn sync_read_model(
+    store: &mut Store,
+    state: &UniverseState,
+) -> Result<ReadModelSync, ServerError> {
+    let sync = store.sync_read_model(state)?;
+    if !sync.unchanged() {
+        info!(
+            tick = state.tick().get(),
+            dropped_rows = sync.dropped_rows,
+            appended = sync.appended,
+            result_written = sync.result_written,
+            "season read model re-synced with the recovered state"
+        );
+    }
+    Ok(sync)
 }
 
 /// Compares the replayed `state` with a checkpoint's `journaled` hash (D-109).
@@ -173,7 +207,10 @@ fn load(store: &Store, meta: &Meta, info: &SnapshotInfo) -> Result<UniverseState
         ));
     }
     let season = state.season();
-    if season.seed != meta.seed || season.season_start_unix_ms != meta.season_start_unix_ms {
+    if season.seed != meta.seed
+        || season.season_start_unix_ms != meta.season_start_unix_ms
+        || season.final_tick != meta.final_tick
+    {
         return Err("it belongs to another season".to_owned());
     }
     Ok(state)

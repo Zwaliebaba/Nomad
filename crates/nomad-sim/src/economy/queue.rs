@@ -229,6 +229,8 @@ fn progress_core(state: &mut UniverseState, holding: HoldingId, events: &mut Vec
         if let Some(h) = state.holdings.get_mut(&holding) {
             h.core_complete = true;
         }
+        // The new holding counts for control and the standings (D-041, D-191).
+        crate::season::mark_dirty(state);
         events.push(EconomyEvent::HoldingCompleted { holding });
     }
 }

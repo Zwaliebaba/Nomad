@@ -18,7 +18,9 @@
 //!   validator, including economy commands and module shapes ([`EconomyCommand`],
 //!   [`ModuleKind`], [`Slot`], [`BuildItem`], [`PowerProfile`]; doc 14) and station abilities
 //!   ([`StationAbility`]; doc 15 §5.3), and the reasons a
-//!   refused command reports to the client ([`InvalidReason`], D-123).
+//!   refused command reports to the client ([`InvalidReason`], D-123);
+//! - the season's standings and result ([`Standing`], [`SeasonResult`],
+//!   [`SeasonEndReason`]; D-041, D-191 to D-198), public (D-075).
 //!
 //! **Data only (D-086):** this crate holds shapes, not rules. How a control state or a
 //! deposit value is derived, which systems can be claimed and what a command may do are
@@ -36,6 +38,7 @@ mod galaxy;
 mod id;
 mod position;
 mod rejection;
+mod season;
 mod ship;
 mod time;
 
@@ -51,5 +54,6 @@ pub use id::{
 };
 pub use position::{Location, PositionMetres};
 pub use rejection::InvalidReason;
+pub use season::{SeasonEndReason, SeasonResult, Standing};
 pub use ship::ShipClass;
 pub use time::{SeasonClock, TICK_MILLIS, TICKS_PER_SECOND, Tick, Ticks};

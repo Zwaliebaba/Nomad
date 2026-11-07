@@ -381,13 +381,19 @@ fn run_create(data: &DataDir, params: &CreateParams) -> Result<(), ServerError> 
     .map_err(write)?;
     writeln!(
         out,
-        "Directory    {}\nSeed         {}\nSeason       {} weeks from {} (tick 0)\n\
+        "Directory    {}\nSeed         {}\nSeason       {} weeks from {} (tick 0) to {} \
+         (tick {}), or sooner on an early win (D-192)\n\
          Commanders   1 human, {} AI ({})\nYour window  {} (D-157)\nBuild        {}\n\
          State hash   {:016x}\nRun it with: nomad-server run --universe {}",
         created.dir.display(),
         meta.seed,
         meta.season_weeks,
         utc_text(meta.season_start_unix_ms),
+        utc_text(
+            nomad_sim::SeasonClock::new(meta.season_start_unix_ms)
+                .universe_time_ms(meta.final_tick)
+        ),
+        meta.final_tick.get(),
         meta.ai_commanders,
         meta.difficulty,
         window_text(params.window_start, Rules::embedded().sieges.window_minutes),

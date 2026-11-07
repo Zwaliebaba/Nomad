@@ -200,15 +200,9 @@ struct Setup {
 }
 
 fn set_up(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Setup, String> {
-    let mut state = generate_stage1_with_rules(
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: 0,
-        },
-        COMMANDERS,
-        rules.clone(),
-    )
-    .map_err(|e| e.to_string())?;
+    let mut state =
+        generate_stage1_with_rules(SeasonConfig::new(seed, 0), COMMANDERS, rules.clone())
+            .map_err(|e| e.to_string())?;
     let (holding, site) = state
         .holdings()
         .find(|(_, h)| h.owner == COMMANDERS[0] && h.mother_station)

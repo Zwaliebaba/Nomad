@@ -94,15 +94,9 @@ impl Stats {
 
 /// Runs the fleet demo and writes its report to `out`.
 pub fn run(out: &mut impl Write, args: FleetRun) -> Result<(), String> {
-    let mut state = generate_stage1_with_rules(
-        SeasonConfig {
-            seed: args.seed,
-            season_start_unix_ms: 0,
-        },
-        COMMANDERS,
-        args.rules,
-    )
-    .map_err(|e| e.to_string())?;
+    let mut state =
+        generate_stage1_with_rules(SeasonConfig::new(args.seed, 0), COMMANDERS, args.rules)
+            .map_err(|e| e.to_string())?;
     let mut orders = RngStreams::new(args.seed ^ 0x6f72_6465_7273); // "orders"
     let interval = (args.order_interval_secs * TICKS_PER_SECOND).max(1);
     let mut stats = Stats::default();

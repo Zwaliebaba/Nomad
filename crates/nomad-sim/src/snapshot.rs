@@ -40,7 +40,10 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   the exposure window, and their deadlines (S6a); the rules gain the sieges section,
 ///   rules format 6.
 /// - 13: the economy rules gain D-217's diminishing yield F; rules format 7.
-pub const FORMAT: u32 = 13;
+/// - 14: the season's final tick in the season configuration (D-195) and the season record:
+///   the cached control map, the standings with their *since*, the near-win set and the
+///   result (S8; D-191); the rules gain the season section, rules format 8.
+pub const FORMAT: u32 = 14;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]
@@ -118,10 +121,7 @@ mod tests {
     use crate::{CommanderId, SeasonConfig, TickInputs, step};
 
     fn universe() -> UniverseState {
-        UniverseState::new(SeasonConfig {
-            seed: 5,
-            season_start_unix_ms: 1_793_923_200_000,
-        })
+        UniverseState::new(SeasonConfig::new(5, 1_793_923_200_000))
     }
 
     #[test]

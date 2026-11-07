@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@7",
+  "format": "nomad-rules@8",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -261,5 +261,8 @@
     "window_drift_minutes_per_day": 60,
     "activity_history_days": 14,
     "free_choice_days": 7
+  },
+  "season": {
+    "early_win_share_permille": 600
   }
 }

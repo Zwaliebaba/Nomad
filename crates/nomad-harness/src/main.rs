@@ -192,14 +192,8 @@ fn run() -> Result<(), String> {
     }
     // One hour of Universe time by default.
     let ticks = args.ticks.unwrap_or(36_000);
-    let mut state = UniverseState::with_rules(
-        SeasonConfig {
-            seed: args.seed,
-            season_start_unix_ms: 0,
-        },
-        rules,
-    )
-    .map_err(|e| e.to_string())?;
+    let mut state = UniverseState::with_rules(SeasonConfig::new(args.seed, 0), rules)
+        .map_err(|e| e.to_string())?;
     let spawn = TickInputs {
         operator: vec![OperatorInput::SpawnDiagnostics {
             count: args.diagnostics,

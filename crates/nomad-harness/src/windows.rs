@@ -184,10 +184,7 @@ struct Log {
     reason = "one scripted run with its checks and report, read top to bottom"
 )]
 pub fn run(out: &mut impl Write, run: WindowRun) -> Result<(), String> {
-    let season = SeasonConfig {
-        seed: run.seed,
-        season_start_unix_ms: 0,
-    };
+    let season = SeasonConfig::new(run.seed, 0);
     let drift = run.rules.sieges.drift_quarters();
     let length_minutes = run.rules.sieges.window_minutes;
     let mut state = generate_stage1_roster(season, COMMANDERS.map(CommanderSetup::ai), run.rules)
@@ -317,6 +314,8 @@ pub fn run(out: &mut impl Write, run: WindowRun) -> Result<(), String> {
                         log.lapses += 1;
                     }
                 }
+                // Control, standings and the season's end are `--season`'s (S8).
+                _ => {}
             }
         }
     }

@@ -72,6 +72,7 @@ pub use server::{
     ServerEvent, ServerHandle, ServerStatus, ShutdownReport, ShutdownTrigger, StartReport,
     SubmitError, season_end_tick,
 };
+pub use store::read_model::ReadModelSync;
 pub use store::{JournalStats, Meta, SCHEMA_FORMAT, SnapshotInfo};
 pub use timefmt::{duration_text, ticks_text, utc_text};
 pub use window::{WindowSpec, local_offset_minutes, window_text};

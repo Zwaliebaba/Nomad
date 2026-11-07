@@ -189,7 +189,7 @@ impl<S: Submit> Hub<S> {
                 self.reject(dropped, RejectReason::CatchingUp);
                 self.reconcile();
             }
-            ServerEvent::SeasonOver { tick } => {
+            ServerEvent::SeasonOver { tick, .. } => {
                 self.phase = HubPhase::SeasonOver;
                 self.tick = tick;
                 self.last_live_tick = None;
@@ -775,6 +775,11 @@ mod tests {
         drain(&mut rx);
         hub.on_event(ServerEvent::SeasonOver {
             tick: Tick::new(101),
+            result: nomad_sim::SeasonResult {
+                tick: Tick::new(101),
+                reason: nomad_sim::SeasonEndReason::FinalTick,
+                winners: vec![CommanderId(1)],
+            },
         });
         assert_eq!(drain(&mut rx), [rejected(1, RejectReason::SeasonOver)]);
         send_command(&mut hub, 1, 2);

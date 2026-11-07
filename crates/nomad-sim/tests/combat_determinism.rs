@@ -34,14 +34,8 @@ struct Battle {
 }
 
 fn battle(seed: u64) -> Battle {
-    let mut state = generate_stage1(
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: 1_793_923_200_000,
-        },
-        COMMANDERS,
-    )
-    .expect("stage 1 generates");
+    let mut state = generate_stage1(SeasonConfig::new(seed, 1_793_923_200_000), COMMANDERS)
+        .expect("stage 1 generates");
     let home = state
         .holdings()
         .find(|(_, h)| h.owner == CommanderId(1))

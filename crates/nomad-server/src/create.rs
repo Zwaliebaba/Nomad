@@ -27,6 +27,7 @@ use crate::error::ServerError;
 use crate::ids::{Difficulty, random_u64, random_universe_id, universe_id_text};
 use crate::net::identity::Identity;
 use crate::paths::{DATABASE_FILE, DataDir, UniverseLock};
+use crate::server::season_end_tick;
 use crate::store::{Meta, SnapshotRecord, Store};
 
 /// Season lengths `create` accepts, in weeks (D-020).
@@ -54,6 +55,10 @@ pub struct CreateParams {
     pub difficulty: Difficulty,
     /// Season length in weeks, within [`SEASON_WEEKS`].
     pub season_weeks: u32,
+    /// The season's final tick, overriding the one `season_weeks` gives: a short season for
+    /// tests and operator trials. It goes into the simulation's season configuration
+    /// (D-195); `None` for a normal Universe.
+    pub final_tick: Option<Tick>,
     /// Optional display name (D-107).
     pub name: Option<String>,
     /// Puts the season start this far before now, so the first `run` catches up. An
@@ -71,6 +76,7 @@ impl Default for CreateParams {
             ai_commanders: STAGE1_AI_COMMANDERS,
             difficulty: Difficulty::Normal,
             season_weeks: DEFAULT_SEASON_WEEKS,
+            final_tick: None,
             name: None,
             backdate: Duration::ZERO,
             window_start: DEFAULT_WINDOW_START,
@@ -104,12 +110,17 @@ pub fn create(
     let backdate_ms = i64::try_from(params.backdate.as_millis())
         .map_err(|_| ServerError::InvalidParameter("backdate is too long".to_owned()))?;
     let season_start_unix_ms = now.saturating_sub(backdate_ms);
+    // The simulation holds the final tick and fixes the result at it (D-195).
+    let final_tick = params
+        .final_tick
+        .unwrap_or_else(|| season_end_tick(params.season_weeks));
 
     // Generate and encode before touching the disk, so a failure leaves nothing behind.
     let state = generate_stage1_roster(
         SeasonConfig {
             seed,
             season_start_unix_ms,
+            final_tick,
         },
         stage1_roster(params.window_start),
         Rules::embedded(),
@@ -135,6 +146,7 @@ pub fn create(
         seed,
         season_start_unix_ms,
         season_weeks: params.season_weeks,
+        final_tick,
         ai_commanders: params.ai_commanders,
         difficulty: params.difficulty,
         created_at_unix_ms: now,
@@ -142,9 +154,11 @@ pub fn create(
         rules_hash: None,
         journal_floor: Tick::ZERO,
     };
-    // The certificate, key and token, created once and kept (D-151).
+    // The tick-0 standings start the read model (D-196). The certificate, key and token are
+    // created once and kept (D-151).
     let stored = Store::create(&dir.join(DATABASE_FILE), &meta, &record)
-        .and_then(|_store| Identity::load_or_create(&dir).map(|_| ()));
+        .and_then(|mut store| store.sync_read_model(&state))
+        .and_then(|_| Identity::load_or_create(&dir).map(|_| ()));
     if let Err(e) = stored {
         drop(lock);
         // Best effort: the error that matters is the one being returned.
@@ -184,6 +198,9 @@ fn validate(params: &CreateParams) -> Result<Option<String>, ServerError> {
             SEASON_WEEKS.start(),
             SEASON_WEEKS.end()
         ));
+    }
+    if params.final_tick == Some(Tick::ZERO) {
+        return invalid("the final tick must come after tick 0".to_owned());
     }
     if params.ai_commanders != STAGE1_AI_COMMANDERS {
         return invalid(format!(
@@ -258,6 +275,10 @@ mod tests {
             },
             CreateParams {
                 ai_commanders: 9,
+                ..CreateParams::default()
+            },
+            CreateParams {
+                final_tick: Some(Tick::ZERO),
                 ..CreateParams::default()
             },
             CreateParams {

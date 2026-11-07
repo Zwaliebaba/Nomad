@@ -251,6 +251,8 @@ pub fn generate_stage1_roster(
     for setup in roster {
         crate::commander::add_commander(&mut state, setup)?;
     }
+    // Every commander's standing from tick 0: one holding, no system (S8 plan §4.1).
+    crate::season::initialize(&mut state);
 
     let report = validate(state.galaxy(), &InvariantLimits::from_rules(&state.rules));
     if report.is_valid() {
@@ -522,10 +524,7 @@ mod tests {
     ];
 
     fn season(seed: u64) -> SeasonConfig {
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: 0,
-        }
+        SeasonConfig::new(seed, 0)
     }
 
     #[test]

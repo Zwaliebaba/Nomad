@@ -25,6 +25,7 @@
 //! | Defence: dome sectors, regeneration, turrets, abilities, recovery | [`defence`] (doc 15 §5, §12; D-140 to D-142, D-147 to D-149) |
 //! | Mother-station layout | The phase-1 station (`station_scene.json` module bounds, `ships_placement.json` CAP WING), 1 voxel ≈ 35 m and grid north at azimuth 225° (doc 10 §8, D-046) |
 //! | Sieges: disconnect grace, exposure window, drift, activity history, free choice | [`sieges`] (doc 12 §4, §5.3, §8; D-015, D-032, D-155 to D-157) |
+//! | Season: the early-win share | [`season`] (doc 10 §6; D-020, D-192) |
 //!
 //! Starting values adopted from this implementation (D-113): separation distance, obstacle
 //! margin, look-ahead time (D-105 fixes the behaviour, D-113 the numbers), the guard radius
@@ -34,6 +35,9 @@ pub mod combat;
 pub mod defence;
 pub mod sieges;
 
+// S8: season standings and the win.
+pub mod season;
+
 use std::collections::BTreeMap;
 
 use nomad_types::ShipClass;
@@ -42,7 +46,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@7";
+pub const RULES_FORMAT: &str = "nomad-rules@8";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -96,6 +100,10 @@ pub struct Rules {
     pub defence: defence::DefenceRules,
     /// Presence and exposure windows (S6a; doc 12 §4, §5.3).
     pub sieges: sieges::SiegeRules,
+
+    // S8: season standings and the win.
+    /// The early win (S8; doc 10 §6, D-020, D-192).
+    pub season: season::SeasonRules,
 }
 
 /// One ship class (doc 15 §3.3, §12; D-101).
@@ -348,6 +356,7 @@ impl Rules {
         self.economy.check()?;
         self.defence.check()?;
         self.sieges.check()?;
+        self.season.check()?;
         for class in self.economy.ships.keys() {
             if self.class(*class).npc {
                 return Err(invalid(
@@ -484,8 +493,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@7", "nomad-rules@6"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@6"
+            swap("nomad-rules@8", "nomad-rules@7"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@7"
         ));
         // The sieges section (S6a): whole quarter hours, a window shorter than a day.
         for (from, to) in [
@@ -600,5 +609,29 @@ mod tests {
             ),
             Err(RulesError::Parse(_))
         ));
+    }
+
+    #[test]
+    fn the_early_win_share_is_60_percent_and_more_than_half() {
+        // Doc 10 §6, D-020, D-192.
+        assert_eq!(Rules::embedded().season.early_win_share_permille, 600);
+        let swap = |to: &str| {
+            Rules::from_json(&DEFAULT_RULES_JSON.replacen(
+                "\"early_win_share_permille\": 600",
+                to,
+                1,
+            ))
+        };
+        for share in ["500", "0", "1001"] {
+            assert!(
+                matches!(
+                    swap(&format!("\"early_win_share_permille\": {share}")),
+                    Err(RulesError::Invalid { field, .. }) if field == "season.early_win_share_permille"
+                ),
+                "{share}"
+            );
+        }
+        assert!(swap("\"early_win_share_permille\": 1000").is_ok());
+        assert!(matches!(swap(""), Err(RulesError::Parse(_))));
     }
 }

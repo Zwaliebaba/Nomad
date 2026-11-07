@@ -8,6 +8,9 @@
 //! [`ControlState`] live in `nomad-types` (D-086, doc 20 §3) and are re-exported here. The
 //! majority rule ([`majority_threshold`], [`control_from_counts`]) is a game rule and stays
 //! in the simulation, so the client links no rules.
+//!
+//! The functions here count control from the holdings; [`crate::season`] caches the result
+//! and recounts it whenever completed holdings or their owners change (D-191).
 
 pub use nomad_types::{ControlState, HoldingId};
 
@@ -33,6 +36,14 @@ pub struct Holding {
     /// phase-1 station layout (S3 plan §4.3). Its modules, dry docks included, are economy
     /// entities ([`crate::economy`]).
     pub mother_station: bool,
+}
+
+/// Whether `holding` counts for control and the standings: its core is complete, so it is a
+/// holding and not an outpost (D-041). The one place that decides it; S6b's mother station in
+/// emergency-jump transit, which counts for nothing until it lands (S6 plan §4.6), belongs
+/// here too.
+pub(crate) const fn counts_for_control(holding: &Holding) -> bool {
+    holding.core_complete
 }
 
 /// The number of completed holdings needed to control a system with `site_count` sites: a
@@ -112,7 +123,7 @@ pub(crate) fn control_states(
     holdings: &BTreeMap<HoldingId, Holding>,
 ) -> BTreeMap<SystemId, ControlState> {
     let mut completed: BTreeMap<SystemId, BTreeMap<CommanderId, usize>> = BTreeMap::new();
-    for holding in holdings.values().filter(|h| h.core_complete) {
+    for holding in holdings.values().filter(|h| counts_for_control(h)) {
         if let Some(site) = galaxy.site(holding.site) {
             *completed
                 .entry(site.system)
@@ -140,7 +151,7 @@ pub(crate) fn control_state(
 ) -> Option<ControlState> {
     let sys = galaxy.system(system).filter(|s| is_claimable(s.kind))?;
     let mut completed: BTreeMap<CommanderId, usize> = BTreeMap::new();
-    for holding in holdings.values().filter(|h| h.core_complete) {
+    for holding in holdings.values().filter(|h| counts_for_control(h)) {
         if galaxy
             .site(holding.site)
             .is_some_and(|s| s.system == system)
@@ -164,10 +175,7 @@ mod tests {
 
     /// One sector with a 7-site claimable system and a raider haven with 2 sites.
     fn kestrel() -> (UniverseState, Vec<SiteId>, Vec<SiteId>) {
-        let mut state = UniverseState::new(SeasonConfig {
-            seed: 1,
-            season_start_unix_ms: 0,
-        });
+        let mut state = UniverseState::new(SeasonConfig::new(1, 0));
         let ids: &mut SimIdAllocator = &mut state.ids;
         let galaxy = &mut state.galaxy;
         let sector = galaxy.add_sector(ids);
@@ -238,8 +246,9 @@ mod tests {
         // A fourth site as an outpost does not give control (D-041) ...
         let outpost = state.insert_holding(sites[5], YOU, false).unwrap();
         assert_eq!(state.control_state(system), Some(ControlState::Contested));
-        // ... completing its core does.
+        // ... completing its core does, once the standings know (D-191).
         state.holdings.get_mut(&outpost).unwrap().core_complete = true;
+        crate::season::mark_dirty(&mut state);
         assert_eq!(
             state.control_state(system),
             Some(ControlState::Controlled(YOU))

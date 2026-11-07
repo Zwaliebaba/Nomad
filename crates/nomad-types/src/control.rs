@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::id::CommanderId;
 
-/// Who controls a claimable system (doc 10 §6, D-041). Derived from holdings whenever it is
-/// needed, never stored.
+/// Who controls a claimable system (doc 10 §6, D-041). Derived from holdings; the simulation
+/// caches it and recounts it whenever completed holdings or their owners change (D-191).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ControlState {
     /// This commander owns a strict majority of the system's sites as completed holdings.

@@ -24,9 +24,15 @@
 //!   with a warning when the thread is more than 10 ticks behind. If the Universe falls
 //!   more than a minute behind the wall clock, as after the computer slept, the thread
 //!   catches up again (D-117; doc 11 §2: Universe time is UTC).
-//! - **Season end** (D-116): the season's final tick runs normally, and no tick follows
-//!   it. Catch-up never goes past it. The thread then writes a snapshot and idles: the
+//! - **Season end** (D-116, D-195): the simulation fixes the season's result, at its
+//!   scheduled final tick or on the tick of an early win (D-192), and the thread stops
+//!   stepping as soon as the state holds a result, live or in catch-up. That tick runs
+//!   normally, and no tick follows it; catch-up never goes past the scheduled final tick and
+//!   ends early at an early win, leaving the final state in catch-up mode, since no tick
+//!   remains to carry `CatchUpEnd`. The thread then writes a snapshot and idles: the
 //!   Universe serves its final state, inputs are refused, and only a shutdown ends it.
+//! - **The season read model** (D-196): the standings changes and the result each tick
+//!   announces go to the persistence thread for `standings_history` and `season_result`.
 //! - **Snapshots** every 3,000 ticks, at ticks that are multiples of the interval so that
 //!   retention's hours and days line up, and a final one on a clean stop.
 //! - **State-hash checkpoints** in the journal every 600 ticks, after that tick's inputs
@@ -39,8 +45,8 @@ use std::time::Duration;
 
 use nomad_sim::snapshot::{self, encode, state_hash};
 use nomad_sim::{
-    CommanderId, CommanderInput, CommanderInputKind, OperatorInput, SeasonClock, TICK_MILLIS, Tick,
-    TickInputs, TickOutputs, Ticks, UniverseState, step,
+    AnnouncementKind, CommanderId, CommanderInput, CommanderInputKind, OperatorInput, SeasonClock,
+    SeasonResult, TICK_MILLIS, Tick, TickInputs, TickOutputs, Ticks, UniverseState, step,
 };
 use tracing::{debug, info, warn};
 
@@ -132,8 +138,6 @@ pub(crate) struct Sim {
     pub snapshot_interval: Ticks,
     /// Ticks between state-hash checkpoints (D-109).
     pub checkpoint_interval: Ticks,
-    /// The season's final tick: the Universe stops advancing after it (D-020, D-116).
-    pub season_end: Tick,
 }
 
 /// The running loop, built from [`Sim`].
@@ -192,15 +196,8 @@ impl Sim {
 impl Runner {
     fn run_phases(&mut self) -> Result<(), ServerError> {
         let tick = self.sim.state.tick();
-        if tick >= self.sim.season_end {
-            if tick > self.sim.season_end {
-                warn!(
-                    tick = tick.get(),
-                    season_end = self.sim.season_end.get(),
-                    "the Universe ran past its season end under an older build; it stays here"
-                );
-            }
-            return self.season_over();
+        if let Some(result) = self.sim.state.season_result().cloned() {
+            return self.season_over(&result);
         }
         let target = self.wall_target();
         if target.get() > tick.get() + STARTUP_CATCH_UP_TICKS {
@@ -225,16 +222,21 @@ impl Runner {
         Ok(())
     }
 
-    /// After the season's final tick (D-116): snapshot the final state, then serve it until
-    /// shutdown. The Universe no longer advances, and inputs are refused; a new season is a
-    /// new Universe (D-020).
-    fn season_over(&mut self) -> Result<(), ServerError> {
+    /// After the season's final tick (D-116), with its `result`: snapshot the final state,
+    /// then serve it until shutdown. The Universe no longer advances, and inputs are refused;
+    /// a new season is a new Universe (D-020).
+    fn season_over(&mut self, result: &SeasonResult) -> Result<(), ServerError> {
         let tick = self.sim.state.tick();
         self.send_snapshot(false, None)?;
-        self.sim.shared.publish(&ServerEvent::SeasonOver { tick });
+        self.sim.shared.publish(&ServerEvent::SeasonOver {
+            tick,
+            result: result.clone(),
+        });
         self.sim.shared.set_phase(Phase::SeasonOver, tick);
         info!(
             tick = tick.get(),
+            reason = ?result.reason,
+            winners = ?result.winners,
             "the season has ended: the Universe no longer advances and serves its final \
              state until it is shut down (D-116)"
         );
@@ -282,8 +284,8 @@ impl Runner {
     // ---------------------------------------------------------------- live
 
     fn live(&mut self) -> Result<(), ServerError> {
-        if self.sim.state.tick() >= self.sim.season_end {
-            return self.season_over();
+        if let Some(result) = self.sim.state.season_result().cloned() {
+            return self.season_over(&result);
         }
         self.go_live();
         loop {
@@ -292,8 +294,8 @@ impl Runner {
             if self.stop.is_some() {
                 return Ok(());
             }
-            if self.sim.state.tick() >= self.sim.season_end {
-                return self.season_over();
+            if let Some(result) = self.sim.state.season_result().cloned() {
+                return self.season_over(&result);
             }
             let next = self.sim.state.tick().next();
             let now = self.monotonic_nanos();
@@ -315,6 +317,10 @@ impl Runner {
                 self.catch_up()?;
                 if self.stop.is_some() {
                     return Ok(());
+                }
+                // An early win during the catch-up ended the season (D-192).
+                if let Some(result) = self.sim.state.season_result().cloned() {
+                    return self.season_over(&result);
                 }
                 self.go_live();
                 continue;
@@ -488,6 +494,11 @@ impl Runner {
             while self.sim.state.tick().next() < target {
                 let outputs = self.advance()?;
                 self.publish_catch_up_tick(&outputs);
+                if self.sim.state.season_over() {
+                    // An early win (D-192): catch-up never runs past the season's end.
+                    self.end_catch_up(from, started, outputs.tick);
+                    return Ok(());
+                }
                 if outputs.tick.get().is_multiple_of(CATCH_UP_POLL_TICKS) {
                     self.sim.alarm.reset();
                     self.drain_inbox()?;
@@ -526,12 +537,19 @@ impl Runner {
         self.pending.operator.insert(0, OperatorInput::CatchUpEnd);
         let outputs = self.advance()?;
         self.publish_catch_up_tick(&outputs);
+        self.end_catch_up(from, started, outputs.tick);
+        Ok(())
+    }
+
+    /// Reports a catch-up from `from` that ended at `tick`: at its target, or at an early
+    /// win before it (D-192).
+    fn end_catch_up(&self, from: Tick, started: Duration, tick: Tick) {
         let elapsed = self.sim.clock.monotonic().saturating_sub(started);
-        let done = outputs.tick.since(from);
+        let done = tick.since(from);
         let final_progress = CatchUpProgress {
             from,
-            target: outputs.tick,
-            tick: outputs.tick,
+            target: tick,
+            tick,
             elapsed,
         };
         info!(
@@ -540,13 +558,13 @@ impl Runner {
             elapsed = %duration_text(elapsed),
             speed = format_args!("{:.0}x real time", final_progress.speed()),
             ticks_per_second = format_args!("{:.0}", final_progress.ticks_per_second()),
+            season_over = self.sim.state.season_over(),
             "caught up"
         );
         self.sim
             .shared
             .publish(&ServerEvent::CatchUp(final_progress));
         self.sim.shared.set_catch_up(final_progress);
-        Ok(())
     }
 
     fn report_progress(
@@ -606,6 +624,7 @@ impl Runner {
             self.send(PersistMessage::Journal(entries))?;
             self.batch_start.get_or_insert(tick);
         }
+        self.send_read_model(&outputs)?;
         if tick.get().is_multiple_of(self.snapshot_interval) {
             self.send_snapshot(false, checkpoint)?;
         } else if self
@@ -646,6 +665,25 @@ impl Runner {
         };
         self.last_snapshot = Some(tick);
         self.send(PersistMessage::Snapshot { record, announce })
+    }
+
+    /// Sends this tick's standings change and result, if any, to the read model (D-196).
+    fn send_read_model(&self, outputs: &TickOutputs) -> Result<(), ServerError> {
+        for announcement in &outputs.announcements {
+            match &announcement.kind {
+                AnnouncementKind::StandingsChanged { standings } => {
+                    self.send(PersistMessage::Standings {
+                        tick: announcement.tick,
+                        standings: standings.clone(),
+                    })?;
+                }
+                AnnouncementKind::SeasonEnded { result, .. } => {
+                    self.send(PersistMessage::SeasonResult(result.clone()))?;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     fn send(&self, message: PersistMessage) -> Result<(), ServerError> {
@@ -692,9 +730,9 @@ impl Runner {
     // ----------------------------------------------------------------- time
 
     /// Where the wall clock says the Universe should be, but never past the season's final
-    /// tick (D-116).
+    /// tick (D-116, D-195).
     fn wall_target(&self) -> Tick {
-        wall_tick(self.sim.state.clock(), self.sim.clock.utc_ms()).min(self.sim.season_end)
+        wall_tick(self.sim.state.clock(), self.sim.clock.utc_ms()).min(self.sim.state.final_tick())
     }
 
     fn monotonic_nanos(&self) -> i128 {

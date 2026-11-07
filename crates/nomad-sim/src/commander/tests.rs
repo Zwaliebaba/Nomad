@@ -47,10 +47,7 @@ fn ai(n: u32) -> CommanderSetup {
 /// A Universe with no galaxy, ships or holdings that starts at 00:00 UTC, with these
 /// commanders.
 fn bare(setups: &[CommanderSetup]) -> UniverseState {
-    let mut state = UniverseState::new(SeasonConfig {
-        seed: 1,
-        season_start_unix_ms: DAY0,
-    });
+    let mut state = UniverseState::new(SeasonConfig::new(1, DAY0));
     for &setup in setups {
         add_commander(&mut state, setup).unwrap();
     }
@@ -112,7 +109,7 @@ fn moves(outputs: &[TickOutputs]) -> Vec<(Tick, CommanderId, QuarterHour)> {
                 assert_eq!(a.to, Recipients::Public, "the window is public (D-075)");
                 Some((a.tick, commander, start))
             }
-            AnnouncementKind::OrdersLapsed { .. } => None,
+            _ => None,
         })
         .collect()
 }
@@ -238,10 +235,7 @@ fn generation_makes_a_record_per_commander() {
     assert_eq!(state.commander(CommanderId(9)), None);
 
     // The server's roster: a human with their own window (D-157).
-    let season = SeasonConfig {
-        seed: 7,
-        season_start_unix_ms: DAY0,
-    };
+    let season = SeasonConfig::new(7, DAY0);
     let roster = [
         CommanderSetup::human(CommanderId(1), q(6, 30)),
         ai(2),
@@ -274,20 +268,14 @@ fn generation_makes_a_record_per_commander() {
 #[test]
 fn a_window_open_at_creation_is_the_current_occurrence() {
     // A season that starts at 20:30 UTC: the 19:00 window is open, until 23:00.
-    let mut state = UniverseState::new(SeasonConfig {
-        seed: 1,
-        season_start_unix_ms: DAY0 + 20 * 3_600_000 + 1_800_000,
-    });
+    let mut state = UniverseState::new(SeasonConfig::new(1, DAY0 + 20 * 3_600_000 + 1_800_000));
     add_commander(&mut state, ai(2)).unwrap();
     let window = state.exposure_window(CommanderId(2)).unwrap();
     assert_eq!(window.opens, Tick::ZERO);
     assert_eq!(window.closes, Tick::new(HOUR * 5 / 2));
     assert!(window.is_open(Tick::ZERO));
     // Starting at 23:30 it opens at 19:00 the next day.
-    let mut state = UniverseState::new(SeasonConfig {
-        seed: 1,
-        season_start_unix_ms: DAY0 + 23 * 3_600_000 + 1_800_000,
-    });
+    let mut state = UniverseState::new(SeasonConfig::new(1, DAY0 + 23 * 3_600_000 + 1_800_000));
     add_commander(&mut state, ai(2)).unwrap();
     let window = state.exposure_window(CommanderId(2)).unwrap();
     assert_eq!(window.opens, Tick::new(HOUR * 39 / 2));

@@ -527,15 +527,9 @@ fn units(milli: u64) -> f64 {
     reason = "the run loop and its report read best in one place"
 )]
 pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
-    let mut state = generate_stage1_with_rules(
-        SeasonConfig {
-            seed: cfg.seed,
-            season_start_unix_ms: 0,
-        },
-        COMMANDERS,
-        cfg.rules,
-    )
-    .map_err(|e| format!("{e:?}"))?;
+    let mut state =
+        generate_stage1_with_rules(SeasonConfig::new(cfg.seed, 0), COMMANDERS, cfg.rules)
+            .map_err(|e| format!("{e:?}"))?;
     let start_cap = state.pool_cap(COMMANDERS[0]);
     let ticks = Ticks::from_days(cfg.days).get();
     let minute = 60 * TICKS_PER_SECOND;

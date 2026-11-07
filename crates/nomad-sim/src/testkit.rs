@@ -27,14 +27,7 @@ pub(crate) const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// A generated stage-1 Universe with the start kits.
 pub(crate) fn stage1(seed: u64) -> UniverseState {
-    generate_stage1(
-        SeasonConfig {
-            seed,
-            season_start_unix_ms: 0,
-        },
-        COMMANDERS,
-    )
-    .expect("stage 1 generates")
+    generate_stage1(SeasonConfig::new(seed, 0), COMMANDERS).expect("stage 1 generates")
 }
 
 /// Commander `n`'s owner identity.
