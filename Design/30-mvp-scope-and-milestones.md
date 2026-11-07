@@ -1,6 +1,6 @@
 # 30 — MVP scope, milestones and acceptance
 
-Status: **Agreed (round 10).** Q88–Q91 were decided as D-094 to D-097. D-135, D-139, D-172 and D-205 later amended the packages and the order of work (§2, §4); D-190 moved the integration test out of CI (§3, §5). D-235 to D-237 (doc 21) make the browser the player's client, run the server in Docker Desktop, and add the MP-1 milestone (§2, §3, §6); the packages they bring are *Proposed* until Q230–Q243 are answered. Built on R-05, D-026, D-028, D-037, D-038, D-051, D-058, D-070 and D-083, and docs 10–17 and 20. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 10).** Q88–Q91 were decided as D-094 to D-097. D-263, D-277 and D-278 (round 19) add a minimal start screen to β and place S9 and K1. D-135, D-139, D-172 and D-205 later amended the packages and the order of work (§2, §4); D-190 moved the integration test out of CI (§3, §5). D-235 to D-237 (doc 21) make the browser the player's client, run the server in Docker Desktop, and add the MP-1 milestone (§2, §3, §6); the packages they bring are *Proposed* until Q230–Q243 are answered. Built on R-05, D-026, D-028, D-037, D-038, D-051, D-058, D-070 and D-083, and docs 10–17 and 20. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. What the MVP is
 
@@ -36,6 +36,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | S6 ✅ | Offline and siege rules (docs 12, 15; plan in `plans/S6-offline-and-sieges.md`). S6a ✅: commander records, activity and windows, presence, grace and order lapse, alongside S5b. S6b ✅: breach, Reinforced, siege, Held and Fallen, capture, emergency jump, outpost combat, protections, after S5b (D-172; claiming moved to S4, D-135) | L |
 | | S7 ✅ | Sensors: visibility sets, signatures, lane traffic, last-known memory, `CommanderView`; the validator, targeting, lock, the cruise drop and engagement read detection (doc 16; plan in `plans/S7-sensors.md`, D-173 to D-181) | M |
 | | S8 ✅ | Season standings, win, season end (D-020, D-041; plan in `plans/S8-season-end.md`, D-191 to D-198) | S |
+| | S9 | *Agreed (D-277):* the slot template from the station kit in the rules file (positions and hit radii, D-130, D-131, D-228) and pylons outside the dome on the peripheral rule (D-255): pylon slot check, pylon targeting, raiders excluded, the time-to-kill retune; the S5 hit tests, the station-layout test and the station obstacles follow | M |
 | **AI** | A1 | Deputy (doc 13 §4; plan in `plans/A1-deputy.md`, D-199 to D-211; A1a and A1b, D-205) | M |
 | | A2 | Strategist economy (plan in `plans/A2-strategist-economy.md`, D-212 to D-218) | L |
 | | A3 | Raider director (plan in `plans/A3-raider-director.md`, D-219 to D-225; also the α acceptance runs) | M |
@@ -57,12 +58,13 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | W2 | *Proposed (doc 21 §7.2; Q231, Q232):* the HTML UI layer: Leptos, the view-model binding, the M6 HUD. U1–U7 build on it | M |
 | | C7 | Network client and view-model store, replacing fixtures with live data (doc 20 §8) | M |
 | | C8 | Selection and orders in TACTICAL; live ships and effects | M |
+| | K1 | *Agreed (D-278):* the station kit in the client: one voxel model per module kind, the holding's scene built from its slots and modules instead of the phase-1 diorama (D-119), the art pass to phase-1 detail; generator draft in `tools/station-kit` | M |
 | **UI** | U1 | SYSTEM and SECTOR views, minimal GALAXY (doc 17 §3–4) | L |
 | | U2 | Orders and route preview in strategic views (doc 17 §5) | M |
 | | U3 | Build menu, queue, blueprints, economy panel | M |
 | | U4 | Doctrine editor, Deputy status | M |
 | | U5 | Away report, notifications, window and siege panel | M |
-| | U6 | Fleet panel, season panel, start screen and catch-up | M |
+| | U6 | Fleet panel, season panel, start screen and catch-up. *D-263:* a minimal start screen (create, continue, catch-up, shut down, ended standings) moves to β; U6 completes it | M |
 | | U7 | Hotkey scheme (doc 17 §7) | S |
 
 ### Delivered
@@ -79,7 +81,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | Milestone | Contents | Acceptance |
 |---|---|---|
 | **MVP-α — Headless game** | S2–S8, A1, A2, A3, harness | AI commanders with economy, plus raiders and Deputies, play seasons headlessly. Determinism holds (D-049). The economy pacing targets can be measured, and are within ±50% at this stage. Raids happen. Sieges run end to end when driven by scripted commands. |
-| **MVP-β — Playable slice** | N1–N5, C7, C8, U1–U3, U7, plus phase-1 M3–M6 | A human plays in the stage-1 sector against raiders and one economy AI, from the browser against the server in Docker Desktop (D-235, D-236; contents add N6, W1 and W2 once Q230–Q243 are answered). The client–server integration test passes on both operating systems (run locally, D-190). A 3-day playtest with server restarts, PC shutdowns and PC sleep (doc 21 §4.4) loses no state beyond the 1 s journal window, and catch-up works. |
+| **MVP-β — Playable slice** | N1–N6, W1, W2, C7, C8, U1–U3, U7, the minimal start screen (D-263), K1 and S9, plus phase-1 M3–M6 | A human plays in the stage-1 sector against raiders and one economy AI, from the browser against the server in Docker Desktop (D-235, D-236; the β screens are `plans/U-beta-ui.md`). The client–server integration test passes on both operating systems (run locally, D-190). A 3-day playtest with server restarts, PC shutdowns and PC sleep (doc 21 §4.4) loses no state beyond the 1 s journal window, and catch-up works. |
 | **MVP-γ — Stage 1 (MVP acceptance, D-038)** | A4, A5, A6, U4–U6; siege, window and away-report UI | **1 human, 3 AI and raiders, for a full season.** See §5. |
 | **MVP-δ — Stage 2** | Up to 9 AI commanders, two sectors (doc 10 §3) | The AI acceptance criteria hold with 10 commanders. Tick and AI budgets hold at stage-2 scale. A stage-2 playtest. |
 | **MP-1 — Multiplayer** (D-237; after δ, D-251) | Up to 4 humans in the stage-1 sector on a hosted server, AI filling empty seats; hosting, identity, derelict holdings (D-023) and notifications outside the client; contents from its own plan (doc 21 §10) | A full season with up to 4 humans, plus raiders and AI seat fillers. Acceptance is set by MP-1's plan. Placed before δ if Q243 is accepted. |
@@ -94,9 +96,9 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
    - **A1b** (threat, alert, engagement, abilities, convoy evacuation) after S7 and S5b;
    - **A2** after A1a and S7; **A3** after S6b, S7 and A1a, in parallel with A2.
 
-   After α: A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2):* S2–S8 are built; A1a is next, then A1b, A2 and A3 (D-205).
+   After α: **S9** (D-277), before β, then A4 → A5 → A6. The AI is the largest risk (RK-03), so it starts as soon as its rules exist. *Status (§2):* S2–S8 are built; A1a is next, then A1b, A2 and A3 (D-205).
 2. **Server and network:** N1 and N2 **can start now**, since they need no game rules. Then N3, N4 and N5 follow, once S3 provides real entities to send. *Status:* N1–N3 are built; N4 builds on S7's `CommanderView` (D-182).
-3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7. *Status:* M1–M4 are built; M5 and M6 are next.
+3. **Client and UI:** phase-1 M3–M6 continue now, using fixtures. C7 and C8 follow N3 and N4; U1–U7 follow C7. **K1** follows S9 and comes before C8 (D-278): it builds the scene from fixture slot data first, then from C7's live store. *Status:* M1–M4 are built; M5 and M6 are next.
 
 The streams meet at β (a playable slice) and γ (acceptance). Each package ends merged on the working branch with green CI, as M1 and the simulation core did.
 
