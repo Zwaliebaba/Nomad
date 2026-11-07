@@ -40,6 +40,8 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 - **Drilling down:** double-click a system in SECTOR to open SYSTEM; double-click a site in SYSTEM to open TACTICAL.
 - **Moving up:** scrolling out past the lowest zoom step moves up one level.
 - The breadcrumb in the phase-1 system panel follows the current level.
+
+> **Round 19 (D-260, D-261):** switching between TACTICAL and a strategic view is a cut, with the canvas paused; until δ, F4 opens a full-screen season view instead of a minimal GALAXY map. The β screens are written up in `plans/U-beta-ui.md`.
 - Strategic views stay north-up, like the minimap, so positions can be called out consistently (phase-1 decision).
 
 ## 4. SYSTEM and SECTOR contents
@@ -98,6 +100,8 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 
 > **Changing (D-235, D-236; doc 21):** in the browser the start screen is served by the server, "start with Windows" becomes Docker Desktop's start at sign-in, and "shut down" stops the simulation inside the server (Q237); the Windows toast becomes a browser notification (Q241). The panels themselves are unchanged.
 
+> **Round 19 (D-256, D-257, D-259, D-263):** the HUD's right-hand panel is a holding panel (window, sectors, timers); the top bar shows server status and the Deputy chip; a build button stays enabled when the pool is short and shows the shortfall; a minimal start screen is part of β.
+
 ## 7. Hotkeys
 
 *Agreed (D-093); resolves phase-1 doc 07 item 1.*
@@ -114,6 +118,8 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 *Why:* the phase-1 bindings already conflict (Q rotates the camera and is also SHLD SURGE; W and S are both card buttons and pan keys). A positional grid is the standard RTS answer, and it keeps every card reachable with one hand.
 
 > **Changing (D-235; doc 21 §7.5):** a browser reserves some of these keys, among them Ctrl+1–9, mouse buttons 4 and 5, F11, F12 and Esc. Q240 proposes keeping this scheme except where a browser reserves a key, with U7 testing every binding on Edge, Chrome and Firefox.
+
+> **Round 19 (D-258, D-262, D-274):** the cards' full layouts are in D-258; ELEV REF is a camera-widget toggle; STOP on the fleet card is station-keep at the current position; right-click on empty space or Backspace cancels a preview or dialog (Esc only in a window).
 
 ## 8. MVP limits
 

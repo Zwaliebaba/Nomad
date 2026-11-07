@@ -81,6 +81,8 @@ A connected client receives its commander's view: a full snapshot when the sessi
 
 ### 4.5 The view contract
 
+> **Amended by round 19 (D-264 to D-274; `C7-view-model-inventory.md` §4):** the exposure window is a commander's, public, not a holding's: the view gains public commander entries (id, window) and an own record entry (chosen window, free-choice limit, grace). The topology (D-266) and the rules (D-265) arrive once per session after `Welcome`. The holding entry gains `mother_station`; own holdings gain the slot template with modules, profile, repair, rally, kits, depot and delivery flags, output per hour (D-268), the sectors' open flag, turrets and ability ticks, and `breachable_from`. Build progress is `progress`, `rate` and `eta` (D-230), never milliseconds left. The own economy gains yield, lost, core-kit price and `delivered_last_hour` (D-269); own fleets gain their jump stage and convoy route; an own `alerts` collection is added (D-271). Names are generated, not sent (D-264).
+
 *Proposed (Q177);* timers *Agreed* (doc 20 §5).
 
 - **Typed entries per kind** replace the minimal `EntityEntry`:

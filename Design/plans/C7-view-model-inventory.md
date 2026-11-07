@@ -1,6 +1,6 @@
 # C7 input: view-model inventory for the β boards
 
-Status: **Proposed.** Written from the β client UI boards (TACTICAL HUD, compact HUD, SYSTEM, SECTOR, build drawer, economy drawer, start screen, resume screen) against the code at `b1a3b17`. It traces every value those boards show to where it comes from, and lists what N4 §4.5 must add or change so C7 can build its store against a fixed contract. Questions Q244–Q254 are new and unanswered. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions or the code, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 19).** Q244–Q254 were decided as D-264 to D-274, all as recommended; §4's additions go into N4 §4.5 with those decisions. Written from the β client UI boards (TACTICAL HUD, compact HUD, SYSTEM, SECTOR, build drawer, economy drawer, start screen, resume screen) against the code at `b1a3b17`. It traces every value those boards show to where it comes from, and lists what N4 §4.5 must add or change so C7 can build its store against a fixed contract. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions or the code, and *Proposed* means it needs the owner's approval.
 
 ## 1. Method
 
@@ -194,37 +194,37 @@ Paths such as `economy.pool` refer to `CommanderView` queries and the sim types 
 
 Numbered Q244–Q254 (round 19). Each has a recommendation and alternatives.
 
-- **Q244: Names of systems, sites, sectors and commanders.** Doc 10 §9 is *Proposed* and nothing in the code names anything.
+- **✅ Q244 (D-264): Names of systems, sites, sectors and commanders.** Doc 10 §9 is *Proposed* and nothing in the code names anything.
   *Recommendation:* agree doc 10 §9 and implement it as a pure function of seed and id in `nomad-types`, so the client and the server name things identically without sending strings; AI commanders get names from a word list the same way; the human's name comes from `create`. *Alternatives:* the server generates names at `create` and sends them in the topology and commander entries (strings on the wire, one generator); ids only in β, names later (every board label becomes a code).
 
-- **Q245: How the client gets the rules.** The client needs costs, times, power, slot eligibility, ranges and cooldowns; the rules types live in `nomad-sim`, which the client does not link, and a Universe can carry tuned rules (D-104).
+- **✅ Q245 (D-265): How the client gets the rules.** The client needs costs, times, power, slot eligibility, ranges and cooldowns; the rules types live in `nomad-sim`, which the client does not link, and a Universe can carry tuned rules (D-104).
   *Recommendation:* move the rules types (serde only, no logic) from `nomad-sim` to `nomad-types`, and send the Universe's rules once per session, after `Welcome`. *Alternatives:* the client embeds the same-commit `default.json` (wrong for tuned Universes); the client links `nomad-sim` (pulls the whole simulation into the wasm module and blurs doc 20 §3's boundary).
 
-- **Q246: How the topology reaches the client.** N4's per-entity minimal entries carry no system kind, site position, deposits or lane transit.
+- **✅ Q246 (D-266): How the topology reaches the client.** N4's per-entity minimal entries carry no system kind, site position, deposits or lane transit.
   *Recommendation:* a `Topology` message once per session, after `Welcome`: systems (kind, sector), sites (position, deposits), gates (position, lanes), lanes (gates, transit, kind). The `public` collection then carries only what changes: holdings and their owners. *Alternatives:* typed topology entries inside `public` (diffed like everything else, though they never change); the client regenerates the galaxy from the seed (needs the generator in the client and ties the client to the generator's version).
 
-- **Q247: Fleet names.** The roster shows names; no design gives fleets one.
+- **✅ Q247 (D-267): Fleet names.** The roster shows names; no design gives fleets one.
   *Recommendation:* fleets get a player-set label, stored by the server outside the simulation (a small table beside the read models), set with a session message that the simulation never sees; no label means "FLEET n". Not gameplay, so not journaled; survives a new browser and works for MP-1. *Alternatives:* a label in the simulation, set by a `Command` and journaled (simple, but puts cosmetic data into the deterministic state); labels in the browser's storage only (lost with the browser, invisible to the native build).
 
-- **Q248: Per-holding output.** The income table and a buffer's "full in" need it.
+- **✅ Q248 (D-268): Per-holding output.** The income table and a buffer's "full in" need it.
   *Recommendation:* the sim computes each own holding's output per hour after yield and power share at the last economy tick, and the own holding entry carries it. *Alternatives:* the client estimates it from rules and modules (wrong whenever power is short, which is when the player looks); per-holding production over the last hour (accurate, but lags a change by an hour).
 
-- **Q249: The pool's fill estimate.** `income_last_hour` counts production, not delivery.
+- **✅ Q249 (D-269): The pool's fill estimate.** `income_last_hour` counts production, not delivery.
   *Recommendation:* add `delivered_last_hour` to the own economy and base "full in" on it. *Alternatives:* the client measures the pool's change over its own session (fails right after login); keep `income_last_hour` and accept an optimistic estimate.
 
-- **Q250: Route preview.** The jump route is the sim's shortest-by-time search.
+- **✅ Q250 (D-270): Route preview.** The jump route is the sim's shortest-by-time search.
   *Recommendation:* move the route search (pure, over the topology and the fleet's cruise speed) to `nomad-types` beside Q245's rules, so the preview runs the same code as the fleet. *Alternatives:* a request–reply "preview route" message answered by the server (a round trip on every hover, and a new message kind outside commands); a client-side search written separately (drifts from the sim).
 
-- **Q251: Alert lifecycle.** The banner needs a start and an end; `Notification` has only a start.
+- **✅ Q251 (D-271): Alert lifecycle.** The banner needs a start and an end; `Notification` has only a start.
   *Recommendation:* own active alerts as view state: an `alerts` collection of `{ id, kind, subject, since }`, removed when the condition ends (raid over, sector back to full, siege resolved); `Notification` stays the trigger for toasts. *Alternatives:* the client clears the banner after a fixed time or when the player looks at the subject (no server work, can hide a live raid); the server sends an "alert ended" notification (two event kinds to keep in step).
 
-- **Q252: The start screen's API.** No session exists before a Universe runs.
+- **✅ Q252 (D-272): The start screen's API.** No session exists before a Universe runs.
   *Recommendation:* a small JSON API on the same `axum` server (D-243), under the same Host and Origin guard (D-244): list Universes from their `meta`, create, resume, shut down, and the final standings of an ended season. The page loads it before the game connects. *Alternatives:* lobby messages on the WebSocket before `Hello` (one transport, but a second protocol in the frozen prefix's space); start-screen commands in `nomad-protocol` after a session to a "no Universe" server (sessions are per commander, which has none yet).
 
-- **Q253: Reordering the build queue.** Doc 17 §6 lists it; no command exists.
+- **✅ Q253 (D-273): Reordering the build queue.** Doc 17 §6 lists it; no command exists.
   *Recommendation:* `EconomyCommand::Move { holding, item, before }` for items not yet started; started items keep their place. *Alternatives:* drop reordering from β and keep cancel and re-queue (cancel is free before the start, D-068).
 
-- **Q254: STOP on the fleet card.** `FleetOrder` has no stop.
+- **✅ Q254 (D-274): STOP on the fleet card.** `FleetOrder` has no stop.
   *Recommendation:* STOP sends `StationKeep` at the fleet's current position with `Queueing::Replace`; no protocol change. *Alternatives:* a `Stop` order that clears the queue and coasts to a halt (a new rule); no STOP on the card.
 
 ## 6. Board corrections made with this inventory
