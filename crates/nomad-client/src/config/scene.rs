@@ -282,6 +282,19 @@ pub struct ShieldConfig {
     pub weak_threshold: f32,
     pub weak_color: Rgb,
     pub hits: ShieldHits,
+    /// Optional projection links from vulnerable external generators (D-255).
+    #[serde(default)]
+    pub generator_links: Vec<ShieldGeneratorLink>,
+    #[serde(default)]
+    pub generator_link_style: Option<ShieldLine>,
+}
+
+/// A visual energy link; this is not collision geometry or a protected station module.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ShieldGeneratorLink {
+    pub generator: String,
+    pub emitter: [f32; 3],
+    pub contact: [f32; 3],
 }
 
 /// The shield's shape.
@@ -664,7 +677,13 @@ impl ShieldConfig {
             ("shield.ring", &self.ring),
             ("shield.ring_weak", &self.ring_weak),
             ("shield.ring_far", &self.ring_far),
-        ] {
+        ]
+        .into_iter()
+        .chain(
+            self.generator_link_style
+                .as_ref()
+                .map(|style| ("shield.generator_link_style", style)),
+        ) {
             let ok = unit(line.alpha)
                 && width_ok(line.width_ref_px)
                 && finite_positive(line.dash_ref_px[0])
@@ -695,7 +714,50 @@ impl ShieldConfig {
                 ));
             }
         }
+        self.validate_generator_links()?;
         self.hits.validate()
+    }
+
+    fn validate_generator_links(&self) -> Result<(), Rejection> {
+        let field = "shield.generator_links";
+        if self.generator_links.len() > 8
+            || (!self.generator_links.is_empty() && self.generator_link_style.is_none())
+        {
+            return Err((
+                field,
+                "at most eight links, with an explicit style, are supported".into(),
+            ));
+        }
+        let radius = |point: [f32; 3]| {
+            ((point[0] - self.center[0]).powi(2) + (point[1] - self.center[1]).powi(2))
+                / self.radius_xy.powi(2)
+                + (point[2] - self.center[2]).powi(2) / self.radius_z.powi(2)
+        };
+        let mut names = std::collections::BTreeSet::new();
+        for link in &self.generator_links {
+            let finite = link
+                .emitter
+                .iter()
+                .chain(link.contact.iter())
+                .all(|v| v.is_finite() && v.abs() <= 16_000.0);
+            let length_squared: f32 = link
+                .emitter
+                .iter()
+                .zip(link.contact)
+                .map(|(a, b)| (a - b).powi(2))
+                .sum();
+            let valid = !link.generator.is_empty()
+                && names.insert(&link.generator)
+                && finite
+                && 0.0 < length_squared
+                && length_squared <= 128.0_f32.powi(2)
+                && radius(link.emitter) > 1.0
+                && (radius(link.contact) - 1.0).abs() <= 0.001;
+            if !valid {
+                return Err((field, "links need unique generators, finite short paths, external emitters and contacts on the field".into()));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -752,15 +814,15 @@ fn open_unit(value: f32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{default_asset_root, load_scene_config, scene_config_path};
+    use crate::config::{load_scene_config, phase1_fixture_root, scene_config_path};
 
     fn real_config() -> SceneConfig {
-        load_scene_config(&scene_config_path(&default_asset_root()))
+        load_scene_config(&scene_config_path(&phase1_fixture_root()))
             .expect("the shipped scene_config.json must load")
     }
 
     fn real_text() -> String {
-        std::fs::read_to_string(scene_config_path(&default_asset_root()))
+        std::fs::read_to_string(scene_config_path(&phase1_fixture_root()))
             .expect("the shipped scene_config.json must be readable")
     }
 

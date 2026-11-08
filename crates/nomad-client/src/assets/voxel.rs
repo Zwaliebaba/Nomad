@@ -372,10 +372,10 @@ fn chunk_shape(module: &ModuleFile) -> Result<([i32; 3], [usize; 3], usize), Rej
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{default_asset_root, station_scene_path};
+    use crate::config::{phase1_fixture_root, station_scene_path};
 
     fn real_scene() -> StationScene {
-        load_station_scene(&station_scene_path(&default_asset_root()))
+        load_station_scene(&station_scene_path(&phase1_fixture_root()))
             .expect("the shipped station_scene.json must load")
     }
 

@@ -318,7 +318,7 @@
       "model": "shield_generator",
       "position": [
         0,
-        -320,
+        -352,
         0
       ],
       "quarter_turns": 0,
@@ -328,7 +328,7 @@
       "id": "pylon_e",
       "model": "shield_generator",
       "position": [
-        320,
+        352,
         0,
         0
       ],
@@ -340,7 +340,7 @@
       "model": "shield_generator",
       "position": [
         0,
-        320,
+        352,
         0
       ],
       "quarter_turns": 0,
@@ -350,7 +350,7 @@
       "id": "pylon_w",
       "model": "shield_generator",
       "position": [
-        -320,
+        -352,
         0,
         0
       ],
@@ -879,7 +879,7 @@
         1
       ],
       "end": [
-        -308,
+        -340,
         0,
         1
       ]
@@ -894,7 +894,7 @@
         1
       ],
       "end": [
-        308,
+        340,
         0,
         1
       ]
@@ -910,7 +910,7 @@
       ],
       "end": [
         0,
-        -308,
+        -340,
         1
       ]
     },
@@ -925,7 +925,7 @@
       ],
       "end": [
         0,
-        308,
+        340,
         1
       ]
     }
@@ -944,19 +944,24 @@
       "pylon_w"
     ],
     "center": [
-      0,
-      0,
-      46
+      0.5,
+      0.5,
+      61
     ],
     "radius_xy": 320,
-    "radius_z": 240,
-    "emitter_height": 46,
-    "note": "The field passes through the four generator cores. It encloses the main plant and connecting tubes; the external generator housings straddle that boundary.",
+    "radius_z": 270,
+    "emitter_height": 61,
+    "note": "Generator housings are wholly outside the protected ellipsoid. A short energy link runs from each exposed top lens to its contact on the field. External power feeds are vulnerable too.",
     "projector_model": "shield_generator",
     "emitter_local": [
       0,
       0,
-      46
+      60
+    ],
+    "emitter_contact_local": [
+      0.5,
+      0.5,
+      61
     ]
   }
 }

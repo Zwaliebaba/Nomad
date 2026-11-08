@@ -22,7 +22,7 @@ usage: nomad-client [--windowed] [--size WxH] [--view N] [--zoom Z]
                         hit loop (default 0)
 
 environment:
-  NOMAD_ASSETS          asset root (default: Design/phase1-visual-slice/assets in this workspace)
+  NOMAD_ASSETS          asset root (default: art/scenes/SpaceStation/assets in this workspace)
   RUST_LOG              log filter, for example `info` or `nomad_client=debug`";
 
 /// Default window and screenshot size (phase-1 doc 06, M1).

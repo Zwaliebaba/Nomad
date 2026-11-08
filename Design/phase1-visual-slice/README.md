@@ -1,5 +1,7 @@
 # Voxel RTS — Phase 1 design package (Ops grid: base under siege)
 
+**Historical package (D-290):** the active layout is [SpaceStation](../../art/scenes/SpaceStation/README.md). These files remain as design reference, shared rendering templates and frozen regression inputs. The old layout generators are retired.
+
 This package is the hand-off from the design canvas ("Ops grid — proposal: core spindle + lifted modules") to the Rust implementation. It is written for Claude Code working inside the Rust project. It lives in the repository at `Design/phase1-visual-slice/`; point Claude Code at this README.
 
 ## What phase 1 is

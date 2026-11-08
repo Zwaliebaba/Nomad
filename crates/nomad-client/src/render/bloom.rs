@@ -366,12 +366,12 @@ mod tests {
 
     use super::*;
     use crate::camera::{Camera, Projection};
-    use crate::config::{default_asset_root, load_scene_config, scene_config_path};
+    use crate::config::{load_scene_config, phase1_fixture_root, scene_config_path};
 
     /// Doc 01 §2: about 6 px at zoom 1 on a 1080p window; it scales with zoom and window size.
     #[test]
     fn kernel_scales_with_zoom_and_window() {
-        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let config = load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap();
         let projection = Projection::from_config(&config);
         let kernel = |size: Vec2, zoom_index: usize| {
             let mut camera = Camera::new(projection.clone(), size);

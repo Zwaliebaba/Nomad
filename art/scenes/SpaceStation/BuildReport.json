@@ -6,27 +6,111 @@
   "connected_instances": 35,
   "visible_objects": 72,
   "physically_connected_objects": 72,
-  "voxel_count": 356982,
+  "voxel_count": 365186,
   "carved_port_voxels": 4325,
   "shared_coupling_voxels": 3162,
   "bounds": [
     [
-      -332,
-      -332,
+      -364,
+      -364,
       -8
     ],
     [
-      332,
-      332,
+      364,
+      364,
       126
     ]
   ],
   "glass_voxels": 3124,
   "shield_projectors": 4,
-  "shield_covers_plant_and_tubes": true,
-  "shield_projectors_on_boundary": true,
+  "shield_covers_plant_and_internal_tubes": true,
+  "shield_generators_outside": true,
+  "shield_generator_min_normalized_radius_squared": 1.126699490017361,
   "shield_emitter_boundary_max_error": 0.0,
-  "shield_max_normalized_radius_squared": 0.977626953125,
+  "generator_energy_links": [
+    {
+      "generator": "pylon_n",
+      "emitter": [
+        0.5,
+        -351.5,
+        61
+      ],
+      "contact": [
+        0.5,
+        -319.5,
+        61
+      ]
+    },
+    {
+      "generator": "pylon_e",
+      "emitter": [
+        352.5,
+        0.5,
+        61
+      ],
+      "contact": [
+        320.5,
+        0.5,
+        61
+      ]
+    },
+    {
+      "generator": "pylon_s",
+      "emitter": [
+        0.5,
+        352.5,
+        61
+      ],
+      "contact": [
+        0.5,
+        320.5,
+        61
+      ]
+    },
+    {
+      "generator": "pylon_w",
+      "emitter": [
+        -351.5,
+        0.5,
+        61
+      ],
+      "contact": [
+        -319.5,
+        0.5,
+        61
+      ]
+    }
+  ],
+  "exposed_generator_feeds": [
+    "HangarATopylon_e",
+    "LogisticsTopylon_w",
+    "RelayTopylon_n",
+    "SmallPadTopylon_s"
+  ],
+  "shield_emitter_contacts": {
+    "pylon_n": [
+      0.5,
+      -351.5,
+      61
+    ],
+    "pylon_e": [
+      352.5,
+      0.5,
+      61
+    ],
+    "pylon_s": [
+      0.5,
+      352.5,
+      61
+    ],
+    "pylon_w": [
+      -351.5,
+      0.5,
+      61
+    ]
+  },
+  "shield_attachment": "exposed_top_face",
+  "shield_max_normalized_radius_squared": 0.7585665629822531,
   "main_plant_bounds": [
     [
       -169,

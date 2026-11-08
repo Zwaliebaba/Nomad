@@ -208,16 +208,16 @@ mod tests {
     use crate::assets::voxel::load_station_scene;
     use crate::camera::{Camera, Projection, Turn};
     use crate::config::{
-        default_asset_root, load_scene_config, scene_config_path, station_scene_path,
+        load_scene_config, phase1_fixture_root, scene_config_path, station_scene_path,
     };
 
     fn camera() -> Camera {
-        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let config = load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap();
         Camera::new(Projection::from_config(&config), Vec2::new(1920.0, 1080.0))
     }
 
     fn modules() -> Vec<ElevatedModule> {
-        elevated_modules(&load_station_scene(&station_scene_path(&default_asset_root())).unwrap())
+        elevated_modules(&load_station_scene(&station_scene_path(&phase1_fixture_root())).unwrap())
     }
 
     /// Doc 01 §5 and doc 03: FA-1 at +8 and FB-2 at +4, footprints from their bounds (inclusive
@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn cues_have_a_fill_four_edges_and_three_stalks() {
-        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let config = load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap();
         let t = camera().transform();
         let mut vertices = Vec::new();
         build_cues(&mut vertices, &modules()[0], &config.elevation, &t);

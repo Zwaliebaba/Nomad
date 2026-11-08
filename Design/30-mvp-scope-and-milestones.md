@@ -58,7 +58,7 @@ Sizes are relative: S < M < L < XL. Status as of this document: ✅ done, ⏳ in
 | | W2 | *Proposed (doc 21 §7.2; Q231, Q232):* the HTML UI layer: Leptos, the view-model binding, the M6 HUD. U1–U7 build on it | M |
 | | C7 | Network client and view-model store, replacing fixtures with live data (doc 20 §8) | M |
 | | C8 | Selection and orders in TACTICAL; live ships and effects | M |
-| | K1 | *Agreed (D-278):* the station kit in the client: one voxel model per module kind, the holding's scene built from its slots and modules instead of the phase-1 diorama (D-119), the art pass to phase-1 detail; generator draft in `tools/station-kit`; the module-kind models are maintained in MagicaVoxel under `art/voxels/modules` (D-289) | M |
+| | K1 | *Agreed (D-278):* the station kit in the client: one voxel model per module kind, the holding's scene built from its slots and modules instead of the phase-1 diorama (D-119), the art pass to phase-1 detail. The supported art assembly is built by `tools/station-scene`; module models are maintained in MagicaVoxel under `art/voxels/modules` (D-289, D-290). The assembly does not replace the gameplay slot rules. | M |
 | **UI** | U1 | SYSTEM and SECTOR views, minimal GALAXY (doc 17 §3–4) | L |
 | | U2 | Orders and route preview in strategic views (doc 17 §5) | M |
 | | U3 | Build menu, queue, blueprints, economy panel | M |

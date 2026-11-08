@@ -545,12 +545,12 @@ impl ViewTransform {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{default_asset_root, load_scene_config, scene_config_path};
+    use crate::config::{load_scene_config, phase1_fixture_root, scene_config_path};
 
     const REFERENCE: Vec2 = Vec2::new(1920.0, 1080.0);
 
     fn config() -> SceneConfig {
-        load_scene_config(&scene_config_path(&default_asset_root())).unwrap()
+        load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap()
     }
 
     fn camera_at(viewport: Vec2) -> Camera {

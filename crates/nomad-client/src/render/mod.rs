@@ -491,7 +491,7 @@ mod tests {
     use super::*;
     use crate::assets::voxel::StationScene;
     use crate::camera::{Camera, Projection, Turn};
-    use crate::config::{SceneConfig, default_asset_root};
+    use crate::config::{SceneConfig, phase1_fixture_root};
 
     /// Shaders are validated without a GPU, so CI catches WGSL errors.
     #[test]
@@ -515,7 +515,7 @@ mod tests {
 
     /// The shipped assets, with whatever fonts are installed locally.
     fn assets() -> SceneAssets {
-        SceneAssets::load(&default_asset_root()).unwrap()
+        SceneAssets::load(&phase1_fixture_root()).unwrap()
     }
 
     fn renderer(format: wgpu::TextureFormat) -> (Renderer, SceneConfig) {

@@ -70,11 +70,11 @@ pub fn load_fixture(path: &Path) -> Result<Fixture, ConfigError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{default_asset_root, fixture_path};
+    use crate::config::{fixture_path, phase1_fixture_root};
 
     #[test]
     fn real_fixture_has_the_pylon_strengths() {
-        let fixture = load_fixture(&fixture_path(&default_asset_root())).unwrap();
+        let fixture = load_fixture(&fixture_path(&phase1_fixture_root())).unwrap();
         assert_eq!(fixture.pylon_strength("pylon_n"), Some(1.0));
         assert_eq!(fixture.pylon_strength("pylon_e"), Some(0.38));
         assert_eq!(fixture.pylon_strength("pylon_s"), Some(0.88));

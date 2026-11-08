@@ -34,7 +34,8 @@ crates/
 .vscode/                Tasks, launch configurations and settings for VS Code
 Dockerfile              Linux image of nomad-server, a developer and soak-test mode (Design D-152)
 tools/preview/          Single-file WebGL preview of the phase-1 scene (design-review aid, not the client)
-tools/station-spread/   Rebuilds the phase-1 station layout with the outer buildings spread out (Design D-111)
+tools/station-scene/    Builds and validates the supported SpaceStation assembly (D-290)
+art/scenes/SpaceStation/ Authored layout, MagicaVoxel assembly and default renderer assets
 AGENTS.md               Instructions for AI coding agents
 CONTRIBUTING.md         How to propose and land changes
 CODING_STANDARDS.md     Rust coding standards
@@ -70,7 +71,7 @@ In VS Code the `Local checks`, `GPU tests` and `Ignored tests (network, long sim
 
 ### Run the client
 
-Run the phase-1 client (milestones M1 to M4: window, background, infinite ops grid, camera, the station voxels, bloom on emissive voxels, elevation cues under lifted modules, the hover highlight with its `ELEV +n` tag, and the shield globe with its sector ring, the weak E sector and scripted hit ripples):
+Run the native renderer with the supported SpaceStation assembly: PascalCase modules, enclosed tubes and four external shield generators (D-290). The older `start`/`full` and phase-1 authoring layouts are retired.
 
 ```bash
 cargo run -p nomad-client                      # borderless fullscreen on the current monitor
@@ -86,16 +87,27 @@ cargo run -p nomad-client -- --screenshot out.png --shield-ms 450       # 450 ms
 |---|---|
 | Q / E | Rotate the view −90° / +90° (250 ms; presses during a turn are queued) |
 | Mouse wheel | Zoom step toward the cursor (0.5, 0.75, 1, 1.5, 2) |
-| WASD, arrows, screen edge, middle-mouse drag | Pan (±200 voxels around the deck centre) |
+| WASD, arrows, screen edge, middle-mouse drag | Pan (within the scene-configured ops area) |
 | Home | View 0, zoom 1, deck centre |
 | F11 | Toggle between borderless fullscreen and a window |
 | F12 | Screenshot to `screenshots/` in the working directory |
 
 These are the phase-1 bindings (phase-1 doc 02). The MVP hotkey scheme (Design D-093, doc 17 §7: rotation on Alt+Q/E, no WASD panning) replaces them with package U7.
 
-Hovering a module highlights it; a lifted module (FA-1, FB-2) also shows its `ELEV +n` tag. The tag needs the phase-1 fonts, which are OFL-licensed and not bundled: put the JetBrains Mono and Rajdhani `.ttf` files (static or variable) into `Design/phase1-visual-slice/assets/fonts/`, which git ignores. Without them the client logs a warning and draws no tag text.
+Hovering a module highlights it. Lifted modules can show an `ELEV +n` tag. Put the optional OFL-licensed JetBrains Mono and Rajdhani `.ttf` files into `art/scenes/SpaceStation/assets/fonts/`, which git ignores. Without them the renderer logs a warning and omits tag text.
 
-Assets load from `Design/phase1-visual-slice/assets`; set `NOMAD_ASSETS` to use another folder. Tuning values (pan speed, pan limit, grid fade, background and stars, bloom, elevation cues and hover) live in `layout/scene_config.json` there (Design D-059, D-063); the tag's text and style live in `layout/hud_layout.json`. `RUST_LOG` sets the log filter. wgpu picks the graphics backend itself; `WGPU_BACKEND` overrides it, for example `dx12` (D-084). On Linux the client needs a Vulkan or OpenGL ES driver and, under X11, `libxkbcommon-x11` at run time; building needs no system packages. GPU tests are ignored by default; run them with `cargo test -p nomad-client -- --ignored` on a machine with a GPU or a software Vulkan driver such as Mesa lavapipe.
+Assets default to `art/scenes/SpaceStation/assets`; set `NOMAD_ASSETS` to use another folder. Tuning values (pan speed, pan limit, grid fade, background and stars, bloom, elevation cues and hover) live in `layout/scene_config.json` there (Design D-059, D-063); the tag's text and style live in `layout/hud_layout.json`. `RUST_LOG` sets the log filter. wgpu picks the graphics backend itself; `WGPU_BACKEND` overrides it, for example `dx12` (D-084). On Linux the client needs a Vulkan or OpenGL ES driver and, under X11, `libxkbcommon-x11` at run time; building needs no system packages. GPU tests are ignored by default; run them with `cargo test -p nomad-client -- --ignored` on a machine with a GPU or a software Vulkan driver such as Mesa lavapipe.
+
+Rebuild the supported layout and preview:
+
+```bash
+cargo run --locked -p nomad-vox -- import
+python3 tools/vox/audit_modules.py
+python3 tools/station-scene/build.py
+python3 tools/preview/build.py art/scenes/SpaceStation/assets tools/preview/template.html target/SpaceStation-preview.html
+```
+
+Edit [layout.json](art/scenes/SpaceStation/layout.json) for placements and tube routes. The module catalog is generated at `art/voxels/modules/ModuleCatalog.json`. See [the scene documentation](art/scenes/SpaceStation/README.md). Frozen phase-1 data remains for regression tests and shared rendering templates, not as a supported layout.
 
 ### Run the harness
 

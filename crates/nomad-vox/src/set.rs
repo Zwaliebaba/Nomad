@@ -5,7 +5,7 @@
 //! {
 //!   "format": "nomad-vox/set@1",
 //!   "kind": "models",                   // or "ships"
-//!   "output": "../../../Design/phase1-visual-slice/assets/voxels/module_kinds.json",
+//!   "output": "ModuleCatalog.json",
 //!   "axes": "+x away from the core, +z up; origin at the slot centre on the ops grid",
 //!   "status": "...",                    // ships only: copied into the output
 //!   "colour_names": { "#9aa1af": "hull" },  // ships only: palette role names

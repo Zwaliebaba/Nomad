@@ -410,6 +410,19 @@ pub fn build_lines(
         );
     }
     out.near.extend(near_ring);
+    if let Some(style) = &shield.generator_link_style {
+        let style = stroke(style, shield.rim_color, scale);
+        for link in &shield.generator_links {
+            push_stroke(
+                &mut out.near,
+                Vec3::from(link.emitter),
+                Vec3::from(link.contact),
+                &style,
+                0.0,
+                1.0,
+            );
+        }
+    }
 }
 
 fn push_run(
@@ -465,6 +478,10 @@ pub struct ShieldPass {
     ellipsoid: Ellipsoid,
     sectors: Sectors,
     impacts: Vec<Impact>,
+}
+
+fn shield_line_capacity(shield: &ShieldConfig) -> usize {
+    (RIM_SEGMENTS + RING_SEGMENTS + shield.generator_links.len()) * QUAD_VERTICES
 }
 
 impl ShieldPass {
@@ -558,7 +575,7 @@ impl ShieldPass {
                 cache: None,
             })
         };
-        let line_capacity = (RIM_SEGMENTS + RING_SEGMENTS) * QUAD_VERTICES;
+        let line_capacity = shield_line_capacity(&shield);
         Self {
             uniform_buffer,
             bind_group,
@@ -683,20 +700,163 @@ fn unit_sphere(lat: u32, lon: u32) -> (Vec<[f32; 3]>, Vec<u32>) {
 mod tests {
     use super::*;
     use crate::config::{
-        default_asset_root, fixture_path, load_fixture, load_scene_config, scene_config_path,
+        fixture_path, load_fixture, load_scene_config, phase1_fixture_root, scene_config_path,
     };
 
     fn config() -> SceneConfig {
-        load_scene_config(&scene_config_path(&default_asset_root())).unwrap()
+        load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap()
     }
 
     fn fixture() -> Fixture {
-        load_fixture(&fixture_path(&default_asset_root())).unwrap()
+        load_fixture(&fixture_path(&phase1_fixture_root())).unwrap()
     }
 
     fn ellipsoid() -> Ellipsoid {
         let config = config();
         Ellipsoid::new(&config.shield, config.projection.effective_z_scale())
+    }
+
+    fn lens_top(assets: &crate::assets::SceneAssets, name: &str) -> Vec3 {
+        let module = assets
+            .station
+            .modules
+            .iter()
+            .find(|m| m.id == name)
+            .unwrap();
+        let top_z = module.chunk.voxels().map(|(p, _)| p[2]).max().unwrap();
+        let lens: Vec<_> = module
+            .chunk
+            .voxels()
+            .filter(|(p, colour)| {
+                p[2] == top_z && assets.station.palette[usize::from(*colour)].emissive
+            })
+            .collect();
+        assert!(
+            !lens.is_empty(),
+            "{name}: highest surface must contain the emitting lens"
+        );
+        let min_x = lens.iter().map(|(p, _)| p[0]).min().unwrap();
+        let max_x = lens.iter().map(|(p, _)| p[0]).max().unwrap();
+        let min_y = lens.iter().map(|(p, _)| p[1]).min().unwrap();
+        let max_y = lens.iter().map(|(p, _)| p[1]).max().unwrap();
+        Vec3::new(
+            (min_x + max_x + 1) as f32 * 0.5,
+            (min_y + max_y + 1) as f32 * 0.5,
+            (top_z + 1) as f32,
+        )
+    }
+
+    #[test]
+    fn supported_scene_links_match_actual_lens_tops_and_surface_in_every_view() {
+        let assets =
+            crate::assets::SceneAssets::load(&crate::config::default_asset_root()).unwrap();
+        let field = Ellipsoid::new(
+            &assets.config.shield,
+            assets.config.projection.effective_z_scale(),
+        );
+        let (vertices, _) = unit_sphere(MESH_LAT, MESH_LON);
+        assert_eq!(assets.config.shield.generator_links.len(), 4);
+        for link in &assets.config.shield.generator_links {
+            let top = lens_top(&assets, &link.generator);
+            let emitter = Vec3::from(link.emitter);
+            let contact = Vec3::from(link.contact);
+            assert!(
+                emitter.distance(top) < 0.001,
+                "energy link must start on the actual top face"
+            );
+            assert!(
+                emitter.distance(contact) >= 8.0,
+                "generators must remain outside the shield"
+            );
+            let module = assets
+                .station
+                .modules
+                .iter()
+                .find(|m| m.id == link.generator)
+                .unwrap();
+            for (p, _) in module.chunk.voxels() {
+                let min = Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32);
+                let nearest = field.center.clamp(min, min + Vec3::ONE);
+                assert!(
+                    ((nearest - field.center) / field.radii).length_squared() > 1.0,
+                    "{}: a generator voxel is protected",
+                    link.generator
+                );
+            }
+            let mesh_point = vertices
+                .iter()
+                .map(|p| field.point(Vec3::from(*p)))
+                .min_by(|a, b| {
+                    a.distance_squared(contact)
+                        .total_cmp(&b.distance_squared(contact))
+                })
+                .unwrap();
+            assert!(
+                mesh_point.distance(contact) < 0.001,
+                "energy link must end on the rendered field"
+            );
+            let mut camera = Camera::new(
+                Projection::from_config(&assets.config),
+                Vec2::new(1920.0, 1080.0),
+            );
+            for view_index in 0..4 {
+                camera.set_view(view_index);
+                let view = camera.transform();
+                assert!(
+                    view.world_to_screen(mesh_point)
+                        .distance(view.world_to_screen(contact))
+                        < 0.1
+                );
+                assert!(
+                    view.world_to_screen(emitter)
+                        .distance(view.world_to_screen(top))
+                        < 0.1
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn supported_scene_has_no_equatorial_stroke_or_below_grid_seam() {
+        let assets =
+            crate::assets::SceneAssets::load(&crate::config::default_asset_root()).unwrap();
+        let shield = &assets.config.shield;
+        assert!((shield.below_grid_opacity - 1.0).abs() <= f32::EPSILON);
+        let field = Ellipsoid::new(shield, assets.config.projection.effective_z_scale());
+        let sectors = Sectors::new(shield, &assets.fixture);
+        let mut camera = Camera::new(
+            Projection::from_config(&assets.config),
+            Vec2::new(1920.0, 1080.0),
+        );
+        for view_index in 0..4 {
+            camera.set_view(view_index);
+            let mut lines = ShieldLines::default();
+            build_lines(&mut lines, shield, &field, &sectors, &camera.transform());
+            assert!(lines.far.len() + lines.near.len() <= shield_line_capacity(shield));
+            assert!(lines.far.iter().all(|v| v.color[3] == 0.0));
+            assert!(
+                lines.near.iter().any(|v| v.color[3] > 0.0),
+                "the silhouette must remain visible"
+            );
+            for vertex in lines.near.iter().filter(|v| {
+                (v.start[2] - field.center.z).abs() < 0.001
+                    && (v.end[2] - field.center.z).abs() < 0.001
+            }) {
+                if vertex.color[3].abs() > f32::EPSILON {
+                    assert!(
+                        shield
+                            .generator_links
+                            .iter()
+                            .any(|link| Vec3::from(vertex.start)
+                                .distance(Vec3::from(link.emitter))
+                                < 0.001
+                                && Vec3::from(vertex.end).distance(Vec3::from(link.contact))
+                                    < 0.001),
+                        "only local generator links may be visible on the equatorial plane"
+                    );
+                }
+            }
+        }
     }
 
     fn camera() -> Camera {

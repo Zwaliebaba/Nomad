@@ -163,11 +163,15 @@ def main():
     listed = {entry["id"]: entry for entry in inventory["models"]}
     manifest = json.loads((MODULES / "set.json").read_text())
     declared = {entry["id"]: entry.get("file", entry["id"] + ".vox") for entry in manifest["models"]}
+    if set(declared) != set(listed):
+        raise ValueError("the active module manifest must contain only the new module set")
     if any(declared.get(model_id) != entry["file"] for model_id, entry in listed.items()):
         raise ValueError("module inventory and set.json source filenames differ")
     paths = sorted(MODULES / entry["file"] for entry in listed.values())
     if not paths or any(not path.is_file() for path in paths):
         raise ValueError("module file membership differs from inventory")
+    if {path.name for path in MODULES.glob('*.vox')} != {path.name for path in paths}:
+        raise ValueError("unregistered or retired voxel sources remain in the module directory")
     glass_models = {"biodome", "greenhouse_pair"}
     emit = {9, 10, 11, 12}
     if {i for i, props in expected_materials.items() if props["_type"] == "_emit"} != emit:

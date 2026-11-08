@@ -152,10 +152,10 @@ pub fn load_hud_layout(path: &Path) -> Result<HudLayout, ConfigError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{default_asset_root, hud_layout_path};
+    use crate::config::{hud_layout_path, phase1_fixture_root};
 
     fn real_text() -> String {
-        std::fs::read_to_string(hud_layout_path(&default_asset_root())).unwrap()
+        std::fs::read_to_string(hud_layout_path(&phase1_fixture_root())).unwrap()
     }
 
     fn parse(text: &str) -> Result<HudLayout, ConfigError> {
@@ -171,7 +171,7 @@ mod tests {
     /// Doc 01 §7: `ELEV +n`, 10 px bold; doc 04: `JetBrains Mono` and Rajdhani.
     #[test]
     fn real_hud_layout_parses() {
-        let layout = load_hud_layout(&hud_layout_path(&default_asset_root())).unwrap();
+        let layout = load_hud_layout(&hud_layout_path(&phase1_fixture_root())).unwrap();
         assert_eq!(
             layout.font_families.family(FontRole::Mono),
             "JetBrains Mono"

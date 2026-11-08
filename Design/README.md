@@ -4,6 +4,8 @@ This folder holds every design document for the game. Nothing outside `Design/` 
 
 **Status:** the MVP design is complete. All questions Q1–Q267 are answered (D-001 to D-278). Round 18 (doc 21) agreed the browser as the player's client, the server in Docker Desktop and the MP-1 milestone (D-235 to D-237), and its questions became D-238 to D-251: a Rust/wasm client with a Leptos HTML UI, one WebSocket, `axum` serving the client, a Host and Origin guard, a compose file, and MP-1 after δ. Round 19 decided the β client screens, the view-model contract for C7 and pylons outside the dome, and placed S9 and K1 (D-255 to D-278; `plans/U-beta-ui.md`, `plans/C7-view-model-inventory.md`). Building follows `30-mvp-scope-and-milestones.md`: three parallel streams toward milestones α–δ, with MVP acceptance at γ (D-094 to D-097), in the order of doc 30 §4 as D-205 amended it. Built so far (doc 30 §2): S1–S5, S6a and S8 in the simulation; N1–N3 on the server side; phase-1 M1–M4 in the client. Next towards α: S6b, S7 and A1a, then A1b, A2 and A3.
 
+**Current art workflow (D-290):** SpaceStation is the supported authored layout and renderer default. The old station-kit `start`/`full` and station-spread workflows are retired. See [art documentation](../art/README.md). The phase-1 package remains historical design, shared configuration and regression fixture data.
+
 ## Documents
 
 | # | File | What it is | Status |

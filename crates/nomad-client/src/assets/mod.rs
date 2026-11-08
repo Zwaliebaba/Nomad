@@ -59,6 +59,18 @@ impl SceneAssets {
             });
         }
         let fonts_dir = config::fonts_dir(asset_root);
+        if let Some(link) = config.shield.generator_links.iter().find(|link| {
+            !station
+                .modules
+                .iter()
+                .any(|module| module.id == link.generator)
+        }) {
+            return Err(ConfigError::Invalid {
+                path: config_path,
+                field: "shield.generator_links",
+                reason: format!("unknown generator module {}", link.generator),
+            });
+        }
         let fonts = fonts::load_fonts(&fonts_dir);
         for role in [FontRole::Mono, FontRole::Display] {
             let family = hud.font_families.family(role);

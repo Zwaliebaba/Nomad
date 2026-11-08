@@ -1,7 +1,7 @@
 //! The JSON files the game and the tools read, written from (and read back into) [`VoxelModel`]s.
 //!
 //! - `voxel-rts/models@1`: one model per module kind (D-278, K1), each at its own origin,
-//!   sharing one indexed palette. Defined here (D-289); `tools/station-kit` reads it.
+//!   sharing one indexed palette. Defined here (D-289); the active module catalog (D-290).
 //! - `voxel-rts/ships@1`: the ship models with named palette roles (phase-1 doc 03).
 //!
 //! Both are written by hand rather than through `serde_json`'s pretty printer: one voxel per

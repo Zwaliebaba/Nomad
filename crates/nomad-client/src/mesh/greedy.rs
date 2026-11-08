@@ -200,7 +200,7 @@ mod tests {
 
     use super::*;
     use crate::assets::voxel::{StationScene, load_station_scene};
-    use crate::config::{default_asset_root, station_scene_path};
+    use crate::config::{phase1_fixture_root, station_scene_path};
 
     /// Unit faces of a quad as (face, voxel position) → palette index; panics on a face covered
     /// twice by the same quad, which cannot happen for a rectangle.
@@ -309,7 +309,7 @@ mod tests {
     /// The expected faces come straight from the JSON, independently of the loader's chunks.
     #[test]
     fn every_module_meshes_watertight() {
-        let path = station_scene_path(&default_asset_root());
+        let path = station_scene_path(&phase1_fixture_root());
         let raw: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         let scene = load_station_scene(&path).unwrap();

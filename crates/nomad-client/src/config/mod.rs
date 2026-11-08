@@ -22,8 +22,8 @@ pub use scene::{
 /// Environment variable that overrides the asset root.
 pub const ASSETS_ENV_VAR: &str = "NOMAD_ASSETS";
 
-/// The asset root: `$NOMAD_ASSETS` when set and non-empty, otherwise the phase-1 package in this
-/// workspace (`Design/phase1-visual-slice/assets`).
+/// The asset root: `$NOMAD_ASSETS` when set and non-empty, otherwise the supported
+/// `SpaceStation` assembly (D-290).
 pub fn asset_root() -> PathBuf {
     match std::env::var_os(ASSETS_ENV_VAR) {
         Some(root) if !root.is_empty() => PathBuf::from(root),
@@ -31,8 +31,15 @@ pub fn asset_root() -> PathBuf {
     }
 }
 
-/// `Design/phase1-visual-slice/assets`, resolved from this crate's manifest directory at build time.
+/// The supported station layout, resolved from this crate's manifest directory (D-290).
 pub fn default_asset_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../art/scenes/SpaceStation/assets")
+}
+
+/// Frozen phase-1 inputs for existing numeric and GPU regression assertions.
+/// These are test fixtures, not the application's default layout (D-290).
+#[cfg(test)]
+pub fn phase1_fixture_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
@@ -213,5 +220,27 @@ mod tests {
         assert!(station_scene_path(&default_asset_root()).is_file());
         assert!(hud_layout_path(&default_asset_root()).is_file());
         assert!(fixture_path(&default_asset_root()).is_file());
+    }
+
+    #[test]
+    fn default_layout_loads_the_supported_assembly_and_external_shield_generators() {
+        let assets = crate::assets::SceneAssets::load(&default_asset_root()).unwrap();
+        let names: std::collections::BTreeSet<_> = assets
+            .station
+            .modules
+            .iter()
+            .map(|module| module.id.as_str())
+            .collect();
+        for expected in [
+            "Core", "pylon_n", "pylon_e", "pylon_s", "pylon_w", "Biodome", "Dock",
+        ] {
+            assert!(
+                names.contains(expected),
+                "missing {expected} in the default assembly"
+            );
+        }
+        assert!(assets.station.modules.len() > 24);
+        assert!((assets.config.shield.radius_xy - 320.0).abs() <= f32::EPSILON);
+        assert!((assets.config.shield.center[2] - 61.0).abs() <= f32::EPSILON);
     }
 }

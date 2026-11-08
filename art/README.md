@@ -4,7 +4,7 @@ The models here are maintained in [MagicaVoxel](https://ephtracy.github.io/) (0.
 
 | Set | `.vox` files | Generated file | Read by |
 |---|---|---|---|
-| `voxels/modules` | one per module kind: core, pylon, refinery, storage, turret, dry dock, solar array, harvester, extractor, empty slot mount | `Design/phase1-visual-slice/assets/voxels/module_kinds.json` (`voxel-rts/models@1`) | `tools/station-kit`, then the client in K1 (D-278) |
+| `voxels/modules` | the 24 active PascalCase module sources | `voxels/modules/ModuleCatalog.json` (`voxel-rts/models@1`) | authoring catalog; `tools/station-scene` assembles the source models with full materials |
 | `voxels/ships` | one per ship model | `Design/phase1-visual-slice/assets/voxels/ships_placeholder.json` (`voxel-rts/ships@1`) | `tools/preview`, then the client |
 
 ## Workflow
@@ -24,13 +24,13 @@ To add a model, add `{ "id": "...", "name": "..." }` to the set's `set.json`, sa
 
 To get back a `.vox` file you lost, regenerate it from the committed JSON with `cargo run -p nomad-vox -- export --force art/voxels/<set>`. This overwrites the `.vox` files of that set. **Catalog export retains RGB and Emit only; it loses Glass and the shared editing palette.** Prefer restoring artist-maintained sources from Git.
 
-The PascalCase station modules are documented in [modules/MODULES.md](voxels/modules/MODULES.md). The assembled [SpaceStation scene](scenes/SpaceStation/README.md) includes a MagicaVoxel scene, editable layout and a complete alternate asset directory; the original phase-1 scene is preserved.
+The PascalCase station modules are documented in [modules/MODULES.md](voxels/modules/MODULES.md). The assembled [SpaceStation scene](scenes/SpaceStation/README.md) includes a MagicaVoxel scene, editable layout and the default renderer asset directory. The old `start`/`full` layouts, their generators and ten lowercase module sources are retired (D-290). Historical phase-1 data is retained for regression tests and shared configuration only.
 
 ## Conventions
 
 **Axes and origin.** MagicaVoxel and the game use the same axes: `+z` is up, and one MagicaVoxel voxel is one game voxel (about 35 m, doc 10 §8). The model's origin is MagicaVoxel's world origin, and the ground plane MagicaVoxel draws is `z = 0`. Where you put an object in World mode is where it ends up in the game.
 
-- **Module kinds:** the origin is the slot centre on the ops grid. The model faces `+x`, away from the core, and the station kit turns it in quarter turns towards its slot. The pylon's emitter crown sits on the shield equator at `z = 16` (D-100). Keep these heights when you rework a model.
+- **Module kinds:** preserve each source's local origin and orientation; `tools/station-scene` places instances with explicit translations and quarter turns from `layout.json`. Generator contacts and forcefield alignment are validated against the actual source geometry. See `voxels/modules/MODULES.md`.
 - **Ships:** `+x` is the nose, `+y` is port, and the origin is roughly the centre of mass. Ships rotate freely in the game (phase-1 doc 03).
 
 **Colours.** Each voxel's colour is its exact RGB value. A file can use at most 255 colours, which is MagicaVoxel's palette size. An export puts the model's colours in the first palette slots and leaves the rest as MagicaVoxel's default palette for painting. You can use, add or change colours freely: the import collects the colours that are actually used. Alpha is ignored.

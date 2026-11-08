@@ -1,18 +1,26 @@
 # SpaceStation
 
-A free-floating scene assembled from all 24 PascalCase station module types.
+The supported default scene, assembled from all 24 PascalCase station module types (D-290).
 It contains a command core, industrial and habitat branches, two hangars,
 solar wings and a circular dock, joined by enclosed tubes. This is an art scene,
-not a new gameplay slot layout. The original phase-1 scene is unchanged.
+not a new gameplay slot layout. The older authoring layouts and their lowercase
+module sources are retired. Historical phase-1 data remains for regression tests
+and shared rendering templates only.
 
 Four dedicated `ShieldGenerator` modules sit outside the main plant, at its
 north, east, south and west perimeter. Each has an exposed cyan/white energy core,
 magnetic coil rings and four swept projector yokes above an armoured capacitor
-housing. The field passes directly through the four emitter cores at z=46;
-it spans between the generators rather than beyond them. Their outer machinery
-straddles the boundary. The plant and all tubes lie inside the protective
-ellipsoid. The build checks actual emissive attachment voxels, exact emitter/field
-alignment and coverage of the outer corners of every non-projector voxel.
+housing. A top-mounted projector lens has its highest emitting voxels at z=60;
+each visible energy link starts at their exposed top faces, local
+`[0.5, 0.5, 61]`, and ends on the field surface 32 voxels inward. Generator
+housings are entirely outside the protected volume and remain exposed to attack
+(D-255). Their external power-feed tubes also cross outside the field; all other
+station modules and internal tubes remain inside. Energy links are rendering
+effects, not solid voxel or collision geometry. The build checks the complete
+generator voxel volumes are outside, the plant/internal tube corners are inside,
+the links start at actual highest emitter faces, and their endpoints meet the field.
+Native tests verify both endpoints in all four views. The preview uses the same
+shield height; equatorial strokes and the below-grid opacity discontinuity are disabled.
 This art-scene envelope does not change the simulation's shield rules.
 
 - **`SpaceStation.vox`**: open directly in MagicaVoxel 0.99.6+. Named objects
@@ -21,7 +29,7 @@ This art-scene envelope does not change the simulation's shield rules.
 - **`layout.json`**: the editable source layout. Module instances reference
   catalog IDs, positions and quarter turns; connections specify their two
   axis-aligned endpoint positions. Junctions reuse the tube module sources.
-- **`assets/`**: an alternate asset directory containing the generated
+- **`assets/`**: the default renderer asset directory, containing the generated
   `voxels/station_scene.json`, matching camera configuration and supporting data.
   The game-format importer supports RGB and Emit; Glass remains opaque there.
 - **`BuildReport.json`**: source coverage, placements, tube runs, material counts,
@@ -54,11 +62,11 @@ python3 tools/preview/build.py art/scenes/SpaceStation/assets tools/preview/temp
 ```
 
 Open `target/SpaceStation-preview.html` locally. This viewer displays RGB/Emit;
-use MagicaVoxel for the full Glass appearance. For the repository's native
-renderer, select this asset directory through `NOMAD_ASSETS`:
+use MagicaVoxel for the full Glass appearance. The repository's native renderer
+loads this layout by default:
 
 ```bash
-NOMAD_ASSETS=art/scenes/SpaceStation/assets cargo run --locked -p nomad-client -- --size 1280x720
+cargo run --locked -p nomad-client -- --size 1280x720
 ```
 
 No station editor application is required. Rebuild the complete scene after any

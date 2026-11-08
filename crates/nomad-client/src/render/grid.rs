@@ -145,13 +145,13 @@ mod tests {
 
     use super::*;
     use crate::camera::{Camera, Projection};
-    use crate::config::{default_asset_root, load_scene_config, scene_config_path};
+    use crate::config::{load_scene_config, phase1_fixture_root, scene_config_path};
 
     /// The fade radii are world distances from the config, the same at every zoom and window
     /// size (D-059).
     #[test]
     fn fade_radii_come_from_the_config() {
-        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let config = load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap();
         let grid = &config.ops_grid;
         let projection = Projection::from_config(&config);
         for size in [Vec2::new(1920.0, 1080.0), Vec2::new(40.0, 1080.0)] {
@@ -169,7 +169,7 @@ mod tests {
     /// "`alpha_far` at the screen edge and beyond").
     #[test]
     fn fade_ends_inside_the_screen_at_zoom_1() {
-        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let config = load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap();
         let view =
             Camera::new(Projection::from_config(&config), Vec2::new(1920.0, 1080.0)).transform();
         // The nearest edge is the right one, 950 px from the pivot anchor.
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn line_widths_scale_with_the_window_not_the_zoom() {
-        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let config = load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap();
         let projection = Projection::from_config(&config);
         let width = |size: Vec2, zoom_index: usize| {
             let mut camera = Camera::new(projection.clone(), size);

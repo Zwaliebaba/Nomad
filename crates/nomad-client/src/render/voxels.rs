@@ -479,7 +479,7 @@ mod tests {
     use crate::assets::voxel::load_station_scene;
     use crate::camera::{Camera, Projection};
     use crate::config::{
-        default_asset_root, load_scene_config, scene_config_path, station_scene_path,
+        load_scene_config, phase1_fixture_root, scene_config_path, station_scene_path,
     };
     use crate::mesh::greedy::Face;
 
@@ -501,7 +501,7 @@ mod tests {
     #[test]
     fn visible_faces_are_wound_clockwise_on_screen() {
         assert_eq!(FRONT_FACE, wgpu::FrontFace::Cw);
-        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let config = load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap();
         let mut camera = Camera::new(Projection::from_config(&config), Vec2::new(1920.0, 1080.0));
         let text = serde_json::json!({
             "format": "voxel-rts/scene@1",
@@ -544,7 +544,7 @@ mod tests {
 
     #[test]
     fn station_mesh_is_compact_and_in_range() {
-        let scene = load_station_scene(&station_scene_path(&default_asset_root())).unwrap();
+        let scene = load_station_scene(&station_scene_path(&phase1_fixture_root())).unwrap();
         let mesh = build_station_mesh(&scene);
         // Each quad became a polygon of n ≥ 4 points and n − 2 triangles (module docs).
         assert!(mesh.vertices.len() >= mesh.quad_count * 4);
@@ -585,7 +585,7 @@ mod tests {
     /// edges vertex for vertex.
     #[test]
     fn station_mesh_has_no_t_junctions() {
-        let scene = load_station_scene(&station_scene_path(&default_asset_root())).unwrap();
+        let scene = load_station_scene(&station_scene_path(&phase1_fixture_root())).unwrap();
         let mesh = build_station_mesh(&scene);
         let point = |i: u32| {
             let p = mesh.vertices[i as usize].position;
@@ -665,7 +665,7 @@ mod tests {
 
     #[test]
     fn palette_texels_mark_emissive_entries() {
-        let scene = load_station_scene(&station_scene_path(&default_asset_root())).unwrap();
+        let scene = load_station_scene(&station_scene_path(&phase1_fixture_root())).unwrap();
         let (texels, rows) = palette_texels(&scene.palette);
         assert_eq!(rows, 2);
         assert_eq!(texels.len(), 2 * 256 * 4);

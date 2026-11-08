@@ -1,6 +1,7 @@
 //! The mother station in the rules file (D-104) copies its module bounds and launch point from
 //! the phase-1 scene (`station_scene.json`, `ships_placement.json`; doc 10 §8). The scene is
-//! edited with `tools/station-spread` (D-111), so this test keeps the two from drifting apart.
+//! frozen as a regression fixture (D-111, D-290). This preserves the simulation's agreed
+//! scale and bounds independently of the new art assembly; it is not an active scene generator.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

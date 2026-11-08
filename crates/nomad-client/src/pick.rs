@@ -130,15 +130,15 @@ mod tests {
     use crate::assets::voxel::load_station_scene;
     use crate::camera::{Camera, Projection, Turn};
     use crate::config::{
-        default_asset_root, load_scene_config, scene_config_path, station_scene_path,
+        load_scene_config, phase1_fixture_root, scene_config_path, station_scene_path,
     };
 
     fn station() -> StationScene {
-        load_station_scene(&station_scene_path(&default_asset_root())).unwrap()
+        load_station_scene(&station_scene_path(&phase1_fixture_root())).unwrap()
     }
 
     fn camera() -> Camera {
-        let config = load_scene_config(&scene_config_path(&default_asset_root())).unwrap();
+        let config = load_scene_config(&scene_config_path(&phase1_fixture_root())).unwrap();
         Camera::new(Projection::from_config(&config), Vec2::new(1920.0, 1080.0))
     }
 

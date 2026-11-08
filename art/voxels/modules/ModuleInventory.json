@@ -52,7 +52,7 @@
     {
       "id": "shield_generator",
       "name": "Shield generator",
-      "voxels": 6691,
+      "voxels": 7054,
       "bounds": [
         [
           -12,
@@ -62,21 +62,26 @@
         [
           12,
           12,
-          58
+          60
         ]
       ],
       "note": "Armoured capacitor housing and four swept magnetic yokes around an exposed cyan/white projector core.",
       "space_review": [
         "Dedicated shield-generator silhouette, with power conduits, coil rings and four open yokes instead of tower windows or an antenna.",
-        "Emitter local centre [0,0,46] lies directly on the scene forcefield boundary; all instances are external.",
-        "Four luminous shield insignia identify the capacitor housing from any view."
+        "Four luminous shield insignia identify the capacitor housing from any view.",
+        "The energy projection link begins on the exposed TOP face of the highest central lens voxel: local contact [0.5,0.5,61], not the buried energy core."
       ],
       "glass_voxels": 0,
       "file": "ShieldGenerator.vox",
       "emitter_local": [
         0,
         0,
-        46
+        60
+      ],
+      "emitter_contact_local": [
+        0.5,
+        0.5,
+        61
       ]
     },
     {

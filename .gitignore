@@ -19,6 +19,7 @@ rustc-ice-*.txt
 # Phase-1 fonts (JetBrains Mono, Rajdhani) are OFL and deliberately not bundled: download them
 # locally (phase-1 README, ground rule 4; AGENTS.md).
 /Design/phase1-visual-slice/assets/fonts/
+/art/scenes/*/assets/fonts/
 
 # Local F12 screenshots from nomad-client. None are committed, milestones included (D-232).
 /screenshots/

@@ -1,4 +1,4 @@
-<title>KR-114 Voxel Preview</title>
+<title>Nomad Station Preview</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
   /* Layout: a full-bleed WebGL scene; phase-1 HUD chips docked top-left (identity, view) and bottom (controls). */
@@ -60,14 +60,15 @@
   @media (max-width: 720px) { #hint { display: none; } kbd { display: none; } }
 
   #error { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--warn); }
+  #error[hidden] { display: none; }
 </style>
 
-<canvas id="scene" aria-label="Voxel preview of holding KR-114 with mother station MS-01 Aegis"></canvas>
+<canvas id="scene" aria-label="Voxel preview of the SpaceStation assembly"></canvas>
 
 <div class="panel" id="ident">
-  <h1>KR-114 · MS-01 Aegis</h1>
-  <div class="label" id="stats">Phase-1 voxel data</div>
-  <div class="label">Browser preview of the phase-1 look, not the game client</div>
+  <h1>SpaceStation</h1>
+  <div class="label" id="stats">Loading station data</div>
+  <div class="label">Station assembly preview</div>
   <div class="view-row">
     <svg id="compass" viewBox="-14 -14 28 28" aria-hidden="true">
       <path d="M0 -12 L12 0 L0 12 L-12 0 Z" fill="none" stroke="#38d6ff" stroke-opacity="0.6"/>
@@ -210,6 +211,8 @@ void main() {
 const DOME_FS = `#version 300 es
 precision highp float;
 uniform vec2 uDomeCenter; uniform vec4 uStrength; uniform vec3 uRim; uniform vec3 uWeak; uniform float uBack; uniform float uCenterZ;
+uniform vec4 uShieldStyle; // rest fill, edge fill, fresnel exponent, below-grid opacity
+uniform vec2 uRingAlpha; // near and far equator ring opacity
 in vec3 vWorld; in float vFacing; out vec4 o;
 void main() {
   bool back = vFacing < 0.0;
@@ -219,11 +222,37 @@ void main() {
   int i = int(clamp(floor(az / 90.0), 0.0, 3.0));
   float strength = uStrength[i];
   vec3 tint = strength < 0.5 ? uWeak : uRim;
-  float rim = pow(1.0 - abs(vFacing), 3.0) * 0.75;
-  // Sector ring at the equator (globe) or the base (dome); the part below the ops grid is drawn fainter.
-  float ring = (1.0 - smoothstep(0.0, 0.9, abs(vWorld.z - uCenterZ))) * 0.8;
-  float a = (0.05 + rim + ring) * (uBack > 0.5 ? 0.45 : 1.0) * (vWorld.z < 0.0 ? 0.35 : 1.0);
+  float fresnel = pow(1.0 - clamp(abs(vFacing), 0.0, 1.0), uShieldStyle.z);
+  float surfaceAlpha = mix(uShieldStyle.x, uShieldStyle.y, fresnel);
+  float ring = (1.0 - smoothstep(0.0, 0.9, abs(vWorld.z - uCenterZ))) *
+    (uBack > 0.5 ? uRingAlpha.y : uRingAlpha.x);
+  float a = (surfaceAlpha + ring) * (uBack > 0.5 ? 0.45 : 1.0) *
+    (vWorld.z < 0.0 ? uShieldStyle.w : 1.0);
   o = vec4(tint, clamp(a, 0.0, 0.9));
+}`;
+
+// Local energy links from external generator lenses to the field surface.
+const LINK_VS = `#version 300 es
+in vec3 aStart; in vec3 aEnd; in vec2 aAlongSide;
+${COMMON}
+uniform float uLinkWidth;
+out float vAlong;
+void main() {
+  vec4 p = project(aStart), q = project(aEnd);
+  vec2 delta = (q.xy - p.xy) * uViewport * 0.5;
+  float len = max(length(delta), 0.001);
+  vec2 normal = vec2(-delta.y, delta.x) / len;
+  gl_Position = mix(p, q, aAlongSide.x);
+  gl_Position.xy += normal * aAlongSide.y * uLinkWidth / uViewport;
+  vAlong = aAlongSide.x * len;
+}`;
+const LINK_FS = `#version 300 es
+precision highp float;
+uniform vec4 uLinkColor; uniform vec2 uLinkDash;
+in float vAlong; out vec4 o;
+void main() {
+  if (uLinkDash.y > 0.0 && mod(vAlong, uLinkDash.x + uLinkDash.y) > uLinkDash.x) discard;
+  o = uLinkColor;
 }`;
 
 // Soft additive glow on emissive voxels (cheap stand-in for the bloom pass, doc 01 §2).
@@ -253,6 +282,7 @@ function program(vsSrc, fsSrc) {
 const voxelProg = program(VOXEL_VS, VOXEL_FS);
 const gridProg = program(FULL_VS, GRID_FS);
 const domeProg = program(DOME_VS, DOME_FS);
+const linkProg = program(LINK_VS, LINK_FS);
 const glowProg = program(GLOW_VS, GLOW_FS);
 
 // ---- Geometry -----------------------------------------------------------------------
@@ -337,8 +367,20 @@ const stationGlowVao = pointVao(glowPts);
 const shipGlowVao = pointVao(shipGlow);
 
 const shield = DATA.shield;
-// Two shield shapes to compare: the phase-1 dome (an ellipsoid cap on the ops grid, doc 01 §6) and a
-// full globe centred on the ship plane, whose equator is the 2D shield circle used for hits (doc 15 §5.1).
+const linkVertices = [];
+for (const link of shield.generator_links || []) {
+  for (const corner of [[0,-1],[1,-1],[1,1],[0,-1],[1,1],[0,1]])
+    linkVertices.push(...link.emitter, ...link.contact, ...corner);
+}
+const linkVao = gl.createVertexArray(); gl.bindVertexArray(linkVao);
+const linkBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, linkBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(linkVertices), gl.STATIC_DRAW);
+for (const [name, count, offset] of [["aStart",3,0],["aEnd",3,12],["aAlongSide",2,24]]) {
+  const location = linkProg.a(name); gl.enableVertexAttribArray(location);
+  gl.vertexAttribPointer(location, count, gl.FLOAT, false, 32, offset);
+}
+gl.bindVertexArray(null);
+// Both shapes use the configured emitter height, never the independent ship plane.
 function makeShield(phiMin, phiMax, cz, LAT) {
   const [cx, cy] = shield.center, rxy = shield.radius_xy, rz = shield.radius_z, LON = 64;
   const v = [], idx = [];
@@ -363,8 +405,8 @@ function makeShield(phiMin, phiMax, cz, LAT) {
   return { vao, n: idx.length, cz };
 }
 const shieldShapes = {
-  dome: makeShield(0, Math.PI / 2, 0, 24),
-  globe: makeShield(-Math.PI / 2, Math.PI / 2, DATA.shipPlaneZ, 48),
+  dome: makeShield(0, Math.PI / 2, shield.center[2], 24),
+  globe: makeShield(-Math.PI / 2, Math.PI / 2, shield.center[2], 48),
 };
 // Sector strengths by 90° azimuth bin: [0,90) [90,180) [180,270) [270,360).
 const strengths = [1, 1, 1, 1];
@@ -374,7 +416,7 @@ for (const s of shield.sectors) strengths[Math.floor((((s.az_deg[0] % 360) + 360
 const HOME = { x: DATA.pivot[0], y: DATA.pivot[1] };
 const ZOOMS = [...DATA.zoomLevels, 3, 4];
 const cam = { x: HOME.x, y: HOME.y, view: 0, angle: 0, from: 0, to: 0, t0: 0, zi: ZOOMS.indexOf(1), zoom: 1, zFrom: 1, zTo: 1, zt0: 0 };
-const show = { grid: true, shield: true, ships: true, globe: true };
+const show = { grid: true, shield: true, ships: true, globe: shield.shape !== "dome" };
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
 let W = 1, H = 1, dpr = 1;
@@ -514,6 +556,9 @@ function frame(now) {
     gl.useProgram(domeProg.p); setCommon(domeProg);
     gl.uniform2f(domeProg.u.uDomeCenter, shield.center[0], shield.center[1]);
     gl.uniform4f(domeProg.u.uStrength, ...strengths);
+    gl.uniform4f(domeProg.u.uShieldStyle, shield.rest_alpha_fill, shield.edge_alpha_fill,
+      shield.fresnel_power, shield.below_grid_opacity);
+    gl.uniform2f(domeProg.u.uRingAlpha, shield.ring.alpha, shield.ring_far.alpha);
     gl.uniform3f(domeProg.u.uRim, ...hex(shield.rim_color)); gl.uniform3f(domeProg.u.uWeak, ...hex(shield.weak_color));
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     const dome = show.globe ? shieldShapes.globe : shieldShapes.dome;
@@ -521,6 +566,14 @@ function frame(now) {
     gl.bindVertexArray(dome.vao);
     gl.uniform1f(domeProg.u.uBack, 1); gl.drawElements(gl.TRIANGLES, dome.n, gl.UNSIGNED_SHORT, 0);
     gl.uniform1f(domeProg.u.uBack, 0); gl.drawElements(gl.TRIANGLES, dome.n, gl.UNSIGNED_SHORT, 0);
+    if (linkVertices.length && shield.generator_link_style) {
+      const style = shield.generator_link_style;
+      gl.useProgram(linkProg.p); setCommon(linkProg);
+      gl.uniform1f(linkProg.u.uLinkWidth, style.width_ref_px * baseScale());
+      gl.uniform4f(linkProg.u.uLinkColor, ...hex(shield.rim_color), style.alpha);
+      gl.uniform2f(linkProg.u.uLinkDash, ...style.dash_ref_px.map(x => x * baseScale()));
+      gl.bindVertexArray(linkVao); gl.drawArrays(gl.TRIANGLES, 0, linkVertices.length / 8);
+    }
   }
   gl.useProgram(glowProg.p); setCommon(glowProg); gl.blendFunc(gl.ONE, gl.ONE);
   gl.uniform1f(glowProg.u.uGlowPx, Math.max(4, 6 * 2 * scale()));

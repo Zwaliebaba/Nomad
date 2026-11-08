@@ -219,6 +219,11 @@ def build():
     plant_min, plant_max = bounds(plant)
     centre = shield['center']
     emitter_errors = []
+    emitter_contacts = {}
+    generator_links = []
+    generator_clearances = []
+    external_feeds = {connection['id'] for connection in layout['connections']
+                      if connection['source'] in projectors or connection['target'] in projectors}
     for instance in layout['instances']:
         if instance['id'] not in projectors:
             continue
@@ -232,16 +237,38 @@ def build():
         if sources[instance['model']].get(emitter_local) not in {
                 m['index'] for m in palette if m['material']['_type'] == '_emit'}:
             raise ValueError('shield attachment point must be an actual Emit voxel in the generator')
-        emitter = next(iter(moved({emitter_local: 1}, instance['position'], instance['quarter_turns'])))
-        radius = ((emitter[0] - centre[0]) ** 2 + (emitter[1] - centre[1]) ** 2) / shield['radius_xy'] ** 2 + (emitter[2] - centre[2]) ** 2 / shield['radius_z'] ** 2
+        source = sources[instance['model']]
+        above = (emitter_local[0], emitter_local[1], emitter_local[2] + 1)
+        if above in source or emitter_local[2] != max(p[2] for p in source):
+            raise ValueError('shield attachment must be on the exposed top face of the highest emitter lens')
+        contact = tuple(shield['emitter_contact_local'])
+        if contact != (emitter_local[0] + 0.5, emitter_local[1] + 0.5, emitter_local[2] + 1):
+            raise ValueError('shield contact must be the centre of the emitter voxel top face')
+        emitter = next(iter(moved({contact: 1}, instance['position'], instance['quarter_turns'])))
+        emitter_contacts[instance['id']] = list(emitter)
+        delta_x, delta_y = emitter[0] - centre[0], emitter[1] - centre[1]
+        distance = math.hypot(delta_x, delta_y)
+        if not 8 <= distance - shield['radius_xy'] <= 64:
+            raise ValueError('generator emitters must be just outside the field, linked across a short gap')
+        field_contact = [centre[0] + delta_x * shield['radius_xy'] / distance,
+                         centre[1] + delta_y * shield['radius_xy'] / distance, emitter[2]]
+        generator_links.append(dict(generator=instance['id'], emitter=list(emitter), contact=field_contact))
+        def nearest_squared(value, axis):
+            return 0 if value <= centre[axis] <= value + 1 else min(abs(value - centre[axis]), abs(value + 1 - centre[axis])) ** 2
+        clearance = min((nearest_squared(x, 0) + nearest_squared(y, 1)) / shield['radius_xy'] ** 2 +
+                        nearest_squared(z, 2) / shield['radius_z'] ** 2 for x, y, z in parts[instance['id']])
+        generator_clearances.append(clearance)
+        if clearance <= 1:
+            raise ValueError(f'{instance["id"]}: generator housing must be entirely outside the shield')
+        radius = ((field_contact[0] - centre[0]) ** 2 + (field_contact[1] - centre[1]) ** 2) / shield['radius_xy'] ** 2 + (field_contact[2] - centre[2]) ** 2 / shield['radius_z'] ** 2
         emitter_errors.append(abs(radius - 1))
         if emitter_errors[-1] > 1e-9:
-            raise ValueError(f'{instance["id"]}: the shield must pass through the generator emitter')
+            raise ValueError(f'{instance["id"]}: energy link must end on the field surface')
     coverage = max((max(abs(x - centre[0]), abs(x + 1 - centre[0])) ** 2 +
                     max(abs(y - centre[1]), abs(y + 1 - centre[1])) ** 2) /
                    shield['radius_xy'] ** 2 +
                    max(abs(z - centre[2]), abs(z + 1 - centre[2])) ** 2 / shield['radius_z'] ** 2
-                   for (x, y, z), owner in owners.items() if owner not in projectors)
+                   for (x, y, z), owner in owners.items() if owner not in projectors | external_feeds)
     if coverage > 1:
         raise ValueError(f'the protective field does not cover the plant and tubes: {coverage}')
     used = set(model_by_instance.values()) | {'connector_straight'}
@@ -275,9 +302,12 @@ def build():
     config['shield'].update(center=shield['center'], radius_xy=shield['radius_xy'],
                             radius_z=shield['radius_z'], rest_alpha_fill=0.025,
                             edge_alpha_fill=0.08, rim_alpha=0.45,
-                            shape_note='The field passes through the four ShieldGenerator emitter cores and encloses the plant and tubes; external projector housings straddle the boundary. Gameplay shield rules are unchanged.')
-    config['shield']['ring']['alpha'] = 0.35
-    config['shield']['ring_far']['alpha'] = 0.15
+                            shape_note='Generator housings remain wholly outside the field (D-255); visible energy links run from their top lenses to the surface. Main plant and internal tubes are protected; external feeds are exposed.')
+    config['shield']['generator_links'] = generator_links
+    config['shield']['generator_link_style'] = dict(alpha=0.8, width_ref_px=2, dash_ref_px=[4, 2])
+    for style in ('ring', 'ring_far', 'ring_weak'):
+        config['shield'][style]['alpha'] = 0
+    config['shield']['below_grid_opacity'] = 1
     config['shield']['hits']['impacts'] = []
     outputs[SCENE / 'assets/layout/scene_config.json'] = json_bytes(config)
     outputs[SCENE / 'assets/layout/ships_placement.json'] = json_bytes(dict(ship_plane_z=16, note='Module assembly showcase; no placeholder ships.', placements=[]))
@@ -286,8 +316,11 @@ def build():
                   physically_connected_objects=len(reached_geometry),
                   voxel_count=len(owners), carved_port_voxels=carved, shared_coupling_voxels=shared,
                   bounds=bounds(owners), glass_voxels=sum(c == 16 for voxels in parts.values() for c in voxels.values()),
-                  shield_projectors=len(projectors), shield_covers_plant_and_tubes=True,
-                  shield_projectors_on_boundary=True, shield_emitter_boundary_max_error=max(emitter_errors),
+                  shield_projectors=len(projectors), shield_covers_plant_and_internal_tubes=True,
+                  shield_generators_outside=True, shield_generator_min_normalized_radius_squared=min(generator_clearances),
+                  shield_emitter_boundary_max_error=max(emitter_errors), generator_energy_links=generator_links,
+                  exposed_generator_feeds=sorted(external_feeds),
+                  shield_emitter_contacts=emitter_contacts, shield_attachment='exposed_top_face',
                   shield_max_normalized_radius_squared=coverage,
                   main_plant_bounds=[plant_min, plant_max],
                   source_files=[m['file'] for m in inventory])
