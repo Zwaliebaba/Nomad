@@ -2,7 +2,7 @@
 
 The 24 PascalCase `.vox` files reconstruct the distinct module types in the owner's
 2026-11-07 isometric station screenshot. Repeated structures share a file; the
-three tower silhouettes, two solar-array sizes, three platform sizes and four
+two tower silhouettes, the shield generator, two solar-array sizes, three platform sizes and four
 tube junctions have separate files. Ships, asteroids and the starfield are not
 base modules and are excluded.
 
@@ -17,7 +17,8 @@ placed into the current station scene or assigned to gameplay slots.
 | Files | Screenshot feature |
 | --- | --- |
 | `CommandCore.vox` | Central stepped command complex, observation bays and three holographic rings |
-| `RelayTower.vox`, `JunctionTower.vox`, `BeaconTower.vox` | Tall cyan-capped tower, short junction tower, narrow red-beacon tower |
+| `RelayTower.vox`, `BeaconTower.vox` | Tall cyan-capped tower and narrow red-beacon tower |
+| `ShieldGenerator.vox` | Field projector with a capacitor housing, exposed energy core, coil rings and four swept magnetic yokes |
 | `SolarArrayLarge.vox`, `SolarArraySmall.vox` | Rear-left and front-right blue solar panels |
 | `RefineryVats.vox`, `RefineryFurnace.vox` | Three silver vats and twin amber-lit industrial units on the left |
 | `Biodome.vox`, `GreenhousePair.vox` | Large botanical dome and two arched glasshouses |
@@ -83,8 +84,11 @@ rather than the existing gameplay slot sizes. `ModuleInventory.json` records
 each file's bounds, voxel count, Glass count and individual space-module review.
 The material/underside pass retained original voxel coordinates and RGB values
 except 708 solar support voxels below z=7, replaced with suspension hardware.
-The later tube redesign replaces the four connector geometries; the other
-modules retain their upper silhouettes. Holographic ring marks are luminous voxels
+The tube redesign replaces the four connector geometries. The former junction
+tower has been redesigned as `ShieldGenerator.vox`, with four luminous shield
+insignia, exposed energy core, coil rings and swept magnetic yokes; its emitter
+attachment point is `[0, 0, 46]`. The other modules retain their upper silhouettes.
+Holographic ring marks are luminous voxels
 by design. These are visual art changes, not simulation or propulsion rules.
 
 After editing, run from the repository root:

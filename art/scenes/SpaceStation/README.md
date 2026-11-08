@@ -5,11 +5,15 @@ It contains a command core, industrial and habitat branches, two hangars,
 solar wings and a circular dock, joined by enclosed tubes. This is an art scene,
 not a new gameplay slot layout. The original phase-1 scene is unchanged.
 
-Four `JunctionTower` instances serve as shield projectors outside the main plant,
-at the north, east, south and west perimeter. Their emitter crowns share the field
-centre height. The scene's protective ellipsoid covers every module, tube and
-projector; its coverage is checked against the outer corners of all voxels at build
-time. This art-scene envelope does not change the simulation's shield rules.
+Four dedicated `ShieldGenerator` modules sit outside the main plant, at its
+north, east, south and west perimeter. Each has an exposed cyan/white energy core,
+magnetic coil rings and four swept projector yokes above an armoured capacitor
+housing. The field passes directly through the four emitter cores at z=46;
+it spans between the generators rather than beyond them. Their outer machinery
+straddles the boundary. The plant and all tubes lie inside the protective
+ellipsoid. The build checks actual emissive attachment voxels, exact emitter/field
+alignment and coverage of the outer corners of every non-projector voxel.
+This art-scene envelope does not change the simulation's shield rules.
 
 - **`SpaceStation.vox`**: open directly in MagicaVoxel 0.99.6+. Named objects
   retain the shared palette, Glass glazing and Emit lights. Rotations are baked
@@ -21,7 +25,7 @@ time. This art-scene envelope does not change the simulation's shield rules.
   `voxels/station_scene.json`, matching camera configuration and supporting data.
   The game-format importer supports RGB and Emit; Glass remains opaque there.
 - **`BuildReport.json`**: source coverage, placements, tube runs, material counts,
-  removed port-bore voxels and physical connectivity checks.
+  removed port-bore voxels, physical connectivity, emitter alignment and field coverage.
 
 The individual module `.vox` files remain the art sources. Edit them in
 `art/voxels/modules/`, or edit placements in `layout.json`, then rebuild from the
@@ -32,6 +36,7 @@ cargo run --locked -p nomad-vox -- import
 python3 tools/vox/audit_modules.py
 python3 tools/station-scene/build.py
 python3 tools/station-scene/build.py --check
+python3 -m unittest discover -s tools/station-scene -p 'test_*.py'
 ```
 
 The generator preserves module detail and materials. It opens circular bores

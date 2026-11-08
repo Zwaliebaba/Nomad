@@ -315,7 +315,7 @@
     },
     {
       "id": "pylon_n",
-      "model": "junction_tower",
+      "model": "shield_generator",
       "position": [
         0,
         -320,
@@ -326,7 +326,7 @@
     },
     {
       "id": "pylon_e",
-      "model": "junction_tower",
+      "model": "shield_generator",
       "position": [
         320,
         0,
@@ -337,7 +337,7 @@
     },
     {
       "id": "pylon_s",
-      "model": "junction_tower",
+      "model": "shield_generator",
       "position": [
         0,
         320,
@@ -348,7 +348,7 @@
     },
     {
       "id": "pylon_w",
-      "model": "junction_tower",
+      "model": "shield_generator",
       "position": [
         -320,
         0,
@@ -948,10 +948,15 @@
       0,
       46
     ],
-    "radius_xy": 360,
-    "radius_z": 180,
+    "radius_xy": 320,
+    "radius_z": 240,
     "emitter_height": 46,
-    "note": "Scene-only forcefield envelope; every module and connection must fit. Projector towers sit beyond the main plant footprint.",
-    "projector_model": "junction_tower"
+    "note": "The field passes through the four generator cores. It encloses the main plant and connecting tubes; the external generator housings straddle that boundary.",
+    "projector_model": "shield_generator",
+    "emitter_local": [
+      0,
+      0,
+      46
+    ]
   }
 }

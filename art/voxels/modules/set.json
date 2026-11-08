@@ -55,9 +55,9 @@
       "file": "RelayTower.vox"
     },
     {
-      "id": "junction_tower",
-      "name": "Cyan junction tower",
-      "file": "JunctionTower.vox"
+      "id": "shield_generator",
+      "name": "Shield generator",
+      "file": "ShieldGenerator.vox"
     },
     {
       "id": "beacon_tower",

@@ -217,6 +217,8 @@ def build():
              and name not in {connection['id'] for connection in layout['connections']}
              for p, c in voxels.items()}
     plant_min, plant_max = bounds(plant)
+    centre = shield['center']
+    emitter_errors = []
     for instance in layout['instances']:
         if instance['id'] not in projectors:
             continue
@@ -226,14 +228,22 @@ def build():
             raise ValueError(f'{instance["id"]}: shield projector is inside the plant footprint')
         if z + shield['emitter_height'] != shield['center'][2]:
             raise ValueError('projector emitter crowns must share the shield centre height')
-    centre = shield['center']
+        emitter_local = tuple(shield['emitter_local'])
+        if sources[instance['model']].get(emitter_local) not in {
+                m['index'] for m in palette if m['material']['_type'] == '_emit'}:
+            raise ValueError('shield attachment point must be an actual Emit voxel in the generator')
+        emitter = next(iter(moved({emitter_local: 1}, instance['position'], instance['quarter_turns'])))
+        radius = ((emitter[0] - centre[0]) ** 2 + (emitter[1] - centre[1]) ** 2) / shield['radius_xy'] ** 2 + (emitter[2] - centre[2]) ** 2 / shield['radius_z'] ** 2
+        emitter_errors.append(abs(radius - 1))
+        if emitter_errors[-1] > 1e-9:
+            raise ValueError(f'{instance["id"]}: the shield must pass through the generator emitter')
     coverage = max((max(abs(x - centre[0]), abs(x + 1 - centre[0])) ** 2 +
                     max(abs(y - centre[1]), abs(y + 1 - centre[1])) ** 2) /
                    shield['radius_xy'] ** 2 +
                    max(abs(z - centre[2]), abs(z + 1 - centre[2])) ** 2 / shield['radius_z'] ** 2
-                   for x, y, z in owners)
+                   for (x, y, z), owner in owners.items() if owner not in projectors)
     if coverage > 1:
-        raise ValueError(f'the protective field does not cover the complete station: {coverage}')
+        raise ValueError(f'the protective field does not cover the plant and tubes: {coverage}')
     used = set(model_by_instance.values()) | {'connector_straight'}
     if used != set(sources):
         raise ValueError(f'module type coverage differs: {used ^ set(sources)}')
@@ -255,8 +265,8 @@ def build():
     fixture['selection']['pylons'] = dict(N=1.0, E=1.0, S=1.0, W=1.0)
     outputs[SCENE / 'assets/fixtures/siege_kr114.json'] = json_bytes(fixture)
     config = json.loads((BASE / 'layout/scene_config.json').read_text())
-    config['projection']['pixels_per_voxel_at_zoom_1'] = dict(screen_x_per_world_x=1.5, screen_y_per_world_x=0.75, screen_y_per_world_z=-1.5)
-    config['projection']['origin_screen_view0'] = [960, 540]
+    config['projection']['pixels_per_voxel_at_zoom_1'] = dict(screen_x_per_world_x=1.35, screen_y_per_world_x=0.675, screen_y_per_world_z=-1.35)
+    config['projection']['origin_screen_view0'] = [960, 580]
     config['camera']['pivot_world'] = [0, 0, 0]
     config['camera']['ops_area_half_extent_voxels'] = 400
     for style in ('minor', 'major'):
@@ -265,7 +275,7 @@ def build():
     config['shield'].update(center=shield['center'], radius_xy=shield['radius_xy'],
                             radius_z=shield['radius_z'], rest_alpha_fill=0.025,
                             edge_alpha_fill=0.08, rim_alpha=0.45,
-                            shape_note='Scene envelope sized to cover all station voxels; four external JunctionTower projectors. Gameplay shield rules are unchanged.')
+                            shape_note='The field passes through the four ShieldGenerator emitter cores and encloses the plant and tubes; external projector housings straddle the boundary. Gameplay shield rules are unchanged.')
     config['shield']['ring']['alpha'] = 0.35
     config['shield']['ring_far']['alpha'] = 0.15
     config['shield']['hits']['impacts'] = []
@@ -276,7 +286,8 @@ def build():
                   physically_connected_objects=len(reached_geometry),
                   voxel_count=len(owners), carved_port_voxels=carved, shared_coupling_voxels=shared,
                   bounds=bounds(owners), glass_voxels=sum(c == 16 for voxels in parts.values() for c in voxels.values()),
-                  shield_projectors=len(projectors), shield_covers_all_voxels=True,
+                  shield_projectors=len(projectors), shield_covers_plant_and_tubes=True,
+                  shield_projectors_on_boundary=True, shield_emitter_boundary_max_error=max(emitter_errors),
                   shield_max_normalized_radius_squared=coverage,
                   main_plant_bounds=[plant_min, plant_max],
                   source_files=[m['file'] for m in inventory])

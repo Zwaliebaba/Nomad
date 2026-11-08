@@ -50,9 +50,9 @@
       "file": "RelayTower.vox"
     },
     {
-      "id": "junction_tower",
-      "name": "Cyan junction tower",
-      "voxels": 6045,
+      "id": "shield_generator",
+      "name": "Shield generator",
+      "voxels": 6691,
       "bounds": [
         [
           -12,
@@ -60,17 +60,24 @@
           -7
         ],
         [
-          11,
-          11,
-          57
+          12,
+          12,
+          58
         ]
       ],
-      "note": "Repeated freestanding tower variant; +x is the outward side.",
+      "note": "Armoured capacitor housing and four swept magnetic yokes around an exposed cyan/white projector core.",
       "space_review": [
-        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+        "Dedicated shield-generator silhouette, with power conduits, coil rings and four open yokes instead of tower windows or an antenna.",
+        "Emitter local centre [0,0,46] lies directly on the scene forcefield boundary; all instances are external.",
+        "Four luminous shield insignia identify the capacitor housing from any view."
       ],
       "glass_voxels": 0,
-      "file": "JunctionTower.vox"
+      "file": "ShieldGenerator.vox",
+      "emitter_local": [
+        0,
+        0,
+        46
+      ]
     },
     {
       "id": "beacon_tower",

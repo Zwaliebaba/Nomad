@@ -15,14 +15,14 @@
     "pitch_deg": 30.0,
     "z_scale": 0.8165,
     "pixels_per_voxel_at_zoom_1": {
-      "screen_x_per_world_x": 1.5,
-      "screen_y_per_world_x": 0.75,
-      "screen_y_per_world_z": -1.5
+      "screen_x_per_world_x": 1.35,
+      "screen_y_per_world_x": 0.675,
+      "screen_y_per_world_z": -1.35
     },
     "formula_view0": "sx = cx + 5*(x - y);  sy = cy + 2.5*(x + y) - 5*z   (1920x1080 reference, zoom 1)",
     "origin_screen_view0": [
       960,
-      540
+      580
     ]
   },
   "camera": {
@@ -79,10 +79,10 @@
       0,
       46
     ],
-    "radius_xy": 360,
-    "radius_z": 180,
+    "radius_xy": 320,
+    "radius_z": 240,
     "below_grid_opacity": 0.4,
-    "shape_note": "Scene envelope sized to cover all station voxels; four external JunctionTower projectors. Gameplay shield rules are unchanged.",
+    "shape_note": "The field passes through the four ShieldGenerator emitter cores and encloses the plant and tubes; external projector housings straddle the boundary. Gameplay shield rules are unchanged.",
     "rest_alpha_fill": 0.025,
     "edge_alpha_fill": 0.08,
     "fresnel_power": 4,
