@@ -45,100 +45,124 @@
       "name": "Empty slot mount"
     },
     {
-      "id": "reference_command_core",
-      "name": "Command complex with holographic mast"
+      "id": "command_core",
+      "name": "Command complex with holographic mast",
+      "file": "CommandCore.vox"
     },
     {
-      "id": "reference_relay_tower",
-      "name": "Tall relay tower"
+      "id": "relay_tower",
+      "name": "Tall relay tower",
+      "file": "RelayTower.vox"
     },
     {
-      "id": "reference_junction_tower",
-      "name": "Cyan junction tower"
+      "id": "junction_tower",
+      "name": "Cyan junction tower",
+      "file": "JunctionTower.vox"
     },
     {
-      "id": "reference_beacon_tower",
-      "name": "Narrow beacon tower"
+      "id": "beacon_tower",
+      "name": "Narrow beacon tower",
+      "file": "BeaconTower.vox"
     },
     {
-      "id": "reference_solar_array_large",
-      "name": "Solar array, large"
+      "id": "solar_array_large",
+      "name": "Solar array, large",
+      "file": "SolarArrayLarge.vox"
     },
     {
-      "id": "reference_solar_array_small",
-      "name": "Solar array, small"
+      "id": "solar_array_small",
+      "name": "Solar array, small",
+      "file": "SolarArraySmall.vox"
     },
     {
-      "id": "reference_refinery_vats",
-      "name": "Three-vat industrial rack"
+      "id": "refinery_vats",
+      "name": "Three-vat industrial rack",
+      "file": "RefineryVats.vox"
     },
     {
-      "id": "reference_refinery_furnace",
-      "name": "Twin furnace rack"
+      "id": "refinery_furnace",
+      "name": "Twin furnace rack",
+      "file": "RefineryFurnace.vox"
     },
     {
-      "id": "reference_biodome",
-      "name": "Botanical dome"
+      "id": "biodome",
+      "name": "Botanical dome",
+      "file": "Biodome.vox"
     },
     {
-      "id": "reference_greenhouse_pair",
-      "name": "Twin arched greenhouses"
+      "id": "greenhouse_pair",
+      "name": "Twin arched greenhouses",
+      "file": "GreenhousePair.vox"
     },
     {
-      "id": "reference_reactor_chamber",
-      "name": "Caged cyan energy chamber"
+      "id": "reactor_chamber",
+      "name": "Caged cyan energy chamber",
+      "file": "ReactorChamber.vox"
     },
     {
-      "id": "reference_hangar",
-      "name": "Hangar and launch apron"
+      "id": "hangar",
+      "name": "Hangar and launch apron",
+      "file": "Hangar.vox"
     },
     {
-      "id": "reference_ring_dock",
-      "name": "Circular docking ring"
+      "id": "ring_dock",
+      "name": "Circular docking ring",
+      "file": "RingDock.vox"
     },
     {
-      "id": "reference_communications_dish",
-      "name": "Parabolic communications dish"
+      "id": "communications_dish",
+      "name": "Parabolic communications dish",
+      "file": "CommunicationsDish.vox"
     },
     {
-      "id": "reference_utility_workshop",
-      "name": "Low utility workshop"
+      "id": "utility_workshop",
+      "name": "Low utility workshop",
+      "file": "UtilityWorkshop.vox"
     },
     {
-      "id": "reference_logistics_bay",
-      "name": "Framed logistics bay"
+      "id": "logistics_bay",
+      "name": "Framed logistics bay",
+      "file": "LogisticsBay.vox"
     },
     {
-      "id": "reference_rooftop_turret",
-      "name": "Small rooftop turret"
+      "id": "rooftop_turret",
+      "name": "Small rooftop turret",
+      "file": "RooftopTurret.vox"
     },
     {
-      "id": "reference_landing_platform",
-      "name": "Landing Platform"
+      "id": "landing_platform",
+      "name": "Landing Platform",
+      "file": "LandingPlatform.vox"
     },
     {
-      "id": "reference_service_platform",
-      "name": "Service Platform"
+      "id": "service_platform",
+      "name": "Service Platform",
+      "file": "ServicePlatform.vox"
     },
     {
-      "id": "reference_small_landing_pad",
-      "name": "Small Landing Pad"
+      "id": "small_landing_pad",
+      "name": "Small Landing Pad",
+      "file": "SmallLandingPad.vox"
     },
     {
-      "id": "reference_connector_straight",
-      "name": "Utility bridge, straight"
+      "id": "connector_straight",
+      "name": "Straight space tube",
+      "file": "ConnectorStraight.vox"
     },
     {
-      "id": "reference_connector_corner",
-      "name": "Utility bridge, corner"
+      "id": "connector_corner",
+      "name": "Curved space-tube elbow",
+      "file": "ConnectorCorner.vox"
     },
     {
-      "id": "reference_connector_tee",
-      "name": "Utility bridge, tee"
+      "id": "connector_tee",
+      "name": "Three-way space-tube junction",
+      "file": "ConnectorTee.vox"
     },
     {
-      "id": "reference_connector_cross",
-      "name": "Utility bridge, cross"
+      "id": "connector_cross",
+      "name": "Four-way space-tube junction",
+      "file": "ConnectorCross.vox"
     }
   ]
 }

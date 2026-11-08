@@ -22,13 +22,13 @@ def main() -> None:
     for sector in config["shield"]["sectors"]:
         sector["strength"] = pylons[sector["pylon"].removeprefix("pylon_").upper()]
 
-    # Station voxels packed as int8 x, int8 y, int8 z, uint8 pad, uint16 palette index.
+    # Signed 16-bit positions support larger modular stations without coordinate wrap.
     packed = bytearray()
     modules = []
     for module in station["modules"]:
         modules.append({"id": module["id"], "name": module["name"], "count": len(module["voxels"])})
         for x, y, z, p in module["voxels"]:
-            packed += struct.pack("<bbbBH", x, y, z, 0, p)
+            packed += struct.pack("<hhhH", x, y, z, p)
 
     data = {
         "palette": [[e["rgb"], bool(e["emissive"])] for e in station["palette"]],
@@ -43,11 +43,12 @@ def main() -> None:
         "shield": config["shield"],
         "pivot": config["camera"]["pivot_world"],
         "zoomLevels": config["camera"]["zoom_levels"],
+        "projectionScale": config["projection"]["pixels_per_voxel_at_zoom_1"]["screen_x_per_world_x"] / 5,
     }
     template = open(template_path, encoding="utf-8").read()
     html = template.replace("/*__DATA__*/null", json.dumps(data, separators=(",", ":")))
     open(out_path, "w", encoding="utf-8").write(html)
-    print(f"wrote {out_path}: {len(html) / 1024:.0f} KiB, {len(packed) // 6} station voxels")
+    print(f"wrote {out_path}: {len(html) / 1024:.0f} KiB, {len(packed) // 8} station voxels")
 
 
 if __name__ == "__main__":

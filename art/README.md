@@ -20,7 +20,11 @@ The models here are maintained in [MagicaVoxel](https://ephtracy.github.io/) (0.
 
 `cargo test` (and so CI) fails if a generated file does not match its `.vox` files. `cargo run -p nomad-vox -- import --check` reports the same thing without writing anything.
 
-To add a model, add `{ "id": "...", "name": "..." }` to the set's `set.json`, save the new model as `<id>.vox` in the same folder, and run the import. To get back a `.vox` file you lost, regenerate it from the committed JSON with `cargo run -p nomad-vox -- export --force art/voxels/<set>`. This overwrites the `.vox` files of that set.
+To add a model, add `{ "id": "...", "name": "..." }` to the set's `set.json`, save the new model as `<id>.vox` in the same folder, and run the import. An optional `file` property selects a different source filename, for example `{ "id": "command_core", "name": "Command core", "file": "CommandCore.vox" }`. IDs remain lowercase; artist-facing filenames can use PascalCase. Filenames must be unique (including on case-insensitive filesystems) and cannot contain directories.
+
+To get back a `.vox` file you lost, regenerate it from the committed JSON with `cargo run -p nomad-vox -- export --force art/voxels/<set>`. This overwrites the `.vox` files of that set. **Catalog export retains RGB and Emit only; it loses Glass and the shared editing palette.** Prefer restoring artist-maintained sources from Git.
+
+The PascalCase station modules are documented in [modules/MODULES.md](voxels/modules/MODULES.md). The assembled [SpaceStation scene](scenes/SpaceStation/README.md) includes a MagicaVoxel scene, editable layout and a complete alternate asset directory; the original phase-1 scene is preserved.
 
 ## Conventions
 

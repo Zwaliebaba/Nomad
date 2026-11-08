@@ -1,0 +1,706 @@
+{
+  "source": "Owner-provided isometric station screenshot, 2026-11-07",
+  "status": "Visual reconstructions; concealed geometry inferred. Repeated instances share a model. Names describe appearance, not new gameplay rules. Existing canonical assets preserved.",
+  "axes": "+z up; original slot datum remains z=0; hull services extend below that datum; hangar opens +x. Art-reference proportions, not balanced gameplay slot sizes.",
+  "models": [
+    {
+      "id": "command_core",
+      "name": "Command complex with holographic mast",
+      "voxels": 34795,
+      "bounds": [
+        [
+          -32,
+          -30,
+          -7
+        ],
+        [
+          31,
+          29,
+          126
+        ]
+      ],
+      "note": "Large central stepped tower; emblem and concealed walls reconstructed.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "CommandCore.vox"
+    },
+    {
+      "id": "relay_tower",
+      "name": "Tall relay tower",
+      "voxels": 7165,
+      "bounds": [
+        [
+          -12,
+          -12,
+          -7
+        ],
+        [
+          11,
+          11,
+          78
+        ]
+      ],
+      "note": "Repeated freestanding tower variant; +x is the outward side.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "RelayTower.vox"
+    },
+    {
+      "id": "junction_tower",
+      "name": "Cyan junction tower",
+      "voxels": 6045,
+      "bounds": [
+        [
+          -12,
+          -12,
+          -7
+        ],
+        [
+          11,
+          11,
+          57
+        ]
+      ],
+      "note": "Repeated freestanding tower variant; +x is the outward side.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "JunctionTower.vox"
+    },
+    {
+      "id": "beacon_tower",
+      "name": "Narrow beacon tower",
+      "voxels": 6661,
+      "bounds": [
+        [
+          -12,
+          -12,
+          -7
+        ],
+        [
+          11,
+          11,
+          69
+        ]
+      ],
+      "note": "Repeated freestanding tower variant; +x is the outward side.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "BeaconTower.vox"
+    },
+    {
+      "id": "solar_array_large",
+      "name": "Solar array, large",
+      "voxels": 8700,
+      "bounds": [
+        [
+          -41,
+          -27,
+          2
+        ],
+        [
+          41,
+          23,
+          26
+        ]
+      ],
+      "note": "Blue cell wings, central maintenance spine, support piers and end beacons.",
+      "space_review": [
+        "Removed ground-like end piers below z=7; added central suspension spine, wing pivots and recessed RCS nozzles."
+      ],
+      "glass_voxels": 0,
+      "file": "SolarArrayLarge.vox"
+    },
+    {
+      "id": "solar_array_small",
+      "name": "Solar array, small",
+      "voxels": 3804,
+      "bounds": [
+        [
+          -29,
+          -14,
+          2
+        ],
+        [
+          29,
+          10,
+          26
+        ]
+      ],
+      "note": "Blue cell wings, central maintenance spine, support piers and end beacons.",
+      "space_review": [
+        "Removed ground-like end piers below z=7; added central suspension spine, wing pivots and recessed RCS nozzles."
+      ],
+      "glass_voxels": 0,
+      "file": "SolarArraySmall.vox"
+    },
+    {
+      "id": "refinery_vats",
+      "name": "Three-vat industrial rack",
+      "voxels": 11867,
+      "bounds": [
+        [
+          -24,
+          -15,
+          -7
+        ],
+        [
+          23,
+          15,
+          44
+        ]
+      ],
+      "note": "Left-side row of cylindrical silver vats with amber bands and external gantry.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "RefineryVats.vox"
+    },
+    {
+      "id": "refinery_furnace",
+      "name": "Twin furnace rack",
+      "voxels": 11836,
+      "bounds": [
+        [
+          -21,
+          -16,
+          -7
+        ],
+        [
+          20,
+          15,
+          34
+        ]
+      ],
+      "note": "Front-left pair of squared hot industrial units, with amber service panels.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "RefineryFurnace.vox"
+    },
+    {
+      "id": "biodome",
+      "name": "Botanical dome",
+      "voxels": 14617,
+      "bounds": [
+        [
+          -21,
+          -21,
+          -7
+        ],
+        [
+          20,
+          20,
+          31
+        ]
+      ],
+      "note": "Front-middle geodesic greenhouse, modelled with an open glass lattice so planting remains visible.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations.",
+        "Added Glass hemisphere between the original frame ribs; planting and original cyan/white emitter voxels retained."
+      ],
+      "glass_voxels": 1500,
+      "file": "Biodome.vox"
+    },
+    {
+      "id": "greenhouse_pair",
+      "name": "Twin arched greenhouses",
+      "voxels": 12142,
+      "bounds": [
+        [
+          -22,
+          -16,
+          -7
+        ],
+        [
+          21,
+          15,
+          22
+        ]
+      ],
+      "note": "Two small planted glasshouses on a shared utility platform.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations.",
+        "Added Glass barrel roofs, side glazing and endcaps without replacing the frames or crops."
+      ],
+      "glass_voxels": 1624,
+      "file": "GreenhousePair.vox"
+    },
+    {
+      "id": "reactor_chamber",
+      "name": "Caged cyan energy chamber",
+      "voxels": 10641,
+      "bounds": [
+        [
+          -18,
+          -18,
+          -7
+        ],
+        [
+          17,
+          17,
+          39
+        ]
+      ],
+      "note": "Frontmost square gantry containing a luminous energy column; visual label only.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "ReactorChamber.vox"
+    },
+    {
+      "id": "hangar",
+      "name": "Hangar and launch apron",
+      "voxels": 22490,
+      "bounds": [
+        [
+          -35,
+          -19,
+          -7
+        ],
+        [
+          35,
+          19,
+          31
+        ]
+      ],
+      "note": "One of the repeated right-side hangar bays. Open +x entrance; craft are excluded.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "Hangar.vox"
+    },
+    {
+      "id": "ring_dock",
+      "name": "Circular docking ring",
+      "voxels": 11143,
+      "bounds": [
+        [
+          -40,
+          -40,
+          0
+        ],
+        [
+          40,
+          40,
+          17
+        ]
+      ],
+      "note": "Lower-right open docking ring with amber internal strips and four outriggers. No ship included.",
+      "space_review": [
+        "Added annular underside plating and four recessed RCS pods; central docking aperture remains open."
+      ],
+      "glass_voxels": 0,
+      "file": "RingDock.vox"
+    },
+    {
+      "id": "communications_dish",
+      "name": "Parabolic communications dish",
+      "voxels": 8495,
+      "bounds": [
+        [
+          -17,
+          -17,
+          -7
+        ],
+        [
+          17,
+          15,
+          50
+        ]
+      ],
+      "note": "Rear-right tilted reflector and support pedestal; rear surfaces inferred.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "CommunicationsDish.vox"
+    },
+    {
+      "id": "utility_workshop",
+      "name": "Low utility workshop",
+      "voxels": 7637,
+      "bounds": [
+        [
+          -18,
+          -14,
+          -7
+        ],
+        [
+          17,
+          13,
+          24
+        ]
+      ],
+      "note": "Low service building beside the botanical dome, with rooftop vents and service hatch.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "UtilityWorkshop.vox"
+    },
+    {
+      "id": "logistics_bay",
+      "name": "Framed logistics bay",
+      "voxels": 10906,
+      "bounds": [
+        [
+          -20,
+          -16,
+          -7
+        ],
+        [
+          19,
+          15,
+          40
+        ]
+      ],
+      "note": "Rear-left framed utility block below the large solar array; visual purpose inferred.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "LogisticsBay.vox"
+    },
+    {
+      "id": "rooftop_turret",
+      "name": "Small rooftop turret",
+      "voxels": 2481,
+      "bounds": [
+        [
+          -9,
+          -9,
+          -7
+        ],
+        [
+          13,
+          8,
+          13
+        ]
+      ],
+      "note": "Small paired-barrel roof fixture, separated for reuse; no gameplay properties assigned.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "RooftopTurret.vox"
+    },
+    {
+      "id": "landing_platform",
+      "name": "Landing Platform",
+      "voxels": 8797,
+      "bounds": [
+        [
+          -22,
+          -16,
+          -7
+        ],
+        [
+          21,
+          15,
+          13
+        ]
+      ],
+      "note": "Marked platform variant visible at the front-left or rear of the base.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "LandingPlatform.vox"
+    },
+    {
+      "id": "service_platform",
+      "name": "Service Platform",
+      "voxels": 5023,
+      "bounds": [
+        [
+          -14,
+          -14,
+          -7
+        ],
+        [
+          13,
+          13,
+          13
+        ]
+      ],
+      "note": "Marked platform variant visible at the front-left or rear of the base.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "ServicePlatform.vox"
+    },
+    {
+      "id": "small_landing_pad",
+      "name": "Small Landing Pad",
+      "voxels": 3197,
+      "bounds": [
+        [
+          -15,
+          -8,
+          -7
+        ],
+        [
+          15,
+          7,
+          13
+        ]
+      ],
+      "note": "Marked platform variant visible at the front-left or rear of the base.",
+      "space_review": [
+        "Retained upper silhouette; added bevelled structural hull, underside ribs, flush equipment panels and recessed RCS pods instead of ground foundations."
+      ],
+      "glass_voxels": 0,
+      "file": "SmallLandingPad.vox"
+    },
+    {
+      "id": "connector_straight",
+      "name": "Straight space tube",
+      "voxels": 1932,
+      "bounds": [
+        [
+          -16,
+          -6,
+          3
+        ],
+        [
+          16,
+          6,
+          15
+        ]
+      ],
+      "note": "Enclosed hollow station tube with matching circular coupling flanges and cyan service lights.",
+      "space_review": [
+        "Replaced the open utility bridge with a circular enclosed tube; mouths remain at the original arm endpoints (16 voxels from the junction), with axis at z=9.",
+        "Bores merge through the junction without internal partitions. The corner variant uses a swept quarter-circle elbow. All port profiles match, including collars and clear bores."
+      ],
+      "glass_voxels": 0,
+      "connection_ports": [
+        {
+          "centre": [
+            16,
+            0,
+            9
+          ],
+          "outward": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "centre": [
+            -16,
+            0,
+            9
+          ],
+          "outward": [
+            -1,
+            0,
+            0
+          ]
+        }
+      ],
+      "file": "ConnectorStraight.vox"
+    },
+    {
+      "id": "connector_corner",
+      "name": "Curved space-tube elbow",
+      "voxels": 1746,
+      "bounds": [
+        [
+          -6,
+          -6,
+          3
+        ],
+        [
+          16,
+          16,
+          15
+        ]
+      ],
+      "note": "Enclosed hollow station tube with matching circular coupling flanges and cyan service lights.",
+      "space_review": [
+        "Replaced the open utility bridge with a circular enclosed tube; mouths remain at the original arm endpoints (16 voxels from the junction), with axis at z=9.",
+        "Bores merge through the junction without internal partitions. The corner variant uses a swept quarter-circle elbow. All port profiles match, including collars and clear bores."
+      ],
+      "glass_voxels": 0,
+      "connection_ports": [
+        {
+          "centre": [
+            16,
+            0,
+            9
+          ],
+          "outward": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "centre": [
+            0,
+            16,
+            9
+          ],
+          "outward": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "file": "ConnectorCorner.vox"
+    },
+    {
+      "id": "connector_tee",
+      "name": "Three-way space-tube junction",
+      "voxels": 2604,
+      "bounds": [
+        [
+          -16,
+          -6,
+          3
+        ],
+        [
+          16,
+          16,
+          15
+        ]
+      ],
+      "note": "Enclosed hollow station tube with matching circular coupling flanges and cyan service lights.",
+      "space_review": [
+        "Replaced the open utility bridge with a circular enclosed tube; mouths remain at the original arm endpoints (16 voxels from the junction), with axis at z=9.",
+        "Bores merge through the junction without internal partitions. The corner variant uses a swept quarter-circle elbow. All port profiles match, including collars and clear bores."
+      ],
+      "glass_voxels": 0,
+      "connection_ports": [
+        {
+          "centre": [
+            16,
+            0,
+            9
+          ],
+          "outward": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "centre": [
+            -16,
+            0,
+            9
+          ],
+          "outward": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "centre": [
+            0,
+            16,
+            9
+          ],
+          "outward": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "file": "ConnectorTee.vox"
+    },
+    {
+      "id": "connector_cross",
+      "name": "Four-way space-tube junction",
+      "voxels": 3276,
+      "bounds": [
+        [
+          -16,
+          -16,
+          3
+        ],
+        [
+          16,
+          16,
+          15
+        ]
+      ],
+      "note": "Enclosed hollow station tube with matching circular coupling flanges and cyan service lights.",
+      "space_review": [
+        "Replaced the open utility bridge with a circular enclosed tube; mouths remain at the original arm endpoints (16 voxels from the junction), with axis at z=9.",
+        "Bores merge through the junction without internal partitions. The corner variant uses a swept quarter-circle elbow. All port profiles match, including collars and clear bores."
+      ],
+      "glass_voxels": 0,
+      "connection_ports": [
+        {
+          "centre": [
+            16,
+            0,
+            9
+          ],
+          "outward": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "centre": [
+            -16,
+            0,
+            9
+          ],
+          "outward": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "centre": [
+            0,
+            16,
+            9
+          ],
+          "outward": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "centre": [
+            0,
+            -16,
+            9
+          ],
+          "outward": [
+            0,
+            -1,
+            0
+          ]
+        }
+      ],
+      "file": "ConnectorCross.vox"
+    }
+  ],
+  "material_review": "All reference files use identical 22-colour RGBA palettes and full material tables. Slot 16 is Glass; slots 9, 10, 11, 12 are Emit. Slot 22 retains the original diffuse glass-frame RGB separately."
+}

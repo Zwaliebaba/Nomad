@@ -1,0 +1,212 @@
+{
+  "format": "nomad-module-palette@1",
+  "scope": "PascalCase module sources listed in ModuleInventory.json; indices are 1-based MagicaVoxel file indices",
+  "reserved_indices": "23..255 unused and identical across files; last RGBA entry is the reserved index 0",
+  "materials": [
+    {
+      "index": 1,
+      "role": "hull",
+      "rgb": "#8791a4",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 2,
+      "role": "edge",
+      "rgb": "#b7c1cf",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 3,
+      "role": "light",
+      "rgb": "#d3dbe4",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 4,
+      "role": "mid",
+      "rgb": "#647087",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 5,
+      "role": "dark",
+      "rgb": "#354054",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 6,
+      "role": "black",
+      "rgb": "#182335",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 7,
+      "role": "deck",
+      "rgb": "#4c596f",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 8,
+      "role": "yellow",
+      "rgb": "#f4b223",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 9,
+      "role": "cyan",
+      "rgb": "#2ad4ff",
+      "material": {
+        "_type": "_emit",
+        "_emit": "0.6",
+        "_flux": "1"
+      }
+    },
+    {
+      "index": 10,
+      "role": "white",
+      "rgb": "#acf7ff",
+      "material": {
+        "_type": "_emit",
+        "_emit": "0.6",
+        "_flux": "1"
+      }
+    },
+    {
+      "index": 11,
+      "role": "red",
+      "rgb": "#ff3a2c",
+      "material": {
+        "_type": "_emit",
+        "_emit": "0.6",
+        "_flux": "1"
+      }
+    },
+    {
+      "index": 12,
+      "role": "orange",
+      "rgb": "#ff8718",
+      "material": {
+        "_type": "_emit",
+        "_emit": "0.6",
+        "_flux": "1"
+      }
+    },
+    {
+      "index": 13,
+      "role": "solar",
+      "rgb": "#193371",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 14,
+      "role": "solar2",
+      "rgb": "#22448b",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 15,
+      "role": "cell",
+      "rgb": "#395ea3",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 16,
+      "role": "glass",
+      "rgb": "#64c3da",
+      "material": {
+        "_type": "_glass",
+        "_weight": "1",
+        "_rough": "0.05",
+        "_ior": "0.45",
+        "_att": "0.05"
+      }
+    },
+    {
+      "index": 17,
+      "role": "soil",
+      "rgb": "#3a4624",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 18,
+      "role": "leaf",
+      "rgb": "#3a952e",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 19,
+      "role": "leaf2",
+      "rgb": "#77c139",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 20,
+      "role": "trunk",
+      "rgb": "#644c2b",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 21,
+      "role": "pipe",
+      "rgb": "#919fb1",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    },
+    {
+      "index": 22,
+      "role": "glass_frame",
+      "rgb": "#64c3da",
+      "material": {
+        "_type": "_diffuse",
+        "_rough": "0.65"
+      }
+    }
+  ]
+}

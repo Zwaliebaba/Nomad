@@ -1,0 +1,957 @@
+{
+  "format": "nomad-station-layout@1",
+  "name": "Space Station",
+  "description": "Connected command, industrial, habitat, docking and solar sectors. Authored from the PascalCase module sources; no ground plane.",
+  "instances": [
+    {
+      "id": "Core",
+      "model": "command_core",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "West",
+      "model": "connector_cross",
+      "position": [
+        -80,
+        0,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "East",
+      "model": "connector_cross",
+      "position": [
+        80,
+        0,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "North",
+      "model": "connector_cross",
+      "position": [
+        0,
+        -80,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "South",
+      "model": "connector_cross",
+      "position": [
+        0,
+        80,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "NorthWest",
+      "model": "connector_corner",
+      "position": [
+        -80,
+        -80,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "NorthEast",
+      "model": "connector_corner",
+      "position": [
+        80,
+        -80,
+        -8
+      ],
+      "quarter_turns": 1
+    },
+    {
+      "id": "SouthWest",
+      "model": "connector_corner",
+      "position": [
+        -80,
+        80,
+        -8
+      ],
+      "quarter_turns": 3
+    },
+    {
+      "id": "SouthEast",
+      "model": "connector_cross",
+      "position": [
+        80,
+        80,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "HangarBranch",
+      "model": "connector_tee",
+      "position": [
+        80,
+        48,
+        -8
+      ],
+      "quarter_turns": 3
+    },
+    {
+      "id": "Logistics",
+      "model": "logistics_bay",
+      "position": [
+        -136,
+        0,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "HangarA",
+      "model": "hangar",
+      "position": [
+        144,
+        0,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "HangarB",
+      "model": "hangar",
+      "position": [
+        144,
+        48,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Beacon",
+      "model": "beacon_tower",
+      "position": [
+        0,
+        -128,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Relay",
+      "model": "relay_tower",
+      "position": [
+        0,
+        -176,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Dish",
+      "model": "communications_dish",
+      "position": [
+        48,
+        -128,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Service",
+      "model": "service_platform",
+      "position": [
+        -48,
+        -128,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Turret",
+      "model": "rooftop_turret",
+      "position": [
+        -48,
+        -128,
+        14
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "SolarLarge",
+      "model": "solar_array_large",
+      "position": [
+        -128,
+        -128,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Landing",
+      "model": "landing_platform",
+      "position": [
+        0,
+        144,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Greenhouses",
+      "model": "greenhouse_pair",
+      "position": [
+        -64,
+        144,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Biodome",
+      "model": "biodome",
+      "position": [
+        -64,
+        200,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "SmallPad",
+      "model": "small_landing_pad",
+      "position": [
+        0,
+        200,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Reactor",
+      "model": "reactor_chamber",
+      "position": [
+        48,
+        200,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Workshop",
+      "model": "utility_workshop",
+      "position": [
+        48,
+        144,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Vats",
+      "model": "refinery_vats",
+      "position": [
+        -136,
+        64,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Furnaces",
+      "model": "refinery_furnace",
+      "position": [
+        -136,
+        128,
+        0
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "SolarSmall",
+      "model": "solar_array_small",
+      "position": [
+        144,
+        160,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "Dock",
+      "model": "ring_dock",
+      "position": [
+        208,
+        96,
+        -8
+      ],
+      "quarter_turns": 0
+    },
+    {
+      "id": "SolarElbow",
+      "model": "connector_corner",
+      "position": [
+        80,
+        160,
+        -8
+      ],
+      "quarter_turns": 3
+    },
+    {
+      "id": "DockElbow",
+      "model": "connector_corner",
+      "position": [
+        208,
+        160,
+        -8
+      ],
+      "quarter_turns": 2
+    },
+    {
+      "id": "pylon_n",
+      "model": "junction_tower",
+      "position": [
+        0,
+        -320,
+        0
+      ],
+      "quarter_turns": 0,
+      "role": "shield_projector"
+    },
+    {
+      "id": "pylon_e",
+      "model": "junction_tower",
+      "position": [
+        320,
+        0,
+        0
+      ],
+      "quarter_turns": 0,
+      "role": "shield_projector"
+    },
+    {
+      "id": "pylon_s",
+      "model": "junction_tower",
+      "position": [
+        0,
+        320,
+        0
+      ],
+      "quarter_turns": 0,
+      "role": "shield_projector"
+    },
+    {
+      "id": "pylon_w",
+      "model": "junction_tower",
+      "position": [
+        -320,
+        0,
+        0
+      ],
+      "quarter_turns": 0,
+      "role": "shield_projector"
+    }
+  ],
+  "connections": [
+    {
+      "id": "CoreToWest",
+      "source": "Core",
+      "target": "West",
+      "start": [
+        -33,
+        0,
+        1
+      ],
+      "end": [
+        -64,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "CoreToEast",
+      "source": "Core",
+      "target": "East",
+      "start": [
+        32,
+        0,
+        1
+      ],
+      "end": [
+        64,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "CoreToNorth",
+      "source": "Core",
+      "target": "North",
+      "start": [
+        0,
+        -31,
+        1
+      ],
+      "end": [
+        0,
+        -64,
+        1
+      ]
+    },
+    {
+      "id": "CoreToSouth",
+      "source": "Core",
+      "target": "South",
+      "start": [
+        0,
+        30,
+        1
+      ],
+      "end": [
+        0,
+        64,
+        1
+      ]
+    },
+    {
+      "id": "WestToNorthWest",
+      "source": "West",
+      "target": "NorthWest",
+      "start": [
+        -80,
+        -16,
+        1
+      ],
+      "end": [
+        -80,
+        -64,
+        1
+      ]
+    },
+    {
+      "id": "NorthWestToNorth",
+      "source": "NorthWest",
+      "target": "North",
+      "start": [
+        -64,
+        -80,
+        1
+      ],
+      "end": [
+        -16,
+        -80,
+        1
+      ]
+    },
+    {
+      "id": "NorthToNorthEast",
+      "source": "North",
+      "target": "NorthEast",
+      "start": [
+        16,
+        -80,
+        1
+      ],
+      "end": [
+        64,
+        -80,
+        1
+      ]
+    },
+    {
+      "id": "NorthEastToEast",
+      "source": "NorthEast",
+      "target": "East",
+      "start": [
+        80,
+        -64,
+        1
+      ],
+      "end": [
+        80,
+        -16,
+        1
+      ]
+    },
+    {
+      "id": "WestToSouthWest",
+      "source": "West",
+      "target": "SouthWest",
+      "start": [
+        -80,
+        16,
+        1
+      ],
+      "end": [
+        -80,
+        64,
+        1
+      ]
+    },
+    {
+      "id": "SouthWestToSouth",
+      "source": "SouthWest",
+      "target": "South",
+      "start": [
+        -64,
+        80,
+        1
+      ],
+      "end": [
+        -16,
+        80,
+        1
+      ]
+    },
+    {
+      "id": "SouthToSouthEast",
+      "source": "South",
+      "target": "SouthEast",
+      "start": [
+        16,
+        80,
+        1
+      ],
+      "end": [
+        64,
+        80,
+        1
+      ]
+    },
+    {
+      "id": "EastToHangarBranch",
+      "source": "East",
+      "target": "HangarBranch",
+      "start": [
+        80,
+        16,
+        1
+      ],
+      "end": [
+        80,
+        32,
+        1
+      ]
+    },
+    {
+      "id": "HangarBranchToSouthEast",
+      "source": "HangarBranch",
+      "target": "SouthEast",
+      "start": [
+        80,
+        64,
+        1
+      ],
+      "end": [
+        80,
+        64,
+        1
+      ]
+    },
+    {
+      "id": "WestToLogistics",
+      "source": "West",
+      "target": "Logistics",
+      "start": [
+        -96,
+        0,
+        1
+      ],
+      "end": [
+        -116,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "EastToHangarA",
+      "source": "East",
+      "target": "HangarA",
+      "start": [
+        96,
+        0,
+        1
+      ],
+      "end": [
+        109,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "HangarBranchToHangarB",
+      "source": "HangarBranch",
+      "target": "HangarB",
+      "start": [
+        96,
+        48,
+        1
+      ],
+      "end": [
+        109,
+        48,
+        1
+      ]
+    },
+    {
+      "id": "NorthToBeacon",
+      "source": "North",
+      "target": "Beacon",
+      "start": [
+        0,
+        -96,
+        1
+      ],
+      "end": [
+        0,
+        -116,
+        1
+      ]
+    },
+    {
+      "id": "BeaconToRelay",
+      "source": "Beacon",
+      "target": "Relay",
+      "start": [
+        0,
+        -141,
+        1
+      ],
+      "end": [
+        0,
+        -164,
+        1
+      ]
+    },
+    {
+      "id": "BeaconToDish",
+      "source": "Beacon",
+      "target": "Dish",
+      "start": [
+        12,
+        -128,
+        1
+      ],
+      "end": [
+        31,
+        -128,
+        1
+      ]
+    },
+    {
+      "id": "BeaconToService",
+      "source": "Beacon",
+      "target": "Service",
+      "start": [
+        -13,
+        -128,
+        1
+      ],
+      "end": [
+        -34,
+        -128,
+        1
+      ]
+    },
+    {
+      "id": "ServiceToSolarLarge",
+      "source": "Service",
+      "target": "SolarLarge",
+      "start": [
+        -63,
+        -128,
+        1
+      ],
+      "end": [
+        -87,
+        -128,
+        1
+      ]
+    },
+    {
+      "id": "SouthToLanding",
+      "source": "South",
+      "target": "Landing",
+      "start": [
+        0,
+        96,
+        1
+      ],
+      "end": [
+        0,
+        128,
+        1
+      ]
+    },
+    {
+      "id": "LandingToGreenhouses",
+      "source": "Landing",
+      "target": "Greenhouses",
+      "start": [
+        -23,
+        144,
+        1
+      ],
+      "end": [
+        -42,
+        144,
+        1
+      ]
+    },
+    {
+      "id": "GreenhousesToBiodome",
+      "source": "Greenhouses",
+      "target": "Biodome",
+      "start": [
+        -64,
+        160,
+        1
+      ],
+      "end": [
+        -64,
+        179,
+        1
+      ]
+    },
+    {
+      "id": "LandingToSmallPad",
+      "source": "Landing",
+      "target": "SmallPad",
+      "start": [
+        0,
+        160,
+        1
+      ],
+      "end": [
+        0,
+        192,
+        1
+      ]
+    },
+    {
+      "id": "SmallPadToReactor",
+      "source": "SmallPad",
+      "target": "Reactor",
+      "start": [
+        16,
+        200,
+        1
+      ],
+      "end": [
+        30,
+        200,
+        1
+      ]
+    },
+    {
+      "id": "LandingToWorkshop",
+      "source": "Landing",
+      "target": "Workshop",
+      "start": [
+        22,
+        144,
+        1
+      ],
+      "end": [
+        30,
+        144,
+        1
+      ]
+    },
+    {
+      "id": "WorkshopToReactor",
+      "source": "Workshop",
+      "target": "Reactor",
+      "start": [
+        48,
+        158,
+        1
+      ],
+      "end": [
+        48,
+        182,
+        1
+      ]
+    },
+    {
+      "id": "LogisticsToVats",
+      "source": "Logistics",
+      "target": "Vats",
+      "start": [
+        -136,
+        16,
+        1
+      ],
+      "end": [
+        -136,
+        49,
+        1
+      ]
+    },
+    {
+      "id": "VatsToFurnaces",
+      "source": "Vats",
+      "target": "Furnaces",
+      "start": [
+        -136,
+        79,
+        1
+      ],
+      "end": [
+        -136,
+        112,
+        1
+      ]
+    },
+    {
+      "id": "SouthEastToSolarElbow",
+      "source": "SouthEast",
+      "target": "SolarElbow",
+      "start": [
+        80,
+        96,
+        1
+      ],
+      "end": [
+        80,
+        144,
+        1
+      ]
+    },
+    {
+      "id": "SolarElbowToSolarSmall",
+      "source": "SolarElbow",
+      "target": "SolarSmall",
+      "start": [
+        96,
+        160,
+        1
+      ],
+      "end": [
+        115,
+        160,
+        1
+      ]
+    },
+    {
+      "id": "SolarSmallToDockElbow",
+      "source": "SolarSmall",
+      "target": "DockElbow",
+      "start": [
+        173,
+        160,
+        1
+      ],
+      "end": [
+        192,
+        160,
+        1
+      ]
+    },
+    {
+      "id": "DockElbowToDock",
+      "source": "DockElbow",
+      "target": "Dock",
+      "start": [
+        208,
+        144,
+        1
+      ],
+      "end": [
+        208,
+        136,
+        1
+      ]
+    },
+    {
+      "id": "LogisticsTopylon_w",
+      "source": "Logistics",
+      "target": "pylon_w",
+      "start": [
+        -157,
+        0,
+        1
+      ],
+      "end": [
+        -308,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "HangarATopylon_e",
+      "source": "HangarA",
+      "target": "pylon_e",
+      "start": [
+        179,
+        0,
+        1
+      ],
+      "end": [
+        308,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "RelayTopylon_n",
+      "source": "Relay",
+      "target": "pylon_n",
+      "start": [
+        0,
+        -189,
+        1
+      ],
+      "end": [
+        0,
+        -308,
+        1
+      ]
+    },
+    {
+      "id": "SmallPadTopylon_s",
+      "source": "SmallPad",
+      "target": "pylon_s",
+      "start": [
+        0,
+        208,
+        1
+      ],
+      "end": [
+        0,
+        308,
+        1
+      ]
+    }
+  ],
+  "mounts": [
+    [
+      "Service",
+      "Turret"
+    ]
+  ],
+  "shield": {
+    "projectors": [
+      "pylon_n",
+      "pylon_e",
+      "pylon_s",
+      "pylon_w"
+    ],
+    "center": [
+      0,
+      0,
+      46
+    ],
+    "radius_xy": 360,
+    "radius_z": 180,
+    "emitter_height": 46,
+    "note": "Scene-only forcefield envelope; every module and connection must fit. Projector towers sit beyond the main plant footprint.",
+    "projector_model": "junction_tower"
+  }
+}

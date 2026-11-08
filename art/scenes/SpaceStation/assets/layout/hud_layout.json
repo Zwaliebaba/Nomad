@@ -1,0 +1,206 @@
+{
+ "format": "voxel-rts/hud-layout@1",
+ "reference_resolution": [
+  1920,
+  1080
+ ],
+ "scaling": "scale uniformly by min(w/1920, h/1080); anchor panels to their nearest corner",
+ "fonts": {
+  "mono": "JetBrains Mono 400/600/700 (OFL)",
+  "display": "Rajdhani 500/600/700 (OFL)"
+ },
+ "font_families": {
+  "mono": "JetBrains Mono",
+  "display": "Rajdhani",
+  "note": "Family names the client looks up in assets/fonts/ (OFL, not bundled: download them there)."
+ },
+ "colors": {
+  "panel_bg": "rgba(7,14,22,0.82)",
+  "panel_border": "rgba(56,214,255,0.32)",
+  "accent": "#38d6ff",
+  "text": "#cfe3ee",
+  "label": "#86a3b6",
+  "bright": "#e8f6ff",
+  "ok": "#6fdc8c",
+  "warn": "#ffc247",
+  "hostile": "#ff8a3a",
+  "hostile_text": "#ff9d57",
+  "ally": "#9be37a",
+  "lock": "#ff6b6b"
+ },
+ "panel_style": "1px border, 10x10 L-corner accents top-left and bottom-right in accent colour, header row Rajdhani 13px letter-spacing 2.5px uppercase",
+ "panels": [
+  {
+   "id": "top_bar",
+   "rect": [
+    0,
+    0,
+    1920,
+    52
+   ],
+   "anchor": "top",
+   "content": [
+    "holding name + sector",
+    "mission clock",
+    "ALLOY",
+    "CRYSTAL",
+    "POWER used/cap + load%",
+    "COMMAND cap",
+    "alert banner (centre-right)",
+    "NETWORK commanders + ping",
+    "MENU F10"
+   ]
+  },
+  {
+   "id": "system_panel",
+   "rect": [
+    16,
+    66,
+    468,
+    250
+   ],
+   "anchor": "top-left",
+   "content": [
+    "header System \u00b7 <name> + control state",
+    "breadcrumb arm > sector > system > orbit > holding",
+    "zoom tabs TACTICAL/SYSTEM/SECTOR/GALAXY (F1-F4)",
+    "iso system map 214x146 (star, orbits, belt, holding, gates, lanes)",
+    "lane traffic list (3 rows)",
+    "system control bar (you/hostile/free)"
+   ]
+  },
+  {
+   "id": "camera_widget",
+   "rect": [
+    836,
+    62,
+    340,
+    30
+   ],
+   "anchor": "top",
+   "content": [
+    "rotate Q",
+    "compass diamond + N + view label \"VIEW NE \u00b7 1/4\"",
+    "rotate E"
+   ]
+  },
+  {
+   "id": "fleet_roster",
+   "rect": [
+    1676,
+    66,
+    228,
+    305
+   ],
+   "anchor": "top-right",
+   "content": [
+    "control groups 1-4 with state tags",
+    "hostile tracks"
+   ]
+  },
+  {
+   "id": "objectives_commanders",
+   "rect": [
+    1676,
+    384,
+    228,
+    300
+   ],
+   "anchor": "right",
+   "content": [
+    "objectives with timers",
+    "commanders list (allies)"
+   ]
+  },
+  {
+   "id": "quick_chips",
+   "rect": [
+    1596,
+    694,
+    308,
+    30
+   ],
+   "anchor": "bottom-right",
+   "content": [
+    "IDLE n (.)",
+    "LAST ALERT (Space)",
+    "PING (G)"
+   ]
+  },
+  {
+   "id": "minimap",
+   "rect": [
+    1596,
+    732,
+    308,
+    332
+   ],
+   "anchor": "bottom-right",
+   "content": [
+    "iso range ellipses 46/92/138 (2:1)",
+    "iso diagonal axes",
+    "grid diamond",
+    "camera frame rectangle",
+    "contacts: friendly squares, hostile diamonds",
+    "ally marker",
+    "north line",
+    "iso pulse: 3 expanding 2:1 ellipses, 3.6 s period, staggered 1.2 s"
+   ]
+  },
+  {
+   "id": "selection",
+   "rect": [
+    16,
+    852,
+    500,
+    212
+   ],
+   "anchor": "bottom-left",
+   "content": [
+    "name + callsign",
+    "HULL bar",
+    "SHIELD GRID bar split N/E/S/W",
+    "POWER IN",
+    "DOCKED",
+    "TURRETS",
+    "BUILD QUEUE with progress"
+   ]
+  },
+  {
+   "id": "command_card",
+   "rect": [
+    532,
+    852,
+    540,
+    212
+   ],
+   "anchor": "bottom",
+   "content": [
+    "4x3 grid of 44px buttons",
+    "each: label, sub-line (cost/state), hotkey badge",
+    "cooldown = dark overlay + amber timer",
+    "active toggle = green border"
+   ]
+  }
+ ],
+ "world_labels": {
+  "style": "semi-transparent box, 3px left border accent, icon 22x24, title 11px bold accent, lines 11px",
+  "leader": "1px polyline with 2px dot at anchor",
+  "rule": "max ~8 visible; declutter by priority"
+ },
+ "markers": {
+  "selection_brackets": "4 L-corners, 2px accent",
+  "altitude_stalk": "dashed 1px vertical line to ops grid + 6x3 ellipse",
+  "lock": "red reticle 20px + corner brackets",
+  "pylon_tag": "10px bold, accent or hostile colour when < 50%",
+  "elevation_tag": {
+   "text": "ELEV +{tier}",
+   "font": "mono",
+   "size_px": 10,
+   "weight": 700,
+   "color": "#7fe6ff",
+   "baseline_below_footprint_px": 14,
+   "note": "Shown only on hover or selection (doc 01 §7). {tier} is the module's elevation_tier. Centred under the lowest screen point of the footprint; colour and offset from the mockup."
+  }
+ }
+}

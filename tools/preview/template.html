@@ -1,8 +1,5 @@
 <title>KR-114 Voxel Preview</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Rajdhani:wght@600;700&display=swap">
 <style>
   /* Layout: a full-bleed WebGL scene; phase-1 HUD chips docked top-left (identity, view) and bottom (controls). */
   :root {
@@ -276,14 +273,14 @@ const cube = (() => {
 // Station voxels: decode, drop voxels hidden on all six sides.
 const raw = Uint8Array.from(atob(DATA.voxels), c => c.charCodeAt(0));
 const dv = new DataView(raw.buffer);
-const count = raw.length / 6;
-const key = (x, y, z) => ((x + 128) | ((y + 128) << 8) | ((z + 128) << 16));
+const count = raw.length / 8;
+const key = (x, y, z) => `${x},${y},${z}`;
 const solid = new Set();
-for (let k = 0; k < count; k++) solid.add(key(dv.getInt8(k*6), dv.getInt8(k*6+1), dv.getInt8(k*6+2)));
+for (let k = 0; k < count; k++) solid.add(key(dv.getInt16(k*8, true), dv.getInt16(k*8+2, true), dv.getInt16(k*8+4, true)));
 const palette = DATA.palette.map(([h, e]) => [...hex(h), e ? 1 : 0]);
 const stationInst = [], glowPts = [];
 for (let k = 0; k < count; k++) {
-  const x = dv.getInt8(k*6), y = dv.getInt8(k*6+1), z = dv.getInt8(k*6+2), p = dv.getUint16(k*6+4, true);
+  const x = dv.getInt16(k*8, true), y = dv.getInt16(k*8+2, true), z = dv.getInt16(k*8+4, true), p = dv.getUint16(k*8+6, true);
   const c = palette[p];
   if (c[3]) glowPts.push(x + .5, y + .5, z + .5, c[0], c[1], c[2]);
   if (solid.has(key(x+1,y,z)) && solid.has(key(x-1,y,z)) && solid.has(key(x,y+1,z)) && solid.has(key(x,y-1,z)) && solid.has(key(x,y,z+1)) && solid.has(key(x,y,z-1))) continue;
@@ -382,7 +379,7 @@ const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").match
 const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
 let W = 1, H = 1, dpr = 1;
 const baseScale = () => Math.min(W / 1200, H / 760);
-const scale = () => baseScale() * cam.zoom;
+const scale = () => baseScale() * cam.zoom * DATA.projectionScale;
 if (window.innerWidth < 720) { cam.zi = ZOOMS.indexOf(1.5); cam.zoom = cam.zFrom = cam.zTo = 1.5; }
 
 function screenToWorld(sx, sy) { // device px, z = 0

@@ -1,0 +1,66 @@
+{
+  "module_types": 24,
+  "placed_modules": 35,
+  "tube_runs": 37,
+  "connections": 38,
+  "connected_instances": 35,
+  "visible_objects": 72,
+  "physically_connected_objects": 72,
+  "voxel_count": 354278,
+  "carved_port_voxels": 4445,
+  "shared_coupling_voxels": 3162,
+  "bounds": [
+    [
+      -332,
+      -332,
+      -8
+    ],
+    [
+      331,
+      331,
+      126
+    ]
+  ],
+  "glass_voxels": 3124,
+  "shield_projectors": 4,
+  "shield_covers_all_voxels": true,
+  "shield_max_normalized_radius_squared": 0.9245061728395061,
+  "main_plant_bounds": [
+    [
+      -169,
+      -188,
+      -8
+    ],
+    [
+      248,
+      220,
+      126
+    ]
+  ],
+  "source_files": [
+    "CommandCore.vox",
+    "RelayTower.vox",
+    "JunctionTower.vox",
+    "BeaconTower.vox",
+    "SolarArrayLarge.vox",
+    "SolarArraySmall.vox",
+    "RefineryVats.vox",
+    "RefineryFurnace.vox",
+    "Biodome.vox",
+    "GreenhousePair.vox",
+    "ReactorChamber.vox",
+    "Hangar.vox",
+    "RingDock.vox",
+    "CommunicationsDish.vox",
+    "UtilityWorkshop.vox",
+    "LogisticsBay.vox",
+    "RooftopTurret.vox",
+    "LandingPlatform.vox",
+    "ServicePlatform.vox",
+    "SmallLandingPad.vox",
+    "ConnectorStraight.vox",
+    "ConnectorCorner.vox",
+    "ConnectorTee.vox",
+    "ConnectorCross.vox"
+  ]
+}

@@ -15,6 +15,8 @@
 //!
 //! `output` is relative to the set's directory. The `.vox` files are the source of truth;
 //! the output is generated and must not be edited by hand.
+//! A model may specify `"file": "CommandCore.vox"` to keep artist-facing filenames separate
+//! from its stable lowercase id. Without `file`, the source remains `<id>.vox`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -73,6 +75,9 @@ struct Manifest {
 struct ManifestModel {
     id: String,
     name: String,
+    /// Optional source filename, allowing artist-facing names without changing model ids.
+    #[serde(default)]
+    file: Option<String>,
 }
 
 /// A loaded, validated set.
@@ -109,6 +114,7 @@ impl Set {
             return Err(bad("lists no models".into()));
         }
         let mut ids = BTreeSet::new();
+        let mut files = BTreeSet::new();
         for m in &manifest.models {
             let valid = !m.id.is_empty()
                 && m.id
@@ -122,6 +128,18 @@ impl Set {
             }
             if !ids.insert(m.id.as_str()) {
                 return Err(bad(format!("model id `{}` is listed twice", m.id)));
+            }
+            let filename = m.file.clone().unwrap_or_else(|| format!("{}.vox", m.id));
+            let valid_file = filename.strip_suffix(".vox").is_some_and(|stem| {
+                !stem.is_empty()
+                    && stem
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+            });
+            if !valid_file || !files.insert(filename.to_ascii_lowercase()) {
+                return Err(bad(format!(
+                    "source file `{filename}` must be a unique .vox filename without a directory"
+                )));
             }
         }
         let mut names = BTreeSet::new();
@@ -160,6 +178,15 @@ impl Set {
     }
 
     pub fn vox_path(&self, id: &str) -> PathBuf {
+        if let Some(filename) = self
+            .manifest
+            .models
+            .iter()
+            .find(|m| m.id == id)
+            .and_then(|m| m.file.as_deref())
+        {
+            return self.dir.join(filename);
+        }
         self.dir.join(format!("{id}.vox"))
     }
 
@@ -421,5 +448,60 @@ mod tests {
                 "{body}"
             );
         }
+    }
+
+    #[test]
+    fn pascal_case_source_names_preserve_model_ids_and_export_paths() {
+        let dir = scratch("source-name");
+        write_manifest(
+            &dir,
+            r#"{"format":"nomad-vox/set@1","kind":"models","output":"out.json","axes":"+z up",
+            "models":[{"id":"command_core","name":"Core","file":"CommandCore.vox"}]}"#,
+        );
+        let set = Set::load(&dir).unwrap();
+        let mut model = VoxelModel::new();
+        model
+            .insert(
+                [0, 0, 0],
+                Colour {
+                    emissive: false,
+                    rgb: [30, 40, 50],
+                },
+            )
+            .unwrap();
+        fs::write(
+            dir.join("CommandCore.vox"),
+            vox::write(&model, "Core").unwrap(),
+        )
+        .unwrap();
+        assert!(set.import_and_write().unwrap());
+        assert_eq!(
+            formats::read_models(&fs::read_to_string(set.output_path()).unwrap()).unwrap()[0].id,
+            "command_core"
+        );
+        fs::remove_file(dir.join("CommandCore.vox")).unwrap();
+        assert_eq!(
+            set.export(None, false).unwrap(),
+            vec![dir.join("CommandCore.vox")]
+        );
+        assert!(!dir.join("command_core.vox").exists());
+        for files in [
+            r#""../CommandCore.vox""#,
+            r#""C:\\CommandCore.vox""#,
+            r#""CommandCore.VOX""#,
+        ] {
+            let body = format!(
+                r#"{{"format":"nomad-vox/set@1","kind":"models","output":"out.json","axes":"","models":[{{"id":"core","name":"Core","file":{files}}}]}}"#
+            );
+            write_manifest(&dir, &body);
+            assert!(Set::load(&dir).is_err());
+        }
+        write_manifest(
+            &dir,
+            r#"{"format":"nomad-vox/set@1","kind":"models","output":"out.json","axes":"",
+            "models":[{"id":"a","name":"A","file":"Core.vox"},{"id":"b","name":"B","file":"core.vox"}]}"#,
+        );
+        assert!(Set::load(&dir).is_err());
+        fs::remove_dir_all(dir).unwrap();
     }
 }

@@ -11,3 +11,8 @@ python3 tools/preview/build.py Design/phase1-visual-slice/assets tools/preview/t
 ```
 
 Open the generated file in a browser. Controls: Q/E rotate between the four views, mouse wheel or +/− to zoom, drag or WASD to pan, Home to reset. The buttons do the same on a phone.
+
+The preview works offline with local font fallbacks. Packed station coordinates
+use signed 16-bit integers so larger assemblies do not wrap at ±128 voxels.
+The projection scale follows the selected asset directory's scene configuration.
+For the new connected assembly, see [SpaceStation](../../art/scenes/SpaceStation/README.md).
