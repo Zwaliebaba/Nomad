@@ -50,7 +50,7 @@ At every tick the simulation knows each commander's standing: systems controlled
 
 - The season panel and the away report themselves (U5, U6).
 - Replicating the standings (N4). Whichever of S8 and N4 lands second fills N4's `standings` collection.
-- Starting the next season (D-116: a new Universe; the start screen is U6), and carrying blueprints and doctrine presets over (D-035).
+- Starting the next season (D-116: a new Universe; the start screen is U6), and carrying blueprints and doctrine presets over (D-035; player blueprints live in a server table outside the Universe database from γ, D-299).
 - Late joiners (outside the MVP), and alliances pooling control (D-040).
 - Doc 10 §11 item 2's alternative of counting average control over the last 2 weeks. It stays a watch item for A6.
 

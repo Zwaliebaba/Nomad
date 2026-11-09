@@ -1,6 +1,6 @@
 # Voxel RTS — Phase 1 design package (Ops grid: base under siege)
 
-**Historical package (D-290):** the active layout is [SpaceStation](../../art/scenes/SpaceStation/README.md). These files remain as design reference, shared rendering templates and frozen regression inputs. The old layout generators are retired.
+**Historical package (D-290):** the active layout is [SpaceStation](../../art/scenes/SpaceStation/README.md). These files remain as design reference, shared rendering templates and frozen regression inputs. The old layout generators are retired. The visual rules agreed for phase 1 still bind the SpaceStation scene where D-297 restates them: the shield as a globe centred on the ship plane (D-100, D-153), sector arcs centred on their pylons (D-046), elevation tiers with the solar array outside the field (D-003), and the sector rings and hit ripples of M4; the art conforms to the simulation's slot template, not the reverse.
 
 This package is the hand-off from the design canvas ("Ops grid — proposal: core spindle + lifted modules") to the Rust implementation. It is written for Claude Code working inside the Rust project. It lives in the repository at `Design/phase1-visual-slice/`; point Claude Code at this README.
 

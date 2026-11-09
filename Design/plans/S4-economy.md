@@ -41,7 +41,7 @@ Holdings produce, store, spend and build. Every commander has a pool of alloy an
 - **Sieges, capture and outpost combat** (S6).
 - **Visibility of other commanders' economies** (S7; ownership is public, contents are not, D-044).
 - **AI decisions** (A1, A2): S4 provides the commands and the state they read.
-- **Blueprints** (D-035): the data type and an "apply blueprint" command land with A2 or U3, which need them first.
+- **Blueprints** (D-035): the data type and an "apply blueprint" command land with A2 or U3, which need them first. *(D-299: A2 provides the built-in blueprints; saving and applying player blueprints moves to γ.)*
 
 ## 4. Design
 

@@ -3,7 +3,8 @@
 The supported default scene, assembled from all 24 PascalCase station module types (D-290).
 It contains a command core, industrial and habitat branches, two hangars,
 solar wings and a circular dock, joined by enclosed tubes. This is an art scene,
-not a new gameplay slot layout. The older authoring layouts and their lowercase
+not a new gameplay slot layout; the art conforms to the simulation's slot template
+(D-297, below). The older authoring layouts and their lowercase
 module sources are retired. Historical phase-1 data remains for regression tests
 and shared rendering templates only.
 
@@ -22,6 +23,29 @@ the links start at actual highest emitter faces, and their endpoints meet the fi
 Native tests verify both endpoints in all four views. The preview uses the same
 shield height; equatorial strokes and the below-grid opacity discontinuity are disabled.
 This art-scene envelope does not change the simulation's shield rules.
+
+**Conforming to the simulation (D-297).** The simulation is the source of truth for
+station scale and layout, and this scene is to be re-authored or scaled to fit it;
+D-297 supersedes D-290 where the scene conflicts. The β consistency check found
+these conflicts, which belong to the art owner's rework:
+
+- The shield is centred at `z = 61` with `radius_xy 320` and `radius_z 270`; D-100
+  and D-153 make it a globe centred on the ship plane (`z = 16`, vertical radius
+  26), and its equator is the dome's 36-voxel hit circle.
+- The modules are placed far outside the slot template (the layout spans about
+  ±364 voxels; the core alone is wider than the dome).
+- The sector rings are hidden and `hits.impacts` is empty; D-297 restores the rings
+  and hit ripples M4 shipped.
+- `pylon_n` stands on the boundary of the N sector; D-046 centres each sector arc on
+  its pylon, and D-228/D-255 put pylons and peripheral slots wholly outside the dome.
+- Both solar arrays sit inside the field, and every module is at elevation tier 0;
+  D-003 puts the solar array outside the field and structures on tiers 0/4/8/12.
+- The fixture's world labels, the phase-1 pylon positions and structure elevations in
+  `scene_config.json`, the empty ship placements and the fixture's pylon strengths
+  do not match this scene (no weak E sector for M4's scenario).
+
+Each module kind's model is to be named by a `kind` field in `set.json` (D-298;
+see `art/voxels/modules/MODULES.md`).
 
 - **`SpaceStation.vox`**: open directly in MagicaVoxel 0.99.6+. Named objects
   retain the shared palette, Glass glazing and Emit lights. Rotations are baked
