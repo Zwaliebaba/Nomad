@@ -32,6 +32,16 @@ fn server_disconnect() -> CommanderInput {
     }
 }
 
+/// The catch-up markers of a season caught up from tick 0 to six hours, as the server
+/// journals them, for a reference run: catch-up changes the Universe, since no raid starts
+/// during it (D-047).
+fn six_hours_caught_up() -> Vec<(u64, Input)> {
+    vec![
+        (0, Input::Operator(OperatorInput::CatchUpStart)),
+        (SIX_HOURS - 1, Input::Operator(OperatorInput::CatchUpEnd)),
+    ]
+}
+
 /// Every commander is offline during catch-up (D-047): in a snapshot taken mid-catch-up,
 /// the mode is on and nobody is connected.
 fn assert_offline_mid_catch_up(universe_dir: &std::path::Path, tick: u64) {
@@ -162,7 +172,10 @@ fn a_season_that_started_six_hours_ago_catches_up_exactly() {
     assert_eq!(progress.remaining(), Ticks::new(0));
     let (tick, hash) = server.state_hash().expect("hash");
     assert_eq!(tick, Tick::new(SIX_HOURS));
-    assert_eq!(hash, reference_hash(SEED, T0, &[], SIX_HOURS));
+    assert_eq!(
+        hash,
+        reference_hash(SEED, T0, &six_hours_caught_up(), SIX_HOURS)
+    );
 
     // Subscribers saw progress, then live play.
     let seen: Vec<ServerEvent> = events.try_iter().collect();
@@ -241,6 +254,9 @@ fn a_universe_stopped_six_hours_ago_catches_up_exactly() {
     let mut reference = script();
     reference.push((6_000, Input::Commander(disconnect(1))));
     reference.push((6_000, Input::Commander(disconnect(3))));
+    // The markers too: no raid starts during catch-up (D-047).
+    reference.push((6_000, Input::Operator(OperatorInput::CatchUpStart)));
+    reference.push((target - 1, Input::Operator(OperatorInput::CatchUpEnd)));
     assert_eq!(hash, reference_hash(SEED, T0, &reference, target));
 }
 
@@ -270,7 +286,10 @@ fn an_interrupted_catch_up_resumes_and_ends_at_the_same_state() {
     assert_eq!(status.tick, Tick::new(SIX_HOURS));
     let (_, hash) = server.state_hash().expect("hash");
     server.shutdown().expect("clean shutdown");
-    assert_eq!(hash, reference_hash(SEED, T0, &[], SIX_HOURS));
+    assert_eq!(
+        hash,
+        reference_hash(SEED, T0, &six_hours_caught_up(), SIX_HOURS)
+    );
 
     // The resumed catch-up did not start the mode again; it only ended it. (The journal is
     // kept for 48 h, D-110, so the first run's start marker is still there.)

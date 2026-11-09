@@ -49,6 +49,11 @@ pub struct TickOutputs {
     /// What each commander's Deputy reports for the away report: deferred replacements
     /// (doc 12 §5.3; A1 plan §5.7, §5.8).
     pub deputy_events: Vec<(CommanderId, nomad_ai::DeputyEvent)>,
+
+    // A3: raids.
+    /// Raid launches, suppressed and empty launch timers, returns and destroyed groups
+    /// (A3 plan §4.9): harness outputs, not announcements.
+    pub raid_events: Vec<crate::raids::RaidEvent>,
 }
 
 /// The outcome of one command input.
@@ -72,7 +77,9 @@ pub struct CommandResult {
 /// breaches and cores down it caused (S6b), phase 8 the economy (S4) and phase 9 the activity
 /// samples (S6a) and the standings, the early win and the season end (S8), then the inbox
 /// (A1). Phase 1 applies due AI commands after the external inputs, and phases 3–4 run the
-/// Strategists and the Deputies (A1; D-200, D-203). The rest of phase 9 arrives with its work
+/// Strategists and the Deputies (A1; D-200, D-203). Phase 2's timers include the raider
+/// havens' launches, phase 5 removes raid groups back at their haven, and the end of the step
+/// ends the records of destroyed groups (A3). The rest of phase 9 arrives with its work
 /// package (D-051). Once the season's result is fixed, `step` changes nothing (D-116).
 pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // The season is over (D-116): no tick follows the final one. Nothing changes, and every
@@ -133,8 +140,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     crate::ai::gate::apply_due(state, now, &mut out);
 
     // Phase 2: fire every timer due at or before this tick, in (deadline, SimId) order.
-    while let Some((_id, _deadline, event)) = state.timers.pop_due(now) {
-        fire(state, now, &event);
+    while let Some((_id, deadline, event)) = state.timers.pop_due(now) {
+        fire(state, now, deadline, &event, &mut out);
         out.timers_fired = out.timers_fired.saturating_add(1);
     }
     // Siege deadlines: exits, siege ends and emergency-jump arrivals (S6 plan §4.4, §4.6).
@@ -151,6 +158,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // where fleets were before it moves them: what observers last saw (S7 plan §4.4).
     let anchors = crate::sensors::before_movement(state, now);
     crate::fleet::movement::run(state, now, &mut out.fleet_events);
+    // Raid groups back at their haven leave the Universe (D-221).
+    crate::raids::remove_returned(state, &out.fleet_events, &mut out.raid_events);
 
     // Phase 6: sensors and visibility, 2 Hz (D-173), and departures seen (D-179).
     crate::sensors::run(
@@ -178,6 +187,8 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
     // Phase 9: the standings on a tick that changed holdings, then the early win and the
     // season's final tick (S8; D-191, D-192, D-195).
     crate::season::run(state, now, &mut out.announcements);
+    // Raid groups whose last ship was destroyed (A3 plan §4.5).
+    crate::raids::prune(state, &mut out.raid_events);
     // Direct control and overrides of fleets and holdings that are gone (A1 plan §5.2).
     crate::doctrine::prune(state);
     // What each owner may know of this tick, for its AI layers (D-202).
@@ -236,10 +247,20 @@ fn apply_command(
     )
 }
 
-fn fire(state: &mut UniverseState, now: Tick, event: &ScheduledEvent) {
+fn fire(
+    state: &mut UniverseState,
+    now: Tick,
+    deadline: Tick,
+    event: &ScheduledEvent,
+    out: &mut TickOutputs,
+) {
     match *event {
         ScheduledEvent::Diagnostic { mean_interval } => {
             schedule_diagnostic(state, now, mean_interval);
+        }
+        // A haven's launch (D-081, D-219; A3 plan §4.2).
+        ScheduledEvent::RaidLaunch { faction } => {
+            crate::raids::launch(state, now, deadline, faction, &mut out.raid_events);
         }
     }
 }

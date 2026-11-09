@@ -28,6 +28,11 @@ pub mod purpose {
     // S6b: sieges. 60–69 are kept for S6, apart from the purposes other packages add.
     /// A capture tie after core and total damage, per holding (D-229).
     pub const SIEGE_TIES: u32 = 60;
+
+    // A3: raids. 80–89 are kept for A3.
+    /// A raider haven's launches: the interval to the next one, the target draw and the
+    /// budget share, per haven system (D-081; A1 plan §4.6, A3 plan §4.2–§4.4).
+    pub const RAIDS: u32 = 80;
 }
 
 /// Identifies one random stream.

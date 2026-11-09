@@ -84,6 +84,7 @@ pub mod geometry;
 mod holding;
 mod id;
 mod input;
+mod raids;
 mod rng;
 pub mod rules;
 pub mod scenario;
@@ -136,6 +137,7 @@ pub use nomad_types::{
     HoldingDoctrine, ReplacementEntry,
 };
 pub use nomad_types::{FactionId, Location, PositionMetres};
+pub use raids::{RaidEvent, RaidFactionView, RaidGroup};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};
 pub use sensors::{

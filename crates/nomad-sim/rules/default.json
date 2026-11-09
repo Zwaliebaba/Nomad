@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@12",
+  "format": "nomad-rules@13",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -363,6 +363,24 @@
       "flak_trigger_radius_m": 3000,
       "evacuation_resume_s": 60,
       "anchor_radius_m": 1000
+    },
+    "raids": {
+      "interval_min_s": 7200,
+      "interval_max_s": 14400,
+      "target_spacing_s": 21600,
+      "holding_weight_milli": 1000,
+      "outpost_weight_milli": 2000,
+      "crystal_weight": 3,
+      "strike_craft_value": 1600,
+      "heavy_cruiser_value": 17000,
+      "budget_min_permille": 300,
+      "budget_max_permille": 500,
+      "min_strike_craft": 2,
+      "clock_s": 600,
+      "loss_limit_permille": 500,
+      "withdraw_ratio_permille": 2000,
+      "withdraw_radius_m": 5000,
+      "director_interval_ticks": 5
     }
   }
 }

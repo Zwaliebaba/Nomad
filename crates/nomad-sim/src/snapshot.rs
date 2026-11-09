@@ -58,7 +58,10 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// - 18: the Deputy's second half (A1b): damage in the inbox names the attacking fleet when
 ///   it is detected; the Deputy's memory keeps each holding's alert and each fleet's home and
 ///   unanswered order; the rules gain the Deputy's timings and distances, rules format 12.
-pub const FORMAT: u32 = 18;
+/// - 19: raids (A3): the raider factions with their havens, next launches and raid groups,
+///   and each commander's last raid; the timer queue gains the haven launch timers; the AI
+///   rules gain the raid parameters, rules format 13.
+pub const FORMAT: u32 = 19;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

@@ -11,10 +11,11 @@
 //! | At most 32 replacement-list entries | *Proposed*: a bound on input from the network, no design value |
 //! | The Deputy: an alert ends 60 s after its last event; target priority 1 and *return fire* look back 30 s; FLAK SCREEN counts light hostiles within 3 km; an evacuated convoy resumes 60 s after the last hostile | Doc 13 §4, §9; A1 plan §5.5; D-145, D-210 |
 //! | The Deputy: a fleet within 1 km of its holding's launch point is "by the core" | *Proposed* (A1b): no design value; about a formation's width |
+//! | The raid parameters | [`super::raids`] (D-081, D-220 to D-222; A3) |
 //!
 //! The section is copied into the Universe with the rest of the rules (D-104), so a season
 //! keeps its AI and replay stays exact; A6 tunes it with `--rules`. A2 adds the Strategist's
-//! hysteresis and noise and the blueprints, A3 the raid parameters.
+//! hysteresis and noise and the blueprints; A3's raid parameters are `raids`.
 
 use std::collections::BTreeMap;
 
@@ -47,6 +48,8 @@ pub struct AiRules {
     pub max_replacement_entries: u32,
     /// The Deputy's timings and distances (A1 plan §5.3 to §5.8).
     pub deputy: nomad_ai::DeputyParams,
+    /// Raid launches and the raider director (D-081, D-220 to D-222; A3 plan §8 task 1).
+    pub raids: super::raids::RaidRules,
 }
 
 /// One difficulty's numbers (D-079).
@@ -139,7 +142,7 @@ impl AiRules {
                 return Err(invalid(field.to_owned(), "must be positive"));
             }
         }
-        Ok(())
+        self.raids.check()
     }
 }
 
