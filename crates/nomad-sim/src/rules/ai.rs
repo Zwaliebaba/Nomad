@@ -12,10 +12,13 @@
 //! | The Deputy: an alert ends 60 s after its last event; target priority 1 and *return fire* look back 30 s; FLAK SCREEN counts light hostiles within 3 km; an evacuated convoy resumes 60 s after the last hostile | Doc 13 §4, §9; A1 plan §5.5; D-145, D-210 |
 //! | The Deputy: a fleet within 1 km of its holding's launch point is "by the core" | *Proposed* (A1b): no design value; about a formation's width |
 //! | The raid parameters | [`super::raids`] (D-081, D-220 to D-222; A3) |
+//! | Strategist: a plan kept 5 min, +20% while it runs; a step abandoned after 10 min | A2 plan §4.1 (doc 13 §12 item 4), D-083 item 6 |
+//! | Decision noise 20%, 10%, 5% of a score; Easy's generic order, Normal's per site kind, Hard's turrets where raids struck | D-079, D-215; the numbers *Proposed* (A2 plan §4.9: "medium" at Normal) |
+//! | Score weights, the composition 30/40/30 by value, the blueprints | A2 plan §4.3–§4.7 (D-212 to D-215); the weights and slot assignments *Proposed* |
 //!
 //! The section is copied into the Universe with the rest of the rules (D-104), so a season
-//! keeps its AI and replay stays exact; A6 tunes it with `--rules`. A2 adds the Strategist's
-//! hysteresis and noise and the blueprints; A3's raid parameters are `raids`.
+//! keeps its AI and replay stays exact; A6 tunes it with `--rules`. A3's raid parameters are
+//! `raids`; A2's Strategist values and blueprints are `strategist`.
 
 use std::collections::BTreeMap;
 
@@ -50,6 +53,8 @@ pub struct AiRules {
     pub deputy: nomad_ai::DeputyParams,
     /// Raid launches and the raider director (D-081, D-220 to D-222; A3 plan §8 task 1).
     pub raids: super::raids::RaidRules,
+    /// The Strategist (A2 plan §4.1, §4.5; D-211).
+    pub strategist: nomad_ai::strategist::StrategistRules,
 }
 
 /// One difficulty's numbers (D-079).
@@ -60,6 +65,10 @@ pub struct DifficultyRules {
     pub competence: Competence,
     /// The Strategist evaluates this often (D-079, D-229).
     pub strategist_interval_s: u64,
+    /// The Strategist's decision noise, per mille of a score (D-079).
+    pub noise_permille: u32,
+    /// How the Strategist chooses build orders (D-079, D-215).
+    pub blueprints: nomad_ai::strategist::BlueprintMode,
 }
 
 /// The competence cap (doc 12 §5.4, doc 13 §4 item 6; D-201).
@@ -118,6 +127,7 @@ impl AiRules {
             }
         }
         check_competence("ai.human_deputy", self.human_deputy)?;
+        check_strategist(&self.strategist)?;
         for (field, value) in [
             ("ai.rate_window_ticks", self.rate_window_ticks),
             ("ai.deputy_interval_ticks", self.deputy_interval_ticks),
@@ -144,6 +154,43 @@ impl AiRules {
         }
         self.raids.check()
     }
+}
+
+fn check_strategist(s: &nomad_ai::strategist::StrategistRules) -> Result<(), RulesError> {
+    if s.max_plans == 0 || s.max_candidates == 0 || s.sign_off_commands == 0 {
+        return Err(invalid(
+            "ai.strategist".to_owned(),
+            "plans, candidates and sign-off commands must be positive",
+        ));
+    }
+    if s.trip_margin_permille < 1_000 {
+        return Err(invalid(
+            "ai.strategist.trip_margin_permille".to_owned(),
+            "must be at least 1000",
+        ));
+    }
+    if s.composition_permille.values().sum::<u32>() != 1_000 {
+        return Err(invalid(
+            "ai.strategist.composition_permille".to_owned(),
+            "must sum to 1000",
+        ));
+    }
+    for kind in [
+        nomad_types::SiteKind::Mother,
+        nomad_types::SiteKind::Ore,
+        nomad_types::SiteKind::TwoOre,
+        nomad_types::SiteKind::Crystal,
+        nomad_types::SiteKind::OreAndCrystal,
+        nomad_types::SiteKind::Empty,
+    ] {
+        if !s.blueprints.contains_key(&kind) {
+            return Err(invalid(
+                format!("ai.strategist.blueprints.{kind:?}"),
+                "is missing",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn check_competence(field: &str, competence: Competence) -> Result<(), RulesError> {

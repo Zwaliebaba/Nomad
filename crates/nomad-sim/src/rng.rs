@@ -28,6 +28,16 @@ pub mod purpose {
     // S6b: sieges. 60–69 are kept for S6, apart from the purposes other packages add.
     /// A capture tie after core and total damage, per holding (D-229).
     pub const SIEGE_TIES: u32 = 60;
+    // A1, A2, A5: the AI's per-commander streams (A1 plan §4.6). 70–79 are kept for them. They
+    // live in AI memory, seeded from here (`seed_of`).
+    /// A commander's Deputy (A1).
+    pub const AI_DEPUTY: u32 = 70;
+    /// An AI commander's Strategist: decision noise (A2).
+    pub const AI_STRATEGIST: u32 = 71;
+    /// An AI commander's online schedule, drawn at creation (A2, D-204).
+    pub const AI_SCHEDULE: u32 = 72;
+    /// An AI commander's personality (A5).
+    pub const AI_PERSONALITY: u32 = 73;
 
     // A3: raids. 80–89 are kept for A3.
     /// A raider haven's launches: the interval to the next one, the target draw and the
@@ -121,6 +131,12 @@ impl RngStreams {
             .entry(key)
             .or_insert_with(|| ChaCha8Rng::from_seed(derive_seed(season_seed, key)))
     }
+}
+
+/// The seed of the stream `key` of a season: what [`RngStreams`] seeds it with. The AI's
+/// streams live in AI memory (A1 plan §4.6) and start from this.
+pub(crate) fn seed_of(season_seed: u64, key: StreamKey) -> [u8; 32] {
+    derive_seed(season_seed, key)
 }
 
 /// `season_seed (8) | scope (8) | purpose (4) | domain tag (12)`, little-endian.

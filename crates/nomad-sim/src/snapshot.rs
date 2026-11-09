@@ -62,7 +62,11 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   and each commander's last raid; the timer queue gains the haven launch timers; the AI
 ///   rules gain the raid parameters, rules format 13.
 /// - 20: the raider director's memory per NPC faction in the AI memory (A3).
-pub const FORMAT: u32 = 20;
+/// - 21: AI schedules and the Strategist (A2): commander records keep an AI's seeded
+///   schedule, whether `SetPresence` overrides it and its next change; AI memory gains the
+///   per-commander random streams and the Strategist's plans; the rules' AI section gains the
+///   Strategist's values, blueprints and per-difficulty noise, rules format 14.
+pub const FORMAT: u32 = 21;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

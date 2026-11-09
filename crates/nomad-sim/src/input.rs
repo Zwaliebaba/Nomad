@@ -64,11 +64,12 @@ pub enum OperatorInput {
     /// The server has caught up with the wall clock: this tick and the following ones run
     /// live again. Rejected if the Universe is not catching up.
     CatchUpEnd,
-    /// An AI commander's schedule says it is online, or not (S6 plan §4.1, D-080). AI
-    /// schedules arrive with A5; until then the harness drives AI presence with this input,
-    /// journaled like any input so that runs replay. A production server never sends it.
-    /// Rejected for a human or unknown commander, and if it changes nothing. During catch-up
-    /// it takes effect when catch-up ends: nobody is online before (D-047).
+    /// The harness overrides an AI commander's schedule: from this tick on it is online, or
+    /// offline, whatever its schedule says (S6 plan §4.1, D-080, D-204; doc 13 §6: harness
+    /// runs may override schedules). Journaled like any input so that runs replay. A
+    /// production server never sends it. Rejected for a human or unknown commander, and if
+    /// it changes nothing. During catch-up it takes effect when catch-up ends: nobody is
+    /// online before (D-047).
     SetPresence {
         /// The AI commander.
         commander: CommanderId,

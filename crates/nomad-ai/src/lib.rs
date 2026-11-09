@@ -27,21 +27,28 @@
 //! **Layers.** The Deputy ([`deputy`], A1) runs for every commander, online or offline, at
 //! 2 Hz (D-203): threat and alert, fleet roles and engagement, rebuilding and convoy safety
 //! (doc 13 §4, D-206 to D-210). The Strategist ([`strategist`], A2) runs only while its
-//! commander is online; until A2 it decides nothing. The raider director ([`director`], A3)
-//! steers each NPC raid group at 2 Hz, always, catch-up included; the launch is a simulation
-//! rule (D-219).
+//! commander is online, by its seeded schedule ([`schedule`], D-080, D-204): it expands,
+//! builds out, keeps logistics running, spends what is left on garrisons and signs off before
+//! going offline (D-212 to D-216). The raider director ([`director`], A3) steers each NPC raid
+//! group at 2 Hz, always, catch-up included; the launch is a simulation rule (D-219).
+//!
+//! **Random streams (A1 plan §4.6):** one per commander and layer, seeded by the simulation
+//! from `(season_seed, scope, purpose)` and kept in memory ([`Stream`]).
 
 pub mod deputy;
 pub mod director;
 mod inbox;
 mod memory;
+pub mod schedule;
 pub mod strategist;
+mod stream;
 mod view;
 
 pub use deputy::{DeferReason, DeputyEvent, Rebuild};
 pub use director::{DirectorEvent, DirectorMemory, Withdrawal};
 pub use inbox::{CommandOutcome, DropReason, FleetHappening, InboxEntry, InboxEvent};
 pub use memory::{CommanderMemory, Memory};
+pub use stream::Stream;
 pub use view::{
     BuildCheck, DeputyParams, FleetPlace, HoldingDefence, OwnConvoy, OwnFleet, OwnHolding,
     PublicHolding, RaidOrder, RaidRules, RouteHop, RouteQuery, RouteSpeed, RouteSummary, RouteTo,

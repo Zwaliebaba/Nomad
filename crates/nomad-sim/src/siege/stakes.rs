@@ -361,6 +361,7 @@ fn run_seed(seed: u64, rules: &Rules) -> Tally {
         kind: CommanderKind::Ai,
         difficulty: nomad_types::Difficulty::Normal,
         window_start: quarter(&mut rng),
+        scheduled: false,
     });
     let start_ms = i64::try_from(rng.below(SCRIPT, 86_400_000)).unwrap();
     let state =

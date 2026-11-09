@@ -24,6 +24,8 @@
 //!   [`ModuleKind`], [`Slot`], [`BuildItem`], [`PowerProfile`]; doc 14) and station abilities
 //!   ([`StationAbility`]; doc 15 §5.3), and the reasons a
 //!   refused command reports to the client ([`InvalidReason`], D-123);
+//! - blueprints ([`Blueprint`], [`BlueprintStep`]) and the [`SiteKind`] that chooses the
+//!   AI's built-in one (D-067, D-215), which U3 reuses for player blueprints;
 //! - the season's standings and result ([`Standing`], [`SeasonResult`],
 //!   [`SeasonEndReason`]; D-041, D-191 to D-198), public (D-075).
 //!
@@ -34,6 +36,7 @@
 //! The `SimId` allocator stays in `nomad-sim`: only the simulation hands out identities.
 //! This crate depends only on `serde`. It holds no simulation state and no I/O.
 
+mod blueprint;
 mod command;
 mod commander;
 mod control;
@@ -49,6 +52,7 @@ mod ship;
 mod stock;
 mod time;
 
+pub use blueprint::{Blueprint, BlueprintStep, SiteKind};
 pub use command::{Command, FleetOrder, HoldingOrder, Queueing, RulesOfEngagement, StationAbility};
 pub use commander::{CommanderKind, Difficulty, QuarterHour};
 pub use control::ControlState;

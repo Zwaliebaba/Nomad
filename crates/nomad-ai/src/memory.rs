@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::deputy::DeputyMemory;
 use crate::director::DirectorMemory;
+use crate::strategist::StrategistMemory;
+use crate::stream::Stream;
 
 /// The memory of every AI layer, by owner.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -51,9 +53,14 @@ impl Memory {
     }
 }
 
-/// One commander's AI memory: its Deputy's, and from A2 its Strategist's.
+/// One commander's AI memory: its Deputy's and, for an AI commander, its Strategist's.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CommanderMemory {
     /// The Deputy's memory.
     pub deputy: DeputyMemory,
+    /// The Deputy's random stream (A1 plan §4.6), seeded at creation; nothing draws from it
+    /// yet (A1b's engagement may).
+    pub deputy_stream: Option<Stream>,
+    /// The Strategist's memory, with its stream (A2).
+    pub strategist: StrategistMemory,
 }

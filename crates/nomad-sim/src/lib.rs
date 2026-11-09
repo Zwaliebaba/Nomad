@@ -130,8 +130,9 @@ pub use nomad_ai::{
     Layer, Rebuild, Withdrawal,
 };
 pub use nomad_types::{
-    BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,
-    PowerProfile, QuarterHour, Queueing, RulesOfEngagement, Slot, StationAbility,
+    BuildItem, Command, CommanderKind, Difficulty, EconomyCommand, FleetOrder, HoldingOrder,
+    ModuleKind, Owner, PowerProfile, QuarterHour, Queueing, RulesOfEngagement, SiteKind, Slot,
+    StationAbility,
 };
 pub use nomad_types::{
     DirectControl, DoctrineCommand, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetRole,

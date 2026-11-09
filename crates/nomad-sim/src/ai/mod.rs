@@ -29,6 +29,9 @@
 mod deputy_tests;
 pub(crate) mod gate;
 pub(crate) mod inbox;
+mod strategic;
+#[cfg(test)]
+mod strategist_tests;
 #[cfg(test)]
 mod tests;
 mod view;
@@ -122,7 +125,11 @@ pub(crate) fn run(
             }
             let view = view::AiView::new(state, Owner::Commander(id), now);
             let mut out = nomad_ai::Output::default();
-            nomad_ai::strategist::evaluate(&view, &mut out);
+            nomad_ai::strategist::evaluate(
+                &view,
+                &mut memory.commander_mut(id).strategist,
+                &mut out,
+            );
             issued.extend(
                 out.commands
                     .into_iter()
@@ -223,6 +230,34 @@ impl UniverseState {
             .inboxes
             .get(&owner)
             .map_or(&[], Vec::as_slice)
+    }
+
+    /// Runs one Strategist evaluation of `commander` on a copy of its memory, as phase 3 of
+    /// the next tick would, and returns the commands it would issue; the state is unchanged.
+    /// The harness times it for D-083 item 7's budget (D-203: the harness times `nomad-ai`
+    /// directly, since the simulation reads no clock).
+    pub fn trial_strategist(&self, commander: CommanderId) -> usize {
+        let now = self.tick.next();
+        let mut memory = self
+            .ai
+            .commander(commander)
+            .map(|m| m.strategist.clone())
+            .unwrap_or_default();
+        let view = view::AiView::new(self, Owner::Commander(commander), now);
+        let mut out = nomad_ai::Output::default();
+        nomad_ai::strategist::evaluate(&view, &mut memory, &mut out);
+        out.commands.len()
+    }
+
+    /// The best `limit` sites *Expand* would choose for `commander` now, with their scores,
+    /// for a harness trace (A2 plan §4.4).
+    pub fn expansion_candidates(
+        &self,
+        commander: CommanderId,
+        limit: usize,
+    ) -> Vec<(nomad_types::SiteId, i64)> {
+        let view = view::AiView::new(self, Owner::Commander(commander), self.tick.next());
+        nomad_ai::strategist::expansion_candidates(&view, limit)
     }
 
     /// The AI memory (A1 plan §4.2), for the harness and tests.

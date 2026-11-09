@@ -5,7 +5,7 @@
 use nomad_server::{CreateParams, FakeClock, Input, ServerEvent, SubmitError, create};
 use nomad_sim::{
     Command, CommandRejection, CommanderId, CommanderInput, CommanderInputKind, CommanderKind,
-    DEFAULT_WINDOW_START, OperatorInput, Presence, QuarterHour, Tick, Ticks,
+    OperatorInput, Presence, QuarterHour, Tick, Ticks,
 };
 
 use crate::common::{BUILD, T0, TestDir, run_live_until, snapshot_state, start_live};
@@ -29,18 +29,17 @@ fn the_human_window_is_set_at_create_and_chosen_through_the_server() {
     };
     let created = create(&dir.data(), &params, &clock, BUILD).expect("create");
 
-    // The roster: commander 1 is the human with the given window; the AI commanders have
-    // the default until A5 (D-157).
+    // The roster: commander 1 is the human with the given window; the AI commanders take
+    // theirs from their seeded schedules (D-157, D-204).
     let state = snapshot_state(&created.dir, 0);
     let human = state.commander(CommanderId(1)).expect("the human");
     assert_eq!(human.kind, CommanderKind::Human);
     assert_eq!(human.window.start, params.window_start);
     for n in 2..=4 {
         let ai = state.commander(CommanderId(n)).expect("an AI commander");
-        assert_eq!(
-            (ai.kind, ai.window.start),
-            (CommanderKind::Ai, DEFAULT_WINDOW_START)
-        );
+        let schedule = state.schedule(CommanderId(n)).expect("a scheduled AI");
+        assert_eq!(ai.kind, CommanderKind::Ai);
+        assert_eq!(ai.window.start.index(), schedule.window_start(240));
     }
 
     // A session connects and chooses 21:00; an invalid start is refused by the validator.

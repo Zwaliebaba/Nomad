@@ -2,9 +2,14 @@
 //! doc 11 §6, §7; D-047, D-080, D-154, D-160 to D-162; S6 plan §4.1, §4.2).
 //!
 //! - **Online** means: connected (the journaled `Connected` and `Disconnected` inputs, which
-//!   the server's sessions send, doc 11 §6), or for an AI scheduled online (`SetPresence`
-//!   until A5, D-080); during catch-up nobody (D-047). A `Connected` input for an AI
-//!   commander, which only tests send, counts as online too.
+//!   the server's sessions send, doc 11 §6), or for an AI scheduled online; during catch-up
+//!   nobody (D-047). A `Connected` input for an AI commander, which only tests send, counts
+//!   as online too.
+//! - **An AI's schedule** (D-080, D-204) is its seeded weekly schedule, followed in phase 1
+//!   at each of its changes ([`follow_schedules`]), so it needs no journal: replaying the
+//!   inputs reproduces it. The harness's `SetPresence` overrides it for the rest of the
+//!   season ("always online", "always offline"); an AI created without a schedule follows
+//!   only `SetPresence`.
 //! - Phase 1 brings presence up to date after the tick's inputs, so a disconnect and a
 //!   reconnect in the same tick change nothing.
 //! - **Going offline** starts the 120 s grace, a deadline (doc 12 §5.3). Coming back online
@@ -79,21 +84,88 @@ pub(crate) fn sync_presence(state: &mut UniverseState, now: Tick) {
     }
 }
 
-/// The operator input `SetPresence` (S6 plan §4.1): an AI commander's schedule says it is
-/// online or not, until A5 supplies schedules. Returns `false`, rejecting the input, for a
-/// human or unknown commander, or if nothing changes.
+/// Phase 1, before presence is brought up to date: every AI whose seeded schedule changes
+/// on `now` follows it (D-080, D-204). Returns whether any did.
+pub(crate) fn follow_schedules(state: &mut UniverseState, now: Tick) -> bool {
+    let clock = state.clock;
+    let mut changed = false;
+    for record in state.commanders.records.values_mut() {
+        if record.presence_overridden || record.next_schedule_change.is_none_or(|t| t > now) {
+            continue;
+        }
+        let Some(schedule) = &record.schedule else {
+            record.next_schedule_change = None;
+            continue;
+        };
+        let at = clock.universe_time_ms(now);
+        let online = schedule.session_at(at).is_some();
+        record.next_schedule_change = schedule
+            .next_change(at)
+            .map(|ms| clock.first_tick_at_or_after(ms).max(now.next()));
+        if record.scheduled_online != online {
+            record.scheduled_online = online;
+            changed = true;
+        }
+    }
+    changed
+}
+
+/// The operator input `SetPresence` (S6 plan §4.1): the harness overrides an AI commander's
+/// schedule, from now on, with online or offline (D-204). Returns `false`, rejecting the
+/// input, for a human or unknown commander, or if nothing changes.
 pub(crate) fn set_presence(
     state: &mut UniverseState,
     commander: CommanderId,
     online: bool,
 ) -> bool {
     match state.commanders.records.get_mut(&commander) {
-        Some(record) if record.kind == CommanderKind::Ai && record.scheduled_online != online => {
+        Some(record)
+            if record.kind == CommanderKind::Ai
+                && (record.scheduled_online != online || !record.presence_overridden) =>
+        {
+            let changed = record.scheduled_online != online || record.schedule.is_some();
             record.scheduled_online = online;
-            true
+            record.presence_overridden = true;
+            record.next_schedule_change = None;
+            changed
         }
         _ => false,
     }
+}
+
+/// The session times of `commander`'s schedule at `now`, for its Strategist (D-214): when
+/// the open session ends, when the next one starts, and its longest session in ticks. None are known while `SetPresence`
+/// overrides the schedule or without one.
+pub(crate) fn session_times(
+    state: &UniverseState,
+    commander: CommanderId,
+    now: Tick,
+) -> (Option<Tick>, Option<Tick>, Option<u64>) {
+    let Some(record) = state.commanders.records.get(&commander) else {
+        return (None, None, None);
+    };
+    let Some(schedule) = record
+        .schedule
+        .as_ref()
+        .filter(|_| !record.presence_overridden)
+    else {
+        return (None, None, None);
+    };
+    let longest = schedule
+        .weekday
+        .iter()
+        .chain(&schedule.weekend)
+        .map(|s| Ticks::from_minutes(u64::from(s.length_min)).get())
+        .max();
+    let clock = state.clock;
+    let at = clock.universe_time_ms(now);
+    let ends = schedule
+        .session_at(at)
+        .map(|(_, end)| clock.first_tick_at_or_after(end));
+    let next = schedule
+        .next_session(at)
+        .map(|(start, _)| clock.first_tick_at_or_after(start));
+    (ends, next, longest)
 }
 
 /// Whether `commander` counts as online for siege rules on `now`: online, or offline for less

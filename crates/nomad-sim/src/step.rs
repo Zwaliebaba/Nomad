@@ -133,7 +133,10 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
             out.inputs_rejected = out.inputs_rejected.saturating_add(1);
         }
     }
-    // Who is online after this tick's inputs (S6 plan §4.1).
+    // AI schedules (D-080, D-204), then who is online after this tick's inputs (S6 plan §4.1).
+    if crate::commander::follow_schedules(state, now) {
+        presence_inputs = true;
+    }
     if presence_inputs {
         crate::commander::sync_presence(state, now);
     }
@@ -215,7 +218,7 @@ fn apply_operator(state: &mut UniverseState, now: Tick, op: &OperatorInput) -> b
         // rejected, so a server bug shows up in the outputs instead of passing silently.
         OperatorInput::CatchUpStart => !std::mem::replace(&mut state.catching_up, true),
         OperatorInput::CatchUpEnd => std::mem::replace(&mut state.catching_up, false),
-        // AI presence until A5's schedules (S6 plan §4.1).
+        // The harness overrides an AI's schedule (S6 plan §4.1, D-204).
         OperatorInput::SetPresence { commander, online } => {
             crate::commander::set_presence(state, commander, online)
         }

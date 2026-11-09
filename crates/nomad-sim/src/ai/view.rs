@@ -42,8 +42,13 @@ impl<'a> AiView<'a> {
         }
     }
 
-    fn state(&self) -> &'a UniverseState {
+    pub(super) fn state(&self) -> &'a UniverseState {
         self.view.universe()
+    }
+
+    /// The observer's `CommanderView`.
+    pub(super) const fn view(&self) -> &CommanderView<'a> {
+        &self.view
     }
 
     fn owns_holding(&self, holding: HoldingId) -> bool {
@@ -70,7 +75,7 @@ fn whole_metres(metres: f64) -> u32 {
     clippy::cast_sign_loss,
     reason = "clamped to 0..=u64::MAX first, so the cast is exact for whole values"
 )]
-fn millis(seconds: f64) -> u64 {
+pub(super) fn millis(seconds: f64) -> u64 {
     libm::round(seconds * 1_000.0).clamp(0.0, u64::MAX as f64) as u64
 }
 

@@ -10,10 +10,15 @@ repository.workspace = true
 [lints]
 workspace = true
 
-# nomad-types, serde and libm only (D-199, A1 plan §4.1): nomad-sim depends on this crate, so
-# the AI can never name the simulation state. The manifest test in src/lib.rs keeps it that way.
-# libm gives the raider director's geometry the same square root on every platform (D-049).
+# nomad-types, serde, libm and rand_chacha only (D-199, A1 plan §4.1, §4.6): nomad-sim depends
+# on this crate, so the AI can never name the simulation state. The manifest test in src/lib.rs
+# keeps it that way. libm gives the raider director's geometry the same square root on every
+# platform (D-049); rand_chacha runs the AI's seeded streams, as it runs the simulation's.
 [dependencies]
 libm = { workspace = true }
 nomad-types = { workspace = true }
+rand_chacha = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
