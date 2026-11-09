@@ -183,7 +183,7 @@ Control already decides the season (D-020) and gives sensor coverage (D-041). Ad
 *Agreed (D-112).*
 
 - **Mother station:** core, 4 pylons, 1 solar array, 1 harvester on its ore field, 1 refinery, 1 storage module, 1 dry dock. This matches the phase-1 station.
-- **Fleet:** 3 VX and 2 MULE.
+- **Fleet:** 3 VX and 2 MULE, as two fleets: the VX are the mother station's garrison and the MULEs a reserve (D-286, doc 13 §4).
 - **Stock:** 6,000 A and 500 C, enough for one core kit, so the first expansion can start within the first hour.
 - **Starting income:** about 600 A/h and about 0 C/h, so crystal must come from expansion.
 

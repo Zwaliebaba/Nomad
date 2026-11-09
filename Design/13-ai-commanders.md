@@ -56,20 +56,23 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 *Agreed (D-206), with the details of `plans/A1-deputy.md` (D-199 to D-211). These are the concrete rules behind doc 12 §5 (D-016).*
 
 1. **Threat assessment** for each holding, every 0.5 s:
-   - A holding is on *alert* when a hostile is detected inside the defended zone, or anything fires on the commander's assets.
-   - Alert ends 60 s after the last such event.
+   - A holding is on *alert* when a hostile in the commander's visibility set is inside the defended zone (the doctrine's radius around the site), or the commander learns of hostile fire on the holding, its modules or dome, or on an own ship inside the zone.
+   - Alert ends 60 s after the last such event. Fire on an asset outside every zone puts no holding on alert; that fleet's own doctrine answers it (return fire, retreat, convoy evacuation).
+   - `AlertStarted` and `AlertEnded` go to the away report.
 2. **On alert:**
-   - Switch to the doctrine's alert power profile (doc 15 §5.2).
-   - Launch the garrison.
-   - Use abilities on their triggers (SHLD SURGE and FLAK SCREEN thresholds, §9).
-   - Dock harvesting craft and hold convoys inside the evacuation radius.
+   - Switch to the doctrine's alert power profile (doc 15 §5.2); at alert end, back to the profile before.
+   - Launch the garrison, fleet by fleet; reserves and convoys stay docked.
+   - Use abilities on their triggers (SHLD SURGE and FLAK SCREEN thresholds, §9), when power and the cooldown allow.
+   - Dock convoys within the evacuation radius (below). The MVP has no harvesting craft: harvesters are modules (doc 14 §6).
 3. **Engagement:**
-   - Target priority: first units attacking our structures, then targets the counter triangle favours (D-052), then the nearest.
-   - Never pursue beyond the leash. Retreat to dock below the retreat threshold.
-4. **Rebuilding:** when a ship from the replacement list is lost, queue a replacement at the nearest holding able to build it, if the daily budget allows (D-016).
-5. **Logistics** (D-064):
+   - Target priority, as explicit attacks issued only when the choice changes: first units that damaged our structures in the last 30 s, then targets the counter triangle favours (D-052), then the nearest, then the lowest `SimId`.
+   - Never pursue beyond the leash, measured from the fleet's anchor: the holding for a garrison, the route for a patrol, the escortee for an escort. Retreat to the nearest own holding with room when the fleet's hull falls below the retreat threshold.
+   - Roles (D-207): a garrison docks at its holding, launches on alert and docks when the alert ends; a reserve stays docked; a patrol runs its route; an escort guards its fleet. A damaged fleet with no alert repairs at dock (D-071).
+4. **Rebuilding** (D-208): when a ship from the replacement list is lost, queue a replacement at the nearest holding able to build it, and rebuild destroyed modules in their slot, within the preset's share of the last 24 h of income; report what is deferred.
+5. **Logistics** (D-064, D-210):
    - Run each convoy route.
-   - If a gate on the route is contested (D-055), reroute when another route exists; otherwise hold at the last safe stop.
+   - When a sensed hostile is within the evacuation radius of a convoy or its next stop, dock it at the nearest own holding on its route, and resume the route 60 s after no hostile is within the radius.
+   - If a gate on the route is contested (D-055, by hostiles the commander detects, D-285), reroute when another route exists; otherwise hold at the last safe stop.
 6. **Competence cap** (doc 12 §5.4):
    - A decision takes effect at least 3 ticks (300 ms) after the event that triggered it.
    - A commander's AI layers together issue at most the difficulty's command rate (§7).
