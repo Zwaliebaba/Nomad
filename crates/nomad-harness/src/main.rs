@@ -41,6 +41,12 @@
 //! the Deputy's cost per tick and the catch-up speed at stage 1 (D-203), for 6 simulated
 //! hours unless `--hours` or `--ticks` says otherwise; build with `--release` for it.
 //!
+//! With `--raids` it runs NPC raids on a stage-1 Universe (A3 plan §8 task 5; D-225): the
+//! four commanders' Deputies, scripted claims, the haven's launches and the raider director,
+//! 7 days by default with a catch-up segment, reporting the launch intervals, raids per
+//! commander and per day, the 6 h spacing, what raids destroyed or disabled, raider damage
+//! to domes, catch-up suppression and raid losses.
+//!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
 //!
@@ -58,6 +64,8 @@
 //! nomad-harness --siege [--seed N] [--rules PATH]
 //! nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]
 //! nomad-harness --deputy [bench] [--seed N] [--hours N | --ticks N] [--rules PATH]
+//! nomad-harness --raids [--seed N] [--days N] [--claim-hours N] [--catch-up-from H]
+//!               [--catch-up-hours N] [--restore-at N] [--rules PATH]
 //! ```
 
 mod combat;
@@ -67,6 +75,7 @@ mod fleets;
 mod fog;
 mod galaxy;
 mod pacing;
+mod raids;
 mod season;
 mod siege;
 mod station;
@@ -111,6 +120,10 @@ struct Args {
     season: bool,
     claim_hours: u64,
     early_win: bool,
+    // A3: `--raids`.
+    raids: bool,
+    catch_up_from: u64,
+    catch_up_hours: u64,
 }
 
 impl Default for Args {
@@ -138,6 +151,9 @@ impl Default for Args {
             season: false,
             claim_hours: 12,
             early_win: false,
+            raids: false,
+            catch_up_from: 30,
+            catch_up_hours: 6,
         }
     }
 }
@@ -172,6 +188,9 @@ fn parse_args() -> Result<Args, String> {
             "--csv" => args.csv = Some(PathBuf::from(value()?)),
             "--season" => args.season = true,
             "--claim-hours" => args.claim_hours = parse(&value()?)?,
+            "--raids" => args.raids = true,
+            "--catch-up-from" => args.catch_up_from = parse(&value()?)?,
+            "--catch-up-hours" => args.catch_up_hours = parse(&value()?)?,
             "--early-win" => args.early_win = true,
             "--help" | "-h" => {
                 return Err(
@@ -189,6 +208,9 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --siege [--seed N] [--rules PATH]\n       \
                      nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]\n       \
                      nomad-harness --deputy [bench] [--seed N] [--hours N | --ticks N] \
+                            [--rules PATH]\n       \
+                     nomad-harness --raids [--seed N] [--days N] [--claim-hours N] \
+                            [--catch-up-from H] [--catch-up-hours N] [--restore-at N] \
                             [--rules PATH]"
                         .to_owned(),
                 );
@@ -246,6 +268,9 @@ fn run() -> Result<(), String> {
                 rules,
             },
         );
+    }
+    if args.raids {
+        return raids::run(&mut io::stdout().lock(), raid_run(&args, rules));
     }
     if args.windows {
         return windows::run(
@@ -305,6 +330,19 @@ fn run() -> Result<(), String> {
         );
     }
     diagnostics(&args, rules)
+}
+
+/// What `--raids` runs, from the command line: 7 days unless `--days` says otherwise.
+fn raid_run(args: &Args, rules: Rules) -> raids::RaidRun {
+    raids::RaidRun {
+        seed: args.seed,
+        days: args.days.unwrap_or(7),
+        claim_hours: args.claim_hours,
+        catch_up_from: args.catch_up_from,
+        catch_up_hours: args.catch_up_hours,
+        restore_at: args.restore_at,
+        rules,
+    }
 }
 
 /// The default run: diagnostic timers for `--ticks`, reporting the hash and the speed.
