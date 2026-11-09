@@ -12,9 +12,10 @@
 //! whole milliseconds, so the AI compares integers (D-049, A1 plan §4.6).
 
 use nomad_types::{
-    BuildItem, Command, DirectControl, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetId,
-    FleetOrder, GateId, HoldingDoctrine, HoldingId, Location, Owner, PositionMetres, PowerProfile,
-    ReplacementEntry, RulesOfEngagement, ShipClass, ShipId, Stock, SystemId, Tick,
+    BuildItem, Command, CommanderId, DirectControl, DoctrinePreset, DoctrineValues, FleetDoctrine,
+    FleetId, FleetOrder, GateId, HoldingDoctrine, HoldingId, Location, ModuleKind, Owner,
+    PositionMetres, PowerProfile, ReplacementEntry, RulesOfEngagement, ShipClass, ShipId, SimId,
+    Slot, Stock, SystemId, Tick,
 };
 use serde::{Deserialize, Serialize};
 
@@ -210,7 +211,92 @@ pub struct RouteSummary {
     pub hops: Vec<RouteHop>,
 }
 
+/// A raid group of the observer's NPC faction, as the launch rule made it: the faction's
+/// own record of its raid (D-219, D-221; A3 plan §4.5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RaidOrder {
+    /// The group's fleet.
+    pub fleet: FleetId,
+    /// The haven it came from and returns to.
+    pub haven: SystemId,
+    /// The commander it raids.
+    pub target: CommanderId,
+    /// The system it raids.
+    pub system: SystemId,
+    /// Its value at the spawn, which losses count against (D-222).
+    pub value: u64,
+    /// The tick it was launched.
+    pub launched: Tick,
+}
+
+/// The rules values the raider director plays by (D-081, D-222; A3 plan §4.6, §4.7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RaidRules {
+    /// The raid clock: a group withdraws this many ticks after its arrival shroud ends.
+    pub clock_ticks: u64,
+    /// A group withdraws once it has lost this share of its spawned value, per mille.
+    pub loss_limit_permille: u32,
+    /// A group withdraws early when the sensed hostile value near it exceeds this share of
+    /// its remaining value, per mille.
+    pub withdraw_ratio_permille: u32,
+    /// "Near it", whole metres.
+    pub withdraw_radius_m: u32,
+    /// A turret's reach, whole metres (doc 15 §5.3).
+    pub turret_reach_m: u32,
+    /// The jump shroud after an arrival, in ticks (D-055).
+    pub shroud_ticks: u64,
+    /// The director evaluates each group every this many ticks, staggered by its `SimId`.
+    pub interval_ticks: u64,
+}
+
+/// A module of a detected holding (D-175: detecting a holding reveals its modules).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SensedModule {
+    /// The module.
+    pub id: SimId,
+    /// What it is.
+    pub kind: ModuleKind,
+    /// Its slot.
+    pub slot: Slot,
+    /// Its centre.
+    pub position: PositionMetres,
+    /// Knocked offline.
+    pub disabled: bool,
+}
+
+/// Another commander's holding that the observer detects, with its modules (D-175).
+#[derive(Clone, Debug, PartialEq)]
+pub struct SensedHolding {
+    /// The holding.
+    pub holding: HoldingId,
+    /// Its owner.
+    pub owner: CommanderId,
+    /// An outpost: its core is under construction (D-041).
+    pub outpost: bool,
+    /// Its site.
+    pub position: PositionMetres,
+    /// Its modules other than pylons, in slot order.
+    pub modules: Vec<SensedModule>,
+}
+
+/// A holding as public data has it: who holds which site (D-044).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PublicHolding {
+    /// The holding.
+    pub holding: HoldingId,
+    /// Its owner.
+    pub owner: CommanderId,
+    /// An outpost: its core is under construction (D-041).
+    pub outpost: bool,
+    /// Its site.
+    pub position: PositionMetres,
+}
+
 /// What one observer may know of the Universe, as the AI reads it.
+///
+/// The queries with a default body arrived with the raider director (A3); a fake view for
+/// another layer's tests may leave them out and so answer "nothing". The director reads
+/// sensed ships through [`View::sensed_fleets_in`].
 pub trait View {
     /// The tick being computed. What the AI issues now applies on a later tick (doc 11
     /// §4.1, D-200).
@@ -323,4 +409,38 @@ pub trait View {
 
     /// The fastest route of a query, or `None` if there is none.
     fn route(&self, query: &RouteQuery) -> Option<RouteSummary>;
+
+    // --- Raids: the NPC faction's own records and rules values (A3).
+
+    /// The observer's raid groups, in fleet order: its own records; empty for a commander.
+    fn raid_orders(&self) -> Vec<RaidOrder> {
+        Vec::new()
+    }
+
+    /// The raid rules values; `None` for a commander.
+    fn raid_rules(&self) -> Option<RaidRules> {
+        None
+    }
+
+    /// A ship class's value: a commander class's alloy cost plus 3 × its crystal cost, an NPC
+    /// class's rules value (D-220). Rules data, the same for everyone.
+    fn ship_value(&self, class: ShipClass) -> u64 {
+        let _ = class;
+        0
+    }
+
+    // --- Public holdings and what the observer senses (D-044; doc 16 §3, D-175).
+
+    /// The holdings and outposts in `system`, as public data has them, in identity order.
+    fn holdings_in(&self, system: SystemId) -> Vec<PublicHolding> {
+        let _ = system;
+        Vec::new()
+    }
+
+    /// Other commanders' holdings the last sensors pass detected in `system`, with their
+    /// modules, in identity order.
+    fn sensed_holdings_in(&self, system: SystemId) -> Vec<SensedHolding> {
+        let _ = system;
+        Vec::new()
+    }
 }

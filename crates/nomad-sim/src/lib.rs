@@ -126,7 +126,8 @@ pub use holding::{
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 pub use nomad_ai::{
-    CommandOutcome, DeferReason, DeputyEvent, DropReason, InboxEntry, InboxEvent, Layer, Rebuild,
+    CommandOutcome, DeferReason, DeputyEvent, DirectorEvent, DropReason, InboxEntry, InboxEvent,
+    Layer, Rebuild, Withdrawal,
 };
 pub use nomad_types::{
     BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,

@@ -61,9 +61,12 @@
 //!   no sensors pass sees it back at the haven.
 //!
 //! **Outputs (A3 plan §4.9).** Launches, suppressed and empty firings, returns and destroyed
-//! groups are [`RaidEvent`]s in the tick's outputs, for the harness. They are not
+//! groups are [`RaidEvent`]s in the tick's outputs, for the harness, with what the raider
+//! director reports (its raid clocks and withdrawals). They are not
 //! announcements: nobody learns of a raid except through their sensors (D-074).
 
+#[cfg(test)]
+mod director_tests;
 #[cfg(test)]
 mod tests;
 
@@ -181,6 +184,14 @@ pub enum RaidEvent {
         faction: FactionId,
         /// The group.
         fleet: FleetId,
+    },
+    /// What the faction's raider director reported: a raid clock started, a withdrawal
+    /// (A3 plan §4.6, §4.7).
+    Director {
+        /// The faction.
+        faction: FactionId,
+        /// What it reported.
+        event: nomad_ai::DirectorEvent,
     },
 }
 

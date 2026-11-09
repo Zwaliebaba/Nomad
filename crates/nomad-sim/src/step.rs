@@ -51,8 +51,9 @@ pub struct TickOutputs {
     pub deputy_events: Vec<(CommanderId, nomad_ai::DeputyEvent)>,
 
     // A3: raids.
-    /// Raid launches, suppressed and empty launch timers, returns and destroyed groups
-    /// (A3 plan §4.9): harness outputs, not announcements.
+    /// Raid launches, suppressed and empty launch timers, the raider director's clock starts
+    /// and withdrawals, returns and destroyed groups (A3 plan §4.9): harness outputs, not
+    /// announcements.
     pub raid_events: Vec<crate::raids::RaidEvent>,
 }
 
@@ -77,7 +78,7 @@ pub struct CommandResult {
 /// breaches and cores down it caused (S6b), phase 8 the economy (S4) and phase 9 the activity
 /// samples (S6a) and the standings, the early win and the season end (S8), then the inbox
 /// (A1). Phase 1 applies due AI commands after the external inputs, and phases 3–4 run the
-/// Strategists and the Deputies (A1; D-200, D-203). Phase 2's timers include the raider
+/// Strategists, the Deputies and the raider director (A1, A3; D-200, D-203). Phase 2's timers include the raider
 /// havens' launches, phase 5 removes raid groups back at their haven, and the end of the step
 /// ends the records of destroyed groups (A3). The rest of phase 9 arrives with its work
 /// package (D-051). Once the season's result is fixed, `step` changes nothing (D-116).
@@ -152,7 +153,7 @@ pub fn step(state: &mut UniverseState, inputs: &TickInputs) -> TickOutputs {
 
     // Phases 3–4: the Strategists of online AI commanders, then every Deputy (D-203). What
     // they issue waits in the outbox for a later tick (D-200).
-    crate::ai::run(state, now, &mut out.deputy_events);
+    crate::ai::run(state, now, &mut out.deputy_events, &mut out.raid_events);
 
     // Phase 5: movement and the jump-transit queue (S3 plan §4.3, §4.4). On a sensors tick,
     // where fleets were before it moves them: what observers last saw (S7 plan §4.4).

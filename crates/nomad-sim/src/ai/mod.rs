@@ -9,7 +9,9 @@
 //!   memory moves back. The Strategist runs for AI commanders who are online, every 30, 15 or
 //!   10 s by difficulty, staggered by commander (D-079, D-203, D-229); the Deputy runs for
 //!   every commander on every tick, and evaluates each holding and fleet at 2 Hz staggered by
-//!   `SimId` (D-203). During catch-up nobody is online, so only Deputies run (D-080).
+//!   `SimId` (D-203). During catch-up nobody is online, so only Deputies run (D-080). The
+//!   raider director runs for every NPC faction with a raid group out, catch-up included,
+//!   each group at 2 Hz staggered by its `SimId` (A3 plan §4.6).
 //! - **The outbox and the gate** ([`gate`]): what a layer issues waits in its owner's outbox
 //!   until its trigger tick plus the owner's latency (D-201), and is applied in phase 1 of a
 //!   later tick, after the tick's external inputs, through the same `execute` and validator
@@ -85,8 +87,9 @@ impl Queued {
 }
 
 /// The competence cap of `owner`'s AI layers (doc 12 §5.4; D-079, D-201): a human's Deputy
-/// has its own; an AI commander's follows its difficulty. *Proposed:* an NPC faction drains
-/// at Normal's values (A3 §4.6).
+/// has its own; an AI commander's follows its difficulty. An NPC faction drains at Normal's
+/// values (D-288). *Proposed:* its raid groups share that rate, since the gate rates owners;
+/// A3 plan §4.6 gives each group 2 commands a second.
 pub(crate) fn competence(state: &UniverseState, owner: Owner) -> Competence {
     let ai = &state.rules.ai;
     let record = owner
@@ -99,11 +102,13 @@ pub(crate) fn competence(state: &UniverseState, owner: Owner) -> Competence {
     }
 }
 
-/// Phases 3 and 4: the Strategists, then the Deputies (doc 11 §4.1; D-203).
+/// Phases 3 and 4: the Strategists, then the Deputies, then the raider director of every
+/// faction with a raid group out (doc 11 §4.1; D-203; A3 plan §4.6).
 pub(crate) fn run(
     state: &mut UniverseState,
     now: Tick,
     events: &mut Vec<(CommanderId, nomad_ai::DeputyEvent)>,
+    raid_events: &mut Vec<crate::raids::RaidEvent>,
 ) {
     let mut memory = std::mem::take(&mut state.ai);
     let mut issued: Vec<(Owner, Layer, nomad_ai::Issue)> = Vec::new();
@@ -145,6 +150,28 @@ pub(crate) fn run(
                     .map(|issue| (Owner::Commander(id), Layer::Deputy, issue)),
             );
             events.extend(out.events.into_iter().map(|event| (id, event)));
+        }
+        // Phase 4: the raider director, for every faction with a group out, catch-up
+        // included: only new raids stop during catch-up (D-047; A3 plan §4.2).
+        for (&faction, record) in &state.raids.factions {
+            if record.groups.is_empty() && memory.faction(faction).is_none() {
+                continue;
+            }
+            let owner = Owner::Npc(faction);
+            let view = view::AiView::new(state, owner, now);
+            let mut out = nomad_ai::Output::default();
+            nomad_ai::director::evaluate(&view, memory.faction_mut(faction), &mut out);
+            memory.tidy_faction(faction);
+            issued.extend(
+                out.commands
+                    .into_iter()
+                    .map(|issue| (owner, Layer::Director, issue)),
+            );
+            raid_events.extend(
+                out.director_events
+                    .into_iter()
+                    .map(|event| crate::raids::RaidEvent::Director { faction, event }),
+            );
         }
     }
     state.ai = memory;

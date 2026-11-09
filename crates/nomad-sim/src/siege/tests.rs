@@ -143,6 +143,9 @@ impl Scene {
     }
 
     fn around(mut state: UniverseState, target: HoldingId, system: SystemId) -> Self {
+        // The scenes skip from deadline to deadline, where raids would launch late and stop
+        // in mid-system: they measure sieges, not raids (A3).
+        crate::scenario::without_raids(&mut state);
         let site = state.holding(target).unwrap().site;
         let centre = Vec2::from(state.galaxy().site(site).unwrap().position);
         // The dome comes up in the holding's first economy slot.

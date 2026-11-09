@@ -7,15 +7,18 @@
 
 use std::collections::BTreeMap;
 
-use nomad_types::CommanderId;
+use nomad_types::{CommanderId, FactionId};
 use serde::{Deserialize, Serialize};
 
 use crate::deputy::DeputyMemory;
+use crate::director::DirectorMemory;
 
 /// The memory of every AI layer, by owner.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Memory {
     commanders: BTreeMap<CommanderId, CommanderMemory>,
+    /// Each NPC faction's raider director (A3).
+    factions: BTreeMap<FactionId, DirectorMemory>,
 }
 
 impl Memory {
@@ -27,6 +30,24 @@ impl Memory {
     /// A commander's memory, if it has any.
     pub fn commander(&self, id: CommanderId) -> Option<&CommanderMemory> {
         self.commanders.get(&id)
+    }
+
+    /// An NPC faction's director memory, created empty on first use.
+    pub fn faction_mut(&mut self, id: FactionId) -> &mut DirectorMemory {
+        self.factions.entry(id).or_default()
+    }
+
+    /// An NPC faction's director memory, if it has any.
+    pub fn faction(&self, id: FactionId) -> Option<&DirectorMemory> {
+        self.factions.get(&id)
+    }
+
+    /// Forgets an NPC faction's director memory once it is empty, so a faction with no raid
+    /// out leaves no trace.
+    pub fn tidy_faction(&mut self, id: FactionId) {
+        if self.factions.get(&id).is_some_and(DirectorMemory::is_empty) {
+            self.factions.remove(&id);
+        }
     }
 }
 

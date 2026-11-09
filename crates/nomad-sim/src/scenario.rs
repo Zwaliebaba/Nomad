@@ -201,3 +201,26 @@ pub fn place_docked_fleet(
     }
     Some(fleet)
 }
+
+/// Takes the raiders out of a Universe: every haven's launch timer and every raid group, for
+/// scenarios that measure something else and skip time between deadlines, where raids would
+/// launch late and travel in jumps (A3). Not a game rule: a season always has its raiders
+/// (D-081).
+pub fn without_raids(state: &mut UniverseState) {
+    state
+        .timers
+        .retain(|event| !matches!(event, crate::state::ScheduledEvent::RaidLaunch { .. }));
+    let groups: Vec<FleetId> = state
+        .raids
+        .factions
+        .values()
+        .flat_map(|f| f.groups.keys().copied())
+        .collect();
+    for fleet in groups {
+        for ship in state.fleet(fleet).map(|f| f.ships).unwrap_or_default() {
+            state.entities.despawn(ship.sim_id());
+        }
+        state.entities.despawn(fleet.sim_id());
+    }
+    state.raids = crate::raids::Raids::default();
+}

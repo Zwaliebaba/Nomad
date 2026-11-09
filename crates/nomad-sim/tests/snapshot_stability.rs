@@ -20,8 +20,9 @@
 //! format change, and for format 18 (A1b: the attacking fleet in the inbox's damage
 //! entries), the start kit as two fleets (D-286) and the Deputy's alerts and fleet memory,
 //! with rules format 12 (the Deputy's timings); then for format 19 (A3's raider factions and
-//! haven launch timers), with rules format 13 (the raid parameters). The harness's seasons
-//! are 8 weeks long ([`SeasonConfig::new`], D-106).
+//! haven launch timers), with rules format 13 (the raid parameters), and format 20 (the
+//! raider director's memory). The harness's seasons are 8 weeks long ([`SeasonConfig::new`],
+//! D-106).
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
 use nomad_sim::snapshot::{self, state_hash};
@@ -37,15 +38,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0xa10a_def3_691d_62cb),
-    (1, 0x0506_47aa_a419_e201),
-    (2, 0xda37_e2a8_5480_98bc),
-    (7, 0xcc05_6e95_795b_a1f7),
-    (99, 0x8a22_bc00_7042_3e80),
+    (0, 0x38ec_75fd_a9ba_5544),
+    (1, 0x248d_2891_73a5_d798),
+    (2, 0xd8f6_bcb1_96f0_97c7),
+    (7, 0xb2af_72ff_67e7_a370),
+    (99, 0x9283_b7b7_46f0_5919),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0x0956_4d89_26ca_be04;
+const DIAGNOSTIC_RUN_HASH: u64 = 0xa114_7de1_7f12_2737;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig::new(seed, 0)
@@ -53,7 +54,7 @@ fn season(seed: u64) -> SeasonConfig {
 
 #[test]
 fn snapshot_format_is_unchanged() {
-    assert_eq!(snapshot::FORMAT, 19);
+    assert_eq!(snapshot::FORMAT, 20);
 }
 
 #[test]

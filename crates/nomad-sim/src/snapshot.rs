@@ -61,7 +61,8 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 /// - 19: raids (A3): the raider factions with their havens, next launches and raid groups,
 ///   and each commander's last raid; the timer queue gains the haven launch timers; the AI
 ///   rules gain the raid parameters, rules format 13.
-pub const FORMAT: u32 = 19;
+/// - 20: the raider director's memory per NPC faction in the AI memory (A3).
+pub const FORMAT: u32 = 20;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

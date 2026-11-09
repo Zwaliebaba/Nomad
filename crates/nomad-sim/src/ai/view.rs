@@ -1,20 +1,22 @@
 //! `nomad-ai`'s [`View`] over S7's [`CommanderView`] (D-199; S7 plan §4.7, A1 plan §4.1).
 //!
 //! Every answer comes from the observer's `CommanderView` or from its own entries in the
-//! simulation's AI bookkeeping (its inbox). Nothing here answers about another commander's
-//! presence, kind or doctrine (D-075, D-078; A1 plan §4.8).
+//! simulation's AI bookkeeping (its inbox), and for an NPC faction from its own raid records
+//! (A3). Nothing here answers about another commander's presence, kind or doctrine (D-075,
+//! D-078; A1 plan §4.8), nor about anyone's fleet value: only the launch rule reads that
+//! (D-219).
 
 use std::collections::BTreeSet;
 
 use nomad_ai::{
     BuildCheck, DeputyParams, FleetPlace, HoldingDefence, InboxEntry, OwnConvoy, OwnFleet,
-    OwnHolding, RouteHop, RouteQuery, RouteSpeed, RouteSummary, RouteTo, Sector, SensedFleet,
-    SensedShip, View,
+    OwnHolding, RaidOrder, RaidRules, RouteHop, RouteQuery, RouteSpeed, RouteSummary, RouteTo,
+    Sector, SensedFleet, SensedHolding, SensedModule, SensedShip, View,
 };
 use nomad_types::{
     BuildItem, Command, DirectControl, DoctrinePreset, DoctrineValues, EconomyCommand,
-    FleetDoctrine, FleetId, GateId, HoldingDoctrine, HoldingId, Location, Owner, PowerProfile,
-    ReplacementEntry, ShipClass, Stock, SystemId, Tick,
+    FleetDoctrine, FleetId, GateId, HoldingDoctrine, HoldingId, Location, ModuleKind, Owner,
+    PowerProfile, ReplacementEntry, ShipClass, Stock, SystemId, Tick,
 };
 
 use crate::command::CommandRejection;
@@ -50,6 +52,16 @@ impl<'a> AiView<'a> {
             .holding(holding)
             .is_some_and(|h| Some(h.owner) == me)
     }
+}
+
+/// Metres to whole metres, rounded; rules distances are finite and non-negative.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "clamped to 0..=u32::MAX first, so the cast is exact for whole values"
+)]
+fn whole_metres(metres: f64) -> u32 {
+    libm::round(metres).clamp(0.0, f64::from(u32::MAX)) as u32
 }
 
 /// Seconds to whole milliseconds, rounded; routes are finite and non-negative.
@@ -359,5 +371,95 @@ impl View for AiView<'_> {
             duration_ms: millis(route.duration_s),
             hops,
         })
+    }
+
+    fn raid_orders(&self) -> Vec<RaidOrder> {
+        let Owner::Npc(faction) = self.view.observer() else {
+            return Vec::new();
+        };
+        let Some(f) = self.state().raids.factions.get(&faction) else {
+            return Vec::new();
+        };
+        f.groups
+            .iter()
+            .map(|(&fleet, g)| RaidOrder {
+                fleet,
+                haven: f.haven,
+                target: g.target,
+                system: g.system,
+                value: g.value,
+                launched: g.launched,
+            })
+            .collect()
+    }
+
+    fn raid_rules(&self) -> Option<RaidRules> {
+        let Owner::Npc(_) = self.view.observer() else {
+            return None;
+        };
+        let rules = self.view.rules();
+        let raids = &rules.ai.raids;
+        Some(RaidRules {
+            clock_ticks: Ticks::from_secs(raids.clock_s).get(),
+            loss_limit_permille: raids.loss_limit_permille,
+            withdraw_ratio_permille: raids.withdraw_ratio_permille,
+            withdraw_radius_m: raids.withdraw_radius_m,
+            turret_reach_m: whole_metres(rules.defence.turret.weapon.range_m),
+            shroud_ticks: Ticks::from_secs(rules.gates.shroud_s).get(),
+            interval_ticks: raids.director_interval_ticks,
+        })
+    }
+
+    fn ship_value(&self, class: ShipClass) -> u64 {
+        crate::raids::class_value(self.view.rules(), class)
+    }
+
+    fn holdings_in(&self, system: SystemId) -> Vec<nomad_ai::PublicHolding> {
+        let galaxy = self.view.galaxy();
+        self.view
+            .holdings_in(system)
+            .into_iter()
+            .filter_map(|h| {
+                Some(nomad_ai::PublicHolding {
+                    holding: h.id,
+                    owner: h.owner,
+                    outpost: h.outpost,
+                    position: galaxy.site(h.site)?.position,
+                })
+            })
+            .collect()
+    }
+
+    fn sensed_holdings_in(&self, system: SystemId) -> Vec<SensedHolding> {
+        let state = self.state();
+        let galaxy = self.view.galaxy();
+        self.view
+            .sensed_holdings_in(system)
+            .into_iter()
+            .filter_map(|h| {
+                let modules = h
+                    .modules
+                    .iter()
+                    .filter(|m| m.kind != ModuleKind::Pylon)
+                    .filter_map(|m| {
+                        let (_, position, _) = state.module_position(m.id)?;
+                        Some(SensedModule {
+                            id: m.id,
+                            kind: m.kind,
+                            slot: m.slot,
+                            position,
+                            disabled: m.disabled,
+                        })
+                    })
+                    .collect();
+                Some(SensedHolding {
+                    holding: h.holding,
+                    owner: h.owner,
+                    outpost: h.outpost,
+                    position: galaxy.site(h.site)?.position,
+                    modules,
+                })
+            })
+            .collect()
     }
 }

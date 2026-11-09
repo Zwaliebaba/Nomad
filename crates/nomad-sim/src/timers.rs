@@ -74,6 +74,18 @@ impl<T> TimerQueue<T> {
             .map(|(&(deadline, _), payload)| (deadline, payload))
     }
 
+    /// Cancels every pending timer whose payload `keep` refuses.
+    pub fn retain(&mut self, mut keep: impl FnMut(&T) -> bool) {
+        let deadline_of = &mut self.deadline_of;
+        self.by_deadline.retain(|&(_, id), payload| {
+            let kept = keep(payload);
+            if !kept {
+                deadline_of.remove(&id);
+            }
+            kept
+        });
+    }
+
     /// Number of pending timers.
     pub fn len(&self) -> usize {
         self.by_deadline.len()
@@ -122,5 +134,19 @@ mod tests {
         assert_eq!(q.deadline_of(b), Some(Tick::new(2)));
         assert_eq!(q.len(), 1);
         assert_eq!(q.pop_due(Tick::new(10)), Some((b, Tick::new(2), 2)));
+    }
+
+    #[test]
+    fn retain_cancels_the_refused() {
+        let mut ids = SimIdAllocator::default();
+        let mut q = TimerQueue::default();
+        q.schedule(&mut ids, Tick::new(1), 1);
+        let even = q.schedule(&mut ids, Tick::new(2), 2);
+        q.schedule(&mut ids, Tick::new(3), 3);
+        q.retain(|&n| n % 2 == 0);
+        assert_eq!(q.len(), 1);
+        assert_eq!(q.deadline_of(even), Some(Tick::new(2)));
+        assert_eq!(q.pop_due(Tick::new(9)), Some((even, Tick::new(2), 2)));
+        assert!(q.is_empty());
     }
 }
