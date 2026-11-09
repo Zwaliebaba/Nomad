@@ -507,9 +507,13 @@ fn scenarios() -> Vec<Scenario> {
 /// The S6 plan §5 timeline: D's H2 breached on day 1 at 14:20 by A's fleet (10 LANCER and 4
 /// WARDEN, D-058's mid-size fleet), the exit at day 2 19:00, the siege, the fall and the
 /// capture, D's docked ships jumping to the mother station.
+///
+/// D's docked ships are two MULEs: unarmed, so D's Deputy keeps them docked as H2's reserve
+/// (D-207), where an armed fleet would be H2's garrison and launch against the attack on
+/// alert (A1 plan §5.6).
 fn capture(w: &mut World, errors: &mut Vec<String>) -> Result<(), String> {
     let h2 = w.holding("H2")?;
-    let docked = place_docked_fleet(&mut w.state, h2, &[ShipClass::Vx; 2]).ok_or("no room")?;
+    let docked = place_docked_fleet(&mut w.state, h2, &[ShipClass::Mule; 2]).ok_or("no room")?;
     let fleet = w.attackers(h2, 6_000.0, 10, 4)?;
     for day in 1..=2 {
         w.session(at(day, 8, 0, 0), at(day, 9, 30, 0));
@@ -714,6 +718,9 @@ fn stagger(w: &mut World, errors: &mut Vec<String>) -> Result<(), String> {
 /// the station jumps to a free site in the system of D's nearest holding (H2, D-164) with its
 /// docked start kit, D receives the comeback grant, and the landed station has 72 h of
 /// protection.
+///
+/// The start kit is two fleets (D-286): the VX garrison launches against the attack on alert
+/// (A1 plan §5.6) and fights, so the fleet that jumps docked is the MULE reserve.
 fn jump(w: &mut World, errors: &mut Vec<String>) -> Result<(), String> {
     let mother = w.mother();
     let h2 = w.holding("H2")?;
@@ -722,11 +729,14 @@ fn jump(w: &mut World, errors: &mut Vec<String>) -> Result<(), String> {
         .fleet_ids()
         .into_iter()
         .find(|&f| {
-            w.state
-                .fleet(f)
-                .is_some_and(|v| v.place == Place::Docked(mother))
+            w.state.fleet(f).is_some_and(|v| {
+                v.place == Place::Docked(mother)
+                    && v.ships
+                        .iter()
+                        .all(|&s| w.state.ship(s).is_some_and(|s| s.class == ShipClass::Mule))
+            })
         })
-        .ok_or("no start kit")?;
+        .ok_or("no start-kit reserve")?;
     let fleet = w.attackers(mother, 6_000.0, 10, 4)?;
     w.session(at(1, 6, 0, 0), at(1, 7, 0, 0));
     w.attack(at(1, 6, 0, 1), fleet, mother.sim_id());
@@ -830,7 +840,7 @@ fn jump_checks(
         w.state
             .fleet(kit)
             .is_some_and(|f| f.place == Place::Docked(mother)),
-        "the start kit jumped with it and docked (D-166)",
+        "the start kit's reserve jumped with it and docked (D-166, D-286)",
         errors,
     );
     check(
@@ -906,6 +916,10 @@ fn protection(w: &mut World, errors: &mut Vec<String>) -> Result<(), String> {
 
 /// D's solar array under A's fire at 10:00 (disabled, outside the window) and again at 19:30
 /// (destroyed, inside it; D-169).
+///
+/// A's fleet is two WARDENs: they sit in D's defended zone from the start, so D's VX garrison
+/// launches against them on alert (D-286; A1 plan §5.6), and frigates beat strike fighters
+/// (D-052), where two LANCERs would be lost before 10:00.
 fn peripheral(w: &mut World, errors: &mut Vec<String>) -> Result<(), String> {
     let mother = w.mother();
     let solar = w
@@ -927,7 +941,7 @@ fn peripheral(w: &mut World, errors: &mut Vec<String>) -> Result<(), String> {
         system,
         position + outward * 2_400.0,
         (outward * -1.0).angle(),
-        &[ShipClass::Lancer; 2],
+        &[ShipClass::Warden; 2],
     );
     w.session(at(1, 10, 0, 0), at(1, 10, 30, 0));
     w.attack(at(1, 10, 0, 1), fleet, solar);
