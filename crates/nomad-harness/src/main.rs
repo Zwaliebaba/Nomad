@@ -26,6 +26,12 @@
 //! win, printing the control and standings history and the result, checked against a
 //! brute-force recount of the final holdings.
 //!
+//! With `--season --ai` it runs the α pacing run with real AI instead (D-218; A2 plan §5.4):
+//! four Normal AI commanders on their seeded schedules, 7 days by default, reporting D-070's
+//! measures as D-218 and D-283 define them, with the same code as `--economy`; `--solo` keeps
+//! one commander alone (D-083 item 3). Run `--economy` on the same seed for S4's scripted
+//! builder alongside (D-280).
+//!
 //! With `--siege` it runs the siege scenarios (S6 plan §8): breach, Reinforced, siege, Held
 //! and Fallen, capture, the emergency jump of a mother station, protections and peripheral
 //! structures, each end to end from scripted commands, with its timeline and checks.
@@ -61,6 +67,8 @@
 //! nomad-harness --windows [--seed N] [--days N] [--rules PATH]
 //! nomad-harness --season [--seed N] [--days N] [--claim-hours N] [--early-win]
 //!               [--restore-at N] [--rules PATH]
+//! nomad-harness --season --ai [--solo] [--seed N] [--days N] [--trace-hours N] [--csv PATH]
+//!               [--rules PATH]
 //! nomad-harness --siege [--seed N] [--rules PATH]
 //! nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]
 //! nomad-harness --deputy [bench] [--seed N] [--hours N | --ticks N] [--rules PATH]
@@ -77,6 +85,7 @@ mod galaxy;
 mod pacing;
 mod raids;
 mod season;
+mod season_ai;
 mod siege;
 mod station;
 mod windows;
@@ -124,6 +133,10 @@ struct Args {
     raids: bool,
     catch_up_from: u64,
     catch_up_hours: u64,
+    // A2: `--season --ai`.
+    ai: bool,
+    solo: bool,
+    trace_hours: Option<u64>,
 }
 
 impl Default for Args {
@@ -154,6 +167,9 @@ impl Default for Args {
             raids: false,
             catch_up_from: 30,
             catch_up_hours: 6,
+            ai: false,
+            solo: false,
+            trace_hours: None,
         }
     }
 }
@@ -192,6 +208,9 @@ fn parse_args() -> Result<Args, String> {
             "--catch-up-from" => args.catch_up_from = parse(&value()?)?,
             "--catch-up-hours" => args.catch_up_hours = parse(&value()?)?,
             "--early-win" => args.early_win = true,
+            "--ai" => args.ai = true,
+            "--solo" => args.solo = true,
+            "--trace-hours" => args.trace_hours = Some(parse(&value()?)?),
             "--help" | "-h" => {
                 return Err(
                     "usage: nomad-harness [--seed N] [--ticks N] [--diagnostics N] \
@@ -205,6 +224,8 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --windows [--seed N] [--days N] [--rules PATH]\n       \
                      nomad-harness --season [--seed N] [--days N] [--claim-hours N] \
                             [--early-win] [--restore-at N] [--rules PATH]\n       \
+                     nomad-harness --season --ai [--solo] [--seed N] [--days N] [--trace-hours N] \
+                            [--csv PATH] [--rules PATH]\n       \
                      nomad-harness --siege [--seed N] [--rules PATH]\n       \
                      nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]\n       \
                      nomad-harness --deputy [bench] [--seed N] [--hours N | --ticks N] \
@@ -255,6 +276,9 @@ fn run() -> Result<(), String> {
                 csv: args.csv,
             },
         );
+    }
+    if args.season && args.ai {
+        return season_ai::run(&mut io::stdout().lock(), pacing_run(&args, rules));
     }
     if args.season {
         return season::run(
@@ -330,6 +354,18 @@ fn run() -> Result<(), String> {
         );
     }
     diagnostics(&args, rules)
+}
+
+/// What `--season --ai` runs, from the command line: 7 days unless `--days` says otherwise.
+fn pacing_run(args: &Args, rules: Rules) -> season_ai::PacingRun {
+    season_ai::PacingRun {
+        seed: args.seed,
+        days: args.days.unwrap_or(7),
+        solo: args.solo,
+        rules,
+        trace_hours: args.trace_hours,
+        csv: args.csv.clone(),
+    }
 }
 
 /// What `--raids` runs, from the command line: 7 days unless `--days` says otherwise.

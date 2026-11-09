@@ -538,134 +538,6 @@ fn units(milli: u64) -> f64 {
     milli as f64 / 1_000.0
 }
 
-/// The mother station's income at the season start, the reference for late income (D-070).
-const START_INCOME: f64 = 600.0;
-
-/// Each commander's D-070 measures (D-218 §5.4, D-283), collected for the report.
-#[derive(Default)]
-struct Measures {
-    storage_start: Vec<f64>,
-    storage_mid: Vec<f64>,
-    storage_mid_crystal: Vec<f64>,
-    first_kit: Vec<f64>,
-    per_holding: Vec<f64>,
-    rebuild: Vec<f64>,
-    rebuild_alloy: Vec<f64>,
-    rebuild_crystal: Vec<f64>,
-    mid_income: Vec<(f64, f64)>,
-    build_out: Vec<f64>,
-    remote_holdings: usize,
-    late: Vec<f64>,
-}
-
-impl Measures {
-    /// Writes each measure as the median over the commanders, with the range and a verdict
-    /// against D-070's target (α passes within ±50%, doc 30 §3).
-    fn write(
-        &self,
-        out: &mut impl Write,
-        mid: pacing::Window,
-        late: pacing::Window,
-    ) -> Result<(), String> {
-        let verdict = |value: f64, lo: f64, hi: f64| {
-            if value.is_nan() {
-                "not measured".to_owned()
-            } else if value >= lo && value <= hi {
-                "on target".to_owned()
-            } else if value >= lo * 0.5 && value <= hi * 1.5 {
-                "within ±50% (tuning item)".to_owned()
-            } else {
-                "outside ±50% (tuning item)".to_owned()
-            }
-        };
-        let range = |v: &[f64]| {
-            let finite: Vec<f64> = v.iter().copied().filter(|x| !x.is_nan()).collect();
-            if finite.is_empty() {
-                return String::new();
-            }
-            let lo = finite.iter().copied().fold(f64::INFINITY, f64::min);
-            let hi = finite.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-            format!(" (range {lo:.2}–{hi:.2})")
-        };
-        writeln!(
-            out,
-            "D-070 measures, median over the commanders (D-218 §5.4; mid-season {}; late {}):",
-            mid.label(),
-            late.label()
-        )
-        .map_err(|e| e.to_string())?;
-        let lines: [(&str, &[f64], f64, f64, &str); 7] = [
-            (
-                "storage fills at start income [8-12 h]",
-                &self.storage_start,
-                8.0,
-                12.0,
-                "h",
-            ),
-            (
-                "storage fills at mid-season income, alloy [8-12 h]",
-                &self.storage_mid,
-                8.0,
-                12.0,
-                "h",
-            ),
-            (
-                "first expansion started [<= 1 h]",
-                &self.first_kit,
-                0.0,
-                1.0,
-                "h",
-            ),
-            (
-                "hours per new holding, days 0-3: 72 h / holdings completed [12-24 h]",
-                &self.per_holding,
-                12.0,
-                24.0,
-                "h",
-            ),
-            (
-                "full cap-fleet rebuild, Garrison mix, binding resource [~24 h]",
-                &self.rebuild,
-                20.0,
-                28.0,
-                "h",
-            ),
-            (
-                "build-out from core completion, D-283 [48-72 h]",
-                &self.build_out,
-                48.0,
-                72.0,
-                "h",
-            ),
-            ("late income vs start [3-4x]", &self.late, 3.0, 4.0, "x"),
-        ];
-        for (name, values, lo, hi, unit) in lines {
-            let value = pacing::median(values);
-            writeln!(
-                out,
-                "  {name}: {value:.2} {unit}{} -> {}",
-                range(values),
-                verdict(value, lo, hi)
-            )
-            .map_err(|e| e.to_string())?;
-        }
-        let alloy: Vec<f64> = self.mid_income.iter().map(|x| x.0).collect();
-        let crystal: Vec<f64> = self.mid_income.iter().map(|x| x.1).collect();
-        writeln!(
-            out,
-            "  also: storage fill, crystal {:.1} h | rebuild on alloy {:.1} h, on crystal {:.1} h | mid-season income {:.0} A/h {:.0} C/h | build-out finished at {} of {} remote holdings",
-            pacing::median(&self.storage_mid_crystal),
-            pacing::median(&self.rebuild_alloy),
-            pacing::median(&self.rebuild_crystal),
-            pacing::median(&alloy),
-            pacing::median(&crystal),
-            self.build_out.len(),
-            self.remote_holdings,
-        )
-        .map_err(|e| e.to_string())
-    }
-}
-
 /// Runs `--economy` and prints the D-070 measures.
 #[expect(
     clippy::too_many_lines,
@@ -693,11 +565,7 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
         Some(path) => {
             let mut file =
                 std::io::BufWriter::new(std::fs::File::create(path).map_err(|e| e.to_string())?);
-            writeln!(
-                file,
-                "hour,commander,produced_alloy,produced_crystal,cap_alloy,cap_crystal,pool_alloy,pool_crystal,lost_alloy,lost_crystal,holdings,alloy_producers,crystal_producers,alloy_yield_permille,crystal_yield_permille,command_cap,kit_alloy,kit_crystal"
-            )
-            .map_err(|e| e.to_string())?;
+            writeln!(file, "{}", pacing::CSV_HEADER).map_err(|e| e.to_string())?;
             Some(file)
         }
         None => None,
@@ -749,29 +617,7 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
                     holdings: u32::try_from(complete).unwrap_or(u32::MAX),
                 };
                 if let Some(file) = csv.as_mut() {
-                    writeln!(
-                        file,
-                        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-                        sample.hour,
-                        c.0,
-                        e.produced.alloy,
-                        e.produced.crystal,
-                        e.cap.alloy,
-                        e.cap.crystal,
-                        e.pool.alloy,
-                        e.pool.crystal,
-                        e.lost.alloy,
-                        e.lost.crystal,
-                        complete,
-                        e.producing_holdings.alloy,
-                        e.producing_holdings.crystal,
-                        e.yield_permille.alloy,
-                        e.yield_permille.crystal,
-                        e.command_cap,
-                        e.core_kit_price.alloy,
-                        e.core_kit_price.crystal,
-                    )
-                    .map_err(|e| e.to_string())?;
+                    pacing::write_csv_row(file, &sample, c, &e)?;
                 }
                 samples.entry(c).or_default().push(sample);
             }
@@ -806,7 +652,7 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
         cfg.seed, cfg.days
     )
     .map_err(|e| e.to_string())?;
-    let mut m = Measures::default();
+    let mut m = pacing::Measures::default();
     for &c in &COMMANDERS {
         let b = builders.get(&c).ok_or("builder")?;
         let e = state.economy_of(c);
@@ -817,48 +663,25 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
             .filter(|h| state.holding(h.holding).is_some_and(|x| x.core_complete))
             .count();
         let completions: Vec<f64> = b.completions.iter().map(|&t| hours(t)).collect();
-        if let Some((a, _)) = pacing::income(
-            series,
-            pacing::Window {
-                from: 0,
-                to: 1,
-                proxy: false,
-            },
-        ) {
-            m.storage_start.push(units(start_cap.alloy) / a.max(1e-9));
-        }
-        if let (Some((a, cr)), Some((cap_a, cap_c, command))) =
-            (pacing::income(series, mid), pacing::caps(series, mid))
-        {
-            m.storage_mid.push(cap_a / a.max(1e-9));
-            m.storage_mid_crystal.push(cap_c / cr.max(1e-9));
-            let (ha, hc) = pacing::rebuild_hours(per_command, command, (a, cr));
-            m.rebuild.push(ha.max(hc));
-            m.rebuild_alloy.push(ha);
-            m.rebuild_crystal.push(hc);
-            m.mid_income.push((a, cr));
-        }
-        if let Some((a, _)) = pacing::income(series, late) {
-            m.late.push(a / START_INCOME);
-        }
-        if let Some(t) = b.first_kit_start {
-            m.first_kit.push(hours(t));
-        }
-        if let Some(h) = pacing::hours_per_holding_days_0_3(&completions) {
-            m.per_holding.push(h);
-        }
         // D-283: from each remote holding's core completion to its full build-out.
-        let mut remote = 0;
-        for (holding, &done) in &b.completed_at {
-            if state.holding(*holding).is_none_or(|x| x.mother_station) {
-                continue;
-            }
-            remote += 1;
-            if let Some(&built) = b.built_out.get(holding) {
-                m.build_out.push(hours(built - done));
-            }
-        }
-        m.remote_holdings += remote;
+        let build_outs: Vec<Option<f64>> = b
+            .completed_at
+            .iter()
+            .filter(|(holding, _)| state.holding(**holding).is_some_and(|x| !x.mother_station))
+            .map(|(holding, &done)| b.built_out.get(holding).map(|&built| hours(built - done)))
+            .collect();
+        m.add(
+            &pacing::CommanderRun {
+                samples: series,
+                start_cap,
+                completions: &completions,
+                first_kit: b.first_kit_start.map(hours),
+                build_outs: &build_outs,
+            },
+            per_command,
+            mid,
+            late,
+        );
         let by_day: Vec<String> = [3, 7, 14, 21, 28, 35, 42, 49, 56]
             .iter()
             .filter_map(|&d| {
