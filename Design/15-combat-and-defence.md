@@ -219,6 +219,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 - Raid strength scales with the target commander's fleet strength (doc 13).
 - No new raids start during catch-up (D-047).
 - *Settled with the A3 plan:* a raid's launch, target and strength are a simulation rule, and the director AI only steers the spawned group (D-219). Strength comes from the target's fleet value, with a floor of 2 strike craft (D-220); each raid spawns a fresh group (D-221); its 10 minutes start on arrival (D-222).
+- *As built (A3):* D-223 is S6b's peripheral outcome, which disables for an NPC attacker at any time; D-224 is the outpost core's hull growing from 10% over its deployment (S4, S6b). An outpost has no dome, so raiders can destroy its core (D-054), but at the floor they cannot in one raid: two strike craft wear 75 a second against a growth of 37.5, and a fresh core starts at 30,000 (A3 plan §12).
 
 ## 11. Time-to-kill targets
 

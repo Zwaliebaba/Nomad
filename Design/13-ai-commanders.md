@@ -145,6 +145,8 @@ The difficulty is set per AI commander when the Universe is created. The MVP def
 - **Withdrawal:** after 10 min, or after losing 50% of the group.
 - Raiders do zero damage to domes (D-056). They see through their faction's own sensors (doc 16 §7).
 
+> **As built (A3):** the launch rule is in `nomad-sim` (`raids`): one NPC faction per haven, a launch timer drawing 2–4 h on the haven's `RAIDS` stream, a target drawn by public-data weights, strength from the target's fleet value in that system, the spawn at the haven's gate, and removal on return; a firing during catch-up launches nothing and is not deferred (D-047, D-219 to D-221). The director is in `nomad-ai` (`director`): it steers each group through the faction's view and ordinary commands at Normal's competence, starts the 10 minutes when the arrival shroud ends, attacks the target commander's MULEs, outposts, weaker ships and peripheral structures in that order, and withdraws on the clock, at half its value lost or before a force more than twice its own (D-222). D-223 and D-224 were already built by S4 and S6b. The readings the plan left open, and what the first `--raids` runs showed, are in the A3 plan §12.
+
 ## 9. Doctrine presets
 
 *Agreed (D-082).* These are the presets from doc 12 §5.2. *Balanced* is the default for new human commanders, and the Strategist's starting point before it adapts its doctrine.
