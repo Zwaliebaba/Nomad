@@ -35,6 +35,12 @@
 //! compared with brute-force ground truth after every sensors pass, the sensors pass's cost
 //! at stage 1 and in a stage-2 stress layout, and two fleets finding each other.
 //!
+//! With `--deputy` it runs the Deputy's scenarios (A1 plan §9): a raid on a holding, SHLD
+//! SURGE and FLAK SCREEN, convoy evacuation and a contested gate, rebuilding within the
+//! budget, direct control, and a catch-up, each with its checks. `--deputy bench` measures
+//! the Deputy's cost per tick and the catch-up speed at stage 1 (D-203), for 6 simulated
+//! hours unless `--hours` or `--ticks` says otherwise; build with `--release` for it.
+//!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
 //!
@@ -51,9 +57,11 @@
 //!               [--restore-at N] [--rules PATH]
 //! nomad-harness --siege [--seed N] [--rules PATH]
 //! nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]
+//! nomad-harness --deputy [bench] [--seed N] [--hours N | --ticks N] [--rules PATH]
 //! ```
 
 mod combat;
+mod deputy;
 mod economy;
 mod fleets;
 mod fog;
@@ -94,6 +102,8 @@ struct Args {
     windows: bool,
     siege: bool,
     fog: bool,
+    /// `--deputy`, and whether it is `--deputy bench`.
+    deputy: Option<bool>,
     days: Option<u64>,
     rules: Option<PathBuf>,
     csv: Option<PathBuf>,
@@ -121,6 +131,7 @@ impl Default for Args {
             windows: false,
             siege: false,
             fog: false,
+            deputy: None,
             days: None,
             rules: None,
             csv: None,
@@ -154,6 +165,8 @@ fn parse_args() -> Result<Args, String> {
             "--windows" => args.windows = true,
             "--siege" => args.siege = true,
             "--fog" => args.fog = true,
+            "--deputy" => args.deputy = Some(false),
+            "bench" if args.deputy.is_some() => args.deputy = Some(true),
             "--days" => args.days = Some(parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--csv" => args.csv = Some(PathBuf::from(value()?)),
@@ -174,7 +187,9 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --season [--seed N] [--days N] [--claim-hours N] \
                             [--early-win] [--restore-at N] [--rules PATH]\n       \
                      nomad-harness --siege [--seed N] [--rules PATH]\n       \
-                     nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]"
+                     nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]\n       \
+                     nomad-harness --deputy [bench] [--seed N] [--hours N | --ticks N] \
+                            [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -262,6 +277,19 @@ fn run() -> Result<(), String> {
                 rules,
             },
         );
+    }
+    if let Some(bench) = args.deputy {
+        let run = deputy::DeputyRun {
+            seed: args.seed,
+            rules,
+        };
+        let out = &mut io::stdout().lock();
+        return if bench {
+            let ticks = args.ticks.unwrap_or(Ticks::from_hours(args.hours).get());
+            deputy::bench(out, &run, ticks)
+        } else {
+            deputy::run(out, &run)
+        };
     }
     if args.fleets {
         let hours = Ticks::from_hours(args.hours).get();

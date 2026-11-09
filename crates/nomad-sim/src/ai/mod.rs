@@ -202,4 +202,34 @@ impl UniverseState {
     pub fn ai_memory(&self) -> &nomad_ai::Memory {
         &self.ai
     }
+
+    /// For the harness's budget measurement (D-203, A1 plan §4.5): runs every commander's
+    /// Deputy as phase 4 of the next tick would, on scratch copies of their memories, and
+    /// returns the number of commands they would issue. The state is unchanged. With
+    /// `evaluate` false it only copies the memories, so the harness, which may read the clock,
+    /// can subtract the copying from what it times.
+    pub fn probe_deputies(&self, evaluate: bool) -> usize {
+        let now = self.tick.next();
+        let interval = self.rules.ai.deputy_interval_ticks;
+        let stagger = nomad_ai::deputy::Stagger {
+            slot: now.get() % interval,
+            of: interval,
+        };
+        let mut issued = 0;
+        for id in self.commander_ids() {
+            let mut memory = self
+                .ai
+                .commander(id)
+                .map(|m| m.deputy.clone())
+                .unwrap_or_default();
+            if evaluate {
+                let view = view::AiView::new(self, Owner::Commander(id), now);
+                let mut out = nomad_ai::Output::default();
+                nomad_ai::deputy::evaluate(&view, &mut memory, stagger, &mut out);
+                issued += out.commands.len();
+            }
+            std::hint::black_box(&memory);
+        }
+        issued
+    }
 }
