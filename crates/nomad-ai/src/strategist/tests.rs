@@ -510,6 +510,44 @@ fn a_kit_priced_above_the_pool_cap_triggers_storage() {
     assert!(!built.iter().any(|(_, item)| *item == BuildItem::CoreKit));
 }
 
+#[test]
+fn a_waiting_kit_above_a_fallen_pool_cap_lets_storage_go_first() {
+    let mut fake = Fake::new();
+    // A kit queued at 9,000 A, and the cap has since fallen to 8,000 A: it cannot be paid
+    // until storage raises the cap, so it must not hold the pool back from that storage.
+    fake.economy.income_last_hour = Stock::units(600, 60);
+    fake.economy.pool = Stock::units(7_900, 500);
+    fake.economy.core_kit_price = Stock::units(9_000, 750);
+    fake.holdings[0].queue.push(QueuedItem {
+        item: BuildItem::CoreKit,
+        price: Stock::units(9_000, 750),
+        started: false,
+    });
+    let mut m = memory();
+    m.plans.push(Plan {
+        expansion: Some(expand::Expansion {
+            site: SiteId(id(20)),
+            system: S2,
+            holding: MOTHER,
+            carrier: None,
+            escort: None,
+            stage: expand::Stage::Prepare,
+        }),
+        ..Plan::new(Goal::Expand, fake.now)
+    });
+    let commands = fake.eval(&mut m);
+    assert!(
+        builds(&commands).iter().any(|(_, item)| matches!(
+            item,
+            BuildItem::Module {
+                kind: ModuleKind::Storage,
+                ..
+            }
+        )),
+        "{commands:?}"
+    );
+}
+
 /// A loaded MULE fleet docked at the mother station, for the trip tests.
 fn loaded(fake: &mut Fake) -> FleetId {
     let carrier = FleetId(id(300));

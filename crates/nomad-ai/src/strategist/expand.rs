@@ -31,6 +31,9 @@
 //! - the kit's holding is the own complete holding nearest the site by jumps, then by
 //!   identity;
 //! - a lane transit cannot stall (D-042), so a MULE in transit is progress;
+//! - a waiting kit priced above the pool cap reserves nothing, so the storage that raises
+//!   the cap is paid first (the cap falls when a rack or a holding is lost after the kit
+//!   was queued);
 //! - "spare garrison ships" for an escort are any armed fleet docked at the kit's holding
 //!   that no plan uses; it goes along only when the trip ends inside the session, since its
 //!   own orders lapse (D-162) and only the claim fleet's continue (D-291).
@@ -518,7 +521,10 @@ fn prepare(
             // Building, progress comes when it finishes (15 min); waiting, it is paid when
             // the pool has its price (D-068).
             waiting = true;
-            if !q.started {
+            // A kit priced above the pool cap (a rack or a holding lost since it was queued)
+            // cannot be paid until storage raises the cap: it holds nothing back, so the
+            // storage that unblocks it can be paid first (D-282).
+            if !q.started && f.economy.cap.covers(q.price) {
                 turn.spend_or_reserve(q.price);
             }
         } else {
