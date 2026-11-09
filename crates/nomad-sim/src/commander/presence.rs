@@ -20,7 +20,9 @@
 //!   the Deputy gave are doctrine and stand. A fleet that already station-keeps where it is, with nothing
 //!   queued, is at that doctrine and has nothing to lose. A fleet in lane transit finishes its hop first (D-042) and
 //!   station-keeps on arrival; a docked fleet stays docked. Convoy routes are doctrine and
-//!   continue (doc 12 §5.2, D-162). Rules of engagement are a standing setting of the fleet,
+//!   continue (doc 12 §5.2, D-162), and so does a claim trip under way: a fleet carrying a
+//!   core kit whose last order is a move to a free site keeps its orders and deploys on
+//!   arrival (D-291, [`crate::economy::logistics`]). Rules of engagement are a standing setting of the fleet,
 //!   not an order, and stay (*Proposed*: D-162 does not say). The owner is told which fleets
 //!   lapsed (the away report's "orders that lapsed", S6 plan §4.8).
 //! - **Counts as online for sieges** (D-160): online, or offline for less than the grace;
@@ -207,6 +209,11 @@ pub(super) fn grace_ends(
     for id in crate::doctrine::lapse_all(state, commander) {
         // Convoy routes are doctrine, not direct orders (doc 12 §5.2, D-162).
         if state.economy.convoys.contains_key(&id) {
+            continue;
+        }
+        // A claim trip under way continues as doctrine and deploys on arrival (D-291).
+        if let Some(site) = crate::economy::logistics::claim_trip_site(state, id) {
+            state.economy.claims.insert(id, site);
             continue;
         }
         let Some((place, has_orders)) = state.entities.with::<Fleet, _>(id.sim_id(), |f| {

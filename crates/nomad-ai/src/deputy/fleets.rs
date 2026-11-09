@@ -230,7 +230,8 @@ pub(super) fn act(
             continue;
         };
         let control = view.direct_control(id);
-        let role = if control.is_some() || ctx.convoys.contains(&id) {
+        // A fleet on a claim trip goes on to its site as doctrine (D-291).
+        let role = if control.is_some() || ctx.convoys.contains(&id) || view.on_claim_trip(id) {
             None
         } else {
             resolve(view, id, &fleet, &doctrine, tracked.home, ctx)

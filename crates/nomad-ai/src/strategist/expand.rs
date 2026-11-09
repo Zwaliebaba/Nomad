@@ -19,9 +19,11 @@
 //! completes (D-054) and then docks there. A kit priced above the pool cap is not queued:
 //! *Build out* adds storage first (D-189's *Derived* note, D-282).
 //!
-//! **Sessions** (D-214): the trip starts only if its estimate (route time × 1.2 plus the
-//! deploy margin) ends before the sign-off; otherwise the loaded MULE is pre-positioned at the
-//! own holding nearest the site, for the next session.
+//! **Sessions** (D-214, D-291): a loaded kit sets out while the commander is online, and the
+//! trip continues as doctrine if the session ends first: the simulation keeps the fleet's
+//! orders past the grace and deploys the kit on arrival (D-291). Only a fleet without a kit
+//! (an empty MULE coming to the kit's holding) still waits for a session its hop fits, since
+//! its orders lapse (D-162).
 //!
 //! *Proposed* readings:
 //! - the candidates are the free sites nearest the commander's systems by jumps, then by
@@ -29,10 +31,9 @@
 //! - the kit's holding is the own complete holding nearest the site by jumps, then by
 //!   identity;
 //! - a lane transit cannot stall (D-042), so a MULE in transit is progress;
-//! - a site whose trip from the kit's holding fits no session of the schedule is not a
-//!   candidate: it could never be claimed (D-214, A2 plan §10 item 2);
 //! - "spare garrison ships" for an escort are any armed fleet docked at the kit's holding
-//!   that no plan uses.
+//!   that no plan uses; it goes along only when the trip ends inside the session, since its
+//!   own orders lapse (D-162) and only the claim fleet's continue (D-291).
 
 use std::collections::BTreeSet;
 
@@ -66,8 +67,6 @@ pub(crate) enum Stage {
     Prepare,
     /// Travelling to the site.
     Travel,
-    /// Travelling to dock at this holding near the site, for the next session.
-    Preposition(HoldingId),
     /// The deploy command is out.
     Deploying,
     /// Deployed: the MULE returns, the escort guards the outpost.
@@ -158,10 +157,6 @@ pub(crate) fn candidates(
     let starved = f.crystal_starved();
     let hours_left = f.hours_left();
     let kit = model::weighed(f.economy.core_kit_price, rules.crystal_weight);
-    let longest = view
-        .session()
-        .longest_ticks
-        .map(|l| l.saturating_sub(params.interval_ticks.saturating_mul(2)));
     let mut out = Vec::new();
     for (_, site) in sites {
         let Some(holding) = origin(f, site.system) else {
@@ -179,10 +174,6 @@ pub(crate) fn candidates(
         let Some(route) = view.route_to_point(from, to, RouteSpeed::Class(ShipClass::Mule)) else {
             continue;
         };
-        // A trip that fits no session of the schedule can never be made (D-214).
-        if longest.is_some_and(|l| trip_ticks(route.duration_ms, params) > l) {
-            continue;
-        }
         // Income: the productive build-out's value to the commander, for its cost.
         let productive = productive_modules(&site.deposits);
         let (alloy, crystal) = model::nominal(&f.numbers, &site.deposits, &[], &productive);
@@ -391,10 +382,6 @@ pub(crate) fn advance(
     done
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "one step machine reads best in one place"
-)]
 fn step(
     view: &impl StrategicView,
     turn: &mut Turn<'_>,
@@ -433,34 +420,23 @@ fn step(
     }
     let carrying = carrier.as_ref().is_some_and(|c| carries_kit(view, c));
     match e.stage {
-        Stage::Prepare | Stage::Preposition(_) if carrying => {
+        Stage::Prepare if carrying => {
             let Some(c) = carrier else {
                 return true;
             };
-            if matches!(e.stage, Stage::Preposition(_)) && c.busy {
-                plan.observe(marker(&c.place, 1), true, now);
-                return false;
-            }
-            e.stage = Stage::Prepare;
             let from = location_of(view, &c.place);
             let Some(from) = from else {
                 plan.observe(marker(&c.place, 2), true, now);
                 return false;
             };
-            let fits = |route_ms: u64| {
-                let estimate = trip_ticks(route_ms, params);
-                view.session().ends.is_none_or(|ends| {
-                    now.get().saturating_add(estimate)
-                        <= ends
-                            .get()
-                            .saturating_sub(params.interval_ticks.saturating_mul(2))
-                })
-            };
             let trip = view.route_to_point(from, target, RouteSpeed::Fleet(c.id));
             match trip {
-                Some(route) if fits(route.duration_ms) => {
+                Some(route) => {
+                    // The trip goes on offline if the session ends first (D-291).
                     travel(turn, &c.place, c.id, target);
-                    if let Some(escort) = escort_for(view, turn, e, &site) {
+                    if ends_in_session(view, params, now, route.duration_ms)
+                        && let Some(escort) = escort_for(view, turn, e, &site)
+                    {
                         travel(turn, &FleetPlace::Docked(e.holding), escort, target);
                         e.escort = Some(escort);
                         turn.busy.insert(escort);
@@ -468,29 +444,11 @@ fn step(
                     e.stage = Stage::Travel;
                     plan.observe(marker(&c.place, 3), false, now);
                 }
-                Some(_) => {
-                    // It does not fit: pre-position at the holding nearest the site.
-                    let near = nearest_holding_to(view, f, target);
-                    match near {
-                        Some(h) if FleetPlace::Docked(h) != c.place => {
-                            let hop = view.holding_location(h).and_then(|to| {
-                                view.route_to_point(from, to, RouteSpeed::Fleet(c.id))
-                            });
-                            if hop.is_some_and(|r| fits(r.duration_ms)) {
-                                go_dock(turn, &c.place, c.id, h, view);
-                                e.stage = Stage::Preposition(h);
-                                stats.prepositioned += 1;
-                            }
-                        }
-                        _ => {}
-                    }
-                    plan.observe(marker(&c.place, 4), true, now);
-                }
                 None => plan.observe(marker(&c.place, 5), false, now),
             }
             false
         }
-        Stage::Prepare | Stage::Preposition(_) => prepare(view, turn, plan, e, carrier.as_ref()),
+        Stage::Prepare => prepare(view, turn, plan, e, carrier.as_ref()),
         Stage::Travel => {
             let Some(c) = carrier else {
                 return true;
@@ -596,14 +554,7 @@ fn prepare(
         let hop = location_of(view, &c.place)
             .zip(view.holding_location(e.holding))
             .and_then(|(from, to)| view.route_to_point(from, to, RouteSpeed::Fleet(c.id)));
-        let fits = hop.is_some_and(|r| {
-            view.session().ends.is_none_or(|ends| {
-                now.get().saturating_add(trip_ticks(r.duration_ms, &params))
-                    <= ends
-                        .get()
-                        .saturating_sub(params.interval_ticks.saturating_mul(2))
-            })
-        });
+        let fits = hop.is_some_and(|r| ends_in_session(view, &params, now, r.duration_ms));
         if fits {
             go_dock(turn, &c.place, c.id, e.holding, view);
         }
@@ -788,16 +739,19 @@ fn escort_for(
         .map(|fl| fl.id)
 }
 
-/// The own complete holding nearest `to` by route time, then identity.
-fn nearest_holding_to(view: &impl StrategicView, f: &Features, to: Location) -> Option<HoldingId> {
-    f.complete()
-        .filter_map(|h| {
-            let from = view.holding_location(h.id)?;
-            let route = view.route_to_point(from, to, RouteSpeed::Class(ShipClass::Mule))?;
-            Some((route.duration_ms, h.id))
-        })
-        .min()
-        .map(|(_, id)| id)
+/// Whether a trip of `route_ms` started now ends before the sign-off (D-214).
+fn ends_in_session(
+    view: &impl StrategicView,
+    params: &StrategistParams<'_>,
+    now: nomad_types::Tick,
+    route_ms: u64,
+) -> bool {
+    view.session().ends.is_none_or(|ends| {
+        now.get().saturating_add(trip_ticks(route_ms, params))
+            <= ends
+                .get()
+                .saturating_sub(params.interval_ticks.saturating_mul(2))
+    })
 }
 
 /// Where a fleet is, for a route query.

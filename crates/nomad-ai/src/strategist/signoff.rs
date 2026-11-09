@@ -7,7 +7,8 @@
 //!   escort as its outpost's garrison, A1 plan §5.6), and the replacement list set to the
 //!   garrisons (D-212);
 //! - **release:** every fleet under direct control returns to doctrine (RK-10), so nothing
-//!   lapses after the grace (D-162);
+//!   lapses after the grace (D-162), except a kit's fleet on its way to the site, which stays
+//!   under direct control so that its trip continues offline and deploys (D-291);
 //! - **queues:** the next core kit if an expansion waits for one, then blueprint steps and
 //!   garrison ships worth the pool and the income expected until the next session, within
 //!   the 24-item limit (D-025, D-068: waiting items start as the money arrives). *Proposed:*
@@ -101,11 +102,23 @@ pub(crate) fn run(
         .filter_map(|p| p.expansion.as_ref())
         .flat_map(|e| e.fleets().into_iter().map(move |fl| (fl, e.holding)))
         .collect();
+    // Claim trips under way stay as they are: their orders continue past the grace and the
+    // kit deploys on arrival (D-291).
+    let trips: Vec<FleetId> = memory
+        .plans
+        .iter()
+        .filter_map(|p| p.expansion.as_ref())
+        .filter(|e| e.stage == Stage::Travel && e.carrying(view))
+        .filter_map(|e| e.carrier)
+        .collect();
     let fallback = f.complete().next().map(|h| h.id);
     let mut garrisons: Vec<(FleetId, Vec<(ShipClass, u32)>)> = Vec::new();
     for fleet in &f.fleets {
         if turn.out.commands.len() >= limit {
             break;
+        }
+        if trips.contains(&fleet.id) {
+            continue;
         }
         if view.direct_control(fleet.id).is_some() {
             turn.send(Command::Doctrine(DoctrineCommand::Release {

@@ -410,6 +410,13 @@ pub trait View {
     /// The fastest route of a query, or `None` if there is none.
     fn route(&self, query: &RouteQuery) -> Option<RouteSummary>;
 
+    /// Whether an own fleet is on a claim trip that continues as doctrine (D-291): the
+    /// Deputy leaves it to arrive and deploy, as it leaves a convoy to its route.
+    fn on_claim_trip(&self, fleet: FleetId) -> bool {
+        let _ = fleet;
+        false
+    }
+
     // --- Raids: the NPC faction's own records and rules values (A3).
 
     /// The observer's raid groups, in fleet order: its own records; empty for a commander.

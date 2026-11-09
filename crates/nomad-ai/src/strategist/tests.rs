@@ -548,54 +548,13 @@ fn with_expansion(m: &mut StrategistMemory, carrier: FleetId, site: u64, system:
 }
 
 #[test]
-fn a_trip_that_does_not_fit_the_session_is_not_started() {
+fn a_trip_longer_than_the_session_starts_and_goes_on_offline() {
     let mut fake = Fake::new();
     let carrier = loaded(&mut fake);
-    // The trip takes 2 h; the session ends in 30 min.
+    // The trip takes 2 h; the session ends in 30 min. It starts anyway: the simulation keeps
+    // it going after the grace and deploys the kit on arrival (D-291).
     fake.route_ms = 2 * 3_600_000;
     fake.session.ends = Some(fake.now.after(Ticks::from_minutes(30)));
-    let mut m = memory();
-    with_expansion(&mut m, carrier, 20, S2);
-    let commands = fake.eval(&mut m);
-    assert!(
-        !commands
-            .iter()
-            .any(|c| matches!(c, Command::Fleet { fleet, .. } if *fleet == carrier)),
-        "the MULE is docked at the holding nearest the site already: {commands:?}"
-    );
-    // The same trip in a long session starts.
-    fake.session.ends = Some(fake.now.after(Ticks::from_hours(4)));
-    let commands = fake.eval(&mut m);
-    assert!(
-        commands.iter().any(|c| matches!(
-            c,
-            Command::Fleet {
-                fleet,
-                order: FleetOrder::Launch,
-                ..
-            } if *fleet == carrier
-        )),
-        "{commands:?}"
-    );
-}
-
-#[test]
-fn a_trip_that_does_not_fit_is_prepositioned_at_the_holding_nearest_the_site() {
-    let mut fake = Fake::new();
-    let carrier = loaded(&mut fake);
-    // A forward holding in S2, nearer the site than the mother station.
-    let forward = HoldingId(id(110));
-    let mut h = fake.holdings[0].clone();
-    h.id = forward;
-    h.system = S2;
-    h.mother = false;
-    h.site = SiteId(id(21));
-    fake.holdings.push(h);
-    fake.sites[5].free = false;
-    // Ten minutes to the forward holding, seventy to the site: the session has twenty.
-    fake.route_ms = 10 * 60_000;
-    fake.site_extra_ms = 60 * 60_000;
-    fake.session.ends = Some(fake.now.after(Ticks::from_minutes(20)));
     let mut m = memory();
     with_expansion(&mut m, carrier, 20, S2);
     let commands = fake.eval(&mut m);
@@ -606,15 +565,53 @@ fn a_trip_that_does_not_fit_is_prepositioned_at_the_holding_nearest_the_site() {
             _ => None,
         })
         .collect();
+    let site = &fake.sites[4];
     assert_eq!(
         orders,
         vec![
             &FleetOrder::Launch,
             &FleetOrder::Jump { system: S2 },
-            &FleetOrder::Dock { at: forward }
-        ]
+            &FleetOrder::Move {
+                to: Location {
+                    system: S2,
+                    position: site.position
+                }
+            }
+        ],
+        "{commands:?}"
     );
-    assert_eq!(m.stats().prepositioned, 1);
+    let e = m.plans.iter().find_map(|p| p.expansion.as_ref()).unwrap();
+    assert_eq!((e.site, e.stage), (site.id, expand::Stage::Travel));
+}
+
+#[test]
+fn the_sign_off_leaves_a_claim_trip_under_way_under_direct_control() {
+    let mut fake = Fake::new();
+    let carrier = loaded(&mut fake);
+    let mut m = memory();
+    with_expansion(&mut m, carrier, 20, S2);
+    fake.route_ms = 2 * 3_600_000;
+    fake.eval(&mut m);
+    // On its way, under direct control, when the sign-off comes: it stays so, and its orders
+    // continue past the grace (D-291).
+    fake.direct.insert(carrier);
+    if let Some(f) = fake.fleets.get_mut(&carrier) {
+        f.place = FleetPlace::Travelling;
+        f.busy = true;
+    }
+    fake.session.ends = Some(fake.now.after(Ticks::new(200)));
+    fake.session.next_starts = Some(fake.now.after(Ticks::from_hours(10)));
+    let commands = fake.eval(&mut m);
+    assert_eq!(m.stats().sign_offs, 1);
+    assert!(
+        !commands.iter().any(|c| matches!(
+            c,
+            Command::Doctrine(
+                DoctrineCommand::Release { fleet } | DoctrineCommand::SetFleet { fleet, .. }
+            ) if *fleet == carrier
+        )),
+        "{commands:?}"
+    );
 }
 
 #[test]

@@ -462,7 +462,7 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
             .collect();
         writeln!(
             out,
-            "  C{}: schedule {schedule} | first online {} | first kit {} | holdings by day [{}] | income {:.0} A/h {:.0} C/h | D-281 yield {}‰ over {} alloy, {}‰ over {} crystal producers | pool {:.0}/{:.0} A | command {}/{} | lost {:.0} A | least day spent {} ({} days at cap) | Strategist: {} evaluations, {} plans, {} abandoned, {} deployed, {} pre-positioned, {} sign-offs",
+            "  C{}: schedule {schedule} | first online {} | first kit {} | holdings by day [{}] | income {:.0} A/h {:.0} C/h | D-281 yield {}‰ over {} alloy, {}‰ over {} crystal producers | pool {:.0}/{:.0} A | command {}/{} | lost {:.0} A | least day spent {} ({} days at cap) | Strategist: {} evaluations, {} plans, {} abandoned, {} deployed, {} sign-offs",
             c.0,
             r.first_online
                 .map_or("never".to_owned(), |t| format!("{:.2} h", hours(t))),
@@ -487,7 +487,6 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
             stats.plans_started,
             stats.plans_abandoned,
             stats.deployed,
-            stats.prepositioned,
             stats.sign_offs,
         )
         .map_err(|e| e.to_string())?;

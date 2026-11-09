@@ -108,8 +108,6 @@ pub struct StrategistStats {
     pub plans_abandoned: u64,
     /// Core kits deployed.
     pub deployed: u64,
-    /// Expansion trips pre-positioned because they did not fit the session.
-    pub prepositioned: u64,
     /// Sign-offs.
     pub sign_offs: u64,
 }

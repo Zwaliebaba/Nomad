@@ -378,6 +378,10 @@ impl View for AiView<'_> {
         })
     }
 
+    fn on_claim_trip(&self, fleet: FleetId) -> bool {
+        self.state().economy.claims.contains_key(&fleet) && self.own_fleet(fleet).is_some()
+    }
+
     fn raid_orders(&self) -> Vec<RaidOrder> {
         let Owner::Npc(faction) = self.view.observer() else {
             return Vec::new();

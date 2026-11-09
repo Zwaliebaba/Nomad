@@ -20,6 +20,15 @@
 //! - **Claims:** a finished core kit waits at its holding; a docked MULE with an empty hold
 //!   loads it; deployed on a free site near the fleet, the site becomes an outpost whose core
 //!   builds for 2 h and then completes as a holding (D-054, D-135).
+//! - **Claim trips continue offline** (D-291): a fleet under direct control that carries a
+//!   core kit and whose last order is a move to a free, claimable site (within deploy range
+//!   of it) keeps its orders when its commander's grace ends, as doctrine, as convoy routes
+//!   do (D-162). On arrival, its orders done and the site in range, the kit is deployed there,
+//!   as the commander's `DeployCoreKit` would, through the same validator. Any order to the
+//!   fleet ends the trip, and so does a site taken first, a lost kit or an arrival out of
+//!   range; the fleet then station-keeps under doctrine. *Proposed:* the site is the free
+//!   claimable one nearest the move's end within the deploy range, then by identity; a trip's
+//!   fleet back under direct control (its commander ordered it) is no longer on the trip.
 
 use nomad_types::{Command, FleetOrder, Location, Owner, Queueing, ShipClass, SiteId};
 
@@ -426,6 +435,81 @@ pub(crate) fn deploy_kit(
     state.economy.cargo.remove(&carrier);
     super::spawn_outpost_core(state, holding);
     events.push(EconomyEvent::OutpostDeployed { holding, site });
+}
+
+/// The site a claim trip of `fleet` heads for (D-291): the fleet carries a core kit and its
+/// last order is a move ending within deploy range of a free, claimable site; the nearest
+/// such site, then by identity.
+pub(crate) fn claim_trip_site(state: &UniverseState, id: FleetId) -> Option<SiteId> {
+    let fleet = state.entities.get::<Fleet>(id.sim_id())?;
+    kit_carrier(state, &fleet)?;
+    let last = fleet
+        .queue
+        .back()
+        .or_else(|| fleet.active.as_ref().map(|a| &a.order))?;
+    let FleetOrder::Move { to } = *last else {
+        return None;
+    };
+    if !state
+        .galaxy
+        .system(to.system)
+        .is_some_and(|sys| crate::galaxy::is_claimable(sys.kind))
+    {
+        return None;
+    }
+    let range = state.rules.economy.logistics.deploy_range_m;
+    state
+        .galaxy
+        .sites()
+        .filter(|(_, site)| site.system == to.system)
+        .filter(|&(site, _)| {
+            state.holding_at(site).is_none() && !crate::siege::site_reserved(state, site)
+        })
+        .map(|(site, s)| (distance_m(s.position, to.position), site))
+        .filter(|&(d, _)| d <= range)
+        .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
+        .map(|(_, site)| site)
+}
+
+/// Runs the claim trips under way (D-291): drops those that ended, and deploys the kit of a
+/// fleet that has arrived.
+pub(crate) fn run_claims(state: &mut UniverseState, events: &mut Vec<EconomyEvent>) {
+    if state.economy.claims.is_empty() {
+        return;
+    }
+    let trips: Vec<(FleetId, SiteId)> = state
+        .economy
+        .claims
+        .iter()
+        .map(|(&fleet, &site)| (fleet, site))
+        .collect();
+    for (id, site) in trips {
+        let Some(fleet) = state.entities.get::<Fleet>(id.sim_id()) else {
+            state.economy.claims.remove(&id);
+            continue;
+        };
+        let taken = state.holding_at(site).is_some() || crate::siege::site_reserved(state, site);
+        if taken || kit_carrier(state, &fleet).is_none() || state.doctrine.direct.contains_key(&id)
+        {
+            state.economy.claims.remove(&id);
+            continue;
+        }
+        let arrived = fleet.queue.is_empty()
+            && fleet
+                .active
+                .as_ref()
+                .is_none_or(|a| a.order == FleetOrder::StationKeep { relative_to: None })
+            && matches!(fleet.place, Place::InSystem(_));
+        if !arrived {
+            continue;
+        }
+        state.economy.claims.remove(&id);
+        let deploy =
+            Command::Economy(nomad_types::EconomyCommand::DeployCoreKit { fleet: id, site });
+        if validate_command(state, fleet.owner, &deploy).is_ok() {
+            deploy_kit(state, id, site, events);
+        }
+    }
 }
 
 /// Whether `fleet` is close enough to `site` to deploy a kit there.

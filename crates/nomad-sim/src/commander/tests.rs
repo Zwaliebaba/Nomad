@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 
-use nomad_types::{Command, FactionId, FleetOrder, Owner, QuarterHour};
+use nomad_types::{Command, FactionId, FleetOrder, Location, Owner, QuarterHour};
 
 use super::*;
 use crate::announce::{Announcement, AnnouncementKind, Recipients};
@@ -873,4 +873,121 @@ fn snapshot_and_restore_inside_the_grace_change_nothing() {
         "the lapse happened"
     );
     assert_eq!(state_hash(&state).unwrap(), state_hash(&restored).unwrap());
+}
+
+/// Commander 1 online with a core kit loaded into its MULE fleet, docked at its mother
+/// station, and the free home-system site farthest from it (D-291's tests).
+fn claim_scene() -> (UniverseState, FleetId, crate::galaxy::SiteId) {
+    let mut state = stage1(7);
+    run(&mut state, vec![], vec![connection(1, 1, true)]);
+    let (mother, system) = home(&state, 1);
+    if let Some(e) = state.economy.holdings.get_mut(&mother) {
+        e.kits = 1;
+    }
+    let mules = crate::testkit::kit_mules(&state, 1);
+    let out = crate::testkit::send(
+        &mut state,
+        1,
+        Command::Economy(nomad_types::EconomyCommand::LoadCoreKit { fleet: mules }),
+    );
+    assert_eq!(out.commands[0].outcome, Ok(()));
+    let from = state.holding(mother).map(|h| h.site);
+    let centre = from
+        .and_then(|s| state.galaxy().site(s))
+        .map(|s| s.position)
+        .unwrap();
+    let site = state
+        .galaxy()
+        .system(system)
+        .unwrap()
+        .sites
+        .iter()
+        .copied()
+        .filter(|&s| state.holding_at(s).is_none())
+        .max_by(|&a, &b| {
+            let d =
+                |s| crate::geometry::distance_m(state.galaxy().site(s).unwrap().position, centre);
+            d(a).total_cmp(&d(b)).then(a.cmp(&b))
+        })
+        .unwrap();
+    (state, mules, site)
+}
+
+#[test]
+fn a_claim_trip_started_online_deploys_after_the_grace() {
+    let (mut state, mules, site) = claim_scene();
+    let to = Location {
+        system: state.galaxy().site(site).unwrap().system,
+        position: state.galaxy().site(site).unwrap().position,
+    };
+    crate::testkit::send(&mut state, 1, order(mules, FleetOrder::Launch));
+    crate::testkit::send(
+        &mut state,
+        1,
+        crate::testkit::then(mules, FleetOrder::Move { to }),
+    );
+    assert!(state.doctrine.direct.contains_key(&mules));
+    let gone = run(&mut state, vec![], vec![connection(1, 2, false)]).tick;
+    let ends = gone.after(Ticks::new(GRACE));
+    let outputs = idle_until(&mut state, ends);
+    // The trip does not lapse: it continues as doctrine (D-291).
+    assert!(
+        outputs
+            .iter()
+            .all(|o| o.announcements.iter().all(|a| !matches!(
+                &a.kind,
+                AnnouncementKind::OrdersLapsed { fleets, .. } if fleets.contains(&mules)
+            )))
+    );
+    assert_eq!(state.economy.claims.get(&mules), Some(&site));
+    assert!(!state.doctrine.direct.contains_key(&mules));
+    // It arrives and deploys, with nobody online.
+    let mut deployed = None;
+    for out in idle(&mut state, 10 * 60 * 10) {
+        for event in &out.economy_events {
+            if let crate::economy::EconomyEvent::OutpostDeployed { holding, site: s } = *event {
+                deployed = Some((holding, s));
+            }
+        }
+        if deployed.is_some() {
+            break;
+        }
+    }
+    let (holding, s) = deployed.expect("the kit deploys on arrival");
+    assert_eq!(s, site);
+    assert_eq!(state.holding(holding).unwrap().owner, CommanderId(1));
+    assert!(state.economy.claims.is_empty());
+    assert!(!state.counts_as_online(CommanderId(1)));
+    assert!(state.economy_problems().is_empty() && state.fleet_problems().is_empty());
+}
+
+#[test]
+fn a_claim_trip_not_yet_under_way_lapses() {
+    let (mut state, mules, site) = claim_scene();
+    // The kit is loaded, but the fleet is not ordered to a site yet: its pending launch is
+    // an ordinary direct order, which lapses (D-162), as a client's would leave it (RK-10).
+    if let Some(f) = state.entities.get_mut::<Fleet>(mules.sim_id()) {
+        f.queue.push_back(FleetOrder::Launch);
+    }
+    crate::doctrine::take_control(&mut state, mules, false);
+    let gone = run(&mut state, vec![], vec![connection(1, 2, false)]).tick;
+    let outputs = idle_until(&mut state, gone.after(Ticks::new(GRACE)));
+    assert!(
+        outputs
+            .iter()
+            .any(|o| o.announcements.iter().any(|a| matches!(
+                &a.kind,
+                AnnouncementKind::OrdersLapsed { fleets, .. } if fleets.contains(&mules)
+            )))
+    );
+    assert!(state.economy.claims.is_empty());
+    let outputs = idle(&mut state, 10 * 60 * 10);
+    assert!(outputs.iter().all(|o| {
+        o.economy_events
+            .iter()
+            .all(|e| !matches!(e, crate::economy::EconomyEvent::OutpostDeployed { .. }))
+    }));
+    assert!(state.holding_at(site).is_none());
+    let fleet = state.entities.get::<Fleet>(mules.sim_id()).unwrap();
+    assert!(crate::economy::logistics::kit_carrier(&state, &fleet).is_some());
 }
