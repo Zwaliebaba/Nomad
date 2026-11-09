@@ -186,7 +186,7 @@ Numbered Q166–Q174; each has a recommendation and alternatives. N4's questions
 ## 8. Stress test
 
 1. **Fleets behave differently after S7.** Engagements start later and pursuits end at last-known positions, so S5a's TTK numbers and A2–A4's behaviour must be measured after S7, not before. That is planned (task 8), but it means α's TTK tuning cannot finish before S7.
-2. **`CommanderView` is the AI's whole world.** If its queries are awkward or slow, A1–A4 pay for it in every evaluation (D-083's 5 ms). The per-system indices and query-by-class shape are meant to prevent that; A1 will show whether they do.
+2. **`CommanderView` is all the AI can see.** If its queries are awkward or slow, A1–A4 pay for it in every evaluation (D-083's 5 ms). The per-system indices and query-by-class shape are meant to prevent that; A1 will show whether they do.
 3. **Memory granularity is a trade-off** (Q170): fleet entries are cheap and match how strategic views show fleets, but they lose per-ship hull detail, which the SYSTEM view does not show anyway.
 4. **Ghost clearing** (Q171) goes beyond D-076's letter. Without it, a commander sees a 24 h ghost at a spot they are looking at, which reads as a bug.
 5. **A half-second picture** means an entity can stay "sensed" up to 0.5 s after it left range, or appear up to 0.5 s late. It is the same for every commander and the AI, so it is fair; the alternative (10 Hz) costs five times as much.

@@ -461,7 +461,7 @@ Numbered Q200–Q212; A2 continues with Q213–Q219 and A3 with Q220–Q226 (Q22
 
 ## 10. Stress test
 
-1. **The `View` trait is the AI's whole world** (S7 plan §8 item 2), and Q200 makes it a hard boundary. Every query A1–A4 need must exist on it, and every value type must be reachable from `nomad-ai`. That is more up-front design, and some churn while S7, A1 and N4 settle their types. In return, the fairness guarantee is real, and the AI can be unit-tested against a fake `View`.
+1. **The `View` trait is all the AI can see** (S7 plan §8 item 2), and Q200 makes it a hard boundary. Every query A1–A4 need must exist on it, and every value type must be reachable from `nomad-ai`. That is more up-front design, and some churn while S7, A1 and N4 settle their types. In return, the fairness guarantee is real, and the AI can be unit-tested against a fake `View`.
 2. **Direct control can leave units idle** (RK-10). A player who forgets to release a fleet leaves it outside doctrine until they disconnect. The HUD marker (RK-10) and the lapse limit the damage. A4's Strategist must release fleets itself when its plans end.
 3. **The competence cap makes the Deputy slower than the alert.** At Normal, alert, launch and target selection take about 1.5 s of command rate after a 0.6 s latency. Against a raid that is fine. Against a fleet built to beat the Deputy it is deliberate (PR-5).
 4. **Docking garrisons is safe but slow.** A docked garrison is untargetable and repairs, but launching costs a command and the 10 s shroud does not apply. A raid that strikes the solar array (outside the dome) gets a minute or so before the garrison engages. That is the intended peripheral pressure (doc 12 §3).
