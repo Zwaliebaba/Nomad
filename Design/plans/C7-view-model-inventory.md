@@ -1,6 +1,6 @@
 # C7 input: view-model inventory for the β boards
 
-Status: **Agreed (round 19).** Q244–Q254 were decided as D-264 to D-274, all as recommended; §4's additions go into N4 §4.5 with those decisions. Written from the β client UI boards (TACTICAL HUD, compact HUD, SYSTEM, SECTOR, build drawer, economy drawer, start screen, resume screen) against the code at `b1a3b17`. It traces every value those boards show to where it comes from, and lists what N4 §4.5 must add or change so C7 can build its store against a fixed contract. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions or the code, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 19).** Q244–Q254 were decided as D-264 to D-274, all as recommended; §4's additions go into N4 §4.5 with those decisions. Written from the β client UI boards (TACTICAL HUD, compact HUD, SYSTEM, SECTOR, build drawer, economy drawer, start screen, resume screen) against the code at `b1a3b17`. It traces every value those boards show to where it comes from, and lists what N4 §4.5 must add or change so C7 can build its store against a fixed contract. *Updated after the β consistency check (findings M5, M6; D-299):* the A1 rows of §3.4, §3.6 and §3.9 are recoded for A1 as built, the fleet label (D-267) and the standings history (D-196, D-261) are added, and player blueprints move to γ. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions or the code, and *Proposed* means it needs the owner's approval.
 
 ## 1. Method
 
@@ -58,7 +58,7 @@ Paths such as `economy.pool` refer to `CommanderView` queries and the sim types 
 | Orbits, belt (SYSTEM) | site radius from the star; flavour only | CL |
 | System, site, sector names | none; doc 10 §9 *Proposed* | GAP (Q244) |
 | Commander names (VANTH, YOU) | none | GAP (Q244) |
-| Fleet names (CAP WING) | none | GAP (Q247) |
+| Fleet names (CAP WING) | a player-set label stored by the server; "FLEET n" without one (D-267) | N4 (§4.5: server data beside the view) |
 | Module labels (FA-1, SOL-1), slot labels (I-3) | slot index + module kind | CL |
 | Control group badges 1–9 | client state (doc 17 §7) | CL |
 
@@ -89,7 +89,7 @@ Paths such as `economy.pool` refer to `CommanderView` queries and the sim types 
 | Module kind, hull %, disabled | `ModuleView` | N4 |
 | Module and queue progress, ETA | `building_ms` today | GAP (D-230, finding 6) |
 | Queue items, price, lane, shortage | `QueueItemView` (`short: Shortage`) | N4 ("queue") |
-| Slot eligibility per module (catalogue) | rules / sim code | GAP (Q245) |
+| Slot eligibility per module (catalogue) | rules / sim code | GAP (Q245). D-265 moves the rules data only; eligibility is the function `fits()` in `nomad-sim`'s economy, which is logic, so the client still cannot filter the catalogue. Open (β consistency check M7) |
 | Power supply, demand, per consumer | `PowerAllocation` | N4 ("power report") |
 | Supply by source (SOL 620 · CORE 520) | modules × rules supply | CL (Q245) |
 | Power profile | `holding_economy.profile` | CV |
@@ -104,7 +104,7 @@ Paths such as `economy.pool` refer to `CommanderView` queries and the sim types 
 | Docked ships, capacity | own ships with `Place::Docked`; rules capacity + dry docks | CL (Q245) |
 | Reinforced, siege deadlines | `siege(id).state` (own only, D-254) | N4 (amended by D-254) |
 | Breachable from | `breachable_from` (public, D-170) | CV |
-| Deputy deferred decisions | A1 inbox (D-202), shown by U5 | PKG (A1, U5) |
+| Deputy deferred decisions | A1 emits `DeputyEvent::Deferred` (`nomad-ai`, `deputy/rebuild.rs`); β's holding panel shows them (D-256), U5's away report lists them later | GAP: A1 is built, but nothing carries them to the view yet. How they reach the client is open (β consistency check M5) |
 
 ### 3.5 Commanders and the season
 
@@ -116,6 +116,7 @@ Paths such as `economy.pool` refer to `CommanderView` queries and the sim types 
 | First-week window choice | `own_record.chosen_window`, `.free_choice_until` | CV |
 | Rival windows (SYSTEM, optional) | `exposure_window(other)` | CV |
 | Standings, threshold, near-win, result | `standings()`, `early_win_threshold()`, `near_early_win()`, `season_result()` | N4 (`standings` collection) |
+| Standings history (F4 season view, D-261) | the server's `standings_history` read model (D-196), outside `CommanderView` | N4 (§4.5: server data beside the view, like the fleet labels) |
 | Control states | `control` collection | N4 |
 | Control bar counts per system | public holdings, outposts excluded | CL |
 
@@ -129,8 +130,9 @@ Paths such as `economy.pool` refer to `CommanderView` queries and the sim types 
 | Own fleet: jump stage (spool-up until) | `FleetView.travel` | CV |
 | Own fleet: convoy route | none | GAP (finding 10) |
 | Status tag PATROL / ENGAGED / HAULING / DOCKED | order, `engaged`, convoy, place | CL once the convoy route is sent |
-| Direct control, since when | A1 marks the fleet (RK-10, A1 plan §4) | PKG (A1) |
-| Doctrine role, leash; Deputy preset | A1 doctrine | PKG (A1; U4 edits it) |
+| Direct control, since when | `FleetView.direct_control` (RK-10, A1 plan §5.2; built with A1) | CV |
+| Doctrine role, leash; Deputy preset | `CommanderView::own_doctrine` (private, D-075; built with A1) | CV (U4 edits it) |
+| Deputy chip: preset, fleets under direct control (D-257) | `own_doctrine` preset; own fleets with `direct_control` | CV |
 | Idle fleets (chip) | own fleets in space with no order | CL |
 | Sensed fleets: ships, classes, hull, position, velocity, shrouded | `SensedFleet`, `SensedShip` | N4 |
 | Sensed status text | velocity, distance trend, projectile events | CL (finding 2) |
@@ -170,12 +172,12 @@ Paths such as `economy.pool` refer to `CommanderView` queries and the sim types 
 | PWR ROUTE, REPAIR, RALLY | `EconomyCommand::SetPowerProfile`, `SetRepair`, `SetRally` | exists |
 | Queue a module or ship, cancel | `EconomyCommand::Build`, `Cancel` | exists |
 | Reorder the queue | none | GAP (Q253) |
-| Blueprints: save, apply | none; the type is shared with the AI (D-215) | PKG (U3) |
+| Blueprints: save, apply | none; the type is shared with the AI (D-215) | PKG (γ, D-299): β's build menu works without them; at γ they live in a server table outside the Universe database |
 | Create, split, merge fleets | `CreateFleet`, `MergeFleets` | exists |
-| Hand back to the Deputy | A1 release command | PKG (A1) |
+| Hand back to the Deputy | `DoctrineCommand::Release` (protocol version 5, A1) | exists; β has no control for it yet (β consistency check M9) |
 | Exposure window choice | `SetExposureWindow` | exists |
 | Focus (rate tier) | `SetFocus` (D-186) | N4 |
-| Name a fleet | none | GAP (Q247) |
+| Name a fleet | a session message the simulation never sees (D-267) | N4 (§4.5) |
 
 ## 4. What N4 §4.5 should add or change
 
@@ -187,7 +189,11 @@ Paths such as `economy.pool` refer to `CommanderView` queries and the sim types 
 - **Holding entry:** `mother_station: bool`. For own holdings also: the slot template with modules, `profile`, `repairing`, `rally`, `kits`, `depot`, `delivers_to_pool`, `yield_permille`, per-holding output (Q248), the defence's `open`, turrets, `turrets_hold`, ability ready and active ticks, and `breachable_from`.
 - **Progress fields** for queue items and modules under construction: `progress`, `rate`, `eta: Tick` (D-230), never milliseconds left.
 - **Own economy:** add `yield_permille`, `producing_holdings`, `lost`, `core_kit_price`, and delivery over the last hour (Q249).
-- **Own fleet entry:** add `travel` (spool-up until) and `convoy`; `direct_control` and `doctrine_role` arrive with A1.
+- **Own fleet entry:** add `travel` (spool-up until), `convoy` and `direct_control` (A1, built).
+- **Own doctrine** (own, private, D-075): the preset and each fleet's role, from `CommanderView::own_doctrine` (A1, built); the rest of the doctrine (leashes, holding overrides, the replacement list) follows with U4. The preset and `direct_control` feed the Deputy chip (D-257).
+- **Fleet labels** (D-267): set with a session message the simulation never sees; the server sends the own fleets' labels from its table beside the read models.
+- **Standings history** (D-196, D-261): from the server's `standings_history` read model, for the F4 season view; it is not in `CommanderView`.
+- **Deputy deferred decisions** (D-256): open; A1 emits them as `DeputyEvent::Deferred`, and no decision yet says how they reach the client.
 - **Alerts:** per Q251.
 
 ## 5. Questions
