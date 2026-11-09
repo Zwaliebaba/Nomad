@@ -11,8 +11,8 @@
 //! [`crate::pacing`] exactly as `--economy` computes them for S4's scripted builder, so the
 //! two runs on the same seed compare line by line (D-280). The first expansion counts from
 //! the commander's first online minute (Q219). Alongside, per commander: its schedule, its
-//! holdings by day, D-083 item 2 (the least share of a day's income spent, or the days at
-//! the cap), the Strategist's statistics, its evaluation time on real states (D-083 item 7,
+//! holdings by day, D-083 item 2 counted on each day's binding resource (D-292), the
+//! Strategist's statistics, its evaluation time on real states (D-083 item 7,
 //! D-203) and the per-layer command counters (A1 plan §4.8). `--csv PATH` writes the hourly
 //! samples in `--economy`'s format; `--trace-hours N` prints each commander's plans, pool
 //! and queues every N hours.
@@ -23,7 +23,10 @@
 //!   Strategist builds a holding's producers before its defence (D-215; A2 plan §4.5), so
 //!   that ends its blueprint bar the one forward dry dock, storage (which Logistics and the
 //!   kit gate place) and producers worth nothing under D-217;
-//! - a day's spending is its production less what the pool gained and what was lost.
+//! - a day's spending is its production less what the pool gained and what was lost, per
+//!   resource; D-083 item 2 counts the day's binding resource (D-292), the one whose pool
+//!   ends the day the emptier relative to its cap, and a day ending with that pool at its cap
+//!   passes as "nothing left to build".
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -36,8 +39,8 @@ use nomad_sim::galaxy::{DepositKind, STAGE1_COMMANDERS, generate_stage1_roster};
 use nomad_sim::snapshot::state_hash;
 use nomad_sim::{
     BuildItem, CommanderId, CommanderSetup, Difficulty, EconomyEvent, HoldingId, ModuleKind,
-    OperatorInput, Owner, Rules, SeasonConfig, SiteKind, TICKS_PER_SECOND, Tick, TickInputs, Ticks,
-    UniverseState, step,
+    OperatorInput, Owner, Rules, SeasonConfig, SiteKind, Stock, TICKS_PER_SECOND, Tick, TickInputs,
+    Ticks, UniverseState, step,
 };
 
 const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
@@ -175,9 +178,78 @@ struct Record {
     built_out: BTreeMap<HoldingId, u64>,
     samples: Vec<pacing::Sample>,
     /// The produced, lost and pool totals at the start of the day.
-    day_start: Option<(nomad_sim::Stock, nomad_sim::Stock, nomad_sim::Stock)>,
-    least_spent: Option<f64>,
-    days_at_cap: u32,
+    day_start: Option<(Stock, Stock, Stock)>,
+    /// D-083 item 2 counted on each day's binding resource (D-292).
+    spending: Spending,
+}
+
+/// D-083 item 2 as D-292 counts it: the share of each day's income of the binding resource
+/// that was spent.
+#[derive(Default)]
+struct Spending {
+    /// Days measured.
+    days: u32,
+    /// Days crystal was the binding resource.
+    crystal_bound: u32,
+    /// Days the binding resource's share spent reached 90%.
+    passed: u32,
+    /// Days ending with the binding resource's pool at its cap too.
+    at_cap: u32,
+    /// The least share of the binding resource spent on a day not ending at the cap.
+    least: Option<f64>,
+    /// The least share of alloy spent on any day, for the record (an A6 signal, D-292).
+    least_alloy: Option<f64>,
+}
+
+impl Spending {
+    /// Adds a day from its production, the pool's change and what was lost, and the pool and
+    /// cap at its end, all milli-units.
+    fn add(&mut self, made: Stock, gained: Stock, wasted: Stock, pool: Stock, cap: Stock) {
+        let share = |made: u64, gained: u64, wasted: u64| {
+            (made > 0).then(|| made.saturating_sub(gained + wasted) as f64 / made as f64)
+        };
+        let alloy = share(made.alloy, gained.alloy, wasted.alloy);
+        let crystal = share(made.crystal, gained.crystal, wasted.crystal);
+        let fill = |pool: u64, cap: u64| pool as f64 / cap.max(1) as f64;
+        // The binding resource is the scarcer one: its pool ends the day the emptier.
+        let crystal_binds = crystal.is_some()
+            && (alloy.is_none() || fill(pool.crystal, cap.crystal) <= fill(pool.alloy, cap.alloy));
+        let (binding, at_cap) = if crystal_binds {
+            (crystal, pool.crystal >= cap.crystal)
+        } else {
+            (alloy, pool.alloy >= cap.alloy)
+        };
+        let Some(binding) = binding else {
+            return;
+        };
+        self.days += 1;
+        self.crystal_bound += u32::from(crystal_binds);
+        if let Some(a) = alloy {
+            self.least_alloy = Some(self.least_alloy.map_or(a, |l| l.min(a)));
+        }
+        if at_cap {
+            self.at_cap += 1;
+            self.passed += 1;
+            return;
+        }
+        if binding >= 0.9 {
+            self.passed += 1;
+        }
+        self.least = Some(self.least.map_or(binding, |l| l.min(binding)));
+    }
+
+    fn describe(&self) -> String {
+        let pct = |v: Option<f64>| v.map_or("n/a".to_owned(), |v| format!("{:.0}%", v * 100.0));
+        format!(
+            "D-083 item 2 (D-292): {} of {} days spent 90% of the binding resource (crystal bound {} days, {} at the cap); least {}; least alloy {}",
+            self.passed,
+            self.days,
+            self.crystal_bound,
+            self.at_cap,
+            pct(self.least),
+            pct(self.least_alloy)
+        )
+    }
 }
 
 fn hours(ticks: u64) -> f64 {
@@ -373,18 +445,17 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
             for (&c, r) in &mut records {
                 let e = state.economy_of(c);
                 if let Some((produced, lost, pool)) = r.day_start {
-                    let made = e.produced.minus(produced).alloy;
-                    let gained = e.pool.alloy.saturating_sub(pool.alloy);
-                    let wasted = e.lost.minus(lost).alloy;
-                    if made > 0 {
-                        let spent = made.saturating_sub(gained + wasted) as f64 / made as f64;
-                        if e.pool.alloy >= e.cap.alloy {
-                            r.days_at_cap += 1;
-                        } else {
-                            r.least_spent =
-                                Some(r.least_spent.map_or(spent, |l: f64| l.min(spent)));
-                        }
-                    }
+                    let gained = Stock {
+                        alloy: e.pool.alloy.saturating_sub(pool.alloy),
+                        crystal: e.pool.crystal.saturating_sub(pool.crystal),
+                    };
+                    r.spending.add(
+                        e.produced.minus(produced),
+                        gained,
+                        e.lost.minus(lost),
+                        e.pool,
+                        e.cap,
+                    );
                 }
                 r.day_start = Some((e.produced, e.lost, e.pool));
             }
@@ -462,7 +533,7 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
             .collect();
         writeln!(
             out,
-            "  C{}: schedule {schedule} | first online {} | first kit {} | holdings by day [{}] | income {:.0} A/h {:.0} C/h | D-281 yield {}‰ over {} alloy, {}‰ over {} crystal producers | pool {:.0}/{:.0} A | command {}/{} | lost {:.0} A | least day spent {} ({} days at cap) | Strategist: {} evaluations, {} plans, {} abandoned, {} deployed, {} sign-offs",
+            "  C{}: schedule {schedule} | first online {} | first kit {} | holdings by day [{}] | income {:.0} A/h {:.0} C/h | D-281 yield {}‰ over {} alloy, {}‰ over {} crystal producers | pool {:.0}/{:.0} A | command {}/{} | lost {:.0} A | {} | Strategist: {} evaluations, {} plans, {} abandoned, {} deployed, {} sign-offs",
             c.0,
             r.first_online
                 .map_or("never".to_owned(), |t| format!("{:.2} h", hours(t))),
@@ -480,9 +551,7 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
             e.command_used,
             e.command_cap,
             units(e.lost.alloy),
-            r.least_spent
-                .map_or("n/a".to_owned(), |s| format!("{:.0}%", s * 100.0)),
-            r.days_at_cap,
+            r.spending.describe(),
             stats.evaluations,
             stats.plans_started,
             stats.plans_abandoned,
@@ -534,6 +603,32 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn item_2_counts_the_binding_resource() {
+        let mut s = Spending::default();
+        let units = Stock::units;
+        // Alloy overflows while crystal is all spent: crystal binds, and the day passes.
+        s.add(
+            units(48_000, 1_440),
+            units(2_000, 0),
+            units(30_000, 0),
+            units(11_000, 50),
+            units(11_000, 2_200),
+        );
+        // Crystal half spent, its pool the emptier: it binds, and the day fails at 50%.
+        s.add(
+            units(48_000, 1_000),
+            units(0, 500),
+            Stock::ZERO,
+            units(9_000, 600),
+            units(11_000, 2_200),
+        );
+        assert_eq!((s.days, s.crystal_bound, s.passed, s.at_cap), (2, 2, 1, 0));
+        assert_eq!(s.least, Some(0.5));
+        assert!(s.least_alloy.is_some_and(|a| a < 0.4));
+        assert!(s.describe().contains("1 of 2 days"));
+    }
 
     #[test]
     #[ignore = "long simulation: a day of a stage-1 Universe with AI; CI runs fast tests only (D-190), run with --ignored"]
