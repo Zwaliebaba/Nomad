@@ -46,7 +46,7 @@ sy =  490 + 2.5 * (x + y) - 5 * z        (z is the bottom of a voxel; a voxel sp
 
 ## 5. Station modules (from `station_scene.json`)
 
-> **Spread by Design D-111:** the outer buildings sit further from the core than in the original package. FA-1 and FB-2 moved 4 voxels outward along their piers (−x and +x), SY-2 4 voxels along its struts (+y, with the WARDEN inside it in `ships_placement.json`), SOL-1 4 voxels diagonally (−x, −y) with its bus spine extended into pylon N, and the two cargo pads (−3, +3). The piers, struts and bus spine are stretched by repeating their middle segments. The core, deck, pylons, dome, asteroids, beacons and the other ships are unchanged. `tools/station-spread/spread.py` rebuilds both files from the original layout; edit its offset table to tune the spread.
+> **Spread by Design D-111:** the outer buildings sit further from the core than in the original package. FA-1 and FB-2 moved 4 voxels outward along their piers (−x and +x), SY-2 4 voxels along its struts (+y, with the WARDEN inside it in `ships_placement.json`), SOL-1 4 voxels diagonally (−x, −y) with its bus spine extended into pylon N, and the two cargo pads (−3, +3). The piers, struts and bus spine are stretched by repeating their middle segments. The core, deck, pylons, dome, asteroids, beacons and the other ships are unchanged. *(The spread generator, `tools/station-spread`, was retired by D-290; the spread files stay frozen as regression inputs.)*
 
 | Module | Notes |
 |---|---|
