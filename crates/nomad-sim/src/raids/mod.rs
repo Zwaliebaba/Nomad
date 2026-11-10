@@ -43,8 +43,8 @@
 //! value of its ships in space there or docked at a holding there (alloy + 3 × crystal of
 //! each class's cost). The budget is a share drawn uniformly from 300–500 per mille, both
 //! included, on the haven's stream, times that value, rounded down. One HSTL if the budget
-//! covers it plus two strike craft, strike craft for the rest rounded down, and at least two
-//! strike craft.
+//! covers it plus two strike craft, strike craft for the rest rounded down, and at least the
+//! rules' floor of strike craft (D-313: 4).
 //!
 //! - *Proposed:* the share in whole per mille; ships in lane transit or an emergency jump
 //!   are in no system, so they do not count.

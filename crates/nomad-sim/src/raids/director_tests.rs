@@ -312,7 +312,7 @@ fn a_raid_runs_its_course_and_the_group_is_removed_at_the_haven() {
     skip_transit(&mut state, group);
     let mut lost_mule = false;
     let mut withdrew = None;
-    until(&mut state, 12_000, |s, out| {
+    until(&mut state, 15_000, |s, out| {
         lost_mule |= s.fleet(mule).is_none();
         for e in &out.raid_events {
             if let RaidEvent::Director {
@@ -326,11 +326,15 @@ fn a_raid_runs_its_course_and_the_group_is_removed_at_the_haven() {
         }
         withdrew.is_some() && in_transit(s, group)
     });
-    // The MULE (2,500 hull, 75 a second from two strike craft) did not survive; the outpost
-    // did: it starts at 30,000 and grows as fast as one raider wears it (D-224), so two take
-    // 22,500 in 10 minutes at most (the tuning item of A3 plan §5).
+    // The MULE (2,500 hull, 150 a second from D-313's four strike craft) did not survive,
+    // nor did the outpost: it starts at 30,000 and grows as fast as one raider wears it
+    // (D-224), so four take a net 112.5 a second, a fresh core in under 5 of the 15 minutes
+    // (the tuning item of A3 plan §5; at D-220's floor of two it survived).
     assert!(lost_mule, "the MULE was destroyed");
-    assert!(state.holding(outpost).is_some());
+    assert!(
+        state.holding(outpost).is_none(),
+        "the outpost was destroyed"
+    );
     let (when, reason) = withdrew.expect("withdrew");
     assert_eq!(reason, Withdrawal::Clock);
     let clock = state
@@ -338,12 +342,12 @@ fn a_raid_runs_its_course_and_the_group_is_removed_at_the_haven() {
         .faction(FactionId(1))
         .and_then(|m| m.clock_started(group))
         .expect("the clock started");
-    // 10 minutes, at the group's next evaluation (2 Hz).
-    assert!((6_000..6_005).contains(&(when.get() - clock.get())));
+    // 15 minutes (D-313), at the group's next evaluation (2 Hz).
+    assert!((9_000..9_005).contains(&(when.get() - clock.get())));
     let out = skip_transit(&mut state, group);
     assert!(out.raid_events.iter().any(|e| matches!(
         e,
-        RaidEvent::Returned { fleet, ships: 2, .. } if *fleet == group
+        RaidEvent::Returned { fleet, ships: 4, .. } if *fleet == group
     )));
     assert!(state.fleet(group).is_none());
     assert!(state.raid_factions()[0].groups.is_empty());

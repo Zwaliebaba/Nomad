@@ -7,8 +7,8 @@
 //! | No commander the target of two launches within 6 h | D-081 |
 //! | Target weight: deposit value + 1 per holding + 2 per outpost under construction, ÷ (1 + jumps from the haven) | A3 plan §4.3 (D-081: weighted by asset value and distance); starting values |
 //! | Fleet value: alloy + 3 × crystal; strike craft 1,600, HSTL 17,000 | D-220 (D-066's ratio); starting values, tuned at α |
-//! | Budget 30–50% of the target's fleet value in the system, at least 2 strike craft | D-081, D-220 |
-//! | Withdrawal after 10 min from the end of the arrival shroud, at 50% losses by value, or when the sensed hostile value within 5 km exceeds twice the group's | D-081, D-222 |
+//! | Budget 30–50% of the target's fleet value in the system, at least 4 strike craft | D-081, D-220, D-313 |
+//! | Withdrawal after 15 min from the end of the arrival shroud, at 50% losses by value, or when the sensed hostile value within 5 km exceeds twice the group's | D-081, D-222, D-313 |
 //! | The director evaluates each group at 2 Hz | A1 plan §4.5 (D-203) |
 //!
 //! The section is copied into the Universe with the rest of the rules (D-104), so A6 can
@@ -47,10 +47,10 @@ pub struct RaidRules {
     /// The largest share of the target's fleet value a raid's budget draws, per mille
     /// (D-081: 50%).
     pub budget_max_permille: u32,
-    /// Every raid has at least this many strike craft (D-220: 2).
+    /// Every raid has at least this many strike craft (D-313: 4, superseding D-220's 2).
     pub min_strike_craft: u32,
     /// A group withdraws this long after its arrival shroud ends in the target system
-    /// (D-081, D-222: 10 min).
+    /// (D-222; D-313: 15 min, superseding D-081's 10).
     pub clock_s: u64,
     /// A group withdraws once it has lost this share of its spawned value, per mille
     /// (D-081, D-222: 50%).
@@ -127,7 +127,8 @@ mod tests {
             (raids.budget_min_permille, raids.budget_max_permille),
             (300, 500)
         );
-        assert_eq!(raids.clock_s, 600);
+        // D-313.
+        assert_eq!(raids.clock_s, 900);
         assert_eq!(raids.loss_limit_permille, 500);
         // A3 plan §4.3.
         assert_eq!(
@@ -140,7 +141,8 @@ mod tests {
             (raids.strike_craft_value, raids.heavy_cruiser_value),
             (1_600, 17_000)
         );
-        assert_eq!(raids.min_strike_craft, 2);
+        // D-313.
+        assert_eq!(raids.min_strike_craft, 4);
         // D-222.
         assert_eq!(raids.withdraw_ratio_permille, 2_000);
         assert_eq!(raids.withdraw_radius_m, 5_000);

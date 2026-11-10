@@ -160,14 +160,16 @@ fn the_timer_fires_in_the_step_and_catch_up_suppresses_it() {
 }
 
 #[test]
-fn the_budget_buys_strike_craft_and_one_heavy_cruiser_with_a_floor_of_two() {
+fn the_budget_buys_strike_craft_and_one_heavy_cruiser_with_a_floor_of_four() {
     let rules = Rules::embedded();
-    assert_eq!(composition(&rules, 0), (0, 2));
-    assert_eq!(composition(&rules, 3_300), (0, 2));
-    assert_eq!(composition(&rules, 4_800), (0, 3));
-    // An HSTL needs 17,000 plus two strike craft.
+    // D-313's floor of 4 strike craft.
+    assert_eq!(composition(&rules, 0), (0, 4));
+    assert_eq!(composition(&rules, 3_300), (0, 4));
+    assert_eq!(composition(&rules, 6_399), (0, 4));
+    assert_eq!(composition(&rules, 8_000), (0, 5));
+    // An HSTL needs 17,000 plus two strike craft, and the floor still holds beside it.
     assert_eq!(composition(&rules, 20_199), (0, 12));
-    assert_eq!(composition(&rules, 20_200), (1, 2));
+    assert_eq!(composition(&rules, 20_200), (1, 4));
     assert_eq!(composition(&rules, 50_000), (1, 20));
     // D-220's values: VX 1,200, LANCER 2,300, WARDEN 5,800, MULE 1,500.
     let value = |c| class_value(&rules, c);
@@ -208,14 +210,14 @@ fn strength_is_thirty_to_fifty_percent_of_the_fleet_value_in_the_system() {
             (heavy_cruisers, strike_craft)
         );
         // The only fleet at the start is the kit at home: 3 VX and 2 MULE, 6,600; elsewhere
-        // nothing, which the floor still raids (A3 plan §4.4 example).
+        // nothing, which the floor still raids (A3 plan §4.4 example; D-313's floor of 4).
         let (_, home_system) = home(&state, target.0);
         let expected = if system == home_system { 6_600 } else { 0 };
         assert_eq!(worth, expected);
-        assert_eq!((heavy_cruisers, strike_craft), (0, 2));
-        assert_eq!(value, 3_200);
+        assert_eq!((heavy_cruisers, strike_craft), (0, 4));
+        assert_eq!(value, 6_400);
         let ships = state.fleet(fleet).expect("the group exists").ships;
-        assert_eq!(ships.len(), 2);
+        assert_eq!(ships.len(), 4);
         shares.push(share_permille);
     }
     assert!(shares.iter().any(|&s| s < 350) && shares.iter().any(|&s| s > 450));
@@ -247,7 +249,7 @@ fn a_bigger_fleet_in_the_system_draws_a_bigger_raid() {
     };
     assert_eq!(fleet_value, 6_600 + 8 * 5_800);
     // 30–50% of 53,000 is 15,900–26,500: an HSTL from 20,200, strike craft otherwise.
-    let budget_ok = (2..=16).contains(&strike_craft);
+    let budget_ok = (4..=16).contains(&strike_craft);
     assert!(budget_ok && heavy_cruisers <= 1, "{events:?}");
 }
 
@@ -366,7 +368,7 @@ fn a_group_spawns_at_the_haven_gate_and_is_removed_when_it_returns() {
         vec![RaidEvent::Returned {
             faction: RAIDERS,
             fleet,
-            ships: 2
+            ships: 4
         }]
     );
     assert!(state.fleet(fleet).is_none());
