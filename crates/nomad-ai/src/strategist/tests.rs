@@ -144,6 +144,7 @@ impl Fake {
             docked: 5,
             docking_capacity: 30,
             rally: None,
+            completed_at: None,
         };
         let mut fleets = BTreeMap::new();
         let ships = vec![
@@ -546,6 +547,99 @@ fn a_waiting_kit_above_a_fallen_pool_cap_lets_storage_go_first() {
         )),
         "{commands:?}"
     );
+}
+
+/// A kit waiting for its last 500 A, with the mother station's two turrets still to build.
+fn kit_waiting_with_turrets_due(now_h: u64) -> (Fake, StrategistMemory) {
+    let mut fake = Fake::new();
+    fake.now = Tick::new(now_h * HOUR);
+    fake.economy.income_last_hour = Stock::units(600, 60);
+    fake.economy.pool = Stock::units(7_000, 700);
+    fake.economy.core_kit_price = Stock::units(7_500, 625);
+    fake.holdings[0].queue.push(QueuedItem {
+        item: BuildItem::CoreKit,
+        price: Stock::units(7_500, 625),
+        started: false,
+    });
+    let mut m = memory();
+    m.plans.push(Plan {
+        expansion: Some(expand::Expansion {
+            site: SiteId(id(20)),
+            system: S2,
+            holding: MOTHER,
+            carrier: None,
+            escort: None,
+            stage: expand::Stage::Prepare,
+        }),
+        ..Plan::new(Goal::Expand, fake.now)
+    });
+    (fake, m)
+}
+
+fn turrets(commands: &[Command]) -> usize {
+    builds(commands)
+        .iter()
+        .filter(|(_, item)| {
+            matches!(
+                item,
+                BuildItem::Module {
+                    kind: ModuleKind::Turret,
+                    ..
+                }
+            )
+        })
+        .count()
+}
+
+#[test]
+fn defence_of_a_holding_48_h_old_goes_before_the_kit_reserve() {
+    // D-309: the mother station is complete from the season start, so at hour 49 its
+    // turrets are due and may spend what the waiting kit holds back.
+    let (mut fake, mut m) = kit_waiting_with_turrets_due(49);
+    let commands = fake.eval(&mut m);
+    assert_eq!(turrets(&commands), 1, "{commands:?}");
+    // At hour 1 the kit's reserve still holds them back.
+    let (mut fake, mut m) = kit_waiting_with_turrets_due(1);
+    let commands = fake.eval(&mut m);
+    assert_eq!(turrets(&commands), 0, "{commands:?}");
+}
+
+#[test]
+fn a_holding_is_defended_first_once_its_core_is_48_h_old() {
+    let due_at_hour_60 = |completed_h: u64| {
+        let (fake, _) = kit_waiting_with_turrets_due(60);
+        let mut f = Features::read(&fake, CommanderId(1)).unwrap();
+        f.holdings[0].completed_at = Some(Tick::new(completed_h * HOUR));
+        let params = fake.strategist();
+        let steps = build::steps(&f, &mut None, &BTreeSet::new(), &params, 1);
+        steps.iter().any(|s| s.due)
+    };
+    // Completed at hour 12: 48 h old at hour 60, due. At hour 13: not yet.
+    assert!(due_at_hour_60(12));
+    assert!(!due_at_hour_60(13));
+}
+
+#[test]
+fn due_defence_spends_what_the_kit_holds_back() {
+    let fake = Fake::new();
+    let f = Features::read(&fake, CommanderId(1)).unwrap();
+    let mut out = Output::default();
+    let mut turn = Turn {
+        f: &f,
+        free: Stock::units(7_000, 700),
+        out: &mut out,
+        busy: BTreeSet::new(),
+        command_planned: 0,
+        kit_held: Stock::ZERO,
+    };
+    // The kit holds back all the alloy it will still need.
+    assert!(!turn.hold_for_kit(Stock::units(7_500, 625)));
+    assert!(turn.free.alloy < 2_450_000);
+    // A pylon of an ordinary step cannot be paid; due defence can, from the kit's share.
+    assert!(!turn.free.covers(Stock::units(2_450, 50)));
+    assert!(turn.spend_before_kit(Stock::units(2_450, 50)));
+    let left = turn.free.plus(turn.kit_held);
+    assert_eq!(left, Stock::units(7_000 - 2_450, 700 - 50));
 }
 
 /// A loaded MULE fleet docked at the mother station, for the trip tests.

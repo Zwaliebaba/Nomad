@@ -136,6 +136,10 @@ pub(crate) struct HoldingEconomy {
     pub(crate) repairing: bool,
     /// Finished core kits waiting for a MULE.
     pub(crate) kits: u32,
+    /// When its core completed, which its owner knows; `None` for a holding placed complete,
+    /// such as a mother station. The Strategist defends a holding before the next kit once
+    /// its core completed 48 h ago (D-309).
+    pub(crate) completed_at: Option<Tick>,
 }
 
 /// An ability's fixed power draw (S4/S5 interface).

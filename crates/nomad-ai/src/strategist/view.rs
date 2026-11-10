@@ -102,6 +102,9 @@ pub struct HoldingStatus {
     pub docking_capacity: u32,
     /// The fleet new ships join (RALLY).
     pub rally: Option<FleetId>,
+    /// When its core completed; `None` for a holding placed complete, such as the mother
+    /// station (D-309).
+    pub completed_at: Option<Tick>,
 }
 
 /// What a MULE carries (D-133).

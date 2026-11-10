@@ -209,6 +209,8 @@ pub(crate) struct Turn<'a> {
     pub(crate) busy: BTreeSet<FleetId>,
     /// Command cost already planned this evaluation.
     pub(crate) command_planned: u32,
+    /// What *Expand* holds back for its kit, which due defence may spend (D-309).
+    pub(crate) kit_held: Stock,
 }
 
 impl Turn<'_> {
@@ -243,6 +245,31 @@ impl Turn<'_> {
             self.free = self.free.minus(held);
             false
         }
+    }
+
+    /// [`Self::spend_or_reserve`] for a core kit: what it takes from the free pool, paid or
+    /// held back, stays available to due defence (D-309).
+    pub(crate) fn hold_for_kit(&mut self, price: Stock) -> bool {
+        let before = self.free;
+        let paid = self.spend_or_reserve(price);
+        self.kit_held = self.kit_held.plus(before.minus(self.free));
+        paid
+    }
+
+    /// Spends `price` for due defence (D-309): from the free pool and, where it falls short,
+    /// from what the kit holds back, so the kit reserve never holds back the defence of an
+    /// older holding. Otherwise reserves it from the free pool as [`Self::spend_or_reserve`].
+    pub(crate) fn spend_before_kit(&mut self, price: Stock) -> bool {
+        if !self.free.plus(self.kit_held).covers(price) {
+            return self.spend_or_reserve(price);
+        }
+        let from_free = Stock {
+            alloy: price.alloy.min(self.free.alloy),
+            crystal: price.crystal.min(self.free.crystal),
+        };
+        self.free = self.free.minus(from_free);
+        self.kit_held = self.kit_held.minus(price.minus(from_free));
+        true
     }
 }
 
@@ -305,6 +332,7 @@ pub fn evaluate(view: &impl StrategicView, memory: &mut StrategistMemory, out: &
         out,
         busy: memory.plans.iter().flat_map(Plan::fleets).collect(),
         command_planned: f.command_queued(),
+        kit_held: Stock::ZERO,
     };
 
     // Plans whose step stalled are abandoned, with their fleets released (D-083 item 6).

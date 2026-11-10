@@ -14,6 +14,7 @@
 //!   the 24-item limit (D-025, D-068: waiting items start as the money arrives). *Proposed:*
 //!   waiting items start cheapest first, so while a kit waits only producers (and storage)
 //!   are queued with it, and no ships, which would otherwise keep the pool below its price;
+//!   due defence (D-309) is queued with it too, since it goes before the kit;
 //! - **convoys:** routes set ([`super::build`]).
 //!
 //! The command rate drains at most a few commands a second, and commands still waiting
@@ -75,6 +76,7 @@ pub(crate) fn run(
         out,
         busy: BTreeSet::new(),
         command_planned: f.command_queued(),
+        kit_held: Stock::ZERO,
     };
     let preset = view.preset_values(DoctrinePreset::Balanced);
     // Doctrine: Balanced.
@@ -265,6 +267,7 @@ fn fill_queues(
             .iter()
             .filter(|s| {
                 !kit_waiting
+                    || s.due
                     || matches!(
                         s.kind,
                         ModuleKind::Harvester

@@ -721,9 +721,13 @@ fn a_core_kit_is_built_loaded_deployed_and_completes_as_a_holding() {
         .get_mut::<Construction>(core)
         .unwrap()
         .remaining_ms = 2_000;
+    let before = state.tick;
     let out = idle(&mut state, 30);
     assert!(events(&out).contains(&EconomyEvent::HoldingCompleted { holding: outpost }));
     assert!(state.holding(outpost).unwrap().core_complete);
+    // Its completion is kept for the Strategist (D-309).
+    let done = state.economy.holdings[&outpost].completed_at;
+    assert!(done.is_some_and(|t| (before..=state.tick).contains(&t)));
     assert_eq!(state.command_cap(you), 130);
     assert_eq!(state.docking_capacity(outpost), 8);
     counts_once(&state, "holding");

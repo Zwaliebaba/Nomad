@@ -67,7 +67,9 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   per-commander random streams and the Strategist's plans; the rules' AI section gains the
 ///   Strategist's values, blueprints and per-difficulty noise, rules format 14.
 /// - 22: claim trips that continue offline, with their site (D-291).
-pub const FORMAT: u32 = 22;
+/// - 23: each holding's economy keeps when its core completed, which the Strategist reads to
+///   defend a holding before the next kit (D-309).
+pub const FORMAT: u32 = 23;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

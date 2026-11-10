@@ -525,7 +525,7 @@ fn prepare(
             // cannot be paid until storage raises the cap: it holds nothing back, so the
             // storage that unblocks it can be paid first (D-282).
             if !q.started && f.economy.cap.covers(q.price) {
-                turn.spend_or_reserve(q.price);
+                turn.hold_for_kit(q.price);
             }
         } else {
             let price = f.economy.core_kit_price;
@@ -534,7 +534,7 @@ fn prepare(
                 && view.build_check(e.holding, BuildItem::CoreKit) == crate::view::BuildCheck::Ok
             {
                 turn.build(e.holding, BuildItem::CoreKit);
-                turn.spend_or_reserve(price);
+                turn.hold_for_kit(price);
             }
         }
     }
