@@ -11,10 +11,15 @@
 //!   under direct control so that its trip continues offline and deploys (D-291);
 //! - **queues:** the next core kit if an expansion waits for one, then blueprint steps and
 //!   garrison ships worth the pool and the income expected until the next session, within
-//!   the 24-item limit (D-025, D-068: waiting items start as the money arrives). *Proposed:*
-//!   waiting items start cheapest first, so while a kit waits only producers (and storage)
-//!   are queued with it, and no ships, which would otherwise keep the pool below its price;
-//!   due defence (D-309) is queued with it too, since it goes before the kit;
+//!   the 24-item limit (D-025, D-068: waiting items start as the money arrives).
+//!   *Proposed:* waiting items start cheapest first, so while a kit waits only producers
+//!   (and storage) are queued with it, and no ships, which would otherwise keep the pool
+//!   below its price; due defence (D-309) is queued with it too, since it goes before the
+//!   kit. *Proposed* (D-312): while the commander is still expanding but no kit waits (its
+//!   kit is on its way), the budget keeps back the next kit's price, which only producers,
+//!   storage and due defence may spend; other defence and garrison ships use only what is
+//!   left beyond it, so that what the sign-off queues for the night does not keep the next
+//!   kit from being paid when the next session queues it.
 //! - **convoys:** routes set ([`super::build`]).
 //!
 //! The command rate drains at most a few commands a second, and commands still waiting
@@ -209,6 +214,20 @@ pub(crate) fn run(
     }
 }
 
+/// What may spend the next kit's share: producers, which grow the income that pays for it
+/// (crystal gates kits, A2 plan §5.2 item 2), and storage, which the kit may need to fit the
+/// pool cap.
+fn feeds_kit(kind: ModuleKind) -> bool {
+    matches!(
+        kind,
+        ModuleKind::Harvester
+            | ModuleKind::Extractor
+            | ModuleKind::Refinery
+            | ModuleKind::Solar
+            | ModuleKind::Storage
+    )
+}
+
 /// Queues the next kit, then build-out steps and garrison ships, while `budget` covers them.
 #[expect(
     clippy::too_many_lines,
@@ -240,19 +259,29 @@ fn fill_queues(
         && view.build_check(e.holding, BuildItem::CoreKit) == crate::view::BuildCheck::Ok
     {
         turn.build(e.holding, BuildItem::CoreKit);
-        *budget = budget.minus(f.economy.core_kit_price);
     }
     // Waiting items start in the order the pool affords them, cheapest first (D-068), so
-    // while a kit waits only the producers that feed it are queued with it, and no ships.
-    let kit_waiting = expanding.is_some()
-        || f.holdings.iter().any(|h| {
-            h.queue
-                .iter()
-                .any(|q| q.item == BuildItem::CoreKit && !q.started)
-        });
+    // the next kit's price stays out of what the queues may spend while the commander is
+    // still expanding (D-312): the kits waiting to be paid, else the next one's (the one
+    // just queued, or the one after a trip under way). Only producers, storage and due
+    // defence (D-309) may spend it.
+    let waiting_kits = f
+        .holdings
+        .iter()
+        .flat_map(|h| h.queue.iter())
+        .filter(|q| q.item == BuildItem::CoreKit && !q.started)
+        .fold(Stock::ZERO, |sum, q| sum.plus(q.price));
+    let kit_waiting = expanding.is_some() || !waiting_kits.is_zero();
+    let expand_score = super::expand::score(view, f, None, params);
+    let kit_hold = if !waiting_kits.is_zero() {
+        waiting_kits
+    } else if expanding.is_some() || expand_score > 0 {
+        f.economy.core_kit_price
+    } else {
+        Stock::ZERO
+    };
     // Build-out steps, as if each one queued made room for the next.
     let mut g = f.clone();
-    let expand_score = super::expand::score(view, f, None, params);
     let mut sent = 0;
     while turn.out.commands.len() < limit && sent < 64 {
         sent += 1;
@@ -263,29 +292,32 @@ fn fill_queues(
             params,
             expand_score,
         );
-        let Some(step) = steps
+        // While a kit waits, only what feeds it and due defence are queued with it: anything
+        // cheaper starts first as the money arrives (D-068).
+        let mut allowed = steps
             .iter()
+            .filter(|s| !kit_waiting || s.due || feeds_kit(s.kind))
             .filter(|s| {
-                !kit_waiting
-                    || s.due
-                    || matches!(
-                        s.kind,
-                        ModuleKind::Harvester
-                            | ModuleKind::Extractor
-                            | ModuleKind::Refinery
-                            | ModuleKind::Solar
-                            | ModuleKind::Storage
-                    )
-            })
-            .find(|s| {
                 g.holding(s.holding)
                     .is_some_and(|h| h.queue.len() < queue_max)
-            })
+            });
+        // Due defence first (D-309), then the best step.
+        let Some(step) = allowed
+            .clone()
+            .find(|s| s.due)
+            .or_else(|| allowed.next())
             .copied()
         else {
             break;
         };
-        if !budget.covers(step.price) {
+        // Producers and storage may spend the kit's share, as may due defence (D-309);
+        // other defence and docks may not.
+        let need = if step.due || feeds_kit(step.kind) {
+            step.price
+        } else {
+            step.price.plus(kit_hold)
+        };
+        if !budget.covers(need) {
             break;
         }
         let item = BuildItem::Module {
@@ -334,7 +366,7 @@ fn fill_queues(
         let Some((price, command)) = f.numbers.ship(class) else {
             break;
         };
-        if command > room || !budget.covers(price) {
+        if command > room || !budget.covers(price.plus(kit_hold)) {
             break;
         }
         if view.build_check(holding, BuildItem::Ship { class }) != crate::view::BuildCheck::Ok {

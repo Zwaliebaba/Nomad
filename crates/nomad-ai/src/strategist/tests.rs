@@ -642,6 +642,94 @@ fn due_defence_spends_what_the_kit_holds_back() {
     assert_eq!(left, Stock::units(7_000 - 2_450, 700 - 50));
 }
 
+/// What `commands` would cost.
+fn cost_of(fake: &Fake, commands: &[Command]) -> Stock {
+    builds(commands).iter().fold(Stock::ZERO, |sum, (_, item)| {
+        sum.plus(match item {
+            BuildItem::Module { kind, .. } => fake.numbers().module_cost(*kind),
+            BuildItem::Ship { class } => fake.numbers().ship(*class).unwrap().0,
+            BuildItem::CoreKit => fake.economy.core_kit_price,
+        })
+    })
+}
+
+#[test]
+fn the_sign_off_keeps_the_next_kits_price_back_while_expanding() {
+    // D-312: 1,000 A now and 6,000 A to come, while the next kit costs 6,000 A: the queues
+    // may spend only the 1,000 A beyond it, so no turret (2,450 A) and no ship goes in.
+    let mut fake = Fake::new();
+    fake.economy.income_last_hour = Stock::units(600, 60);
+    fake.economy.pool = Stock::units(1_000, 100);
+    fake.session.ends = Some(fake.now.after(Ticks::new(200)));
+    fake.session.next_starts = Some(fake.now.after(Ticks::from_hours(10)));
+    let mut m = memory();
+    let commands = fake.eval(&mut m);
+    let spent = cost_of(&fake, &commands);
+    assert!(spent.alloy <= Stock::units(1_000, 0).alloy, "{commands:?}");
+    assert!(
+        !builds(&commands)
+            .iter()
+            .any(|(_, item)| matches!(item, BuildItem::Ship { .. })),
+        "{commands:?}"
+    );
+}
+
+#[test]
+fn a_loaded_kit_whose_target_was_taken_is_used_before_another_is_made() {
+    // A kit left loaded at the mother station by an earlier plan: the next plan takes its
+    // MULE as the carrier instead of queuing another kit.
+    let mut fake = Fake::new();
+    fake.economy.income_last_hour = Stock::units(600, 60);
+    let carrier = loaded(&mut fake);
+    let mut m = memory();
+    let commands = fake.eval(&mut m);
+    assert!(
+        !builds(&commands).contains(&(MOTHER, BuildItem::CoreKit)),
+        "{commands:?}"
+    );
+    let plan = m.plans.iter().find_map(|p| p.expansion.as_ref());
+    assert_eq!(plan.and_then(|e| e.carrier), Some(carrier));
+}
+
+#[test]
+fn a_kit_on_its_way_to_a_site_taken_first_sets_out_for_another() {
+    let mut fake = Fake::new();
+    fake.economy.income_last_hour = Stock::units(600, 60);
+    let carrier = loaded(&mut fake);
+    let mut m = memory();
+    with_expansion(&mut m, carrier, 20, S2);
+    if let Some(e) = m.plans[0].expansion.as_mut() {
+        e.stage = expand::Stage::Travel;
+    }
+    // Site 20 is taken by a rival while the kit travels; the MULE waits in space.
+    let at = Location {
+        system: S2,
+        position: PositionMetres::new(1_000.0, 0.0),
+    };
+    if let Some(f) = fake.fleets.get_mut(&carrier) {
+        f.place = FleetPlace::InSpace(at);
+    }
+    if let Some(site) = fake.sites.iter_mut().find(|s| s.id == SiteId(id(20))) {
+        site.free = false;
+        site.holder = Some(SiteHolder {
+            owner: CommanderId(2),
+            holding: HoldingId(id(900)),
+            complete: false,
+        });
+    }
+    let commands = fake.eval(&mut m);
+    let e = m.plans.iter().find_map(|p| p.expansion.as_ref()).unwrap();
+    assert_ne!(e.site, SiteId(id(20)));
+    assert_eq!(e.carrier, Some(carrier));
+    assert!(
+        commands.iter().any(|c| matches!(
+            c,
+            Command::Fleet { fleet, order: FleetOrder::Move { .. } | FleetOrder::Jump { .. }, .. } if *fleet == carrier
+        )),
+        "{commands:?}"
+    );
+}
+
 /// A loaded MULE fleet docked at the mother station, for the trip tests.
 fn loaded(fake: &mut Fake) -> FleetId {
     let carrier = FleetId(id(300));
@@ -751,6 +839,10 @@ fn the_sign_off_releases_every_fleet_with_a_role_and_fills_queues() {
     let mut fake = Fake::new();
     fake.economy.income_last_hour = Stock::units(600, 60);
     fake.economy.pool = Stock::units(1_000, 100);
+    // Nothing left to claim, so no kit's price is kept back (D-312).
+    for site in &mut fake.sites {
+        site.free = false;
+    }
     fake.direct.insert(START);
     // The session ends within two intervals; the next starts in 10 h.
     fake.session.ends = Some(fake.now.after(Ticks::new(200)));

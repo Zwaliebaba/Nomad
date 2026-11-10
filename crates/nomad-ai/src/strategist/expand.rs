@@ -31,6 +31,10 @@
 //! - the kit's holding is the own complete holding nearest the site by jumps, then by
 //!   identity;
 //! - a lane transit cannot stall (D-042), so a MULE in transit is progress;
+//! - a target taken first while the kit is on its way gives way to the best candidate, and
+//!   the kit sets out again from where it is; a loaded kit that no plan carries (its plan
+//!   ended when its target was taken) becomes the next plan's kit before another is made
+//!   (D-312: a kit was left loaded at home while the next one was bought);
 //! - a waiting kit priced above the pool cap reserves nothing, so the storage that raises
 //!   the cap is paid first (the cap falls when a rack or a holding is lost after the kit
 //!   was queued);
@@ -367,7 +371,14 @@ pub(crate) fn advance(
         return true;
     };
     // Before the trip, a target that is no longer worth it (taken, out of reach) gives way
-    // to the best one; a kit already made or loaded goes there instead.
+    // to the best one; a kit already made or loaded goes there instead. So does a target
+    // taken first while the kit is on its way: the kit sets out again from where it is.
+    let taken = f
+        .site(e.site)
+        .is_some_and(|s| !s.free && s.holder.is_none_or(|h| h.owner != f.me));
+    if e.stage == Stage::Travel && taken && e.carrying(view) {
+        e.stage = Stage::Prepare;
+    }
     if e.stage == Stage::Prepare {
         let list = candidates(view, f, &params);
         if !list.iter().any(|c| c.site == e.site && c.score > 0) {
@@ -513,6 +524,24 @@ fn prepare(
     };
     let kit_queued = holding.queue.iter().find(|q| q.item == BuildItem::CoreKit);
     let kits = holding.kits;
+    // A loaded kit no plan carries (its target was taken first) is used before another is
+    // made: its fleet becomes the carrier and sets out from where it is.
+    if e.carrier.is_none()
+        && kits == 0
+        && kit_queued.is_none()
+        && let Some(fleet) = f.fleets.iter().find(|fl| {
+            !turn.busy.contains(&fl.id)
+                && !fl.busy
+                && !f.convoys.contains(&fl.id)
+                && !matches!(fl.place, FleetPlace::Travelling)
+                && carries_kit(view, fl)
+        })
+    {
+        e.carrier = Some(fleet.id);
+        turn.busy.insert(fleet.id);
+        plan.observe(fleet.id.sim_id().get() ^ (1 << 10), false, now);
+        return false;
+    }
     let mut marker_parts = u64::from(kits) << 32;
     let mut waiting = false;
     if kits == 0 {
