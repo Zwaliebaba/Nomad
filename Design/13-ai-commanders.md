@@ -79,7 +79,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 5. The Strategist
 
-> **Settled with the A2 plan (D-212 to D-218):** goals Expand, Build out, Logistics and a Garrison stand-in until A4 (D-212); Expand weighs payback within the season's time left, control and risk, crystal first (D-213); plans fit the online session (D-214); built-in blueprints per site kind (D-215); a depot in every system (D-216). D-078's "every 10 s" is Hard's interval (D-229).
+> **Settled with the A2 plan (D-212 to D-218):** goals Expand, Build out, Logistics and a Garrison stand-in until A4 (D-212); Expand weighs payback within the season's time left, control and risk, crystal first (D-213); plans fit the online session (D-214); built-in blueprints per site kind (D-215); a depot in every system (D-216). D-078's "every 10 s" is Hard's interval (D-229). *Built with A2* (`crates/nomad-ai/src/strategist/`; readings in the A2 plan §12): the four A2 goals score on one integer scale, keep at most three plans, reserve their next costs in score order and sign off before the session ends; a loaded kit sets out whatever the session's length, since its trip continues offline (D-291); the A4 goals below are not built yet.
 
 *Agreed (D-078).*
 
@@ -103,7 +103,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 6. AI online and offline schedules
 
-> **Settled with the A1 plan (D-204):** D-080's seeded schedules run in the simulation from A2 on, with the harness `SetPresence` kept as an override.
+> **Settled with the A1 plan (D-204):** D-080's seeded schedules run in the simulation from A2 on, with the harness `SetPresence` kept as an override. *Built with A2* (`crates/nomad-ai/src/schedule.rs`): a weekday and a weekend pattern; the server creates its AI commanders on them, the harness and tests may still drive presence with `SetPresence`.
 
 *Agreed (D-080), detailing D-027.*
 

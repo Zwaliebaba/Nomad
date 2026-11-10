@@ -135,6 +135,7 @@ Writing good doctrine becomes a strategic skill that pays off even while the pla
 ### 5.3 Connection rules
 
 - **Disconnect grace (120 s).** Direct orders stay valid during a network blip. After the grace period the orders lapse, and the units fall back to their fleet doctrine.
+  > **Amended since (D-291):** one exception: a claim the commander started while online (a core kit loaded and its fleet ordered to the site) continues after the grace as doctrine, as convoy routes do (D-162), and the kit is deployed on arrival; for humans and AI alike. *Built with A2* (`crates/nomad-sim/src/economy/logistics.rs`, readings in the A2 plan §12).
 - **An offline attacker** cannot vanish: their ships stay in the Universe and remain vulnerable. Their offensive orders lapse, so the fleet withdraws or holds, according to its doctrine.
 - **Notifications:** a breach that triggers Reinforced must reach the owner outside the game client, or the 12 h notice is meaningless. That needs a notification channel; the MVP can start in-client only.
 - **Away report:** on login, an after-action report replaces "my station was gone". It lists raids repelled, losses, disabled structures, scheduled Reinforced exits, and decisions the Deputy deferred ("replacement budget exhausted").

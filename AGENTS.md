@@ -16,7 +16,7 @@ Nomad (working title) is a persistent multiplayer space RTS in Rust:
 
 - `Design/` is the source of truth. Read `Design/README.md` first, then `Design/00-glossary.md`.
 - Implement only what an agreed design document or decision covers. Every MVP document is agreed. Pick work packages from `Design/30-mvp-scope-and-milestones.md` §2, in the order of §4.
-- The `nomad-sim` core (doc 11: tick, deadline timers, `SimId`, random streams, snapshots, headless harness) is built (S1), and rules are added package by package (so far S2–S8 and A1; doc 30 §2 tracks the status). **Game rules** come only from agreed design documents: Universe structure (doc 10), offline rules and the Deputy (doc 12), economy (doc 14), combat and defence (doc 15), information model and fog of war (doc 16), AI commanders, the Deputy and raiders (doc 13). Do not invent rules.
+- The `nomad-sim` core (doc 11: tick, deadline timers, `SimId`, random streams, snapshots, headless harness) is built (S1), and rules are added package by package (so far S2–S8, A1 and A2; doc 30 §2 tracks the status). **Game rules** come only from agreed design documents: Universe structure (doc 10), offline rules and the Deputy (doc 12), economy (doc 14), combat and defence (doc 15), information model and fog of war (doc 16), AI commanders, the Deputy and raiders (doc 13). Do not invent rules.
 - Do not invent gameplay rules in code. If a task needs a design decision that does not exist yet, stop and say so. Then propose the decision, or add a question to `Design/02-open-questions.md`.
 - `Design/03-decision-log.md` holds every decision:
   - **Agreed** decisions are binding. Do not reopen them silently.
@@ -74,7 +74,7 @@ crates/          nomad-client (phase 1), nomad-sim (deterministic core and game 
                  nomad-protocol (wire messages and framing, doc 20 §5),
                  nomad-server (server: persistence, recovery, catch-up, QUIC sessions; N2, N3 plans),
                  nomad-link (client side of the connection, D-125), nomad-ai (all AI logic behind the
-                 View trait, D-199; A1), nomad-vox (MagicaVoxel import and export, D-289);
+                 View trait, D-199; A1, A2), nomad-vox (MagicaVoxel import and export, D-289);
                  further crates follow doc 20 §3
 art/voxels/      MagicaVoxel sources of the module kinds and ships (D-289); see art/README.md
 tools/preview/   WebGL preview of the phase-1 scene for design review (not the game client)
