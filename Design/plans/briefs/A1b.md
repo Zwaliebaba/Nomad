@@ -22,7 +22,7 @@ Out of scope: the Strategist and A2's plans, raider logic (A3), any economy valu
 
 ## Rules
 
-- **Do not invent game rules.** Everything must trace to the plan or a decision. Where the plan leaves a gap, choose the narrowest reading, label it *Proposed* in a doc comment, and list it in your report. If a gap blocks you, stop and report rather than guessing. Do not edit `Design/03-decision-log.md` or `Design/02-open-questions.md`; I number and record decisions (next free D-301, Q269).
+- **Do not invent game rules.** Everything must trace to the plan or a decision. Where the plan leaves a gap, choose the narrowest reading, label it *Proposed* in a doc comment, and list it in your report. If a gap blocks you, stop and report rather than guessing. Do not edit `Design/03-decision-log.md` or `Design/02-open-questions.md`; I number and record decisions (next free D-309, Q269).
 - Cite design IDs in doc comments and commit bodies.
 - Determinism: no clock, I/O, threads, `HashMap` iteration; sorted iteration; `libm`; integer per-mille scores with `SimId` tie-breaks.
 - No `unwrap()` outside tests; `expect("invariant: ...")` only for real invariants. Suppressions only as `#[expect(lint, reason = "...")]` on the smallest scope. Never weaken lints or skip tests.
