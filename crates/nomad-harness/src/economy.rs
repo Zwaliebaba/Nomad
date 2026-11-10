@@ -3,9 +3,10 @@
 //!
 //! Each of the four stage-1 commanders runs the same script once a minute, through ordinary
 //! commands and the single validator (D-077): it splits a MULE off for core kits and one for
-//! convoys, expands to free sites in its home system and the systems next to it (crystal
-//! veins first, then the richest), builds every holding out (deposit modules, solar,
-//! refinery, storage, 4 pylons, 2 turrets, a dry dock: the plan's standard build-out), keeps a
+//! convoys (and replaces the kit's MULE if a raid destroys it), expands to free sites in its
+//! home system and the systems next to it (crystal veins first, then the richest), builds
+//! every holding out (deposit modules, solar, refinery, storage, 4 pylons, 2 turrets, a dry
+//! dock: the plan's standard build-out), keeps a
 //! convoy running between remote holdings and the mother station, and keeps a core-kit
 //! reserve so expansion is not starved. It is a measuring script, not an AI (A2 is).
 //!
@@ -206,7 +207,7 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
     let economy = state.economy_of(c);
 
     // Split the start kit's MULEs, a reserve fleet of their own (D-286), into one fleet each.
-    if b.kit_mule.is_none() {
+    if b.haul_mule.is_none() {
         let start = state.fleet_ids().into_iter().find_map(|f| {
             let v = state.fleet(f)?;
             let mules = v
@@ -238,6 +239,57 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
 
     // Expansion: a core kit, carried by the kit MULE.
     let mother_view = state.holding_economy(mother);
+    // A kit MULE a raid destroyed is replaced: by a MULE docked at the mother station other
+    // than the convoy's, split off its fleet, or else by one built there. Without it a kit
+    // waits at home for the rest of the run.
+    if b.kit_mule.is_some_and(|m| state.ship(m).is_none()) {
+        b.kit_mule = None;
+    }
+    if b.kit_mule.is_none() {
+        let spare = state
+            .fleet_ids()
+            .into_iter()
+            .filter_map(|f| state.fleet(f))
+            .filter(|v| v.owner == owner && matches!(v.place, Place::Docked(at) if at == mother))
+            .find_map(|v| {
+                v.ships
+                    .iter()
+                    .copied()
+                    .find(|&s| {
+                        Some(s) != b.haul_mule
+                            && state.ship(s).is_some_and(|x| x.class == ShipClass::Mule)
+                    })
+                    .map(|s| (s, v.ships.len()))
+            });
+        let building = mother_view.as_ref().is_some_and(|v| {
+            v.queue.iter().any(|q| {
+                q.item
+                    == BuildItem::Ship {
+                        class: ShipClass::Mule,
+                    }
+            })
+        });
+        match spare {
+            Some((ship, in_fleet)) => {
+                b.kit_mule = Some(ship);
+                if in_fleet > 1 {
+                    commands.push(Command::CreateFleet { ships: vec![ship] });
+                }
+            }
+            None if !building => {
+                let build = Command::Economy(EconomyCommand::Build {
+                    holding: mother,
+                    item: BuildItem::Ship {
+                        class: ShipClass::Mule,
+                    },
+                });
+                if validate_command(state, owner, &build).is_ok() {
+                    commands.push(build);
+                }
+            }
+            None => {}
+        }
+    }
     let kits = mother_view.as_ref().map_or(0, |v| v.kits);
     let kit_queued = mother_view
         .as_ref()
