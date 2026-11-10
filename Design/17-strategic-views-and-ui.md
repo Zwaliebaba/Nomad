@@ -1,6 +1,6 @@
 # 17 — Strategic views and UI
 
-Status: **Agreed (round 10).** Q84–Q87 were decided as D-090 to D-093. Built on the phase-1 package (look, HUD, camera), D-020, D-022, D-032, D-044, D-062, D-064, D-067, D-068, D-072 to D-076 and D-082, and docs 12–16. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 10).** Q84–Q87 were decided as D-090 to D-093. Built on the phase-1 package (look, HUD, camera), D-020, D-022, D-032, D-044, D-062, D-064, D-067, D-068, D-072 to D-076 and D-082, and docs 12–16. Doc 21's answers (D-245, D-248, D-249) and round 19 (D-256 to D-263, D-275, D-276; `plans/U-beta-ui.md`) amend §3, §6, §7 and §8, as the notes there say. Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -91,14 +91,14 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 | **Deputy status** (top bar) | "DEPUTY · BALANCED", and whether units are under direct control (RK-10) | D-013 |
 | **Away report** (on login, plus a 7-day history) | Raids repelled or lost; losses; disabled structures; Reinforced timers and scheduled sieges in local time; captures; decisions the Deputy deferred; income and how much was lost to full storage. Sorted by importance; each entry jumps to its location. | Doc 12 §5.3 |
 | **Window and siege panel** | Your exposure window today and its upcoming shift (D-032); all Reinforced timers involving you; the siege clock during a siege (it replaces the objective timer) | D-015, D-033, D-057; how the window moves and the first week's choice (D-155 to D-157, D-226) |
-| **Build menu and queue** | A slot diagram of the holding (pylon / peripheral / inner slots on the ops grid, D-067); the module catalogue with cost, time and power; reordering and cancelling the queue, with refund rules (D-068); saving and applying blueprints | Doc 14 §9; the blueprint type is shared with the AI's built-in blueprints (D-215) |
+| **Build menu and queue** | A slot diagram of the holding (pylon / peripheral / inner slots on the ops grid, D-067); the module catalogue with cost, time and power; reordering and cancelling the queue, with refund rules (D-068); saving and applying blueprints (player blueprints arrive with γ and are stored outside the season's Universe, D-299) | Doc 14 §9; the blueprint type is shared with the AI's built-in blueprints (D-215) |
 | **Economy panel** | The pool, with its cap and "full in 6 h 20 min"; income per holding; buffers and convoy status (D-064); power per holding with its profile; the command cap | Doc 14; the diminishing-yield factor (D-217) |
 | **Fleet panel** | Fleets with composition, current orders, rules of engagement and doctrine role; creating, splitting and merging fleets. It extends the phase-1 roster. | Doc 15 §3.4 |
 | **Season panel** | Standings, the season clock, progress toward the early win | D-020, D-041; the history of standings changes (D-196) and the near-win warning (D-197) |
 | **Start screen** | Create a Universe (seed, number of AI commanders, difficulty per AI); continue a Universe; catch-up progress; shut down the Universe; "start with Windows" | Doc 20 §2, §7 |
 | **Notifications** | The in-client alert banner (phase-1 amber) and toasts for breaches, sieges and raids, plus a **Windows toast while the client is running but minimised**. Notifications that reach you outside the client are hosting work. | Doc 12 §5.3 |
 
-> **Changing (D-235, D-236; doc 21):** in the browser the start screen is served by the server, "start with Windows" becomes Docker Desktop's start at sign-in, and "shut down" stops the simulation inside the server (Q237); the Windows toast becomes a browser notification (Q241). The panels themselves are unchanged.
+> **Decided (D-235, D-236, D-245, D-249; doc 21):** in the browser the start screen is served by the server, "start with Windows" becomes Docker Desktop's start at sign-in, and "shut down" stops the simulation inside the server (D-245); the Windows toast becomes a browser notification, with permission asked when the player turns alerts on (D-249). The panels themselves are unchanged.
 
 > **Round 19 (D-256, D-257, D-259, D-263):** the HUD's right-hand panel is a holding panel (window, sectors, timers); the top bar shows server status and the Deputy chip; a build button stays enabled when the pool is short and shows the shortfall; a minimal start screen is part of β.
 
@@ -117,18 +117,18 @@ Strategic views use the same **2:1 iso projection** as the phase-1 system panel 
 
 *Why:* the phase-1 bindings already conflict (Q rotates the camera and is also SHLD SURGE; W and S are both card buttons and pan keys). A positional grid is the standard RTS answer, and it keeps every card reachable with one hand.
 
-> **Changing (D-235; doc 21 §7.5):** a browser reserves some of these keys, among them Ctrl+1–9, mouse buttons 4 and 5, F11, F12 and Esc. Q240 proposes keeping this scheme except where a browser reserves a key, with U7 testing every binding on Edge, Chrome and Firefox.
+> **Decided (D-235, D-248; doc 21 §7.5):** a browser reserves some of these keys, among them Ctrl+1–9, mouse buttons 4 and 5, F11, F12 and Esc. This scheme stays except where a browser reserves a key; U7 tests every binding on Edge, Chrome and Firefox and proposes replacements, and fullscreen starts from the game's own control after *Play* (D-248).
 
 > **Round 19 (D-258, D-262, D-274):** the cards' full layouts are in D-258; ELEV REF is a camera-widget toggle; STOP on the fleet card is station-keep at the current position; right-click on empty space or Backspace cancels a preview or dialog (Esc only in a window).
 
 ## 8. MVP limits
 
-*Proposed:*
+*Proposed, except where a decision is given:*
 
-- The GALAXY view stays minimal.
+- The GALAXY view stays minimal (D-090). Until δ, F4 opens a full-screen season view instead of a minimal GALAXY map (D-261).
 - No chat, because there is no diplomacy (D-026).
 - No replay viewer.
-- UI scaling is uniform with window size, as in phase 1. Colour-blind safety relies on shape coding.
+- UI scaling is uniform with window size, as in phase 1, down to about 1600 px wide; below that the HUD has a compact layout instead (D-275). Colour-blind safety relies on shape coding.
 
 ## 9. Stress test
 

@@ -74,7 +74,7 @@ fn when(tick: Tick) -> String {
 /// The free site `commander` claims next: in the claimable system where it holds the most
 /// sites, completed or not, and can still reach a majority, nearest its home first; `None`
 /// if there is none.
-fn next_claim(state: &UniverseState, commander: CommanderId) -> Option<SiteId> {
+pub(crate) fn next_claim(state: &UniverseState, commander: CommanderId) -> Option<SiteId> {
     let home = state
         .holdings()
         .find(|(_, h)| h.owner == commander && h.mother_station)

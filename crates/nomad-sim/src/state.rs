@@ -62,6 +62,11 @@ pub enum ScheduledEvent {
         /// Average delay between firings.
         mean_interval: Ticks,
     },
+    /// A raider haven's launch timer (D-081; A3 plan §4.2).
+    RaidLaunch {
+        /// The haven's faction.
+        faction: nomad_types::FactionId,
+    },
 }
 
 /// The complete, authoritative state of one season's Universe.
@@ -119,6 +124,10 @@ pub struct UniverseState {
     pub(crate) ai: nomad_ai::Memory,
     /// Outboxes, inboxes and per-layer counters (D-200 to D-202).
     pub(crate) ai_runtime: crate::ai::Runtime,
+    // A3: raids.
+    /// The raider factions, their groups and the commanders' last raids (D-081, D-219 to
+    /// D-221; A3 plan §4.2–§4.5).
+    pub(crate) raids: crate::raids::Raids,
 }
 
 impl UniverseState {
@@ -159,6 +168,7 @@ impl UniverseState {
             doctrine: crate::doctrine::Doctrines::default(),
             ai: nomad_ai::Memory::default(),
             ai_runtime: crate::ai::Runtime::default(),
+            raids: crate::raids::Raids::default(),
         }
     }
 

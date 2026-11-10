@@ -175,8 +175,9 @@ pub fn create(
 }
 
 /// The stage-1 roster `create` uses: the human, [`HUMAN_COMMANDER`], with its window starting
-/// at `human_window` UTC, then the AI commanders 2, 3 and 4 with the default window (S6 plan
-/// §4.1, §4.3; D-157), all at `difficulty` (D-079, D-231).
+/// at `human_window` UTC, then the AI commanders 2, 3 and 4 on their seeded schedules, which
+/// set their presence and initial windows (S6 plan §4.1, §4.3; D-080, D-157, D-204), all at
+/// `difficulty` (D-079, D-231).
 pub fn stage1_roster(
     human_window: QuarterHour,
     difficulty: Difficulty,
@@ -186,7 +187,7 @@ pub fn stage1_roster(
         if id == HUMAN_COMMANDER {
             CommanderSetup::human(id, human_window)
         } else {
-            CommanderSetup::ai_at(id, difficulty.into())
+            CommanderSetup::scheduled_ai(id, difficulty.into())
         }
     })
 }

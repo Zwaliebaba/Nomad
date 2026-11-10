@@ -1,5 +1,5 @@
 {
-  "format": "nomad-rules@11",
+  "format": "nomad-rules@14",
   "ship_classes": {
     "VX": {
       "tactical_speed_m_per_s": 280,
@@ -347,15 +347,159 @@
       }
     },
     "difficulty": {
-      "Easy": { "competence": { "latency_ticks": 10, "commands_per_window": 1 }, "strategist_interval_s": 30 },
-      "Normal": { "competence": { "latency_ticks": 6, "commands_per_window": 2 }, "strategist_interval_s": 15 },
-      "Hard": { "competence": { "latency_ticks": 3, "commands_per_window": 4 }, "strategist_interval_s": 10 }
+      "Easy": { "competence": { "latency_ticks": 10, "commands_per_window": 1 }, "strategist_interval_s": 30, "noise_permille": 200, "blueprints": "Generic" },
+      "Normal": { "competence": { "latency_ticks": 6, "commands_per_window": 2 }, "strategist_interval_s": 15, "noise_permille": 100, "blueprints": "PerSiteKind" },
+      "Hard": { "competence": { "latency_ticks": 3, "commands_per_window": 4 }, "strategist_interval_s": 10, "noise_permille": 50, "blueprints": "PerSiteKindRaidTurrets" }
     },
     "human_deputy": { "latency_ticks": 3, "commands_per_window": 4 },
     "rate_window_ticks": 10,
     "deputy_interval_ticks": 5,
     "inbox_retention_s": 60,
     "command_expiry_s": 10,
-    "max_replacement_entries": 32
+    "max_replacement_entries": 32,
+    "deputy": {
+      "alert_window_s": 60,
+      "attacker_window_s": 30,
+      "flak_trigger_radius_m": 3000,
+      "evacuation_resume_s": 60,
+      "anchor_radius_m": 1000
+    },
+    "raids": {
+      "interval_min_s": 7200,
+      "interval_max_s": 14400,
+      "target_spacing_s": 21600,
+      "holding_weight_milli": 1000,
+      "outpost_weight_milli": 2000,
+      "crystal_weight": 3,
+      "strike_craft_value": 1600,
+      "heavy_cruiser_value": 17000,
+      "budget_min_permille": 300,
+      "budget_max_permille": 500,
+      "min_strike_craft": 2,
+      "clock_s": 600,
+      "loss_limit_permille": 500,
+      "withdraw_ratio_permille": 2000,
+      "withdraw_radius_m": 5000,
+      "director_interval_ticks": 5
+    },
+    "strategist": {
+      "min_commitment_s": 300,
+      "hysteresis_bonus_permille": 200,
+      "step_timeout_s": 600,
+      "max_plans": 3,
+      "max_candidates": 60,
+      "trip_margin_permille": 1200,
+      "deploy_margin_s": 60,
+      "sign_off_commands": 16,
+      "crystal_weight": 3,
+      "weights": {
+        "control_toward": 20000,
+        "control_complete": 40000,
+        "control_deny": 15000,
+        "risk_per_route_hour": 2000,
+        "risk_per_hostile": 5000,
+        "risk_per_rival_holding": 3000,
+        "risk_haven": 10000,
+        "escort_above": 15000,
+        "pylon": 8000,
+        "turret": 5000,
+        "dry_dock": 3000,
+        "garrison": 1000,
+        "crystal_first": 1000000000
+      },
+      "composition_permille": { "VX": 300, "LANCER": 400, "WARDEN": 300 },
+      "blueprints": {
+        "Mother": { "steps": [
+          { "kind": "Extractor", "slot": { "Deposit": 1 } },
+          { "kind": "Harvester", "slot": { "Deposit": 1 } },
+          { "kind": "Refinery", "slot": { "Inner": 2 } },
+          { "kind": "Pylon", "slot": { "Pylon": 0 } },
+          { "kind": "Pylon", "slot": { "Pylon": 1 } },
+          { "kind": "Pylon", "slot": { "Pylon": 2 } },
+          { "kind": "Pylon", "slot": { "Pylon": 3 } },
+          { "kind": "Turret", "slot": { "Inner": 4 } },
+          { "kind": "Turret", "slot": { "Inner": 5 } }
+        ] },
+        "Ore": { "steps": [
+          { "kind": "Solar", "slot": "Solar" },
+          { "kind": "Harvester", "slot": { "Deposit": 0 } },
+          { "kind": "Refinery", "slot": { "Inner": 0 } },
+          { "kind": "Storage", "slot": { "Inner": 1 } },
+          { "kind": "Pylon", "slot": { "Pylon": 0 } },
+          { "kind": "Pylon", "slot": { "Pylon": 1 } },
+          { "kind": "Pylon", "slot": { "Pylon": 2 } },
+          { "kind": "Pylon", "slot": { "Pylon": 3 } },
+          { "kind": "Turret", "slot": { "Inner": 2 } },
+          { "kind": "Turret", "slot": { "Inner": 3 } },
+          { "kind": "DryDock", "slot": "Dock" }
+        ] },
+        "TwoOre": { "steps": [
+          { "kind": "Solar", "slot": "Solar" },
+          { "kind": "Harvester", "slot": { "Deposit": 0 } },
+          { "kind": "Refinery", "slot": { "Inner": 0 } },
+          { "kind": "Harvester", "slot": { "Deposit": 1 } },
+          { "kind": "Refinery", "slot": { "Inner": 1 } },
+          { "kind": "Storage", "slot": { "Inner": 2 } },
+          { "kind": "Pylon", "slot": { "Pylon": 0 } },
+          { "kind": "Pylon", "slot": { "Pylon": 1 } },
+          { "kind": "Pylon", "slot": { "Pylon": 2 } },
+          { "kind": "Pylon", "slot": { "Pylon": 3 } },
+          { "kind": "Turret", "slot": { "Inner": 3 } },
+          { "kind": "DryDock", "slot": "Dock" }
+        ] },
+        "Crystal": { "steps": [
+          { "kind": "Extractor", "slot": { "Deposit": 0 } },
+          { "kind": "Storage", "slot": { "Inner": 0 } },
+          { "kind": "Solar", "slot": "Solar" },
+          { "kind": "Pylon", "slot": { "Pylon": 0 } },
+          { "kind": "Pylon", "slot": { "Pylon": 1 } },
+          { "kind": "Pylon", "slot": { "Pylon": 2 } },
+          { "kind": "Pylon", "slot": { "Pylon": 3 } },
+          { "kind": "Turret", "slot": { "Inner": 1 } },
+          { "kind": "Turret", "slot": { "Inner": 2 } },
+          { "kind": "DryDock", "slot": "Dock" }
+        ] },
+        "OreAndCrystal": { "steps": [
+          { "kind": "Solar", "slot": "Solar" },
+          { "kind": "Extractor", "slot": { "Deposit": 0 } },
+          { "kind": "Extractor", "slot": { "Deposit": 1 } },
+          { "kind": "Harvester", "slot": { "Deposit": 0 } },
+          { "kind": "Harvester", "slot": { "Deposit": 1 } },
+          { "kind": "Refinery", "slot": { "Inner": 0 } },
+          { "kind": "Storage", "slot": { "Inner": 1 } },
+          { "kind": "Pylon", "slot": { "Pylon": 0 } },
+          { "kind": "Pylon", "slot": { "Pylon": 1 } },
+          { "kind": "Pylon", "slot": { "Pylon": 2 } },
+          { "kind": "Pylon", "slot": { "Pylon": 3 } },
+          { "kind": "Turret", "slot": { "Inner": 2 } },
+          { "kind": "Turret", "slot": { "Inner": 3 } },
+          { "kind": "DryDock", "slot": "Dock" }
+        ] },
+        "Empty": { "steps": [
+          { "kind": "Storage", "slot": { "Inner": 0 } },
+          { "kind": "Solar", "slot": "Solar" },
+          { "kind": "Pylon", "slot": { "Pylon": 0 } },
+          { "kind": "Pylon", "slot": { "Pylon": 1 } },
+          { "kind": "Pylon", "slot": { "Pylon": 2 } },
+          { "kind": "Pylon", "slot": { "Pylon": 3 } }
+        ] }
+      },
+      "generic_blueprint": { "steps": [
+        { "kind": "Solar", "slot": "Solar" },
+        { "kind": "Extractor", "slot": { "Deposit": 0 } },
+        { "kind": "Extractor", "slot": { "Deposit": 1 } },
+        { "kind": "Harvester", "slot": { "Deposit": 0 } },
+        { "kind": "Harvester", "slot": { "Deposit": 1 } },
+        { "kind": "Refinery", "slot": { "Inner": 0 } },
+        { "kind": "Refinery", "slot": { "Inner": 1 } },
+        { "kind": "Storage", "slot": { "Inner": 2 } },
+        { "kind": "Pylon", "slot": { "Pylon": 0 } },
+        { "kind": "Pylon", "slot": { "Pylon": 1 } },
+        { "kind": "Pylon", "slot": { "Pylon": 2 } },
+        { "kind": "Pylon", "slot": { "Pylon": 3 } },
+        { "kind": "Turret", "slot": { "Inner": 3 } },
+        { "kind": "DryDock", "slot": "Dock" }
+      ] }
+    }
   }
 }

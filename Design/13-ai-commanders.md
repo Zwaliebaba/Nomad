@@ -56,27 +56,30 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 *Agreed (D-206), with the details of `plans/A1-deputy.md` (D-199 to D-211). These are the concrete rules behind doc 12 §5 (D-016).*
 
 1. **Threat assessment** for each holding, every 0.5 s:
-   - A holding is on *alert* when a hostile is detected inside the defended zone, or anything fires on the commander's assets.
-   - Alert ends 60 s after the last such event.
+   - A holding is on *alert* when a hostile in the commander's visibility set is inside the defended zone (the doctrine's radius around the site), or the commander learns of hostile fire on the holding, its modules or dome, or on an own ship inside the zone.
+   - Alert ends 60 s after the last such event. Fire on an asset outside every zone puts no holding on alert; that fleet's own doctrine answers it (return fire, retreat, convoy evacuation).
+   - `AlertStarted` and `AlertEnded` go to the away report.
 2. **On alert:**
-   - Switch to the doctrine's alert power profile (doc 15 §5.2).
-   - Launch the garrison.
-   - Use abilities on their triggers (SHLD SURGE and FLAK SCREEN thresholds, §9).
-   - Dock harvesting craft and hold convoys inside the evacuation radius.
+   - Switch to the doctrine's alert power profile (doc 15 §5.2); at alert end, back to the profile before.
+   - Launch the garrison, fleet by fleet; reserves and convoys stay docked.
+   - Use abilities on their triggers (SHLD SURGE and FLAK SCREEN thresholds, §9), when power and the cooldown allow.
+   - Dock convoys within the evacuation radius (below). The MVP has no harvesting craft: harvesters are modules (doc 14 §6).
 3. **Engagement:**
-   - Target priority: first units attacking our structures, then targets the counter triangle favours (D-052), then the nearest.
-   - Never pursue beyond the leash. Retreat to dock below the retreat threshold.
-4. **Rebuilding:** when a ship from the replacement list is lost, queue a replacement at the nearest holding able to build it, if the daily budget allows (D-016).
-5. **Logistics** (D-064):
+   - Target priority, as explicit attacks issued only when the choice changes: first units that damaged our structures in the last 30 s, then targets the counter triangle favours (D-052), then the nearest, then the lowest `SimId`.
+   - Never pursue beyond the leash, measured from the fleet's anchor: the holding for a garrison, the route for a patrol, the escortee for an escort. Retreat to the nearest own holding with room when the fleet's hull falls below the retreat threshold.
+   - Roles (D-207): a garrison docks at its holding, launches on alert and docks when the alert ends; a reserve stays docked; a patrol runs its route; an escort guards its fleet. A damaged fleet with no alert repairs at dock (D-071).
+4. **Rebuilding** (D-208): when a ship from the replacement list is lost, queue a replacement at the nearest holding able to build it, and rebuild destroyed modules in their slot, within the preset's share of the last 24 h of income; report what is deferred.
+5. **Logistics** (D-064, D-210):
    - Run each convoy route.
-   - If a gate on the route is contested (D-055), reroute when another route exists; otherwise hold at the last safe stop.
+   - When a sensed hostile is within the evacuation radius of a convoy or its next stop, dock it at the nearest own holding on its route, and resume the route 60 s after no hostile is within the radius.
+   - If a gate on the route is contested (D-055, by hostiles the commander detects, D-285), reroute when another route exists; otherwise hold at the last safe stop.
 6. **Competence cap** (doc 12 §5.4):
    - A decision takes effect at least 3 ticks (300 ms) after the event that triggered it.
    - A commander's AI layers together issue at most the difficulty's command rate (§7).
 
 ## 5. The Strategist
 
-> **Settled with the A2 plan (D-212 to D-218):** goals Expand, Build out, Logistics and a Garrison stand-in until A4 (D-212); Expand weighs payback within the season's time left, control and risk, crystal first (D-213); plans fit the online session (D-214); built-in blueprints per site kind (D-215); a depot in every system (D-216). D-078's "every 10 s" is Hard's interval (D-229).
+> **Settled with the A2 plan (D-212 to D-218):** goals Expand, Build out, Logistics and a Garrison stand-in until A4 (D-212); Expand weighs payback within the season's time left, control and risk, crystal first (D-213); plans fit the online session (D-214); built-in blueprints per site kind (D-215); a depot in every system (D-216). D-078's "every 10 s" is Hard's interval (D-229). *Built with A2* (`crates/nomad-ai/src/strategist/`; readings in the A2 plan §12): the four A2 goals score on one integer scale, keep at most three plans, reserve their next costs in score order and sign off before the session ends; a loaded kit sets out whatever the session's length, since its trip continues offline (D-291); the A4 goals below are not built yet.
 
 *Agreed (D-078).*
 
@@ -100,7 +103,7 @@ It is the largest risk in the MVP (RK-03), so the design favours what can be bui
 
 ## 6. AI online and offline schedules
 
-> **Settled with the A1 plan (D-204):** D-080's seeded schedules run in the simulation from A2 on, with the harness `SetPresence` kept as an override.
+> **Settled with the A1 plan (D-204):** D-080's seeded schedules run in the simulation from A2 on, with the harness `SetPresence` kept as an override. *Built with A2* (`crates/nomad-ai/src/schedule.rs`): a weekday and a weekend pattern; the server creates its AI commanders on them, the harness and tests may still drive presence with `SetPresence`.
 
 *Agreed (D-080), detailing D-027.*
 
@@ -141,6 +144,8 @@ The difficulty is set per AI commander when the Universe is created. The MVP def
 - **Strength:** 30–50% of the target commander's fleet value in that system. Raids pressure a commander; they do not wipe them out.
 - **Withdrawal:** after 10 min, or after losing 50% of the group.
 - Raiders do zero damage to domes (D-056). They see through their faction's own sensors (doc 16 §7).
+
+> **As built (A3):** the launch rule is in `nomad-sim` (`raids`): one NPC faction per haven, a launch timer drawing 2–4 h on the haven's `RAIDS` stream, a target drawn by public-data weights, strength from the target's fleet value in that system, the spawn at the haven's gate, and removal on return; a firing during catch-up launches nothing and is not deferred (D-047, D-219 to D-221). The director is in `nomad-ai` (`director`): it steers each group through the faction's view and ordinary commands at Normal's competence, starts the 10 minutes when the arrival shroud ends, attacks the target commander's MULEs, outposts, weaker ships and peripheral structures in that order, and withdraws on the clock, at half its value lost or before a force more than twice its own (D-222). D-223 and D-224 were already built by S4 and S6b. The readings the plan left open, and what the first `--raids` runs showed, are in the A3 plan §12.
 
 ## 9. Doctrine presets
 

@@ -485,11 +485,12 @@ fn damage_applies_in_target_then_projectile_order() {
         fleet: victim,
         owner: commander(1),
     }));
-    // Only the 10 points that remained count as damage, all from commander 3.
+    // Only the 10 points that remained count as damage, all from commander 3's fleet.
     assert!(events.contains(&CombatEvent::ShipDamaged {
         ship,
         fleet: victim,
         by: commander(3),
+        by_fleet: Some(attacker_c),
         amount: 10,
     }));
     assert!(

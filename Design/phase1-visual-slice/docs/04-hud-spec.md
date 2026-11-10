@@ -23,6 +23,8 @@ Target image: `reference/renders/ops-grid-hud@2x.png` (rendered at 2× — halve
 8. **Selection** (16,852,500,212): left column HULL bar, SHIELD GRID bar split into four N/E/S/W segments (weak segment orange), POWER IN, DOCKED, TURRETS; divider; right column BUILD QUEUE with progress bars.
 9. **Command card** (532,852,540,212): 4×3 grid of 44 px buttons — label (Rajdhani 12 px bold), sub-line (9.5 px grey: cost or state), hotkey badge top-right. Cooldown: dark overlay over the lower 62% and amber timer. Active toggle: green border and fill.
 
+> *(Design round 19, for the MVP's β HUD; phase-1 M6 keeps these panels against its fixture. `Design/plans/U-beta-ui.md` records the β screens.)* Top bar: NETWORK (commanders and ping) gives way to server status with the clock check and the Deputy chip (D-257). Panel 3: rotation moves to Alt+Q/E (D-093), and the ELEV REF toggle joins it (D-258). Panel 5: Objectives and Commanders give way to a holding panel with the exposure window, the four sectors and the Reinforced and siege timers, since the MVP has no objectives and no allies (D-096, D-256). Panel 6: PING goes, for the same reason. Panel 9: the cards follow D-093's positional grid, laid out in D-258. Below about 1600 px wide the HUD switches to a compact layout (D-275).
+
 ## Minimap — iso radar with pulse
 
 Drawn in a 300×300 box centred at (150,150) inside the panel.

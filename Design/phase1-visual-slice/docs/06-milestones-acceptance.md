@@ -5,7 +5,7 @@ Each milestone ends in a runnable build plus an F12 screenshot committed to `scr
 ## M1 — Window, camera, grid
 - A winit window with a wgpu surface at 1920×1080, resizable. *(Design D-108: the client now opens borderless fullscreen by default; `--windowed` gives the 1920×1080 window.)*
 - Background and infinite ops grid render; minor/major spacing and colours match 01 §4.
-- **Accept**: the grid reaches every screen edge at every zoom level; Q/E rotate in 250 ms; Home resets.
+- **Accept**: the grid reaches every screen edge at every zoom level; Q/E rotate in 250 ms; Home resets. *(Design D-093: in the MVP, rotation moves to Alt+Q/E and mouse buttons 4/5; Q and E become command-card keys.)*
 
 ## M2 — Station voxels
 - Load `station_scene.json`, greedy-mesh per module, opaque pass with camera-relative face shading.
@@ -26,6 +26,7 @@ Each milestone ends in a runnable build plus an F12 screenshot committed to `scr
 ## M6 — HUD
 - All panels from 04, driven by `assets/fixtures/siege_kr114.json`; minimap with the iso pulse; camera widget tracks yaw; H toggles the HUD.
 - **Accept**: overlay comparison against `ops-grid-hud@2x.png` (scaled to 1080p) shows panels within ±4 px and matching text; the pulse period is 3.6 s with three rings visible; text is crisp at 1080p and 4K.
+- *(Design round 19 and doc 21: the HUD is drawn in HTML over the canvas, held to this ±4 px; labels and markers stay in wgpu (D-240). The β HUD replaces Objectives and Commanders with a holding panel (D-256), NETWORK with server status and the Deputy chip (D-257), drops PING and moves ELEV REF to the camera widget (D-258), and has a compact layout below about 1600 px wide (D-275). The β screens are `Design/plans/U-beta-ui.md`. A β acceptance reference for these panels is not yet committed: the owner's boards are the only record of their pixel layout.)*
 
 ## Definition of done (phase 1)
 All six milestones accepted; golden-image test green; `cargo clippy -D warnings` clean; README documents run commands and key bindings.

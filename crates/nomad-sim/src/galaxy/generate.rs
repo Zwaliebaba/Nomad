@@ -255,6 +255,8 @@ pub fn generate_stage1_roster(
     crate::season::initialize(&mut state);
     // Tick 0 is a sensors tick (D-173): the Universe starts with every picture (S7).
     crate::sensors::refresh(&mut state);
+    // A raider faction per haven, with its first launch 2–4 h ahead (A3 plan §4.2).
+    crate::raids::initialize(&mut state);
 
     let report = validate(state.galaxy(), &InvariantLimits::from_rules(&state.rules));
     if report.is_valid() {

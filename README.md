@@ -10,11 +10,12 @@ Targets: one Universe of up to 100 commanders, played in seasons. The MVP is one
 
 The MVP design is complete; the build works towards milestone MVP-α, the headless game (Design doc 30). Done:
 
-- **Simulation:** the deterministic core, the Universe structure, ships, fleets and orders (S1–S3); the economy (S4); ship and station combat (S5a, S5b); commander records, presence and exposure windows (S6a); season standings, the early win and the season end (S8).
-- **Server:** shared types and the wire protocol (N1); the server shell with persistence, recovery and catch-up (N2); QUIC transport and sessions, with the `nomad-link` client side (N3).
+- **Simulation:** the deterministic core, the Universe structure, ships, fleets and orders (S1–S3); the economy (S4); ship and station combat (S5a, S5b); commander records, presence and exposure windows, sieges and captures (S6a, S6b); sensors and fog of war (S7); season standings, the early win and the season end (S8); the early α tuning (D-279 to D-284).
+- **AI:** the Deputy (A1a, A1b) and the raider director (A3, apart from its α runs), in `nomad-ai`.
+- **Server:** shared types and the wire protocol (N1); the server shell with persistence, recovery and catch-up (N2); QUIC transport and sessions, with the `nomad-link` client side (N3). A WebSocket replaces QUIC with N6 (Design D-241, D-242).
 - **Client:** phase-1 milestones M1–M4.
 
-Next: the siege rules (S6b), sensors (S7) and the Deputy (A1), then the Strategist (A2) and the raider director (A3). Design doc 30 §2 tracks the status; start at [`Design/README.md`](Design/README.md).
+Next: the Strategist (A2), then the α acceptance runs. Design doc 30 §2 tracks the status; start at [`Design/README.md`](Design/README.md).
 
 ## Repository layout
 
@@ -27,12 +28,13 @@ crates/
   nomad-types/          Shared primitives (Design doc 20 §3): SimId and typed ids, ticks, Universe time, small enums, command shapes
   nomad-protocol/       Wire protocol (Design doc 20 §5): versioned client and server messages, length-prefixed postcard framing
   nomad-harness/        Headless fast-forward runner: pacing runs, scenario runs and determinism checks
-  nomad-server/         Server (N2, N3): runs one Universe in real time, saves it to SQLite, recovers, catches up, serves clients over QUIC
+  nomad-server/         Server (N2, N3): runs one Universe in real time, saves it to SQLite, recovers, catches up, serves clients over QUIC (a WebSocket from N6, D-241)
   nomad-link/           Client side of the connection (D-125): finds and authenticates to a server, for the client and the tests
-                        (nomad-ai, all AI logic, is planned with A1: Design D-199)
+  nomad-ai/             All AI logic behind the View trait (D-199): the Deputy (A1) and the raider director (A3)
+  nomad-vox/            MagicaVoxel import: the .vox sources under art/voxels to the JSON the game reads (D-289)
 .github/                CI workflow, Dependabot, pull request template
 .vscode/                Tasks, launch configurations and settings for VS Code
-Dockerfile              Linux image of nomad-server, a developer and soak-test mode (Design D-152)
+Dockerfile              Linux image of nomad-server; the MVP server runs in Docker Desktop (Design D-236, D-245)
 tools/preview/          Single-file WebGL preview of the phase-1 scene (design-review aid, not the client)
 tools/station-scene/    Builds and validates the supported SpaceStation assembly (D-290)
 art/scenes/SpaceStation/ Authored layout, MagicaVoxel assembly and default renderer assets
@@ -164,7 +166,7 @@ cargo run -p nomad-server -- --help                  # every command and option
 
 ### Run the server in Docker
 
-The `Dockerfile` builds a Linux image of the same server (D-029), which runs in Docker Desktop. In the MVP this is a developer and soak-test mode (D-152). Run these from the repository root:
+The `Dockerfile` builds a Linux image of the same server (D-029), which runs in Docker Desktop. In the MVP the player's server runs this way (D-236); the compose file and the process model (N5, D-245) and the WebSocket on TCP 31790 (N6, D-241) are still to come, so for now run these from the repository root:
 
 ```bash
 docker build --build-arg NOMAD_BUILD_ID=$(git rev-parse HEAD) -t nomad-server .
@@ -178,7 +180,7 @@ docker stop nomad                                              # final snapshot,
 
 - `NOMAD_BUILD_ID` is required: the build fails without it. The image holds a Debug build, the profile CI tests (D-010).
 - The container does not know your time zone, so give `create --window` your UTC offset, as above, or a UTC time with `Z` (D-157).
-- **Publish the port on loopback only**, as above (`127.0.0.1:`), so only this computer can connect (D-085, D-150). The image listens on every address inside the container. If you publish it on another host port, pass that port to `connect-info --port`.
+- **Publish the port on loopback only**, as above (`127.0.0.1:`), so only this computer can connect (D-150, D-236). The image listens on every address inside the container. If you publish it on another host port, pass that port to `connect-info --port`.
 - The client cannot read the container's files, so it imports the details from `connect-info` once. They survive restarts and image upgrades (D-151); `docker exec nomad nomad-server rotate-token` works only while the server is stopped, so run it with `docker run --rm -v nomad-data:/data nomad-server rotate-token` after `docker stop`.
 - Keep Universes in a named volume, as above. Without `-v` they go to an anonymous volume, and `--rm` deletes them. A named volume lives on Docker Desktop's disk, so resetting Docker Desktop deletes it too.
 - **Upgrades:** a journal is replayed only by the build that wrote it (D-048). After an unclean stop, a new image refuses to start. Start the previous image, stop it with `docker stop`, then switch.

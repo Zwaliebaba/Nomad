@@ -330,7 +330,8 @@ fn the_inbox_tells_the_owner_of_its_losses_and_forgets_after_60_s() {
     assert!(lost(&state, commander(1)));
     assert!(state.inbox(commander(1)).iter().any(|e| matches!(
         e.event,
-        InboxEvent::ShipDamaged { ship: s, by, .. } if s == ship && by == commander(2)
+        InboxEvent::ShipDamaged { ship: s, by, by_fleet, .. }
+            if s == ship && by == commander(2) && by_fleet == Some(attacker)
     )));
     assert!(state.inbox(commander(1)).iter().any(|e| matches!(
         e.event,
@@ -342,4 +343,56 @@ fn the_inbox_tells_the_owner_of_its_losses_and_forgets_after_60_s() {
     idle(&mut state, 600);
     assert!(!lost(&state, commander(1)));
     assert!(state.inbox(commander(1)).iter().all(|e| e.tick > lost_at));
+}
+
+/// A1 plan §4.4: damage names the attacking fleet only while the owner detects it; an
+/// undetected attacker is named by owner alone.
+#[test]
+fn the_inbox_names_an_attacking_fleet_only_when_it_is_detected() {
+    let mut state = stage1(6);
+    let (_, system) = home(&state, 1);
+    let base = crate::testkit::site_position(&state, system, 0) + Vec2::new(8_000.0, 0.0);
+    let victim = spawn_fleet(&mut state, commander(1), system, base, &[ShipClass::Vx]);
+    let ship = state.fleet(victim).unwrap().ships[0];
+    let seen = spawn_fleet(
+        &mut state,
+        commander(2),
+        system,
+        base + Vec2::new(1_200.0, 0.0),
+        &[ShipClass::Vx],
+    );
+    // Not yet in any sensors pass.
+    let unseen = crate::testkit::spawn_unseen(
+        &mut state,
+        commander(2),
+        system,
+        base + Vec2::new(-1_200.0, 0.0),
+        &[ShipClass::Vx],
+    );
+    let now = state.tick();
+    let damaged = |by_fleet| crate::CombatEvent::ShipDamaged {
+        ship,
+        fleet: victim,
+        by: commander(2),
+        by_fleet: Some(by_fleet),
+        amount: 5,
+    };
+    super::inbox::collect(
+        &mut state,
+        now,
+        &crate::step::TickOutputs {
+            tick: now,
+            combat_events: vec![damaged(seen), damaged(unseen)],
+            ..crate::step::TickOutputs::default()
+        },
+    );
+    let named: Vec<(Option<crate::fleet::FleetId>, u64)> = state
+        .inbox(commander(1))
+        .iter()
+        .filter_map(|e| match e.event {
+            InboxEvent::ShipDamaged { by_fleet, hull, .. } => Some((by_fleet, hull)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(named, vec![(None, 5), (Some(seen), 5)]);
 }

@@ -7,6 +7,8 @@ The models here are maintained in [MagicaVoxel](https://ephtracy.github.io/) (0.
 | `voxels/modules` | the 24 active PascalCase module sources | `voxels/modules/ModuleCatalog.json` (`voxel-rts/models@1`) | authoring catalog; `tools/station-scene` assembles the source models with full materials |
 | `voxels/ships` | one per ship model | `Design/phase1-visual-slice/assets/voxels/ships_placeholder.json` (`voxel-rts/ships@1`) | `tools/preview`, then the client |
 
+**Gameplay mapping (D-298).** Each `ModuleKind` names its one model with a `kind` field in `voxels/modules/set.json`; `nomad-vox` generates `module_kinds.json` from it (D-289's file), and a test fails unless every kind has exactly one model. That field, the generated file and the test are still to be added; until then no module model maps to a kind. **Scale (D-297).** The simulation's slot template, dome radius (36 voxels), hit radii and pylon positions are the source of truth; the module models and the SpaceStation scene are re-authored or scaled to fit them, not the reverse. See [modules/MODULES.md](voxels/modules/MODULES.md).
+
 ## Workflow
 
 1. Open a `.vox` file in MagicaVoxel, edit it, and save it in place.
@@ -18,7 +20,7 @@ The models here are maintained in [MagicaVoxel](https://ephtracy.github.io/) (0.
 
 3. Commit the `.vox` file together with the regenerated JSON.
 
-`cargo test` (and so CI) fails if a generated file does not match its `.vox` files. `cargo run -p nomad-vox -- import --check` reports the same thing without writing anything.
+`cargo test` (and so CI) fails if `ModuleCatalog.json` or `ships_placeholder.json` does not match its `.vox` files. `cargo run -p nomad-vox -- import --check` reports the same thing without writing anything. The SpaceStation assembly and its assets are checked only by `python3 tools/station-scene/build.py --check` and the material audit `python3 tools/vox/audit_modules.py`, which CI does not run; run both after editing.
 
 To add a model, add `{ "id": "...", "name": "..." }` to the set's `set.json`, save the new model as `<id>.vox` in the same folder, and run the import. An optional `file` property selects a different source filename, for example `{ "id": "command_core", "name": "Command core", "file": "CommandCore.vox" }`. IDs remain lowercase; artist-facing filenames can use PascalCase. Filenames must be unique (including on case-insensitive filesystems) and cannot contain directories.
 

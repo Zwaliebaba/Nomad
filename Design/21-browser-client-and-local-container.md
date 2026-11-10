@@ -61,11 +61,11 @@ Installing for the player means: install Docker Desktop, run `docker compose up 
 
 ### 4.3 Start screen, create, continue, shut down
 
-*Proposed (Q237).* A browser cannot start a process, and with `unless-stopped` a server that exits is restarted. The server process therefore always runs, and it owns the start screen (doc 17 §6):
+*Agreed (Q237 → D-245; β's minimal start screen D-263).* A browser cannot start a process, and with `unless-stopped` a server that exits is restarted. The server process therefore always runs, and it owns the start screen (doc 17 §6). The start screen talks to it through a small JSON API over HTTP on the same `axum` server (D-243), behind the same Host and Origin guard (D-244): list Universes from their meta, create, resume, shut down, and an ended season's standings (D-272).
 
 - **With no Universe running** it serves the start screen. Create a Universe (seed, number of AI commanders, difficulty, D-231) or continue one from the volume. Today's `nomad-server create` arguments become a form.
 - **"Shut down the Universe"** stops the simulation inside the process: a final snapshot, every session closed, then the start screen with *Resume*. Resuming catches up exactly as a restart does (D-047). The Universe does not advance while it is shut down, the same as when the PC is off, so this is no pause button.
-- **The season end** (D-116) shows the final standings read-only. A new season is a new Universe from the start screen (D-020).
+- **The season end** (D-116) shows the final standings read-only. A new season is a new Universe from the start screen (D-020, D-116, D-299). From γ, player blueprints carry across seasons in a server table outside the Universe database (D-299).
 - **`docker compose stop`** still works. The server writes its final snapshot on SIGTERM (doc 20 §7).
 
 ### 4.4 The clock after sleep
@@ -212,11 +212,11 @@ This is the one piece of built work this document makes obsolete.
 
 ## 9. Work packages and milestones
 
-*Proposed (Q243 for MP-1's place; the packages follow Q230–Q242).*
+*Agreed (the packages follow Q230–Q242 → D-238 to D-250; MP-1's place is D-251).*
 
 | Package | Content | Size |
 |---|---|---|
-| **N3** ✅ | Sessions, hub, limits and token, as built. Its `quinn` endpoint retires with N6 (Q234) | — |
+| **N3** ✅ | Sessions, hub, limits and token, as built. Its `quinn` endpoint retires with N6 (D-242) | — |
 | **N5** (changed) | The Docker process model: compose file, restart policy, named volume, backups, the start screen's server side, shut down and resume (§4) | M |
 | **N6** (new) | Web endpoint: HTTP serving of the client, WebSocket transport for N3's sessions, Host and Origin checks (§5, §6) | M |
 | **W1** (new) | The web build of the client: wasm target, async startup, assets over HTTP, the browser link for C7, keys and fullscreen, notifications, the image's client stage, wasm in CI (§7.3–§7.7, §8) | M |
@@ -232,8 +232,8 @@ This is the one piece of built work this document makes obsolete.
 |---|---|
 | **β** | A human plays from the browser against the server in Docker Desktop. Contents add N6, W1 and W2. The 3-day playtest adds PC sleep (§4.4). |
 | **γ** | Unchanged (D-097, D-237). |
-| **MP-1** (new, D-237) | Up to 4 humans in the stage-1 sector on a hosted server, AI filling empty seats, for a full season. Contents decided in its own plan (§10). |
-| **δ** | Unchanged; after MP-1 if Q243 is accepted. |
+| **δ** | Unchanged; before MP-1 (D-251). |
+| **MP-1** (new, D-237) | Up to 4 humans in the stage-1 sector on a hosted server, AI filling empty seats, for a full season. Contents decided in its own plan (§10). The last milestone, after δ (D-251). |
 
 ## 10. MP-1: what this design keeps open
 

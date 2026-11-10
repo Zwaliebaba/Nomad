@@ -26,6 +26,12 @@
 //! win, printing the control and standings history and the result, checked against a
 //! brute-force recount of the final holdings.
 //!
+//! With `--season --ai` it runs the α pacing run with real AI instead (D-218; A2 plan §5.4):
+//! four Normal AI commanders on their seeded schedules, 7 days by default, reporting D-070's
+//! measures as D-218 and D-283 define them, with the same code as `--economy`; `--solo` keeps
+//! one commander alone (D-083 item 3). Run `--economy` on the same seed for S4's scripted
+//! builder alongside (D-280).
+//!
 //! With `--siege` it runs the siege scenarios (S6 plan §8): breach, Reinforced, siege, Held
 //! and Fallen, capture, the emergency jump of a mother station, protections and peripheral
 //! structures, each end to end from scripted commands, with its timeline and checks.
@@ -34,6 +40,18 @@
 //! two commanders and an NPC group for a simulated day by default, every observer's picture
 //! compared with brute-force ground truth after every sensors pass, the sensors pass's cost
 //! at stage 1 and in a stage-2 stress layout, and two fleets finding each other.
+//!
+//! With `--deputy` it runs the Deputy's scenarios (A1 plan §9): a raid on a holding, SHLD
+//! SURGE and FLAK SCREEN, convoy evacuation and a contested gate, rebuilding within the
+//! budget, direct control, and a catch-up, each with its checks. `--deputy bench` measures
+//! the Deputy's cost per tick and the catch-up speed at stage 1 (D-203), for 6 simulated
+//! hours unless `--hours` or `--ticks` says otherwise; build with `--release` for it.
+//!
+//! With `--raids` it runs NPC raids on a stage-1 Universe (A3 plan §8 task 5; D-225): the
+//! four commanders' Deputies, scripted claims, the haven's launches and the raider director,
+//! 7 days by default with a catch-up segment, reporting the launch intervals, raids per
+//! commander and per day, the 6 h spacing, what raids destroyed or disabled, raider damage
+//! to domes, catch-up suppression and raid losses.
 //!
 //! `--rules PATH` replaces the rules embedded in the build with another rules file, for
 //! tuning runs (D-104). The Universe keeps the rules it was created with.
@@ -49,17 +67,25 @@
 //! nomad-harness --windows [--seed N] [--days N] [--rules PATH]
 //! nomad-harness --season [--seed N] [--days N] [--claim-hours N] [--early-win]
 //!               [--restore-at N] [--rules PATH]
+//! nomad-harness --season --ai [--solo] [--seed N] [--days N] [--trace-hours N] [--csv PATH]
+//!               [--rules PATH]
 //! nomad-harness --siege [--seed N] [--rules PATH]
 //! nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]
+//! nomad-harness --deputy [bench] [--seed N] [--hours N | --ticks N] [--rules PATH]
+//! nomad-harness --raids [--seed N] [--days N] [--claim-hours N] [--catch-up-from H]
+//!               [--catch-up-hours N] [--restore-at N] [--rules PATH]
 //! ```
 
 mod combat;
+mod deputy;
 mod economy;
 mod fleets;
 mod fog;
 mod galaxy;
 mod pacing;
+mod raids;
 mod season;
+mod season_ai;
 mod siege;
 mod station;
 mod windows;
@@ -94,6 +120,8 @@ struct Args {
     windows: bool,
     siege: bool,
     fog: bool,
+    /// `--deputy`, and whether it is `--deputy bench`.
+    deputy: Option<bool>,
     days: Option<u64>,
     rules: Option<PathBuf>,
     csv: Option<PathBuf>,
@@ -101,6 +129,14 @@ struct Args {
     season: bool,
     claim_hours: u64,
     early_win: bool,
+    // A3: `--raids`.
+    raids: bool,
+    catch_up_from: u64,
+    catch_up_hours: u64,
+    // A2: `--season --ai`.
+    ai: bool,
+    solo: bool,
+    trace_hours: Option<u64>,
 }
 
 impl Default for Args {
@@ -121,12 +157,19 @@ impl Default for Args {
             windows: false,
             siege: false,
             fog: false,
+            deputy: None,
             days: None,
             rules: None,
             csv: None,
             season: false,
             claim_hours: 12,
             early_win: false,
+            raids: false,
+            catch_up_from: 30,
+            catch_up_hours: 6,
+            ai: false,
+            solo: false,
+            trace_hours: None,
         }
     }
 }
@@ -154,12 +197,20 @@ fn parse_args() -> Result<Args, String> {
             "--windows" => args.windows = true,
             "--siege" => args.siege = true,
             "--fog" => args.fog = true,
+            "--deputy" => args.deputy = Some(false),
+            "bench" if args.deputy.is_some() => args.deputy = Some(true),
             "--days" => args.days = Some(parse(&value()?)?),
             "--rules" => args.rules = Some(PathBuf::from(value()?)),
             "--csv" => args.csv = Some(PathBuf::from(value()?)),
             "--season" => args.season = true,
             "--claim-hours" => args.claim_hours = parse(&value()?)?,
+            "--raids" => args.raids = true,
+            "--catch-up-from" => args.catch_up_from = parse(&value()?)?,
+            "--catch-up-hours" => args.catch_up_hours = parse(&value()?)?,
             "--early-win" => args.early_win = true,
+            "--ai" => args.ai = true,
+            "--solo" => args.solo = true,
+            "--trace-hours" => args.trace_hours = Some(parse(&value()?)?),
             "--help" | "-h" => {
                 return Err(
                     "usage: nomad-harness [--seed N] [--ticks N] [--diagnostics N] \
@@ -173,8 +224,15 @@ fn parse_args() -> Result<Args, String> {
                      nomad-harness --windows [--seed N] [--days N] [--rules PATH]\n       \
                      nomad-harness --season [--seed N] [--days N] [--claim-hours N] \
                             [--early-win] [--restore-at N] [--rules PATH]\n       \
+                     nomad-harness --season --ai [--solo] [--seed N] [--days N] [--trace-hours N] \
+                            [--csv PATH] [--rules PATH]\n       \
                      nomad-harness --siege [--seed N] [--rules PATH]\n       \
-                     nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]"
+                     nomad-harness --fog [--seed N] [--hours N | --ticks N] [--rules PATH]\n       \
+                     nomad-harness --deputy [bench] [--seed N] [--hours N | --ticks N] \
+                            [--rules PATH]\n       \
+                     nomad-harness --raids [--seed N] [--days N] [--claim-hours N] \
+                            [--catch-up-from H] [--catch-up-hours N] [--restore-at N] \
+                            [--rules PATH]"
                         .to_owned(),
                 );
             }
@@ -219,6 +277,9 @@ fn run() -> Result<(), String> {
             },
         );
     }
+    if args.season && args.ai {
+        return season_ai::run(&mut io::stdout().lock(), pacing_run(&args, rules));
+    }
     if args.season {
         return season::run(
             &mut io::stdout().lock(),
@@ -231,6 +292,9 @@ fn run() -> Result<(), String> {
                 rules,
             },
         );
+    }
+    if args.raids {
+        return raids::run(&mut io::stdout().lock(), raid_run(&args, rules));
     }
     if args.windows {
         return windows::run(
@@ -263,6 +327,19 @@ fn run() -> Result<(), String> {
             },
         );
     }
+    if let Some(bench) = args.deputy {
+        let run = deputy::DeputyRun {
+            seed: args.seed,
+            rules,
+        };
+        let out = &mut io::stdout().lock();
+        return if bench {
+            let ticks = args.ticks.unwrap_or(Ticks::from_hours(args.hours).get());
+            deputy::bench(out, &run, ticks)
+        } else {
+            deputy::run(out, &run)
+        };
+    }
     if args.fleets {
         let hours = Ticks::from_hours(args.hours).get();
         return fleets::run(
@@ -277,6 +354,31 @@ fn run() -> Result<(), String> {
         );
     }
     diagnostics(&args, rules)
+}
+
+/// What `--season --ai` runs, from the command line: 7 days unless `--days` says otherwise.
+fn pacing_run(args: &Args, rules: Rules) -> season_ai::PacingRun {
+    season_ai::PacingRun {
+        seed: args.seed,
+        days: args.days.unwrap_or(7),
+        solo: args.solo,
+        rules,
+        trace_hours: args.trace_hours,
+        csv: args.csv.clone(),
+    }
+}
+
+/// What `--raids` runs, from the command line: 7 days unless `--days` says otherwise.
+fn raid_run(args: &Args, rules: Rules) -> raids::RaidRun {
+    raids::RaidRun {
+        seed: args.seed,
+        days: args.days.unwrap_or(7),
+        claim_hours: args.claim_hours,
+        catch_up_from: args.catch_up_from,
+        catch_up_hours: args.catch_up_hours,
+        restore_at: args.restore_at,
+        rules,
+    }
 }
 
 /// The default run: diagnostic timers for `--ticks`, reporting the hash and the speed.

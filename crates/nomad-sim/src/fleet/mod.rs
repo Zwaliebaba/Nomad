@@ -527,8 +527,10 @@ impl UniverseState {
     }
 }
 
-/// Spawns the start-kit fleet of every mother station, docked there (doc 14 §12; S3 plan §3).
-/// Identities follow holding order, then the fleet before its ships, by class.
+/// Spawns the start-kit fleets of every mother station, docked there (doc 14 §12; S3 plan §3).
+/// The kit begins as one fleet per class (D-286): the 3 VX, the mother station's garrison,
+/// and the 2 MULEs, a reserve (D-207). Identities follow holding order, then class order,
+/// each fleet before its ships.
 pub(crate) fn spawn_start_kits(state: &mut UniverseState) {
     let mothers: Vec<(HoldingId, Owner)> = state
         .holdings
@@ -543,7 +545,14 @@ pub(crate) fn spawn_start_kits(state: &mut UniverseState) {
         .iter()
         .map(|(&class, &count)| (class, count))
         .collect();
-    for (holding, owner) in mothers {
+    let fleets: Vec<(HoldingId, Owner, ShipClass, u32)> = mothers
+        .iter()
+        .flat_map(|&(holding, owner)| {
+            kit.iter()
+                .map(move |&(class, count)| (holding, owner, class, count))
+        })
+        .collect();
+    for (holding, owner, class, count) in fleets {
         let anchor = Motion {
             position: station::launch_point(state, holding).unwrap_or_default(),
             velocity: Vec2::ZERO,
@@ -560,12 +569,10 @@ pub(crate) fn spawn_start_kits(state: &mut UniverseState) {
             queue: VecDeque::new(),
         };
         let mut ships = Vec::new();
-        for &(class, count) in &kit {
-            for _ in 0..count {
-                let id = ShipId(state.ids.allocate());
-                fleet.members.insert(id, Vec2::ZERO);
-                ships.push((id, class));
-            }
+        for _ in 0..count {
+            let id = ShipId(state.ids.allocate());
+            fleet.members.insert(id, Vec2::ZERO);
+            ships.push((id, class));
         }
         reform(&mut fleet, state.rules.movement.formation_spacing_m);
         for (id, class) in ships {

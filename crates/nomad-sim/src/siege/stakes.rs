@@ -361,6 +361,7 @@ fn run_seed(seed: u64, rules: &Rules) -> Tally {
         kind: CommanderKind::Ai,
         difficulty: nomad_types::Difficulty::Normal,
         window_start: quarter(&mut rng),
+        scheduled: false,
     });
     let start_ms = i64::try_from(rng.below(SCRIPT, 86_400_000)).unwrap();
     let state =
@@ -397,6 +398,8 @@ fn run_seed(seed: u64, rules: &Rules) -> Tally {
         economy::spawn_module(&mut run.state, h, Slot::Core, ModuleKind::Core, None);
         targets.push(h);
     }
+    // The stakes rule is about the clock, not the defence: Deputies stay out.
+    crate::testkit::passive_all(&mut run.state);
     let horizon = Tick::new(7 * 864_000);
     script_presence(&mut run, horizon);
     run.step();

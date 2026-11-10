@@ -24,9 +24,12 @@ use nomad_types::{ModuleKind, Owner, Slot};
 use super::DefenceEvent;
 use super::dome::{self, GridFrame};
 use super::hooks::{self, StructureOutcome};
-use crate::combat::{Aim, Projectile, ProjectileId, ShipIndex, Shooter, hostile, sweep};
+use crate::combat::{
+    Aim, Projectile, ProjectileId, ShipIndex, Shooter, hostile, shooter_fleet, sweep,
+};
 use crate::economy::rules::{MILLI, SlotRadii};
 use crate::economy::{self, EconomyEvent, Hull, Module};
+use crate::fleet::FleetId;
 use crate::galaxy::SystemId;
 use crate::geometry::Vec2;
 use crate::holding::HoldingId;
@@ -441,11 +444,11 @@ pub(crate) fn circle_of(
     Some((system, centre.into(), radius))
 }
 
-/// Per tick and owner, what each sector and module lost, for the events.
+/// Per tick, owner and attacking fleet, what each sector and module lost, for the events.
 #[derive(Default)]
 struct Losses {
-    sectors: BTreeMap<(HoldingId, u8, Owner), u64>,
-    modules: BTreeMap<(SimId, Owner), (HoldingId, u32)>,
+    sectors: BTreeMap<(HoldingId, u8, Owner, Option<FleetId>), u64>,
+    modules: BTreeMap<(SimId, Owner, Option<FleetId>), (HoldingId, u32)>,
 }
 
 /// Applies the tick's structure hits in `(target SimId, projectile id)` order (doc 15 §4).
@@ -476,19 +479,21 @@ pub(crate) fn apply(
             }
         }
     }
-    for ((holding, sector, by), amount_milli) in losses.sectors {
+    for ((holding, sector, by, by_fleet), amount_milli) in losses.sectors {
         events.push(DefenceEvent::SectorDamaged {
             holding,
             sector,
             by,
+            by_fleet,
             amount_milli,
         });
     }
-    for ((module, by), (holding, amount)) in losses.modules {
+    for ((module, by, by_fleet), (holding, amount)) in losses.modules {
         events.push(DefenceEvent::ModuleDamaged {
             holding,
             module,
             by,
+            by_fleet,
             amount,
         });
     }
@@ -522,6 +527,7 @@ fn damage_sector(
         return;
     }
     let breach_allowed = hooks::breach_may_occur(state, holding, now);
+    let by_fleet = shooter_fleet(state, hit.shooter);
     let Some(d) = state.defence.holdings.get_mut(&holding) else {
         return;
     };
@@ -542,7 +548,7 @@ fn damage_sector(
     if removed > 0 {
         let entry = losses
             .sectors
-            .entry((holding, sector, hit.owner))
+            .entry((holding, sector, hit.owner, by_fleet))
             .or_default();
         *entry = entry.saturating_add(removed);
     }
@@ -587,7 +593,7 @@ fn damage_module(
     if removed > 0 {
         let entry = losses
             .modules
-            .entry((module, hit.owner))
+            .entry((module, hit.owner, shooter_fleet(state, hit.shooter)))
             .or_insert((holding, 0));
         entry.1 = entry.1.saturating_add(removed);
         if let Owner::Commander(commander) = hit.owner {

@@ -84,6 +84,7 @@ pub mod geometry;
 mod holding;
 mod id;
 mod input;
+mod raids;
 mod rng;
 pub mod rules;
 pub mod scenario;
@@ -125,17 +126,20 @@ pub use holding::{
 pub use id::{CommanderId, SimId, SimIdAllocator};
 pub use input::{CommanderInput, CommanderInputKind, OperatorInput, TickInputs};
 pub use nomad_ai::{
-    CommandOutcome, DeferReason, DeputyEvent, DropReason, InboxEntry, InboxEvent, Layer, Rebuild,
+    CommandOutcome, DeferReason, DeputyEvent, DirectorEvent, DropReason, InboxEntry, InboxEvent,
+    Layer, Rebuild, Withdrawal,
 };
 pub use nomad_types::{
-    BuildItem, Command, CommanderKind, EconomyCommand, FleetOrder, HoldingOrder, ModuleKind, Owner,
-    PowerProfile, QuarterHour, Queueing, RulesOfEngagement, Slot, StationAbility,
+    BuildItem, Command, CommanderKind, Difficulty, EconomyCommand, FleetOrder, HoldingOrder,
+    ModuleKind, Owner, PowerProfile, QuarterHour, Queueing, RulesOfEngagement, SiteKind, Slot,
+    StationAbility,
 };
 pub use nomad_types::{
     DirectControl, DoctrineCommand, DoctrinePreset, DoctrineValues, FleetDoctrine, FleetRole,
     HoldingDoctrine, ReplacementEntry,
 };
 pub use nomad_types::{FactionId, Location, PositionMetres};
+pub use raids::{RaidEvent, RaidFactionView, RaidGroup};
 pub use rng::{RngStreams, StreamKey, purpose};
 pub use rules::{Rules, RulesError};
 pub use sensors::{

@@ -8,8 +8,8 @@
 //! **Presence** *(Derived from doc 11 §6, doc 12 §5.3, D-047, D-080; [`presence`]):*
 //! - a human is online while connected, between the journaled `Connected` and
 //!   `Disconnected` inputs;
-//! - an AI is online by its schedule, which A5 supplies. Until then the harness sets it with
-//!   the operator input `SetPresence`, which only an AI commander accepts;
+//! - an AI is online by its seeded schedule (D-080, D-204), which the harness may override
+//!   with the operator input `SetPresence`, which only an AI commander accepts;
 //! - during catch-up nobody is online, whatever the schedule says (D-047, D-080).
 //!
 //! **The disconnect grace** *(doc 12 §5.3; D-160 to D-162):* a commander who goes offline
@@ -40,7 +40,9 @@ mod presence;
 mod tests;
 mod window;
 
-pub(crate) use presence::{counts_as_online, set_presence, sync_presence};
+pub(crate) use presence::{
+    counts_as_online, follow_schedules, session_times, set_presence, sync_presence,
+};
 pub(crate) use window::{choose_window, sample_activity, validate_window_choice};
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -125,8 +127,15 @@ pub(crate) struct Commander {
     pub(crate) difficulty: Difficulty,
     /// When the commander joined: the season start in the MVP (late joiners are outside it).
     pub(crate) joined: Tick,
-    /// An AI's schedule says it is online (D-080). Set by `SetPresence` until A5.
+    /// An AI's schedule says it is online (D-080): its seeded schedule, or `SetPresence`.
     pub(crate) scheduled_online: bool,
+    /// An AI's seeded weekly schedule (D-080, D-204), generated at creation; `None` for a
+    /// human and for an AI whose presence the harness sets.
+    pub(crate) schedule: Option<nomad_ai::schedule::Schedule>,
+    /// `SetPresence` overrides the schedule from now on (D-204: the harness override).
+    pub(crate) presence_overridden: bool,
+    /// When the schedule next changes `scheduled_online`, while it drives presence.
+    pub(crate) next_schedule_change: Option<Tick>,
     pub(crate) presence: Presence,
     /// While offline inside the disconnect grace: the tick it ends, a deadline.
     pub(crate) grace_until: Option<Tick>,
@@ -177,8 +186,13 @@ pub struct CommanderSetup {
     pub kind: CommanderKind,
     /// An AI commander's difficulty (D-079); ignored for a human.
     pub difficulty: Difficulty,
-    /// The initial exposure window's start, UTC.
+    /// The initial exposure window's start, UTC; ignored for a scheduled AI, whose window
+    /// comes from its schedule (D-157).
     pub window_start: QuarterHour,
+    /// An AI commander's presence and initial window come from a seeded schedule (D-080,
+    /// D-157, D-204). Otherwise, as before A2, it is offline until `SetPresence` says
+    /// otherwise, and its window starts at `window_start`: the harness's and tests' way.
+    pub scheduled: bool,
 }
 
 impl CommanderSetup {
@@ -190,6 +204,7 @@ impl CommanderSetup {
             kind: CommanderKind::Human,
             difficulty: Difficulty::Normal,
             window_start,
+            scheduled: false,
         }
     }
 
@@ -199,13 +214,27 @@ impl CommanderSetup {
         Self::ai_at(id, Difficulty::Normal)
     }
 
-    /// An AI commander at `difficulty` (D-079, D-231) with [`DEFAULT_WINDOW_START`].
+    /// An AI commander at `difficulty` (D-079, D-231) with [`DEFAULT_WINDOW_START`], whose
+    /// presence the harness sets with `SetPresence`.
     pub const fn ai_at(id: CommanderId, difficulty: Difficulty) -> Self {
         Self {
             id,
             kind: CommanderKind::Ai,
             difficulty,
             window_start: DEFAULT_WINDOW_START,
+            scheduled: false,
+        }
+    }
+
+    /// An AI commander at `difficulty` on its seeded schedule, which sets its presence and
+    /// its initial window (D-080, D-157, D-204): how the server creates AI commanders.
+    pub const fn scheduled_ai(id: CommanderId, difficulty: Difficulty) -> Self {
+        Self {
+            id,
+            kind: CommanderKind::Ai,
+            difficulty,
+            window_start: DEFAULT_WINDOW_START,
+            scheduled: true,
         }
     }
 }
@@ -281,7 +310,36 @@ pub(crate) fn add_commander(
         return Err(CommanderError::InvalidWindow(setup.id));
     }
     let now = state.tick;
-    let (opens, closes) = window::occurrence_at(state, now, setup.window_start);
+    let seed = state.season.seed;
+    let scope = u64::from(setup.id.0);
+    let stream = |purpose| {
+        nomad_ai::Stream::from_seed(crate::rng::seed_of(
+            seed,
+            crate::rng::StreamKey { scope, purpose },
+        ))
+    };
+    // The AI's streams live in its memory (A1 plan §4.6).
+    let memory = state.ai.commander_mut(setup.id);
+    memory.deputy_stream = Some(stream(crate::rng::purpose::AI_DEPUTY));
+    if setup.kind == CommanderKind::Ai {
+        memory.strategist.seed(crate::rng::seed_of(
+            seed,
+            crate::rng::StreamKey {
+                scope,
+                purpose: crate::rng::purpose::AI_STRATEGIST,
+            },
+        ));
+    }
+    // A scheduled AI's schedule, its initial window and its presence now (D-157, D-204).
+    let schedule = (setup.kind == CommanderKind::Ai && setup.scheduled)
+        .then(|| nomad_ai::schedule::generate(&mut stream(crate::rng::purpose::AI_SCHEDULE)));
+    let window_start = schedule.as_ref().map_or(setup.window_start, |schedule| {
+        let length = state.rules.sieges.window_minutes;
+        QuarterHour::new(schedule.window_start(length)).unwrap_or(setup.window_start)
+    });
+    let (opens, closes) = window::occurrence_at(state, now, window_start);
+    // A schedule is first read on the next tick (phase 1).
+    let first_change = schedule.is_some().then_some(now);
     state
         .commanders
         .deadlines
@@ -293,10 +351,13 @@ pub(crate) fn add_commander(
             difficulty: setup.difficulty,
             joined: now,
             scheduled_online: false,
+            schedule,
+            presence_overridden: false,
+            next_schedule_change: first_change,
             presence: Presence::Offline { since: now },
             grace_until: None,
             window: Window {
-                start: setup.window_start,
+                start: window_start,
                 opens,
                 closes,
                 chosen: None,
@@ -349,6 +410,20 @@ impl UniverseState {
             chosen_window: record.window.chosen,
             free_choice_until: record.joined.after(free_choice(self)),
         })
+    }
+
+    /// An AI commander's seeded schedule (D-080, D-204), private to the commander (D-075): for
+    /// the harness and tests. `None` for a human and an AI without one.
+    pub fn schedule(&self, id: CommanderId) -> Option<&nomad_ai::schedule::Schedule> {
+        self.commanders.records.get(&id)?.schedule.as_ref()
+    }
+
+    /// The AI's Strategist memory statistics, for the harness (A2).
+    pub fn strategist_stats(
+        &self,
+        id: CommanderId,
+    ) -> Option<nomad_ai::strategist::StrategistStats> {
+        self.ai.commander(id).map(|m| m.strategist.stats())
     }
 
     /// A commander's exposure window, public (D-075): the start and the occurrence open now

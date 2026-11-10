@@ -55,7 +55,19 @@ pub const MAGIC: [u8; 8] = *b"NOMADSNP";
 ///   counters; commander records keep an AI's difficulty; every commander's doctrine and the
 ///   fleets under direct control; a convoy keeps the contested gate it holds for; the rules
 ///   gain the AI section and the gates' contested radius, rules format 11.
-pub const FORMAT: u32 = 17;
+/// - 18: the Deputy's second half (A1b): damage in the inbox names the attacking fleet when
+///   it is detected; the Deputy's memory keeps each holding's alert and each fleet's home and
+///   unanswered order; the rules gain the Deputy's timings and distances, rules format 12.
+/// - 19: raids (A3): the raider factions with their havens, next launches and raid groups,
+///   and each commander's last raid; the timer queue gains the haven launch timers; the AI
+///   rules gain the raid parameters, rules format 13.
+/// - 20: the raider director's memory per NPC faction in the AI memory (A3).
+/// - 21: AI schedules and the Strategist (A2): commander records keep an AI's seeded
+///   schedule, whether `SetPresence` overrides it and its next change; AI memory gains the
+///   per-commander random streams and the Strategist's plans; the rules' AI section gains the
+///   Strategist's values, blueprints and per-difficulty noise, rules format 14.
+/// - 22: claim trips that continue offline, with their site (D-291).
+pub const FORMAT: u32 = 22;
 
 /// Why a snapshot could not be written or read.
 #[derive(Debug, Error)]

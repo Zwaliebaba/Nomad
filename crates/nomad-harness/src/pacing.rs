@@ -1,6 +1,7 @@
 //! D-070's pacing measures with D-218 §5.4's definitions (amended by D-283), computed from
 //! hourly samples of one commander's economy. `--economy` uses them for the scripted
-//! builders; the α `--season` runs are to use the same functions for AI commanders.
+//! builders and `--season --ai` for AI commanders (D-218, D-280), so the two report the same
+//! measures the same way ([`Measures`]), and write the same hourly CSV ([`write_csv_row`]).
 //!
 //! - **Storage fill:** the alloy pool cap ÷ alloy income, at the start and as the means over
 //!   days 21–35 (crystal is reported alongside).
@@ -20,11 +21,16 @@
 //! decimals over days 10–14, 14–21 and 21–25. A full 56-day run takes hours in a release
 //! build, so tuning runs use 14 or 21 days and the α runs confirm with the full windows.
 
+use std::io::Write;
+
 use nomad_sim::economy::rules::EconomyRules;
-use nomad_sim::{ShipClass, Stock};
+use nomad_sim::{CommanderEconomy, CommanderId, ShipClass, Stock};
 
 /// Hours in a day.
 const DAY_H: u64 = 24;
+
+/// The mother station's income at the season start, the reference for late income (D-070).
+pub const START_INCOME: f64 = 600.0;
 
 /// One commander's economy at the end of an hour.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -186,6 +192,221 @@ pub fn median(values: &[f64]) -> f64 {
     } else {
         f64::midpoint(v[mid - 1], v[mid])
     }
+}
+
+/// One commander's run, as the D-070 measures read it.
+pub struct CommanderRun<'a> {
+    /// Its hourly samples.
+    pub samples: &'a [Sample],
+    /// Its pool cap at the season start.
+    pub start_cap: Stock,
+    /// When each of its holdings completed, in hours since the season start.
+    pub completions: &'a [f64],
+    /// When its first core kit started, in hours since its first online minute.
+    pub first_kit: Option<f64>,
+    /// Each of its holdings other than the mother station: the hours from its core completion
+    /// to its full build-out (D-283), or `None` if it was not built out by the end.
+    pub build_outs: &'a [Option<f64>],
+}
+
+/// Each commander's D-070 measures (D-218 §5.4, D-283), collected for the report.
+#[derive(Default)]
+pub struct Measures {
+    storage_start: Vec<f64>,
+    storage_mid: Vec<f64>,
+    storage_mid_crystal: Vec<f64>,
+    first_kit: Vec<f64>,
+    per_holding: Vec<f64>,
+    rebuild: Vec<f64>,
+    rebuild_alloy: Vec<f64>,
+    rebuild_crystal: Vec<f64>,
+    mid_income: Vec<(f64, f64)>,
+    build_out: Vec<f64>,
+    remote_holdings: usize,
+    late: Vec<f64>,
+}
+
+impl Measures {
+    /// Adds one commander's measures, over the mid-season window `mid` and the late one
+    /// `late`, with the Garrison mix's cost per command point `per_command`.
+    pub fn add(
+        &mut self,
+        run: &CommanderRun<'_>,
+        per_command: (f64, f64),
+        mid: Window,
+        late: Window,
+    ) {
+        let series = run.samples;
+        if let Some((a, _)) = income(
+            series,
+            Window {
+                from: 0,
+                to: 1,
+                proxy: false,
+            },
+        ) {
+            self.storage_start
+                .push(run.start_cap.alloy as f64 / 1_000.0 / a.max(1e-9));
+        }
+        if let (Some((a, cr)), Some((cap_a, cap_c, command))) =
+            (income(series, mid), caps(series, mid))
+        {
+            self.storage_mid.push(cap_a / a.max(1e-9));
+            self.storage_mid_crystal.push(cap_c / cr.max(1e-9));
+            let (ha, hc) = rebuild_hours(per_command, command, (a, cr));
+            self.rebuild.push(ha.max(hc));
+            self.rebuild_alloy.push(ha);
+            self.rebuild_crystal.push(hc);
+            self.mid_income.push((a, cr));
+        }
+        if let Some((a, _)) = income(series, late) {
+            self.late.push(a / START_INCOME);
+        }
+        if let Some(h) = run.first_kit {
+            self.first_kit.push(h);
+        }
+        if let Some(h) = hours_per_holding_days_0_3(run.completions) {
+            self.per_holding.push(h);
+        }
+        self.remote_holdings += run.build_outs.len();
+        self.build_out.extend(run.build_outs.iter().flatten());
+    }
+
+    /// Writes each measure as the median over the commanders, with the range and a verdict
+    /// against D-070's target (α passes within ±50%, doc 30 §3).
+    pub fn write(&self, out: &mut impl Write, mid: Window, late: Window) -> Result<(), String> {
+        let verdict = |value: f64, lo: f64, hi: f64| {
+            if value.is_nan() {
+                "not measured".to_owned()
+            } else if value >= lo && value <= hi {
+                "on target".to_owned()
+            } else if value >= lo * 0.5 && value <= hi * 1.5 {
+                "within ±50% (tuning item)".to_owned()
+            } else {
+                "outside ±50% (tuning item)".to_owned()
+            }
+        };
+        let range = |v: &[f64]| {
+            let finite: Vec<f64> = v.iter().copied().filter(|x| !x.is_nan()).collect();
+            if finite.is_empty() {
+                return String::new();
+            }
+            let lo = finite.iter().copied().fold(f64::INFINITY, f64::min);
+            let hi = finite.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            format!(" (range {lo:.2}–{hi:.2})")
+        };
+        writeln!(
+            out,
+            "D-070 measures, median over the commanders (D-218 §5.4; mid-season {}; late {}):",
+            mid.label(),
+            late.label()
+        )
+        .map_err(|e| e.to_string())?;
+        let lines: [(&str, &[f64], f64, f64, &str); 7] = [
+            (
+                "storage fills at start income [8-12 h]",
+                &self.storage_start,
+                8.0,
+                12.0,
+                "h",
+            ),
+            (
+                "storage fills at mid-season income, alloy [8-12 h]",
+                &self.storage_mid,
+                8.0,
+                12.0,
+                "h",
+            ),
+            (
+                "first expansion started [<= 1 h]",
+                &self.first_kit,
+                0.0,
+                1.0,
+                "h",
+            ),
+            (
+                "hours per new holding, days 0-3: 72 h / holdings completed [12-24 h]",
+                &self.per_holding,
+                12.0,
+                24.0,
+                "h",
+            ),
+            (
+                "full cap-fleet rebuild, Garrison mix, binding resource [~24 h]",
+                &self.rebuild,
+                20.0,
+                28.0,
+                "h",
+            ),
+            (
+                "build-out from core completion, D-283 [48-72 h]",
+                &self.build_out,
+                48.0,
+                72.0,
+                "h",
+            ),
+            ("late income vs start [3-4x]", &self.late, 3.0, 4.0, "x"),
+        ];
+        for (name, values, lo, hi, unit) in lines {
+            let value = median(values);
+            writeln!(
+                out,
+                "  {name}: {value:.2} {unit}{} -> {}",
+                range(values),
+                verdict(value, lo, hi)
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        let alloy: Vec<f64> = self.mid_income.iter().map(|x| x.0).collect();
+        let crystal: Vec<f64> = self.mid_income.iter().map(|x| x.1).collect();
+        writeln!(
+            out,
+            "  also: storage fill, crystal {:.1} h | rebuild on alloy {:.1} h, on crystal {:.1} h | mid-season income {:.0} A/h {:.0} C/h | build-out finished at {} of {} remote holdings",
+            median(&self.storage_mid_crystal),
+            median(&self.rebuild_alloy),
+            median(&self.rebuild_crystal),
+            median(&alloy),
+            median(&crystal),
+            self.build_out.len(),
+            self.remote_holdings,
+        )
+        .map_err(|e| e.to_string())
+    }
+}
+
+/// The header of the hourly CSV that `--csv` writes, one row per commander and hour.
+pub const CSV_HEADER: &str = "hour,commander,produced_alloy,produced_crystal,cap_alloy,cap_crystal,pool_alloy,pool_crystal,lost_alloy,lost_crystal,holdings,alloy_producers,crystal_producers,alloy_yield_permille,crystal_yield_permille,command_cap,kit_alloy,kit_crystal";
+
+/// Writes one row of the hourly CSV ([`CSV_HEADER`]).
+pub fn write_csv_row(
+    out: &mut impl Write,
+    sample: &Sample,
+    commander: CommanderId,
+    e: &CommanderEconomy,
+) -> Result<(), String> {
+    writeln!(
+        out,
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        sample.hour,
+        commander.0,
+        e.produced.alloy,
+        e.produced.crystal,
+        e.cap.alloy,
+        e.cap.crystal,
+        e.pool.alloy,
+        e.pool.crystal,
+        e.lost.alloy,
+        e.lost.crystal,
+        sample.holdings,
+        e.producing_holdings.alloy,
+        e.producing_holdings.crystal,
+        e.yield_permille.alloy,
+        e.yield_permille.crystal,
+        e.command_cap,
+        e.core_kit_price.alloy,
+        e.core_kit_price.crystal,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

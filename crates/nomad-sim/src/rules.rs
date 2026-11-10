@@ -27,7 +27,8 @@
 //! | Sieges: disconnect grace, exposure window, drift, activity history, free choice; notice, siege clock, stagger, breach credit, protections, restores, the comeback grant | [`sieges`] (doc 12 §4, §5.3, §8; doc 15 §6–§7; D-015, D-032 to D-034, D-057, D-155 to D-167) |
 //! | Season: the early-win share | [`season`] (doc 10 §6; D-020, D-192) |
 //! | Sensors: ranges per sensor kind (each class names its kind), signatures, memory and lane-traffic timings, the range rule | [`sensors`] (doc 16 §3–§5; D-072 to D-076, D-179; S7) |
-//! | AI: doctrine presets, the difficulty table, the human Deputy's competence, the Deputy's rate, inbox retention and command expiry | [`ai`] (doc 13 §7, §9; D-079, D-082, D-201 to D-203, D-211; A1) |
+//! | AI: doctrine presets, the difficulty table, the human Deputy's competence, the Deputy's rate, inbox retention and command expiry; the Strategist's values and blueprints | [`ai`] (doc 13 §7, §9; D-079, D-082, D-201 to D-203, D-211, D-212 to D-215; A1, A2) |
+//! | Raids: launch interval, target spacing and weights, fleet values, budget and floor, the clock, the loss limit, early withdrawal | [`raids`], in the `ai` section (doc 13 §8; D-081, D-220 to D-222; A3) |
 //!
 //! Starting values adopted from this implementation (D-113): separation distance, obstacle
 //! margin, look-ahead time (D-105 fixes the behaviour, D-113 the numbers), the guard radius
@@ -36,6 +37,7 @@
 pub mod ai;
 pub mod combat;
 pub mod defence;
+pub mod raids;
 pub mod sensors;
 pub mod sieges;
 
@@ -50,7 +52,7 @@ use thiserror::Error;
 
 /// The format tag a rules file must carry (`CODING_STANDARDS.md` §9: unknown formats are
 /// rejected).
-pub const RULES_FORMAT: &str = "nomad-rules@11";
+pub const RULES_FORMAT: &str = "nomad-rules@14";
 
 /// The rules file embedded in the build.
 pub const DEFAULT_RULES_JSON: &str = include_str!("../rules/default.json");
@@ -581,8 +583,8 @@ mod tests {
             Rules::from_json(&DEFAULT_RULES_JSON.replacen(from, to, 1))
         };
         assert!(matches!(
-            swap("nomad-rules@11", "nomad-rules@10"),
-            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@10"
+            swap("nomad-rules@14", "nomad-rules@13"),
+            Err(RulesError::UnknownFormat(f)) if f == "nomad-rules@13"
         ));
         // The sieges section (S6a): whole quarter hours, a window shorter than a day.
         for (from, to) in [

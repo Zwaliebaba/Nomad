@@ -1,6 +1,6 @@
 # 00 — Glossary
 
-Status: **Draft; decisions up to D-229 applied.** Terms marked *(phase 1)* come from the owner's phase-1 package. Terms marked *(proposed)* are new and still need confirmation. Unmarked terms are agreed; each cites the decision or document that defines it.
+Status: **Draft; decisions up to D-300 applied.** Terms marked *(phase 1)* come from the owner's phase-1 package. Terms marked *(proposed)* are new and still need confirmation. Unmarked terms are agreed; each cites the decision or document that defines it.
 
 ## Rule: the total game space is the Universe
 
@@ -57,7 +57,7 @@ Taken from the phase-1 breadcrumb `ORION ARM › VEIL SECTOR › KESTREL-7 › O
 | **Module** *(phase 1)* | A selectable station component: core spindle, shield pylon, factory, dry dock, solar array, truss. In the MVP: core, pylon, refinery, storage, turret, dry dock, solar array, harvester, extractor (doc 14 §9.3). |
 | **Core spindle** *(phase 1)* | The centre module of a mother station: habitat ring, docking arms, sensor mast. |
 | **Shield pylon / shield sector** *(phase 1)* | Four pylons (N/E/S/W) project a dome. Each projects one sector, and each sector has its own strength. A sector's maximum is 25% from the core plus 75% from its own pylon (D-140). The dome is a globe centred on the ship plane (D-100, D-153). |
-| **Peripheral structure** | A module outside the dome: the solar array, harvesters and extractors, each in its own peripheral slot (D-131, D-138). Outside the owner's window it can only be disabled; inside it, a commander's hit can destroy it (doc 12 §3, D-169), while NPC raiders only disable (D-223). Its slot lies wholly outside the dome (D-228). |
+| **Peripheral structure** | A module outside the dome: the solar array, harvesters and extractors, each in its own peripheral slot (D-131, D-138), and the four pylons (D-255). Outside the owner's window it can only be disabled; inside it, a commander's hit can destroy it (doc 12 §3, D-169), while NPC raiders only disable (D-223). Its slot lies wholly outside the dome (D-228, D-255). NPC raiders do not target pylons (D-255). |
 | **Slot template** | The fixed build slots every holding has: the core, 4 pylon slots, inner slots (6 standard and 1 dock at the mother station, 4 and 1 elsewhere), 1 solar slot and 1 deposit slot per deposit (D-130, D-131). |
 | **Docking capacity** | Ships a holding can dock: mother-station core 24, other cores 8, +6 per dry dock. Frigates dock only where there is a dry dock (D-102). |
 | **Power bus** *(phase 1)* | The visible link that carries power from a generator such as SOL-1 to the station. |
@@ -108,11 +108,11 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Order lapse** | What happens when the grace ends: every direct fleet order lapses, and fleets fall back to doctrine (until A1, they station-keep). Economy queues and convoy routes are doctrine and continue (D-161, D-162). |
 | **Vacation** | A limited absence mode: up to 7 days per season, activating 72 h after the request, with no offence and no Reinforced allowed (D-024). Not in the MVP (D-038). |
 | **Derelict** | The state of a commander's holdings after 14 days without a login. They have no exposure window, and the Deputy rebuilds nothing (D-023). Not in the MVP (D-038). |
-| **Season** | One 8–12 week run of the Universe, won by system control (D-020). The default is 8 weeks (D-106). |
+| **Season** | One 8–12 week run, won by system control (D-020). The default is 8 weeks (D-106). Each season is a new Universe (D-116, D-299). |
 | **Storage cap** | The limit on stored resources, set so storage fills in about 8–12 h (D-025). |
 | **Emergency jump** | How a fallen mother station escapes. Its site's other modules are destroyed; 72 h of protection and a **comeback grant** follow (D-017, D-034). *Destination (D-164, D-165, superseding D-034's "nearest owned holding"):* a free site in the system of the commander's nearest holding by route time; else the free site in the claimable system with the fewest holdings; else it station-keeps by its nearest holding. *Travel (D-166):* an uninterruptible, untargetable transit lasting the route's time. |
 | **Comeback grant** | What a commander receives after their mother station falls: the cost of one core kit for each holding they are behind the standings leader, at least 1 and at most 3 kits, paid into the pool past the storage cap (D-034, D-167). |
-| **Blueprint** | A saved station layout. Blueprints carry over between seasons, together with doctrine presets and cosmetics (D-035). There is also one built-in blueprint per site kind, as rules data (D-215; built with A2). |
+| **Blueprint** | A saved station layout. Blueprints carry over between seasons, together with doctrine presets and cosmetics (D-035); player blueprints arrive with γ and live in a server table outside the Universe database (D-299). There is also one built-in blueprint per site kind, as rules data (D-215; built with A2). |
 
 ## Information and diplomacy
 
@@ -191,7 +191,7 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 | **Deposit** | An ore field or crystal vein on a site, poor, standard or rich, never running out. |
 | **Build slot** | A fixed position on a site's ops grid where one module can be built: pylon, peripheral or inner. |
 | **Command cap** | The fleet limit: 120 from the mother station, plus 10 per other completed holding, up to 300 (D-129). |
-| **Diminishing yield** | The factor that bounds late income: each producing holding other than the mother station has its alloy and crystal output scaled by min(1, F ÷ the commander's producing holdings other than the mother station). F is a rules value, starting at 2 (D-217). |
+| **Diminishing yield** | The factor that bounds late income, counted per resource: each holding other than the mother station has its alloy output scaled by min(1, F ÷ the commander's alloy-producing holdings other than the mother station), and its crystal output by min(1, F ÷ its crystal-producing holdings other than the mother station) (D-217, D-281). F is a rules value, now 2.5 (D-282). |
 | **Power routing profile** | How a holding shares scalable power: *Balanced* (the default), *Shields first* or *Production first*. Fixed draws (pylon base, turrets, active abilities) are served first, all or nothing (D-128). |
 | **Replacement list** | The economy doctrine that rebuilds listed ships and destroyed modules, within a budget: the preset's share of each resource's income over the last 24 h (D-208). |
 
@@ -225,6 +225,6 @@ ALLOY, CRYSTAL, POWER (MW, used/capacity), COMMAND (fleet capacity), ORE (harves
 
 | Term | Meaning |
 |---|---|
-| **Connection file** | `server.json` in a Universe's directory, written by the running server: the address a local client connects to, the certificate fingerprint and the token, with the Universe, the build, the protocol version and the process ID. It is removed on a clean stop (D-120, D-150). |
-| **Import string** | The same details as a `nomad://` string, printed by `nomad-server connect-info`, for a client that cannot read the server's files, such as one outside a container. It stays valid until `rotate-token` (D-151, D-152). |
-| **Identity** | The server's self-signed certificate, its key and the session token, made once per Universe and kept in `identity.json` (D-151), private to the user (D-122). |
+| **Connection file** | `server.json` in a Universe's directory, written by the running server: the address a local client connects to, the certificate fingerprint and the token, with the Universe, the build, the protocol version and the process ID. It is removed on a clean stop (D-120, D-150). The certificate fingerprint goes when the QUIC endpoint retires with N6 (D-242); the token stays for sessions without an `Origin` (D-244). |
+| **Import string** | The same details as a `nomad://` string, printed by `nomad-server connect-info`, for a client that cannot read the server's files, such as one outside a container. It stays valid until `rotate-token` (D-151, D-152). Retired with the QUIC endpoint (D-242): a browser reaches the server at its loopback address and needs no import (D-244). |
+| **Identity** | The server's self-signed certificate, its key and the session token, made once per Universe and kept in `identity.json` (D-151), private to the user (D-122). The certificate and its key retire with the QUIC endpoint (D-242); the token stays (D-244). |

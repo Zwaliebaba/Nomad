@@ -533,20 +533,20 @@ fn splits_inherit_direct_control_and_convoys_release_it() {
         state.direct_control(split),
         Some(nomad_types::DirectControl { retreat: true })
     );
-    // The MULEs of the kit as a convoy: doctrine, so released (D-162).
-    let mules: Vec<_> = ships
-        .iter()
-        .copied()
-        .filter(|&s| state.ship(s).unwrap().class == ShipClass::Mule)
-        .collect();
+    // The kit's MULEs (their own fleet, D-286) under a direct order, then as a convoy:
+    // doctrine, so released (D-162).
+    let convoy = crate::testkit::kit_mules(&state, 1);
     send(
         &mut state,
         1,
-        Command::CreateFleet {
-            ships: mules.clone(),
-        },
+        fleet_order(
+            convoy,
+            FleetOrder::SetRulesOfEngagement {
+                rules: RulesOfEngagement::HoldFire,
+            },
+            false,
+        ),
     );
-    let convoy = state.ship(mules[0]).unwrap().fleet;
     assert!(state.direct_control(convoy).is_some());
     let (mother, _) = home(&state, 1);
     let out = send(

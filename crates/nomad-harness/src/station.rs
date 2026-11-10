@@ -12,11 +12,16 @@
 //!
 //! - `breach`: Attack on the holding until the attacked sector breaches, the east sector
 //!   unless named. D-147 measures the D-058 target (5–10 min) with the Deputy's default
-//!   ability use: SHLD SURGE on the sector once it falls below 30% (doc 15 §5.3, doc 12
-//!   §5.2). The Deputy is A1's, so the harness sends that order itself, as the default trigger
-//!   would. Also run without abilities (the S5 plan's 4.7 min hand calculation), with two
+//!   ability use: the defender's Deputy runs Balanced doctrine (A1b), so it goes on alert,
+//!   switches to the alert power profile, and uses SHLD SURGE below 30% and FLAK SCREEN on
+//!   its trigger (doc 13 §4, §9). Also run without abilities (a holding doctrine that never
+//!   uses them or switches the profile; the S5 plan's 4.7 min hand calculation), with two
 //!   turrets added, which the attackers out-range (S5 plan §5), and from the north, which the
 //!   solar array blocked before D-228 moved it: the same breach from another side.
+//! - In every scenario the start kit's fleets are set as reserves by doctrine, so they stay
+//!   docked: D-058's scenario is a fleet against a station, without a defending fleet
+//!   (*Proposed* for the D-147 measurement). A fifth breach lets the Balanced garrison (the
+//!   kit's 3 VX) launch as well, for comparison.
 //! - `core`: the east sector is opened as S6's siege will (`scenario::open_sector`) and the
 //!   fleet attacks the core. D-147 measures the D-058 target (15–25 min) with the defender's
 //!   turrets absent. Also run with two turrets on the attackers' side, which the attackers
@@ -30,9 +35,11 @@ use std::time::Instant;
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1_with_rules};
 use nomad_sim::scenario::{open_sector, place_fleet, place_module, sense};
 use nomad_sim::{
-    Command, CommanderId, CommanderInput, CommanderInputKind, DefenceEvent, FleetId, FleetOrder,
-    HoldingId, HoldingOrder, ModuleKind, Owner, Queueing, Rules, SeasonConfig, ShipClass, SimId,
-    Slot, StationAbility, TICKS_PER_SECOND, TickInputs, UniverseState, Vec2, step,
+    Command, CommandOutcome, CommanderId, CommanderInput, CommanderInputKind, DefenceEvent,
+    DoctrineCommand, DoctrinePreset, FleetDoctrine, FleetId, FleetOrder, FleetRole,
+    HoldingDoctrine, HoldingId, HoldingOrder, InboxEvent, ModuleKind, Owner, Place, Queueing,
+    Rules, SeasonConfig, ShipClass, SimId, Slot, StationAbility, TICKS_PER_SECOND, TickInputs,
+    UniverseState, Vec2, step,
 };
 
 const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
@@ -56,9 +63,6 @@ fn sector_direction(sector: u8) -> Vec2 {
     };
     Vec2::from_angle(degrees.to_radians())
 }
-/// The Deputy's default SHLD SURGE trigger: a sector below 30% (doc 15 §5.3).
-const SURGE_BELOW_PERCENT: u64 = 30;
-
 /// What a station scenario attacks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Goal {
@@ -74,8 +78,11 @@ struct Scenario {
     goal: Goal,
     /// The sector attacked, from its centre direction.
     sector: u8,
-    /// Whether the defender uses SHLD SURGE on the Deputy's default trigger.
+    /// Whether the defender's Deputy uses its default abilities (Balanced doctrine); without,
+    /// its holding doctrine uses none and keeps the profile.
     surge: bool,
+    /// Whether the start kit's garrison may launch (its default role, D-207).
+    garrison: bool,
     /// Turrets added to the station, in these inner slots (D-130).
     turrets: &'static [u8],
     /// The D-058 target in seconds, when this run is the one D-147 measures it with.
@@ -93,6 +100,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
                 goal,
                 sector: EAST,
                 surge: true,
+                garrison: false,
                 turrets: &[],
                 target_s: Some((300, 600)),
                 estimate: Some("about 9 min with SHLD SURGE below 30% (S5 plan §5)"),
@@ -103,6 +111,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
                 goal,
                 sector: EAST,
                 surge: false,
+                garrison: false,
                 turrets: &[],
                 target_s: None,
                 estimate: Some("530/s net against 150,000: 4.7 min (S5 plan §5)"),
@@ -113,6 +122,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
                 goal,
                 sector: EAST,
                 surge: true,
+                garrison: false,
                 turrets: &[4, 2],
                 target_s: None,
                 estimate: Some("turrets reach about 3.3 km, strike craft sit about 4 km out"),
@@ -123,9 +133,21 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
                 goal,
                 sector: NORTH,
                 surge: true,
+                garrison: false,
                 turrets: &[],
                 target_s: Some((300, 600)),
                 estimate: Some("as from the east: the line of fire is clear of the solar array"),
+                cap_s: 1_800,
+            },
+            Scenario {
+                name: "breach, Deputy with its garrison",
+                goal,
+                sector: EAST,
+                surge: true,
+                garrison: true,
+                turrets: &[],
+                target_s: None,
+                estimate: Some("3 VX against 4 WARDEN's flak: a short fight"),
                 cap_s: 1_800,
             },
         ],
@@ -135,6 +157,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
                 goal,
                 sector: EAST,
                 surge: false,
+                garrison: false,
                 turrets: &[],
                 target_s: Some((900, 1_500)),
                 estimate: Some("600/s + 180/s against 600,000: 12.8 min (S5 plan §5)"),
@@ -145,6 +168,7 @@ fn scenarios(goal: Goal) -> Vec<Scenario> {
                 goal,
                 sector: EAST,
                 surge: false,
+                garrison: false,
                 turrets: &[4, 2],
                 target_s: None,
                 estimate: Some("longer: the turrets on the attackers' side go first"),
@@ -267,9 +291,11 @@ fn set_up(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Setup, String
     if scenario.goal == Goal::Core && !open_sector(&mut state, holding, scenario.sector) {
         return Err("the sector cannot be opened".to_owned());
     }
+    let mut commanders = orders(&state, scenario, fleet, holding, &turrets)?;
+    commanders.extend(defender_doctrine(&state, scenario, holding));
     let orders = TickInputs {
         operator: vec![],
-        commanders: orders(&state, scenario, fleet, holding, &turrets)?,
+        commanders,
     };
     Ok(Setup {
         state,
@@ -296,41 +322,43 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
         attackers_left: attackers().len(),
         micros: Vec::with_capacity(usize::try_from(cap).unwrap_or(0)),
     };
-    let mut seq = 0_u64;
     for t in 0..cap {
-        let mut inputs = if t == 0 {
+        let inputs = if t == 0 {
             first.clone()
         } else {
             TickInputs::default()
         };
-        if scenario.surge && deputy_surges(&state, holding, scenario.sector) {
-            seq += 1;
-            inputs.commanders.push(command(
-                1,
-                seq,
-                Command::Holding {
-                    holding,
-                    order: HoldingOrder::Ability {
-                        ability: StationAbility::ShieldSurge {
-                            sector: scenario.sector,
-                        },
-                    },
-                },
-            ));
-        }
         let started = Instant::now();
         let out = step(&mut state, &inputs);
         outcome.micros.push(started.elapsed().as_secs_f64() * 1e6);
         if t == 0 && out.commands.iter().any(|c| c.outcome.is_err()) {
             return Err(format!(
-                "{}: an attack order was rejected: {:?}",
+                "{}: an order was rejected: {:?}",
                 scenario.name, out.commands
             ));
         }
+        // The defender's Deputy's SHLD SURGEs that applied this tick (its inbox, D-202).
+        let now = state.tick();
         outcome.surges += u32::try_from(
-            out.commands
+            state
+                .inbox(Owner::Commander(COMMANDERS[0]))
                 .iter()
-                .filter(|c| c.commander == COMMANDERS[0] && c.outcome.is_ok())
+                .filter(|e| {
+                    e.tick == now
+                        && matches!(
+                            e.event,
+                            InboxEvent::Outcome {
+                                command: Command::Holding {
+                                    order: HoldingOrder::Ability {
+                                        ability: StationAbility::ShieldSurge { .. }
+                                    },
+                                    ..
+                                },
+                                outcome: CommandOutcome::Applied,
+                                ..
+                            }
+                        )
+                })
                 .count(),
         )
         .unwrap_or(0);
@@ -368,17 +396,50 @@ fn run_scenario(scenario: &Scenario, seed: u64, rules: &Rules) -> Result<Outcome
     Ok(outcome)
 }
 
-/// Whether the Deputy's default trigger fires SHLD SURGE on `sector` now: below 30% of its
-/// maximum, the ability ready on the tick the order would apply (doc 15 §5.3).
-fn deputy_surges(state: &UniverseState, holding: HoldingId, sector: u8) -> bool {
-    let Some(view) = state.defence(holding) else {
-        return false;
-    };
-    let sector = view.sectors[usize::from(sector)];
-    u128::from(sector.strength_milli) * 100
-        < u128::from(sector.max_milli) * u128::from(SURGE_BELOW_PERCENT)
-        && view.surge_ready_at <= state.tick().next()
-        && !sector.open
+/// The defender's doctrine commands for a scenario, sent with the attackers' orders: the start
+/// kit's fleets as reserves unless the garrison takes part, and without abilities a holding
+/// doctrine that uses none and keeps the profile (A1 plan §5.1).
+fn defender_doctrine(
+    state: &UniverseState,
+    scenario: &Scenario,
+    holding: HoldingId,
+) -> Vec<CommanderInput> {
+    let preset = *state.rules().ai.preset(DoctrinePreset::Balanced);
+    let mut doctrine = Vec::new();
+    if !scenario.garrison {
+        for fleet in state.fleet_ids() {
+            if state.fleet(fleet).is_some_and(|f| {
+                f.owner == Owner::Commander(COMMANDERS[0]) && f.place == Place::Docked(holding)
+            }) {
+                doctrine.push(DoctrineCommand::SetFleet {
+                    fleet,
+                    doctrine: Some(FleetDoctrine {
+                        role: Some(FleetRole::Reserve { holding }),
+                        ..preset.fleet()
+                    }),
+                });
+            }
+        }
+    }
+    if !scenario.surge {
+        let profile = state
+            .holding_economy(holding)
+            .map(|e| e.profile)
+            .unwrap_or_default();
+        doctrine.push(DoctrineCommand::SetHolding {
+            holding,
+            doctrine: Some(HoldingDoctrine {
+                alert_profile: profile,
+                surge_below_permille: 0,
+                flak_light_hostiles: None,
+                ..preset.holding
+            }),
+        });
+    }
+    (1_u64..)
+        .zip(doctrine)
+        .map(|(seq, d)| command(1, seq, Command::Doctrine(d)))
+        .collect()
 }
 
 /// Runs the scenarios of `goal` and writes the report.

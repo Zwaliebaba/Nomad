@@ -291,8 +291,10 @@ pub(crate) fn execute(
             queue,
             retreat,
         } => {
-            // An order to a convoy fleet ends its route (D-134).
+            // An order to a convoy fleet ends its route (D-134), and one to a fleet on a
+            // claim trip ends the trip (D-291).
             crate::economy::end_convoy(state, *fleet, economy_events);
+            state.economy.claims.remove(fleet);
             crate::fleet::orders::give(state, *fleet, order.clone(), *queue, events);
             // The commander's own orders put it under direct control; the Deputy's are
             // doctrine (RK-10, A1 plan §5.2).

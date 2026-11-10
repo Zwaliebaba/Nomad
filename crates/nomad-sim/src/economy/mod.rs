@@ -24,7 +24,7 @@
 //! so every step is integer and exact (D-049); see [`Flow`].
 
 mod command;
-mod logistics;
+pub(crate) mod logistics;
 mod power;
 mod queue;
 pub mod rules;
@@ -239,6 +239,8 @@ pub(crate) struct Economy {
     pub(crate) pools: BTreeMap<CommanderId, Stock>,
     pub(crate) holdings: BTreeMap<HoldingId, HoldingEconomy>,
     pub(crate) convoys: BTreeMap<FleetId, Convoy>,
+    /// Claim trips that continue offline, with their site (D-291).
+    pub(crate) claims: BTreeMap<FleetId, SiteId>,
     pub(crate) cargo: BTreeMap<ShipId, Cargo>,
     pub(crate) stats: BTreeMap<CommanderId, Stats>,
 }

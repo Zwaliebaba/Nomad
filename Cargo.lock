@@ -1268,8 +1268,11 @@ dependencies = [
 name = "nomad-ai"
 version = "0.1.0"
 dependencies = [
+ "libm",
  "nomad-types",
+ "rand_chacha",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

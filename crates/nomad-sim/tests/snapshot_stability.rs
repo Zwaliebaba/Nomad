@@ -17,7 +17,14 @@
 //! re-recorded for format 17 (A1a's AI memory, outboxes, inboxes and counters, after S7's
 //! format 16), with rules format 11 (A1a's AI section), and again for the D-282 and D-284
 //! rules values (F 2.5, storage 5,000 A base and 1,500 A a rack, LANCER hull 1,400) with no
-//! format change. The harness's seasons are 8 weeks long ([`SeasonConfig::new`], D-106).
+//! format change, and for format 18 (A1b: the attacking fleet in the inbox's damage
+//! entries), the start kit as two fleets (D-286) and the Deputy's alerts and fleet memory,
+//! with rules format 12 (the Deputy's timings); then for format 19 (A3's raider factions and
+//! haven launch timers), with rules format 13 (the raid parameters), and format 20 (the
+//! raider director's memory); then for format 21 (A2's AI schedules, per-commander random
+//! streams and Strategist memory), with rules format 14 (A2's Strategist values and
+//! blueprints), and format 22 (D-291's claim trips). The harness's seasons are 8 weeks long
+//! ([`SeasonConfig::new`], D-106).
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
 use nomad_sim::snapshot::{self, state_hash};
@@ -33,15 +40,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0x4adf_2229_2e46_20ae),
-    (1, 0x1df0_9430_4d6e_86e5),
-    (2, 0x9056_3b45_0217_3b82),
-    (7, 0xd8c6_089d_42b5_dad4),
-    (99, 0x1aa1_ab6b_68b0_d57a),
+    (0, 0xad9e_8bdd_f228_6870),
+    (1, 0x2f34_91de_7602_5d14),
+    (2, 0x2c98_f59d_2386_82ab),
+    (7, 0x4da7_8755_575e_06b2),
+    (99, 0x96d7_199c_9c77_e4f9),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0x77fa_6a53_be92_d67a;
+const DIAGNOSTIC_RUN_HASH: u64 = 0xb42c_8f67_77f0_25f7;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig::new(seed, 0)
@@ -49,7 +56,7 @@ fn season(seed: u64) -> SeasonConfig {
 
 #[test]
 fn snapshot_format_is_unchanged() {
-    assert_eq!(snapshot::FORMAT, 17);
+    assert_eq!(snapshot::FORMAT, 22);
 }
 
 #[test]

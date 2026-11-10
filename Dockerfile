@@ -1,7 +1,9 @@
-# Linux container image of nomad-server (D-029, doc 20 §2): a developer and soak-test mode
-# in the MVP (D-152). It listens on UDP 31790 on every address inside the container; publish
-# it on the host's loopback only (`-p 127.0.0.1:31790:31790/udp`), which keeps the MVP
-# localhost-only (D-085, D-150). Usage: README.md, "Run the server in Docker".
+# Linux container image of nomad-server (D-029, doc 20 §2). The MVP server runs in Docker
+# Desktop (D-236); the compose file and process model come with N5 (D-245), and the client's
+# files and the WebSocket on TCP 31790 with N6 (D-241, D-243). Until then it listens on UDP
+# 31790 on every address inside the container; publish it on the host's loopback only
+# (`-p 127.0.0.1:31790:31790/udp`), which keeps the MVP localhost-only (D-150, D-236).
+# Usage: README.md, "Run the server in Docker".
 #
 # Keep the Rust version in step with rust-toolchain.toml.
 FROM rust:1.97.0-bookworm AS build

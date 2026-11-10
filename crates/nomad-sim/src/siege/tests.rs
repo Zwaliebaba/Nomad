@@ -23,7 +23,15 @@ use crate::input::{OperatorInput, TickInputs};
 use crate::snapshot::{decode, encode, state_hash};
 use crate::state::UniverseState;
 use crate::step::{TickOutputs, step};
-use crate::testkit::{commander, home, idle, kit_fleet, order, send, spawn_fleet, stage1};
+use crate::testkit::{commander, home, idle, kit_fleet, order, send, spawn_fleet};
+
+/// A stage-1 Universe whose Deputies stay out of these mechanics tests
+/// ([`crate::testkit::passive`]).
+fn stage1(seed: u64) -> UniverseState {
+    let mut state = crate::testkit::stage1(seed);
+    crate::testkit::passive_all(&mut state);
+    state
+}
 use crate::time::{TICKS_PER_SECOND, Tick, Ticks};
 use crate::validate_command;
 
@@ -130,10 +138,14 @@ impl Scene {
             .get_mut::<Fleet>(docked.sim_id())
             .unwrap()
             .place = Place::Docked(target);
+        crate::testkit::passive(&mut state, DEFENDER);
         Self::around(state, target, system)
     }
 
     fn around(mut state: UniverseState, target: HoldingId, system: SystemId) -> Self {
+        // The scenes skip from deadline to deadline, where raids would launch late and stop
+        // in mid-system: they measure sieges, not raids (A3).
+        crate::scenario::without_raids(&mut state);
         let site = state.holding(target).unwrap().site;
         let centre = Vec2::from(state.galaxy().site(site).unwrap().position);
         // The dome comes up in the holding's first economy slot.
@@ -713,7 +725,10 @@ fn a_fallen_mother_station_jumps_and_leaves_its_site_to_the_capturer_as_an_outpo
     let (outpost, h) = s.state.holding_at(site).unwrap();
     assert_eq!((h.owner, h.core_complete), (CommanderId(ATTACKER), false));
     let outpost_core = s.state.economy.holdings[&outpost].slots[&Slot::Core];
-    assert_eq!(s.state.module(outpost_core).unwrap().hp, 30_000);
+    // Its starting hull (D-224), plus the construction of at most the one economy second
+    // that its slot (by `SimId`, doc 11 §4.1) may have had since it was placed.
+    let hp = s.state.module(outpost_core).unwrap().hp;
+    assert!((30_000..30_100).contains(&hp), "{hp}");
     // The other modules are destroyed (D-034).
     let destroyed = out
         .iter()

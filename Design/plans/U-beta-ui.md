@@ -6,7 +6,7 @@ Status: **Agreed (round 19).** The owner reviewed the β boards on his Design ca
 
 *Derived* from doc 30 §3 (β), doc 17 and doc 21 §7.
 
-The β screens: the TACTICAL HUD (M6) at the 1920×1080 reference and in its compact layout; SYSTEM and SECTOR (U1, U2); the season view on F4 (D-261); the holding drawer with build and economy (U3); the start and resume screens (D-263). The doctrine editor (U4), the away report and the window panel (U5) and the rest of U6 stay in γ.
+The β screens: the TACTICAL HUD (M6) at the 1920×1080 reference and in its compact layout; SYSTEM and SECTOR (U1, U2); the season view on F4 (D-261); the holding drawer with build and economy (U3); the start and resume screens (D-263). The doctrine editor (U4), the away report and the window panel (U5), the rest of U6 and player blueprints (D-299) stay in γ.
 
 ## 2. Layers
 
@@ -15,7 +15,7 @@ The β screens: the TACTICAL HUD (M6) at the 1920×1080 reference and in its com
 | Layer | Contents | Technology |
 |---|---|---|
 | L4 | Alert banner and toasts; browser notifications in the background (D-249) | HTML, Leptos |
-| L3 | Holding drawer (build, economy, blueprints), menu, jump confirmation; they dim the scene and leave it running | HTML, Leptos |
+| L3 | Holding drawer (build, economy; blueprints from γ, D-299), menu, jump confirmation; they dim the scene and leave it running | HTML, Leptos |
 | L2 | HUD panels, anchored to the corners | HTML, Leptos |
 | L1 | SYSTEM, SECTOR and the F4 season view (D-276); opaque, and the canvas stops rendering while one is open (D-260) | HTML, SVG |
 | L0 | The scene: voxels, grid, shield, effects, world labels, markers, selection brackets and order lines (D-240) | wgpu, wasm |
@@ -30,7 +30,7 @@ HTML layers take pointer events only on their own panels, so clicks in the gaps 
 - **System panel (top left):** breadcrumb, the F1–F4 tabs, the mini system map, lane traffic, the control bar.
 - **Camera widget (top centre):** rotation on Alt+Q and Alt+E (D-093), the view compass, and the ELEV REF toggle (D-258).
 - **Fleets (top right):** fleets with label (D-267), composition and state; hostile tracks with observable state only (moving, stationary, firing; orders are private, D-075); last-known tracks faded with their age (D-076).
-- **Holding panel (right, D-256):** the exposure window and where the day is in it, the four sectors, Reinforced and siege timers, the Deputy's deferred decisions (with A1).
+- **Holding panel (right, D-256):** the exposure window and where the day is in it, the four sectors, Reinforced and siege timers, the Deputy's deferred decisions (A1 is built and emits them; how they reach the client is still open, C7 §3.4).
 - **Quick chips:** IDLE and LAST ALERT. PING is gone: there are no allies in the MVP.
 - **Minimap (bottom right):** the iso radar with pulse (phase-1 doc 04).
 - **Selection (bottom left)** and **command card (bottom centre):** the positional cards of D-258; an unaffordable item stays enabled and shows its shortfall (D-259).
@@ -49,7 +49,7 @@ HTML layers take pointer events only on their own panels, so clicks in the gaps 
 
 *Agreed* where named; the layout is from the boards.
 
-- **Build:** the slot diagram of the holding (pylon, inner, dock and peripheral slots of the template, D-130, D-131, D-255), the catalogue filtered by the selected slot with cost, time, power and hull from the rules (D-265), the queue per lane with progress and completion (D-230), reordering (D-273) and cancelling with the refund shown (D-068), and blueprints (save, apply).
+- **Build:** the slot diagram of the holding (pylon, inner, dock and peripheral slots of the template, D-130, D-131, D-255), the catalogue filtered by the selected slot with cost, time, power and hull from the rules (D-265), the queue per lane with progress and completion (D-230), reordering (D-273) and cancelling with the refund shown (D-068). Saving and applying player blueprints moves to γ (D-299); β's build menu works without them; the built-in blueprints are A2's (D-215).
 - **Economy:** pool and cap with "full in" (D-269); cap breakdown; command by class; the diminishing yield (D-217); income per holding (D-268); buffers and convoys with their routes; power per holding with its profile.
 
 ## 6. Start and resume (D-263)
@@ -57,7 +57,7 @@ HTML layers take pointer events only on their own panels, so clicks in the gaps 
 *Agreed.* Served by the server over D-272's API before any session exists:
 
 - **Start:** server status, the Universes in the volume with their state (running, shut down, ended), resume with the catch-up it needs, ended standings read-only, and a create form (name, seed, AI count fixed at 3 for stage 1, one difficulty for all AI until A5, season length, window start).
-- **Resume:** catch-up progress from `CatchUp` ticks with an estimate, the note that the Deputy is in charge and commands wait until live, Play (enters fullscreen, D-248) enabled when live, and Shut down. No event counts during catch-up; the away report is U5's.
+- **Resume:** catch-up progress from `CatchUp` ticks with an estimate, the note that the Deputy is in charge and commands wait until live, Play enabled when live, after which the game's own control can enter fullscreen (D-248, doc 21 §7.5), and Shut down. No event counts during catch-up; the away report is U5's.
 
 ## 7. Done when
 

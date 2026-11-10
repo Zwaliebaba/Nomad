@@ -1,5 +1,5 @@
-//! The Deputy inside the step: rebuilding through the outbox and the validator (A1 plan
-//! §5.7; D-208).
+//! The Deputy inside the step: alert, roles and engagement, rebuilding and convoys, through
+//! the outbox and the validator (A1 plan §5.3 to §5.8; D-206 to D-210).
 
 use nomad_ai::{CommandOutcome, DeferReason, DeputyEvent, InboxEntry, InboxEvent, Layer, Rebuild};
 use nomad_types::{
@@ -16,6 +16,136 @@ use crate::input::TickInputs;
 use crate::state::UniverseState;
 use crate::step::{TickOutputs, step};
 use crate::testkit::{commander, home, idle, kit_fleet, send, site_position, spawn_fleet, stage1};
+
+/// A1 plan §9 scenario 1 in part: raiders inside the defended zone put the mother station on
+/// alert; the Deputy switches to the alert profile and launches the garrison (the start kit's
+/// VX, D-286), which attacks; the MULE reserve stays docked.
+#[test]
+fn a_raid_puts_the_mother_station_on_alert_and_the_garrison_engages() {
+    let mut state = stage1(8);
+    let (mother, system) = home(&state, 1);
+    let garrison = kit_fleet(&state, 1);
+    let reserve = crate::testkit::kit_mules(&state, 1);
+    let centre = site_position(&state, system, 0);
+    let raiders = spawn_fleet(
+        &mut state,
+        commander(2),
+        system,
+        centre + Vec2::new(7_000.0, 0.0),
+        &[ShipClass::Vx; 2],
+    );
+    let outs = idle(&mut state, 60);
+    let deputy: Vec<_> = outs.iter().flat_map(|o| o.deputy_events.iter()).collect();
+    assert!(deputy.contains(&&(
+        CommanderId(1),
+        DeputyEvent::AlertStarted { holding: mother }
+    )));
+    assert_eq!(
+        state.holding_economy(mother).unwrap().profile,
+        nomad_types::PowerProfile::ShieldsFirst
+    );
+    let launched = outs.iter().flat_map(|o| o.fleet_events.iter()).any(
+        |e| matches!(e, crate::fleet::FleetEvent::Launched { fleet, .. } if *fleet == garrison),
+    );
+    assert!(launched, "the garrison launches");
+    let view = state.fleet(garrison).unwrap();
+    let raider_ships = state.fleet(raiders).map(|f| f.ships).unwrap_or_default();
+    assert!(
+        matches!(view.order, Some(FleetOrder::Attack { target }) if raider_ships.iter().any(|s| s.sim_id() == target)),
+        "{:?}",
+        view.order
+    );
+    assert_eq!(
+        view.direct_control, None,
+        "the Deputy's orders are doctrine"
+    );
+    assert!(matches!(
+        state.fleet(reserve).unwrap().place,
+        crate::fleet::Place::Docked(h) if h == mother
+    ));
+    // Every Deputy command went through the validator.
+    let counters = &state.ai_counters()[&(commander(1), Layer::Deputy)];
+    assert_eq!(counters.rejected_total(), 0, "{counters:?}");
+}
+
+/// A1 plan §9 "Determinism": a snapshot and restore during an alert, with the Deputy's
+/// commands waiting in the outbox inside their latency, changes nothing.
+#[test]
+fn a_snapshot_during_an_alert_with_commands_waiting_changes_nothing() {
+    use crate::snapshot::{decode, encode, state_hash};
+    let mut state = stage1(8);
+    let (_, system) = home(&state, 1);
+    let centre = site_position(&state, system, 0);
+    spawn_fleet(
+        &mut state,
+        commander(2),
+        system,
+        centre + Vec2::new(7_000.0, 0.0),
+        &[ShipClass::Vx; 2],
+    );
+    let mut waiting = false;
+    for _ in 0..60 {
+        let out = step(&mut state, &TickInputs::default());
+        let alert = out
+            .deputy_events
+            .iter()
+            .any(|(c, e)| *c == CommanderId(1) && matches!(e, DeputyEvent::AlertStarted { .. }));
+        if alert && state.ai_waiting(commander(1)) > 0 {
+            waiting = true;
+            break;
+        }
+    }
+    assert!(waiting, "the alert's commands wait in the outbox");
+    let mut restored = decode(&encode(&state).unwrap()).unwrap();
+    assert_eq!(restored, state);
+    idle(&mut state, 300);
+    idle(&mut restored, 300);
+    assert_eq!(state_hash(&state).unwrap(), state_hash(&restored).unwrap());
+}
+
+/// RK-10, D-162: a released fleet returns to its role; the garrison goes home to dock.
+#[test]
+fn a_released_fleet_returns_to_its_role() {
+    let mut state = stage1(8);
+    let (mother, system) = home(&state, 1);
+    let garrison = kit_fleet(&state, 1);
+    send(
+        &mut state,
+        1,
+        crate::testkit::order(garrison, FleetOrder::Launch),
+    );
+    let away = crate::testkit::at(
+        system,
+        site_position(&state, system, 0) + Vec2::new(0.0, 6_000.0),
+    );
+    send(
+        &mut state,
+        1,
+        crate::testkit::order(garrison, FleetOrder::Move { to: away }),
+    );
+    idle(&mut state, 100);
+    // Under direct control the Deputy leaves it where it was sent.
+    assert!(!matches!(
+        state.fleet(garrison).unwrap().order,
+        Some(FleetOrder::Dock { .. })
+    ));
+    send(
+        &mut state,
+        1,
+        Command::Doctrine(DoctrineCommand::Release { fleet: garrison }),
+    );
+    let mut docked = false;
+    for _ in 0..1_200 {
+        let out = step(&mut state, &TickInputs::default());
+        docked |= out.fleet_events.iter().any(|e| {
+            matches!(e, crate::fleet::FleetEvent::Docked { fleet, holding } if *fleet == garrison && *holding == mother)
+        });
+        if docked {
+            break;
+        }
+    }
+    assert!(docked, "{:?}", state.fleet(garrison).unwrap().order);
+}
 
 /// Gives commander `n` an income over the last hour, as an hour of production would.
 fn income(state: &mut UniverseState, n: u32, alloy: u64) {
@@ -200,8 +330,8 @@ fn the_deputy_rebuilds_a_destroyed_module_in_its_slot() {
     );
 }
 
-/// D-055, D-210 (A1 plan §9 scenario 3 in part): a convoy whose next leg passes a gate armed
-/// hostiles contest holds at its last stop, and the Deputy either takes it around the gate
+/// D-055, D-210 (A1 plan §9 scenario 3 in part): a convoy whose next leg passes a gate that
+/// detected armed hostiles contest (D-285) holds at its last stop, and the Deputy either takes it around the gate
 /// or reports the hold; it never sets out through the contested gate.
 #[test]
 fn a_convoy_holds_at_a_contested_gate_and_never_passes_it() {
@@ -244,7 +374,16 @@ fn a_convoy_holds_at_a_contested_gate_and_never_passes_it() {
         gate_at + Vec2::new(1_000.0, 0.0),
         &[ShipClass::Vx; 2],
     );
-    let kit = kit_fleet(&state, 1);
+    // A commander-1 picket by the gate detects them: only detected hostiles contest a gate
+    // (D-285).
+    spawn_fleet(
+        &mut state,
+        commander(1),
+        home_system,
+        gate_at + Vec2::new(-1_500.0, 0.0),
+        &[ShipClass::Vx],
+    );
+    let kit = crate::testkit::kit_mules(&state, 1);
     let convoy = Command::Economy(EconomyCommand::Convoy {
         fleet: kit,
         route: vec![remote, mother],

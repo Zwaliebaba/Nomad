@@ -1,7 +1,8 @@
 //! Filling the inbox from a tick's outputs (D-202; A1 plan §4.4).
 //!
 //! At the end of each step every owner receives what it may know of that tick: damage to its
-//! own ships, sectors and modules, summed per entity and attacking owner; its own losses;
+//! own ships, sectors and modules, summed per entity, attacking owner and attacking fleet,
+//! the fleet named only while the owner detects it (A1 plan §4.4); its own losses;
 //! its own fleets' order and place events; its own economy events; the lapse of its orders.
 //! Ownership is read after the tick, so an event about an entity that is gone and names no
 //! owner (a convoy whose fleet was destroyed, for example) is left out: its loss is in the
@@ -18,7 +19,7 @@ use crate::announce::AnnouncementKind;
 use crate::combat::CombatEvent;
 use crate::defence::DefenceEvent;
 use crate::economy::{EconomyEvent, Module};
-use crate::fleet::{Fleet, FleetEvent, Ship};
+use crate::fleet::{Fleet, FleetEvent, Place, Ship};
 use crate::state::UniverseState;
 use crate::step::TickOutputs;
 use crate::time::{Tick, Ticks};
@@ -35,7 +36,7 @@ enum Damaged {
 struct Collector<'a> {
     state: &'a UniverseState,
     entries: Vec<(Owner, InboxEvent)>,
-    damage: BTreeMap<(Owner, Damaged, Owner), u64>,
+    damage: BTreeMap<(Owner, Damaged, Owner, Option<FleetId>), u64>,
 }
 
 /// End of step: adds this tick's entries to every owner's inbox and drops old ones.
@@ -92,10 +93,31 @@ impl Collector<'_> {
             .map(|h| Owner::Commander(h.owner))
     }
 
-    fn add_damage(&mut self, owner: Option<Owner>, what: Damaged, by: Owner, amount: u64) {
+    fn add_damage(
+        &mut self,
+        owner: Option<Owner>,
+        what: Damaged,
+        by: Owner,
+        by_fleet: Option<FleetId>,
+        amount: u64,
+    ) {
         if let Some(owner) = owner {
-            *self.damage.entry((owner, what, by)).or_default() += amount;
+            let named = by_fleet.filter(|&f| self.detects(owner, f));
+            *self.damage.entry((owner, what, by, named)).or_default() += amount;
         }
+    }
+
+    /// Whether `owner` detects `fleet` in the last sensors pass (D-173): only then does the
+    /// inbox name an attacker's fleet (A1 plan §4.4).
+    fn detects(&self, owner: Owner, fleet: FleetId) -> bool {
+        let Some(Place::InSystem(system)) = self
+            .state
+            .entities
+            .with::<Fleet, _>(fleet.sim_id(), |f| f.place)
+        else {
+            return false;
+        };
+        crate::sensors::picture_of(self.state, owner, system).is_some_and(|p| p.has_fleet(fleet))
     }
 
     fn combat(&mut self, events: &[CombatEvent]) {
@@ -105,6 +127,7 @@ impl Collector<'_> {
                     ship,
                     fleet,
                     by,
+                    by_fleet,
                     amount,
                 } => {
                     let owner = self
@@ -113,7 +136,13 @@ impl Collector<'_> {
                         .get::<Ship>(ship.sim_id())
                         .map(|s| s.owner)
                         .or_else(|| self.fleet_owner(fleet));
-                    self.add_damage(owner, Damaged::Ship(ship, fleet), by, u64::from(amount));
+                    self.add_damage(
+                        owner,
+                        Damaged::Ship(ship, fleet),
+                        by,
+                        by_fleet,
+                        u64::from(amount),
+                    );
                 }
                 CombatEvent::ShipDestroyed {
                     ship,
@@ -144,15 +173,23 @@ impl Collector<'_> {
                     holding,
                     sector,
                     by,
+                    by_fleet,
                     amount_milli,
                 } => {
                     let owner = self.holding_owner(holding);
-                    self.add_damage(owner, Damaged::Sector(holding, sector), by, amount_milli);
+                    self.add_damage(
+                        owner,
+                        Damaged::Sector(holding, sector),
+                        by,
+                        by_fleet,
+                        amount_milli,
+                    );
                 }
                 DefenceEvent::ModuleDamaged {
                     holding,
                     module,
                     by,
+                    by_fleet,
                     amount,
                 } => {
                     let owner = self.holding_owner(holding);
@@ -160,6 +197,7 @@ impl Collector<'_> {
                         owner,
                         Damaged::Module(holding, module),
                         by,
+                        by_fleet,
                         u64::from(amount),
                     );
                 }
@@ -271,24 +309,27 @@ impl Collector<'_> {
 
     /// The entries, with the summed damage after the rest.
     fn finish(mut self) -> Vec<(Owner, InboxEvent)> {
-        for ((owner, what, by), amount) in std::mem::take(&mut self.damage) {
+        for ((owner, what, by, by_fleet), amount) in std::mem::take(&mut self.damage) {
             let event = match what {
                 Damaged::Ship(ship, fleet) => InboxEvent::ShipDamaged {
                     ship,
                     fleet,
                     by,
+                    by_fleet,
                     hull: amount,
                 },
                 Damaged::Sector(holding, sector) => InboxEvent::SectorDamaged {
                     holding,
                     sector,
                     by,
+                    by_fleet,
                     amount_milli: amount,
                 },
                 Damaged::Module(holding, module) => InboxEvent::ModuleDamaged {
                     holding,
                     module,
                     by,
+                    by_fleet,
                     hull: amount,
                 },
             };

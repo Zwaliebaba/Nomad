@@ -65,6 +65,7 @@ pub(crate) fn run(
         holding_second(state, holding, now, &producing, events, fleet_events);
     }
     logistics::run(state, now, slot, events, fleet_events);
+    logistics::run_claims(state, events);
 }
 
 /// Which resources `holding` produces for D-217 and D-281: those its completed producers give

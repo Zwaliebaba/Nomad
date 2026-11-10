@@ -128,11 +128,14 @@ The player writes doctrine. It applies whether the player is online or offline (
 
 Writing good doctrine becomes a strategic skill that pays off even while the player is offline. Offline outcomes then follow from the player's decisions, not from the quality of the AI.
 
-> **Settled with the A1 plan (D-206 to D-210):** doc 13 §4 is the Deputy's rule set (D-206). New ships join the garrison of the holding that built them; a garrison docks, launches on alert and docks again 60 s after it; patrol and escort run as `Patrol` and `Guard` orders (D-207). The replacement list covers listed ships and destroyed modules, within the preset's share of the last 24 h of income (D-208). Convoys dock at the nearest own holding on their route while a hostile is within the evacuation radius (D-210).
+> **Settled with the A1 plan (D-206 to D-210):** doc 13 §4 is the Deputy's rule set (D-206). New ships join the garrison of the holding that built them; a garrison docks, launches on alert and docks again 60 s after it; patrol and escort run as `Patrol` and `Guard` orders (D-207). The replacement list covers listed ships and destroyed modules, within the preset's share of the last 24 h of income (D-208). Convoys dock at the nearest own holding on their route while a hostile is within the evacuation radius (D-210). "Share of the fleet kept as garrison" is a Strategist parameter, and for a human only the editor's default role for new fleets (D-209). The presets, the competence table and the Deputy's timings live in the rules file's `ai` section, copied into the Universe at creation (D-211).
+>
+> *As built (A1b):* the start kit begins as two fleets, its 3 VX the mother station's garrison and its 2 MULEs a reserve (D-286). A garrison launches on alert only at or above its retreat threshold; it engages sensed hostiles up to its leash from the holding and holds by the core when it has no target. A fleet's home, for its default role, is where a ship that formed it was built, or where it first launched from or was seen docked. A gate is contested for a convoy only by hostiles its owner detects (D-285). The readings the Deputy's code labels *Proposed* are listed in `plans/A1-deputy.md` §13.
 
 ### 5.3 Connection rules
 
 - **Disconnect grace (120 s).** Direct orders stay valid during a network blip. After the grace period the orders lapse, and the units fall back to their fleet doctrine.
+  > **Amended since (D-291):** one exception: a claim the commander started while online (a core kit loaded and its fleet ordered to the site) continues after the grace as doctrine, as convoy routes do (D-162), and the kit is deployed on arrival; for humans and AI alike. *Built with A2* (`crates/nomad-sim/src/economy/logistics.rs`, readings in the A2 plan §12).
 - **An offline attacker** cannot vanish: their ships stay in the Universe and remain vulnerable. Their offensive orders lapse, so the fleet withdraws or holds, according to its doctrine.
 - **Notifications:** a breach that triggers Reinforced must reach the owner outside the game client, or the 12 h notice is meaningless. That needs a notification channel; the MVP can start in-client only.
 - **Away report:** on login, an after-action report replaces "my station was gone". It lists raids repelled, losses, disabled structures, scheduled Reinforced exits, and decisions the Deputy deferred ("replacement budget exhausted").
@@ -142,6 +145,16 @@ Writing good doctrine becomes a strategic skill that pays off even while the pla
 The Deputy should be **competent and readable, not optimal**. It works as a utility or behaviour-tree executor of doctrine, with no strategic lookahead. Its reaction latency and command rate are capped at human levels, for example 300 ms reaction time and a bounded number of commands per second. This puts it below an engaged human at micro (PR-5). The same cap becomes the difficulty knob for the MVP's AI commanders (P-02).
 
 > **Settled with the A1 plan (D-201):** a human's Deputy acts 3 ticks (300 ms) after the triggering event and issues at most 4 commands in any 10 consecutive ticks. AI commanders use their difficulty's latency (10, 6 or 3 ticks) and rate (1, 2 or 4 commands in any 10 ticks). The rate is shared by all of a commander's AI layers, and waiting commands expire after 10 s.
+
+### 5.4a Direct orders and doctrine (RK-10 addendum)
+
+*Agreed* (RK-10, doc 04; built in A1a and A1b, `plans/A1-deputy.md` §5.2).
+
+- **A direct order wins.** A fleet is under direct control from its commander's own order (client or Strategist) until the player releases it, the disconnect grace ends (D-162) or it is destroyed. While it is, the Deputy gives it no command; auto-targeting and rules of engagement still work (D-144, D-145).
+- **Retreat is opt-in per order.** An order may carry the retreat opt-in; then the doctrine's retreat threshold applies during it, and the Deputy may retreat the fleet. Without it, the fleet fights on.
+- **Release and the lapse** return the fleet to its doctrine role: a garrison goes home to dock, a patrol resumes its route, an escort guards again.
+- **The HUD** shows which fleets are under direct control (the fleet view's marker; U4).
+- **Holdings have no direct control.** Both the player and the Deputy can use abilities; cooldowns prevent double use. The Deputy changes the power profile only at alert start and end, so a manual change holds until the next transition.
 
 ### 5.5 Absence states
 

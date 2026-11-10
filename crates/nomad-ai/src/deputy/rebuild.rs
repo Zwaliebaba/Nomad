@@ -306,6 +306,24 @@ impl Rebuild {
 }
 
 impl RebuildMemory {
+    /// The fleets replacements formed for entries whose fleet was gone, with the entry's
+    /// role, where the entry gives one (A1 plan §5.7: "the replacement forms a new fleet with
+    /// the entry's role").
+    pub(super) fn successor_roles(&self, view: &impl View) -> BTreeMap<FleetId, FleetRole> {
+        let list = view.replacement_list();
+        self.successors
+            .iter()
+            .filter_map(|(entry, &fleet)| {
+                let role = list
+                    .iter()
+                    .find(|e| e.fleet == *entry && e.role.is_some())?
+                    .role
+                    .clone()?;
+                Some((fleet, role))
+            })
+            .collect()
+    }
+
     /// The replacement-list entry that covers a ship of `class` lost from `fleet`.
     fn entry_for(
         &self,

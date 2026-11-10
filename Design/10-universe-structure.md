@@ -1,6 +1,6 @@
 # 10 — Universe structure
 
-Status: **Agreed (round 4).** Built on D-020, D-021, D-022 and D-038, and on RK-08 and RK-11 from doc 04. Q35–Q40 were decided as D-041 to D-046. Still working proposals: naming (§9), the data model sketch (§10) and the ops-area radius (§8). *(The ops-area radius has since been agreed as 20 km, D-103; D-099 clarified the S2 gaps, and D-191 to D-198 settled the season result of §6.)* Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
+Status: **Agreed (round 4).** Built on D-020, D-021, D-022 and D-038, and on RK-08 and RK-11 from doc 04. Q35–Q40 were decided as D-041 to D-046. Still a working proposal: the data model sketch (§10). *(The ops-area radius (§8) has since been agreed as 20 km, D-103, and naming (§9) as D-264; D-099 clarified the S2 gaps, D-191 to D-198 settled the season result of §6, and D-299 confirmed that each season is a new Universe, §2.)* Labels: *Agreed* means a decision ID is given, *Derived* means it follows from agreed decisions, and *Proposed* means it needs the owner's approval.
 
 ## 1. Scope
 
@@ -19,7 +19,7 @@ Other documents own the rest: the resource chain (14), ships, combat and claimin
 
 | Level | Role | Status |
 |---|---|---|
-| **Universe** | The one persistent instance: accounts, season history, blueprints (D-035). It outlives seasons. | Agreed (D-021) |
+| **Universe** | The one persistent instance of a season: its galaxy, commanders, holdings and history. A new season is a new Universe (D-116, D-299). Player blueprints (D-035) live outside it, in a server table, and carry across seasons (D-299, from γ). | Agreed (D-021, D-299) |
 | **Season galaxy** | A newly generated galaxy at the start of each season, from a recorded seed. | Agreed (D-044) |
 | **Sector** | A cluster of 12–16 systems; a natural neighbourhood of 6–8 commanders. | Agreed (D-022, D-043) |
 | **System** | A star, orbits, 5–9 sites and 2–4 gates. The unit of system control (§6). | Agreed (D-022) |
@@ -134,10 +134,10 @@ This matches the phase-1 system panel: in Kestrel-7, "YOU 3 · HSTL 2 · FREE 2"
 
 **Season start** *(Agreed, D-044)*:
 
-- Each season generates a **new galaxy from a recorded seed**, so the map is fresh and no one has a memorised advantage.
+- Each season generates a **new galaxy from a recorded seed**, so the galaxy is fresh and no one has a memorised advantage.
 - The topology (systems, gates, lanes, site positions and deposit classes) is **fully charted** from the start; there is no exploration in the MVP.
 - Ownership is public. Everything else is subject to fog of war (D-039).
-- Every commander starts at season start with a mother station in their own home system. Saved blueprints (D-035) make the initial build quick.
+- Every commander starts at season start with a mother station in their own home system. Saved blueprints (D-035) make the initial build quick; they are stored outside the season's Universe and arrive with γ (D-299).
 
 **Late joiners (RK-11)** *(Agreed, D-045)*:
 

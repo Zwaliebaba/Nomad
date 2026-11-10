@@ -118,7 +118,7 @@ Rules of engagement are set per fleet: *weapons free*, *return fire* or *hold fi
 - A hostile projectile that crosses the dome circle damages the sector whose arc it crosses, then stops (phase 1: projectiles stop at the dome).
 - **The dome is one-way.** Outgoing fire from turrets and docked defenders launching from inside passes through it.
 - **Pylons are inside the dome and cannot be targeted separately.** A sector's strength *is* its pylon's projection.
-  > **Superseded by D-255:** pylons stand wholly outside the dome and follow the peripheral rule (doc 12 §3): disabled outside the owner's window, destroyable inside. A lost pylon leaves its sector at the core's 25%; raiders do not target pylons.
+  > **Superseded by D-255:** pylons stand wholly outside the dome and follow the peripheral rule (doc 12 §3): disabled outside the owner's window, destroyable inside. A lost pylon leaves its sector at the core's 25%; raiders do not target pylons. A sector above that cap drains down to it over a fixed time, a rules value S9 sets against §11's time-to-kill targets (D-300).
 - *Agreed with the S5 plan:* a sector's maximum is 25% from the core plus 75% from its own pylon (D-140, superseding D-053's 25% per pylon). Every core has the same dome (D-141). Regeneration is allocated MW × 50/120 per second, scaling with the sector's maximum (D-142); power is allocated as in D-128.
 - A sector below 50% shows as weak (phase 1). A sector at 0 is a **breach**, and the holding enters Reinforced (D-015, D-033).
 - During Reinforced, the dome is immune to hostile fire (doc 12).
@@ -154,6 +154,8 @@ The phase-1 command card maps to these mechanics:
 | STOP (S), "ALL TURRETS" | All turrets hold fire |
 
 The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for example SHLD SURGE when a sector drops below 30%.
+
+> **Amended by D-093 and D-258:** the letters above are phase 1's. The MVP card is D-093's positional grid, laid out in D-258: holding card Q REPAIR, W LAUNCH, E RALLY, R BUILD / A VX, S LANCER, D WARDEN, F MULE / Z SHLD SURGE, X FLAK SCREEN, C PWR ROUTE, V STOP (turrets). ELEV REF leaves the card for a toggle in the camera widget, and per-class production buttons (VX, LANCER, WARDEN, MULE) replace phase 1's FRIGATE / INTERCEPT / MULE. The mechanics in the right-hand column are unchanged.
 
 ## 6. Siege mechanics
 
@@ -219,6 +221,7 @@ The Deputy uses these buttons according to doctrine triggers (doc 12 §5.2), for
 - Raid strength scales with the target commander's fleet strength (doc 13).
 - No new raids start during catch-up (D-047).
 - *Settled with the A3 plan:* a raid's launch, target and strength are a simulation rule, and the director AI only steers the spawned group (D-219). Strength comes from the target's fleet value, with a floor of 2 strike craft (D-220); each raid spawns a fresh group (D-221); its 10 minutes start on arrival (D-222).
+- *As built (A3):* D-223 is S6b's peripheral outcome, which disables for an NPC attacker at any time; D-224 is the outpost core's hull growing from 10% over its deployment (S4, S6b). An outpost has no dome, so raiders can destroy its core (D-054), but at the floor they cannot in one raid: two strike craft wear 75 a second against a growth of 37.5, and a fresh core starts at 30,000 (A3 plan §12).
 
 ## 11. Time-to-kill targets
 
