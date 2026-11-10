@@ -501,11 +501,18 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
             })
             .unwrap_or_default();
         let completions: Vec<f64> = r.completions.iter().map(|&t| hours(t)).collect();
-        let build_outs: Vec<Option<f64>> = r
+        let build_outs: Vec<pacing::BuildOut> = r
             .completed_at
             .iter()
-            .filter(|(h, _)| state.holding(**h).is_some_and(|x| !x.mother_station))
-            .map(|(h, &done)| r.built_out.get(h).map(|&built| hours(built - done)))
+            .filter(|(h, _)| {
+                state
+                    .holding(**h)
+                    .is_some_and(|x| x.owner == c && !x.mother_station)
+            })
+            .map(|(h, &done)| pacing::BuildOut {
+                hours: r.built_out.get(h).map(|&built| hours(built - done)),
+                age_h: hours(ticks - done),
+            })
             .collect();
         let first_kit = match (r.first_kit, r.first_online) {
             (Some(k), Some(o)) => Some(hours(k.saturating_sub(o))),
