@@ -23,8 +23,9 @@
 //! haven launch timers), with rules format 13 (the raid parameters), and format 20 (the
 //! raider director's memory); then for format 21 (A2's AI schedules, per-commander random
 //! streams and Strategist memory), with rules format 14 (A2's Strategist values and
-//! blueprints), and format 22 (D-291's claim trips). The harness's seasons are 8 weeks long
-//! ([`SeasonConfig::new`], D-106).
+//! blueprints), and format 22 (D-291's claim trips); then for D-309's pylon and turret costs
+//! with no format change. The harness's seasons are 8 weeks long ([`SeasonConfig::new`],
+//! D-106).
 
 use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1};
 use nomad_sim::snapshot::{self, state_hash};
@@ -40,15 +41,15 @@ const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
 
 /// `(seed, state hash)` of the generated stage-1 Universe, as `nomad-harness --galaxy` prints.
 const STAGE1_HASHES: [(u64, u64); 5] = [
-    (0, 0xad9e_8bdd_f228_6870),
-    (1, 0x2f34_91de_7602_5d14),
-    (2, 0x2c98_f59d_2386_82ab),
-    (7, 0x4da7_8755_575e_06b2),
-    (99, 0x96d7_199c_9c77_e4f9),
+    (0, 0xccf7_668d_a84d_12e7),
+    (1, 0xd503_2a1b_9f60_978b),
+    (2, 0x118a_8cf0_7335_08f8),
+    (7, 0x21a5_f3c5_de69_9901),
+    (99, 0xa8aa_88d8_9b0e_645e),
 ];
 
 /// `nomad-harness --seed 7 --ticks 3000 --diagnostics 500` (mean interval 10 s).
-const DIAGNOSTIC_RUN_HASH: u64 = 0xb42c_8f67_77f0_25f7;
+const DIAGNOSTIC_RUN_HASH: u64 = 0x4d00_d572_c336_f9b8;
 
 fn season(seed: u64) -> SeasonConfig {
     SeasonConfig::new(seed, 0)

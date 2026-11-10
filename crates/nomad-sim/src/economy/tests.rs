@@ -602,7 +602,8 @@ fn modules_build_in_their_slot_and_count_when_complete() {
     }));
     assert_eq!(state.module(turret).unwrap().building_ms, None);
     assert!(state.power(mother).unwrap().powered(turret));
-    assert_eq!(state.pool(CommanderId(1)).crystal, 300_000);
+    // 500 C at the start less the turret's 50 C (D-309).
+    assert_eq!(state.pool(CommanderId(1)).crystal, 450_000);
     assert!(state.economy_problems().is_empty());
     // Destroying it frees the slot.
     let mut ev = Vec::new();

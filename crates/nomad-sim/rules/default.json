@@ -96,13 +96,13 @@
     "core_kit_growth_permille": 250,
     "diminishing_yield_permille": 2500,
     "modules": {
-      "Pylon": { "cost": { "alloy": 2500, "crystal": 300, "build_s": 1800 }, "draw_mw": 40, "supply_mw": 0, "hull": 40000 },
+      "Pylon": { "cost": { "alloy": 3250, "crystal": 50, "build_s": 1800 }, "draw_mw": 40, "supply_mw": 0, "hull": 40000 },
       "Solar": { "cost": { "alloy": 3000, "crystal": 0, "build_s": 1800 }, "draw_mw": 0, "supply_mw": 620, "hull": 20000 },
       "Harvester": { "cost": { "alloy": 2000, "crystal": 0, "build_s": 1200 }, "draw_mw": 60, "supply_mw": 0, "hull": 15000 },
       "Refinery": { "cost": { "alloy": 3500, "crystal": 0, "build_s": 2400 }, "draw_mw": 120, "supply_mw": 0, "hull": 40000 },
       "Extractor": { "cost": { "alloy": 2500, "crystal": 0, "build_s": 1800 }, "draw_mw": 60, "supply_mw": 0, "hull": 15000 },
       "Storage": { "cost": { "alloy": 1500, "crystal": 0, "build_s": 900 }, "draw_mw": 0, "supply_mw": 0, "hull": 20000 },
-      "Turret": { "cost": { "alloy": 2000, "crystal": 200, "build_s": 1200 }, "draw_mw": 40, "supply_mw": 0, "hull": 30000 },
+      "Turret": { "cost": { "alloy": 2450, "crystal": 50, "build_s": 1200 }, "draw_mw": 40, "supply_mw": 0, "hull": 30000 },
       "DryDock": { "cost": { "alloy": 5000, "crystal": 300, "build_s": 3600 }, "draw_mw": 150, "supply_mw": 0, "hull": 50000 }
     },
     "ships": {

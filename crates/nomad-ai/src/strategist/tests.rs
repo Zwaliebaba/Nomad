@@ -425,13 +425,13 @@ impl StrategicView for Fake {
             core_supply_mw: 120,
             mother_supply_mw: 520,
             modules: vec![
-                (ModuleKind::Pylon, units(2_500, 300), 40, 0),
+                (ModuleKind::Pylon, units(3_250, 50), 40, 0),
                 (ModuleKind::Solar, units(3_000, 0), 0, 620),
                 (ModuleKind::Harvester, units(2_000, 0), 60, 0),
                 (ModuleKind::Refinery, units(3_500, 0), 120, 0),
                 (ModuleKind::Extractor, units(2_500, 0), 60, 0),
                 (ModuleKind::Storage, units(1_500, 0), 0, 0),
-                (ModuleKind::Turret, units(2_000, 200), 40, 0),
+                (ModuleKind::Turret, units(2_450, 50), 40, 0),
                 (ModuleKind::DryDock, units(5_000, 300), 150, 0),
             ],
             ships: vec![
