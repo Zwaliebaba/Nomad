@@ -1,11 +1,11 @@
 //! `--season --ai`: the α pacing run with real AI (D-218, D-280; A2 plan §5.4, §9).
 //!
 //! The four stage-1 commanders are Normal AI commanders on their seeded schedules (D-080,
-//! D-204): their Strategists play while online, their Deputies always (A1, A2; A3's raiders
-//! are not built yet). `--solo` keeps commander 1 alone: the other three are pinned offline
-//! with `SetPresence`, the "unopposed" run of D-083 item 3. The season starts on a Monday at
-//! 00:00 UTC, so weekends fall on days 5–6, 12–13 and so on, and lasts the default 8 weeks
-//! (D-106) however many days the run simulates.
+//! D-204): their Strategists play while online, their Deputies always, and the stage-1
+//! haven's raiders raid them (A1, A2, A3). `--solo` keeps commander 1 alone: the other
+//! three are pinned offline with `SetPresence`, the "unopposed" run of D-083 item 3. The
+//! season starts on a Monday at 00:00 UTC, so weekends fall on days 5–6, 12–13 and so on,
+//! and lasts the default 8 weeks (D-106) however many days the run simulates.
 //!
 //! It reports D-070's measures as D-218 §5.4 and D-283 define them, computed by
 //! [`crate::pacing`] exactly as `--economy` computes them for S4's scripted builder, so the
@@ -13,9 +13,13 @@
 //! the commander's first online minute (Q219). Alongside, per commander: its schedule, its
 //! holdings by day, D-083 item 2 counted on each day's binding resource (D-292), the
 //! Strategist's statistics, its evaluation time on real states (D-083 item 7,
-//! D-203) and the per-layer command counters (A1 plan §4.8). `--csv PATH` writes the hourly
-//! samples in `--economy`'s format; `--trace-hours N` prints each commander's plans, pool
-//! and queues every N hours.
+//! D-203) and the per-layer command counters (A1 plan §4.8). After them come D-225's five
+//! raid measures, the raid outcomes and the targets' losses, from `--raids`'s
+//! [`crate::raids::Record`], so D-225 item 3 is judged in AI play (D-314); as in `--raids`,
+//! items 1, 4 and 5 and the 6 h spacing are checks, and a failed one fails the run. The run
+//! has no catch-up segment, so item 5 holds trivially here; `--raids` covers it.
+//! `--csv PATH` writes the hourly samples in `--economy`'s format; `--trace-hours N` prints
+//! each commander's plans, pool and queues every N hours.
 //!
 //! *Proposed* readings:
 //! - a remote holding is built out (D-283) when every pylon and turret of its blueprint is
@@ -338,6 +342,7 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
     };
     let ticks = Ticks::from_days(cfg.days).get();
     let mut evaluation_us: Vec<u128> = Vec::new();
+    let mut raids = crate::raids::Record::default();
     let started = Instant::now();
     for t in 0..ticks {
         let inputs = if t == 0 && cfg.solo {
@@ -365,6 +370,7 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
             }
         }
         let outputs = step(&mut state, &inputs);
+        raids.observe(&state, &outputs);
         let now = outputs.tick.get();
         for event in &outputs.economy_events {
             match *event {
@@ -594,6 +600,20 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
         evaluation_us.len()
     )
     .map_err(|e| e.to_string())?;
+    // D-225's raid measures in AI play (D-314).
+    let mut text = String::from("raids (D-225, judged here per D-314):\n");
+    raids.report(&state, cfg.days, &mut text);
+    let raid_errors = raids.errors();
+    if raid_errors.is_empty() {
+        text.push_str(
+            "raid checks passed: launch intervals, the 6 h spacing, no raider damage to domes, no launch during catch-up\n",
+        );
+    } else {
+        for e in raid_errors {
+            let _ = writeln!(text, "RAID CHECK FAILED: {e}");
+        }
+    }
+    out.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
     let hash = state_hash(&state).map_err(|e| e.to_string())?;
     writeln!(
         out,
@@ -604,7 +624,11 @@ pub fn run(out: &mut impl Write, cfg: PacingRun) -> Result<(), String> {
     if let Some(mut file) = csv {
         file.flush().map_err(|e| e.to_string())?;
     }
-    Ok(())
+    if raid_errors.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("{} raid checks failed", raid_errors.len()))
+    }
 }
 
 #[cfg(test)]
@@ -655,6 +679,10 @@ mod tests {
         .unwrap();
         let text = String::from_utf8(text).unwrap();
         assert!(text.contains("D-070 measures"), "{text}");
+        // D-225's raid measures, item 3 included, are reported (D-314), and the checks hold.
+        assert!(text.contains("3. "), "{text}");
+        assert!(text.contains("reached their system"), "{text}");
+        assert!(text.contains("raid checks passed"), "{text}");
         assert!(text.contains("problems 0"), "{text}");
     }
 }

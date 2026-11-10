@@ -1,10 +1,12 @@
 //! `--raids`: NPC raids on a stage-1 Universe, measured as D-225 asks (A3 plan §8 task 5,
 //! §5 "Raids happen"; D-081, D-219 to D-225, D-047).
 //!
-//! The four stage-1 commanders are AI commanders whose Deputies run; until A2 their
-//! Strategists decide nothing, so a script claims for them as `--season` does: every
+//! The four stage-1 commanders are AI commanders whose Deputies run, without A2's
+//! schedules, and a script claims for them as `--season` does: every
 //! `--claim-hours` (default 12) each places an outpost on a free site, which gives raids
-//! targets away from the home systems. The raider haven launches on its own seeded timer,
+//! targets away from the home systems. When a claim's core completes, the script gives it a
+//! solar array and a harvester (D-314), so a raid on it finds peripheral structures to
+//! disable, as a raid in AI play does. The raider haven launches on its own seeded timer,
 //! and the raider director steers every group. A catch-up segment, `--catch-up-hours` long
 //! (default 6, 0 for none) from hour `--catch-up-from` (default 30), checks that no raid
 //! starts during catch-up (D-047). The run lasts `--days` (default 7).
@@ -20,7 +22,11 @@
 //! and the raid outcomes: withdrawals by reason, groups lost, the raiders' and the targets'
 //! losses, outposts destroyed by group size (A3 plan §5's tuning item), the director's
 //! command counters and the tick time. A failed must-hold check is an error. Items 2 and 3
-//! are α measures of AI play: they are reported, marked, and not errors here.
+//! are α measures of AI play: they are reported, marked, and not errors here; item 3 is
+//! judged in `--season --ai`, which reports the same measures (D-314).
+//!
+//! *Proposed* reading: a claim on a site without an ore field gets an extractor on its
+//! first crystal vein in place of the harvester, the same kind of peripheral structure.
 //!
 //! What a raid destroyed or disabled is told from the outputs: ships and outpost cores the
 //! faction's weapons destroyed, and peripheral modules disabled on a tick the faction's
@@ -31,12 +37,12 @@ use std::fmt::Write as _;
 use std::io::Write;
 use std::time::Instant;
 
-use nomad_sim::galaxy::{STAGE1_COMMANDERS, generate_stage1_with_rules};
+use nomad_sim::galaxy::{DepositKind, STAGE1_COMMANDERS, generate_stage1_with_rules};
 use nomad_sim::snapshot::{decode, encode, state_hash};
 use nomad_sim::{
-    CombatEvent, CommanderId, DefenceEvent, DirectorEvent, EconomyEvent, FactionId, FleetId, Layer,
-    ModuleKind, OperatorInput, Owner, RaidEvent, Rules, SeasonConfig, ShipClass, Slot, SystemId,
-    TICKS_PER_SECOND, Tick, TickInputs, UniverseState, Withdrawal, scenario, step,
+    CombatEvent, CommanderId, DefenceEvent, DirectorEvent, EconomyEvent, FactionId, FleetId,
+    HoldingId, Layer, ModuleKind, OperatorInput, Owner, RaidEvent, Rules, SeasonConfig, ShipClass,
+    Slot, SystemId, TICKS_PER_SECOND, Tick, TickInputs, UniverseState, Withdrawal, scenario, step,
 };
 
 const COMMANDERS: [CommanderId; STAGE1_COMMANDERS] = [
@@ -149,6 +155,11 @@ pub(crate) struct Record {
 }
 
 impl Record {
+    /// The must-hold checks that failed, once [`Record::report`] has run.
+    pub(crate) fn errors(&self) -> &[String] {
+        &self.errors
+    }
+
     /// The faction's raid on `target` that has not ended, or the latest one.
     fn raid_on(&mut self, faction: FactionId, target: CommanderId) -> Option<&mut Raid> {
         self.raids
@@ -359,7 +370,7 @@ impl Record {
     }
 
     /// Writes the D-225 report and the outcomes to `text`, and records failed must-hold
-    /// checks in its errors. The α runs (A3 plan §5) can measure raids the same way.
+    /// checks in its errors. `--season --ai` measures raids in AI play the same way (D-314).
     #[expect(
         clippy::too_many_lines,
         reason = "the report reads best in D-225's order, in one place"
@@ -601,6 +612,35 @@ impl Record {
     }
 }
 
+/// Gives a scripted claim whose core has completed a solar array and a harvester, or an
+/// extractor on a site without an ore field (D-314; the reading in the module
+/// documentation). Returns how many modules it placed.
+fn fit_out(state: &mut UniverseState, holding: HoldingId) -> u32 {
+    let Some(deposits) = state
+        .holding(holding)
+        .and_then(|h| state.galaxy().site(h.site))
+        .map(|s| s.deposits.clone())
+    else {
+        return 0;
+    };
+    let first = |kind: DepositKind| {
+        deposits
+            .iter()
+            .position(|d| d.kind == kind)
+            .and_then(|i| u8::try_from(i).ok())
+    };
+    let producer = first(DepositKind::OreField)
+        .map(|i| (i, ModuleKind::Harvester))
+        .or_else(|| first(DepositKind::CrystalVein).map(|i| (i, ModuleKind::Extractor)));
+    let mut placed =
+        u32::from(scenario::place_module(state, holding, Slot::Solar, ModuleKind::Solar).is_some());
+    if let Some((i, kind)) = producer {
+        placed +=
+            u32::from(scenario::place_module(state, holding, Slot::Deposit(i), kind).is_some());
+    }
+    placed
+}
+
 /// Runs `--raids` and prints the report and the checks.
 pub fn run(out: &mut impl Write, cfg: RaidRun) -> Result<(), String> {
     let end = cfg.days.saturating_mul(DAY);
@@ -616,6 +656,9 @@ pub fn run(out: &mut impl Write, cfg: RaidRun) -> Result<(), String> {
     });
     let mut record = Record::default();
     let mut claims = 0_usize;
+    // Scripted claims whose core is still building, and the modules given to completed ones.
+    let mut building: BTreeSet<HoldingId> = BTreeSet::new();
+    let mut fitted = 0_u32;
     let mut round = 0_usize;
     let mut times = Vec::with_capacity(usize::try_from(end).unwrap_or(0));
     let started = Instant::now();
@@ -632,9 +675,10 @@ pub fn run(out: &mut impl Write, cfg: RaidRun) -> Result<(), String> {
                 let c = COMMANDERS[(i + round) % COMMANDERS.len()];
                 if t.is_multiple_of(interval)
                     && let Some(site) = crate::season::next_claim(&state, c)
-                    && scenario::place_outpost(&mut state, c, site).is_some()
+                    && let Some(holding) = scenario::place_outpost(&mut state, c, site)
                 {
                     claims += 1;
+                    building.insert(holding);
                 }
             }
         }
@@ -651,6 +695,13 @@ pub fn run(out: &mut impl Write, cfg: RaidRun) -> Result<(), String> {
         let outputs = step(&mut state, &inputs);
         times.push(tick_started.elapsed().as_micros());
         record.observe(&state, &outputs);
+        for event in &outputs.economy_events {
+            if let EconomyEvent::HoldingCompleted { holding } = *event
+                && building.remove(&holding)
+            {
+                fitted += fit_out(&mut state, holding);
+            }
+        }
     }
     let elapsed = started.elapsed().as_secs_f64();
     times.sort_unstable();
@@ -660,7 +711,7 @@ pub fn run(out: &mut impl Write, cfg: RaidRun) -> Result<(), String> {
     let mut text = String::new();
     let _ = writeln!(
         text,
-        "raids | seed {} | {} days | 4 AI commanders (Deputies; scripted claims every {} h) | catch-up {}",
+        "raids | seed {} | {} days | 4 AI commanders (Deputies; scripted claims every {} h, each given a solar array and a harvester) | catch-up {}",
         cfg.seed,
         cfg.days,
         cfg.claim_hours,
@@ -684,7 +735,7 @@ pub fn run(out: &mut impl Write, cfg: RaidRun) -> Result<(), String> {
     }
     let _ = writeln!(
         text,
-        "ticks {} | {claims} scripted claims | tick time: mean {mean:.0} µs, p99 {p99} µs | elapsed {elapsed:.1} s | hash {hash:016x}",
+        "ticks {} | {claims} scripted claims, {fitted} modules given to them | tick time: mean {mean:.0} µs, p99 {p99} µs | elapsed {elapsed:.1} s | hash {hash:016x}",
         state.tick().get()
     );
     out.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
@@ -724,6 +775,8 @@ mod tests {
         let text = run_once(None);
         assert!(text.contains("checks passed"), "{text}");
         assert!(text.contains("4. raider damage to domes 0"), "{text}");
+        // The completed scripted claims got their solar array and harvester (D-314).
+        assert!(!text.contains(", 0 modules given"), "{text}");
         // The catch-up segment caught at least one firing.
         assert!(!text.contains("firings suppressed 0 "), "{text}");
         // A restore in the middle of a raid changes nothing.
