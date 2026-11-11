@@ -3,9 +3,10 @@
 //!
 //! Each of the four stage-1 commanders runs the same script once a minute, through ordinary
 //! commands and the single validator (D-077): it splits a MULE off for core kits and one for
-//! convoys, expands to free sites in its home system and the systems next to it (crystal
-//! veins first, then the richest), builds every holding out (deposit modules, solar,
-//! refinery, storage, 4 pylons, 2 turrets, a dry dock: the plan's standard build-out), keeps a
+//! convoys (and replaces the kit's MULE if a raid destroys it), expands to free sites in its
+//! home system and the systems next to it (crystal veins first, then the richest), builds
+//! every holding out (deposit modules, solar, refinery, storage, 4 pylons, 2 turrets, a dry
+//! dock: the plan's standard build-out), keeps a
 //! convoy running between remote holdings and the mother station, and keeps a core-kit
 //! reserve so expansion is not starved. It is a measuring script, not an AI (A2 is).
 //!
@@ -13,7 +14,13 @@
 //! (D-189), so the reserve is the next kit's price, and the report lists every kit with its
 //! price. It flags a kit priced above the commander's pool cap when it was queued: until
 //! storage raises the cap, the pool cannot hold its price, so it cannot be bought (doc 14
-//! §13).
+//! §13). Two rules order the spending around that reserve:
+//! - **defend before the next kit (D-309):** the pylons and turrets of a holding whose core
+//!   completed at least [`DEFEND_AFTER_H`] ago ignore the kit reserve, as the modules that
+//!   grow income do;
+//! - **storage before an oversized kit (D-310):** while the kit costs more than the pool cap
+//!   and nothing else will raise it (a holding or rack lost since its price was fixed), the
+//!   script builds storage first, in an inner slot its list leaves free, one at a time.
 //!
 //! Remote producers share D-217's diminishing yield per resource (D-281): alloy output is
 //! scaled by min(1, F ÷ alloy-producing holdings other than the mother station), crystal by
@@ -22,7 +29,8 @@
 //! The D-070 measures follow D-218 §5.4 as amended by D-283 ([`crate::pacing`]): storage fill
 //! and the cap-fleet rebuild over days 21–35, late income over days 42–56, hours per new
 //! holding as 72 h ÷ the holdings completed by hour 72, the rebuild in the Garrison stand-in's
-//! composition, and build-out measured from each holding's core completion. A run shorter
+//! composition, and build-out measured from each holding's core completion to the completion
+//! of every pylon and turret of its list (D-295's reading of D-283). A run shorter
 //! than a window measures a stand-in stretch and says so. `--csv PATH` writes the hourly
 //! samples, one row per commander and hour.
 
@@ -73,7 +81,13 @@ struct Builder {
     built_out: BTreeMap<HoldingId, u64>,
     completed_at: BTreeMap<HoldingId, u64>,
     kits: Vec<KitRecord>,
+    /// When it first had no free site left to claim and no kit on the way.
+    expansion_end: Option<u64>,
 }
+
+/// D-309: a holding's pylons and turrets go before the next kit once its core completed this
+/// many hours ago.
+const DEFEND_AFTER_H: u64 = 48;
 
 /// One core kit the script queued (D-189).
 struct KitRecord {
@@ -193,7 +207,7 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
     let economy = state.economy_of(c);
 
     // Split the start kit's MULEs, a reserve fleet of their own (D-286), into one fleet each.
-    if b.kit_mule.is_none() {
+    if b.haul_mule.is_none() {
         let start = state.fleet_ids().into_iter().find_map(|f| {
             let v = state.fleet(f)?;
             let mules = v
@@ -225,6 +239,57 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
 
     // Expansion: a core kit, carried by the kit MULE.
     let mother_view = state.holding_economy(mother);
+    // A kit MULE a raid destroyed is replaced: by a MULE docked at the mother station other
+    // than the convoy's, split off its fleet, or else by one built there. Without it a kit
+    // waits at home for the rest of the run.
+    if b.kit_mule.is_some_and(|m| state.ship(m).is_none()) {
+        b.kit_mule = None;
+    }
+    if b.kit_mule.is_none() {
+        let spare = state
+            .fleet_ids()
+            .into_iter()
+            .filter_map(|f| state.fleet(f))
+            .filter(|v| v.owner == owner && matches!(v.place, Place::Docked(at) if at == mother))
+            .find_map(|v| {
+                v.ships
+                    .iter()
+                    .copied()
+                    .find(|&s| {
+                        Some(s) != b.haul_mule
+                            && state.ship(s).is_some_and(|x| x.class == ShipClass::Mule)
+                    })
+                    .map(|s| (s, v.ships.len()))
+            });
+        let building = mother_view.as_ref().is_some_and(|v| {
+            v.queue.iter().any(|q| {
+                q.item
+                    == BuildItem::Ship {
+                        class: ShipClass::Mule,
+                    }
+            })
+        });
+        match spare {
+            Some((ship, in_fleet)) => {
+                b.kit_mule = Some(ship);
+                if in_fleet > 1 {
+                    commands.push(Command::CreateFleet { ships: vec![ship] });
+                }
+            }
+            None if !building => {
+                let build = Command::Economy(EconomyCommand::Build {
+                    holding: mother,
+                    item: BuildItem::Ship {
+                        class: ShipClass::Mule,
+                    },
+                });
+                if validate_command(state, owner, &build).is_ok() {
+                    commands.push(build);
+                }
+            }
+            None => {}
+        }
+    }
     let kits = mother_view.as_ref().map_or(0, |v| v.kits);
     let kit_queued = mother_view
         .as_ref()
@@ -241,6 +306,9 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
     let carrying = b.kit_mule.is_some_and(|m| state.cargo(m).core_kit);
     if b.target.is_none_or(|t| state.holding_at(t).is_some()) {
         b.target = next_target(state, c, home);
+        if b.target.is_none() && !carrying && b.expansion_end.is_none() {
+            b.expansion_end = Some(tick);
+        }
     }
     let want_kit = b.target.is_some() && !carrying && kits == 0 && !kit_queued;
     if want_kit {
@@ -339,6 +407,26 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
         Stock::ZERO
     };
     let mut budget = economy.pool;
+    // D-310: storage first while the kit costs more than the pool can hold.
+    let mut storage_at = None;
+    if !reserve.is_zero()
+        && !economy.cap.covers(reserve)
+        && let Some((holding, slot)) = storage_first(state, &economy, budget)
+    {
+        let build = Command::Economy(EconomyCommand::Build {
+            holding,
+            item: BuildItem::Module {
+                kind: ModuleKind::Storage,
+                slot,
+            },
+        });
+        if validate_command(state, owner, &build).is_ok() {
+            budget = budget.minus(module_cost(state, ModuleKind::Storage));
+            storage_at = Some(holding);
+            commands.push(build);
+        }
+    }
+    let hour = 3_600 * TICKS_PER_SECOND;
     for h in &economy.holdings {
         let complete = h
             .slots
@@ -357,14 +445,19 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
                     .any(|(s, m)| s == slot && m.is_some_and(|m| m.kind == *kind))
             })
             .collect();
-        let finished = missing.is_empty()
-            && h.slots
-                .iter()
-                .all(|(_, m)| m.is_none_or(|m| m.building_ms.is_none()));
-        if finished {
+        // D-283 as D-295 reads it: every pylon and turret of the list complete.
+        let defended = list
+            .iter()
+            .filter(|(kind, _)| matches!(kind, ModuleKind::Pylon | ModuleKind::Turret))
+            .all(|(kind, slot)| {
+                h.slots.iter().any(|(s, m)| {
+                    s == slot && m.is_some_and(|m| m.kind == *kind && m.building_ms.is_none())
+                })
+            });
+        if defended {
             b.built_out.entry(h.holding).or_insert(tick);
         }
-        if !h.queue.is_empty() {
+        if !h.queue.is_empty() || storage_at == Some(h.holding) {
             continue;
         }
         let Some(&&(kind, slot)) = missing.first() else {
@@ -381,7 +474,13 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
                 | ModuleKind::Refinery
                 | ModuleKind::Storage
         );
-        let keep = if grows {
+        let core_age_h = b
+            .completed_at
+            .get(&h.holding)
+            .map_or(0, |&done| (tick - done) / hour);
+        let defend =
+            matches!(kind, ModuleKind::Pylon | ModuleKind::Turret) && core_age_h >= DEFEND_AFTER_H;
+        let keep = if grows || defend {
             Stock::ZERO
         } else {
             Stock {
@@ -406,6 +505,55 @@ fn think(state: &UniverseState, c: CommanderId, b: &mut Builder, tick: u64) -> V
         }
     }
     commands
+}
+
+/// D-310: where to build storage for a kit priced above the pool cap, if nothing else will
+/// raise the cap: no storage is on its way and every holding, outposts included, has its
+/// list's rack (a kit priced above the cap when queued is normal, and the newest holding's
+/// rack lifts the cap, D-282). Then the first complete holding (in identity order) with an
+/// empty queue and an inner slot its list leaves free, if `budget` pays for it.
+fn storage_first(
+    state: &UniverseState,
+    economy: &nomad_sim::CommanderEconomy,
+    budget: Stock,
+) -> Option<(HoldingId, Slot)> {
+    let storage_in = |h: &nomad_sim::HoldingEconomyView, slot: Slot| {
+        h.slots
+            .iter()
+            .any(|(s, m)| *s == slot && m.is_some_and(|m| m.kind == ModuleKind::Storage))
+    };
+    let coming = economy.holdings.iter().any(|h| {
+        h.slots.iter().any(|(_, m)| {
+            m.is_some_and(|m| m.kind == ModuleKind::Storage && m.building_ms.is_some())
+        }) || h.queue.iter().any(|q| {
+            matches!(
+                q.item,
+                BuildItem::Module {
+                    kind: ModuleKind::Storage,
+                    ..
+                }
+            )
+        }) || build_out(state, h.holding)
+            .into_iter()
+            .any(|(kind, slot)| kind == ModuleKind::Storage && !storage_in(h, slot))
+    });
+    if coming || !budget.covers(module_cost(state, ModuleKind::Storage)) {
+        return None;
+    }
+    economy
+        .holdings
+        .iter()
+        .filter(|h| h.queue.is_empty())
+        .filter(|h| state.holding(h.holding).is_some_and(|x| x.core_complete))
+        .find_map(|h| {
+            let list = build_out(state, h.holding);
+            h.slots
+                .iter()
+                .filter(|(s, m)| matches!(s, Slot::Inner(_)) && m.is_none())
+                .map(|(s, _)| *s)
+                .find(|s| !list.iter().any(|(_, used)| used == s))
+                .map(|slot| (h.holding, slot))
+        })
 }
 
 fn module_cost(state: &UniverseState, kind: ModuleKind) -> Stock {
@@ -663,12 +811,19 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
             .filter(|h| state.holding(h.holding).is_some_and(|x| x.core_complete))
             .count();
         let completions: Vec<f64> = b.completions.iter().map(|&t| hours(t)).collect();
-        // D-283: from each remote holding's core completion to its full build-out.
-        let build_outs: Vec<Option<f64>> = b
+        // D-283: from each remote holding's core completion to its build-out (D-295).
+        let build_outs: Vec<pacing::BuildOut> = b
             .completed_at
             .iter()
-            .filter(|(holding, _)| state.holding(**holding).is_some_and(|x| !x.mother_station))
-            .map(|(holding, &done)| b.built_out.get(holding).map(|&built| hours(built - done)))
+            .filter(|(holding, _)| {
+                state
+                    .holding(**holding)
+                    .is_some_and(|x| x.owner == c && !x.mother_station)
+            })
+            .map(|(holding, &done)| pacing::BuildOut {
+                hours: b.built_out.get(holding).map(|&built| hours(built - done)),
+                age_h: hours(ticks - done),
+            })
             .collect();
         m.add(
             &pacing::CommanderRun {
@@ -693,7 +848,7 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
             .collect();
         writeln!(
             out,
-            "  C{}: {holdings} holdings (completions at {} h; {}) | income {:.0} A/h {:.0} C/h | D-281 yield {}‰ over {} alloy, {}‰ over {} crystal producers | pool {:.0} A {:.0} C of {:.0}/{:.0} | lost {:.0} A {:.0} C | command {}/{} | first kit {}",
+            "  C{}: {holdings} holdings (completions at {} h; {}) | income {:.0} A/h {:.0} C/h | D-281 yield {}‰ over {} alloy, {}‰ over {} crystal producers | pool {:.0} A {:.0} C of {:.0}/{:.0} | lost {:.0} A {:.0} C | command {}/{} | first kit {} | expansion ended {}",
             c.0,
             completions.iter().map(|h| format!("{h:.1}")).collect::<Vec<_>>().join(", "),
             by_day.join(", "),
@@ -712,6 +867,7 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
             e.command_used,
             e.command_cap,
             b.first_kit_start.map_or("never".to_owned(), |t| format!("{:.2} h", hours(t))),
+            b.expansion_end.map_or("no".to_owned(), |t| format!("{:.1} h", hours(t))),
         )
         .map_err(|e| e.to_string())?;
     }
@@ -729,4 +885,30 @@ pub fn run(out: &mut impl Write, cfg: EconomyRun) -> Result<(), String> {
         file.flush().map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn storage_for_an_oversized_kit_goes_where_the_list_leaves_room() {
+        let state =
+            generate_stage1_with_rules(SeasonConfig::new(1, 0), COMMANDERS, Rules::embedded())
+                .unwrap();
+        let c = COMMANDERS[0];
+        let mother = mother(&state, c).unwrap();
+        let economy = state.economy_of(c);
+        // The mother station's own rack is built at the start, so the extra one takes an
+        // inner slot its list leaves free: Inner 4 (the list uses 0 to 3).
+        assert_eq!(
+            storage_first(&state, &economy, Stock::units(10_000, 0)),
+            Some((mother, Slot::Inner(4)))
+        );
+        // Not while the pool cannot pay for it.
+        assert_eq!(
+            storage_first(&state, &economy, Stock::units(1_000, 0)),
+            None
+        );
+    }
 }

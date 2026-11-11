@@ -28,9 +28,10 @@
 //!
 //! With `--season --ai` it runs the α pacing run with real AI instead (D-218; A2 plan §5.4):
 //! four Normal AI commanders on their seeded schedules, 7 days by default, reporting D-070's
-//! measures as D-218 and D-283 define them, with the same code as `--economy`; `--solo` keeps
-//! one commander alone (D-083 item 3). Run `--economy` on the same seed for S4's scripted
-//! builder alongside (D-280).
+//! measures as D-218 and D-283 define them, with the same code as `--economy`, and D-225's
+//! raid measures with the same code as `--raids` (D-314); `--solo` keeps one commander alone
+//! (D-083 item 3). Run `--economy` on the same seed for S4's scripted builder alongside
+//! (D-280).
 //!
 //! With `--siege` it runs the siege scenarios (S6 plan §8): breach, Reinforced, siege, Held
 //! and Fallen, capture, the emergency jump of a mother station, protections and peripheral
@@ -48,7 +49,8 @@
 //! hours unless `--hours` or `--ticks` says otherwise; build with `--release` for it.
 //!
 //! With `--raids` it runs NPC raids on a stage-1 Universe (A3 plan §8 task 5; D-225): the
-//! four commanders' Deputies, scripted claims, the haven's launches and the raider director,
+//! four commanders' Deputies, scripted claims (each given a solar array and a harvester once
+//! built, D-314), the haven's launches and the raider director,
 //! 7 days by default with a catch-up segment, reporting the launch intervals, raids per
 //! commander and per day, the 6 h spacing, what raids destroyed or disabled, raider damage
 //! to domes, catch-up suppression and raid losses.

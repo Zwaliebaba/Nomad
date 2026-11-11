@@ -132,7 +132,7 @@ The difficulty is set per AI commander when the Universe is created. The MVP def
 
 ## 8. NPC raider director
 
-> **Settled with the A3 plan (D-219 to D-225):** a raid's launch, target and strength are a simulation rule; the director AI only steers spawned raid groups through the NPC view (D-219, reconciling D-081 with D-077). Fleet value is alloy + 3 × crystal cost, with at least 2 strike craft (D-220). Groups are spawned per raid and removed on return (D-221); the 10 minutes start on arrival (D-222). Raiders only ever disable structures (D-223). An outpost's hull grows from 10% to 100% while it is built (D-224). D-225 defines "raids happen" for α.
+> **Settled with the A3 plan (D-219 to D-225):** a raid's launch, target and strength are a simulation rule; the director AI only steers spawned raid groups through the NPC view (D-219, reconciling D-081 with D-077). Fleet value is alloy + 3 × crystal cost, with at least 2 strike craft (D-220). Groups are spawned per raid and removed on return (D-221); the raid clock starts on arrival (D-222). *Derived* (D-313, superseding D-220's floor and the 10 minutes of D-081 and D-222): at least 4 strike craft, and a 15-minute clock. Raiders only ever disable structures (D-223). An outpost's hull grows from 10% to 100% while it is built (D-224). D-225 defines "raids happen" for α.
 
 *Agreed (D-081); this is the behaviour behind doc 15 §10.*
 
@@ -142,10 +142,10 @@ The difficulty is set per AI commander when the Universe is created. The MVP def
   - Eligible targets: convoys, ships outside docks, outposts under construction (D-054), and peripheral structures, which are disabled only (doc 12 §3).
   - **No commander is raided twice within 6 h.** Online status plays no part (it is private, D-075).
 - **Strength:** 30–50% of the target commander's fleet value in that system. Raids pressure a commander; they do not wipe them out.
-- **Withdrawal:** after 10 min, or after losing 50% of the group.
+- **Withdrawal:** after 10 min, or after losing 50% of the group. *(Derived from D-313: the clock is 15 min, and every raid has at least 4 strike craft, so that at least half of the raids that reach their system destroy or disable something, D-225 item 3.)*
 - Raiders do zero damage to domes (D-056). They see through their faction's own sensors (doc 16 §7).
 
-> **As built (A3):** the launch rule is in `nomad-sim` (`raids`): one NPC faction per haven, a launch timer drawing 2–4 h on the haven's `RAIDS` stream, a target drawn by public-data weights, strength from the target's fleet value in that system, the spawn at the haven's gate, and removal on return; a firing during catch-up launches nothing and is not deferred (D-047, D-219 to D-221). The director is in `nomad-ai` (`director`): it steers each group through the faction's view and ordinary commands at Normal's competence, starts the 10 minutes when the arrival shroud ends, attacks the target commander's MULEs, outposts, weaker ships and peripheral structures in that order, and withdraws on the clock, at half its value lost or before a force more than twice its own (D-222). D-223 and D-224 were already built by S4 and S6b. The readings the plan left open, and what the first `--raids` runs showed, are in the A3 plan §12.
+> **As built (A3):** the launch rule is in `nomad-sim` (`raids`): one NPC faction per haven, a launch timer drawing 2–4 h on the haven's `RAIDS` stream, a target drawn by public-data weights, strength from the target's fleet value in that system, the spawn at the haven's gate, and removal on return; a firing during catch-up launches nothing and is not deferred (D-047, D-219 to D-221). The director is in `nomad-ai` (`director`): it steers each group through the faction's view and ordinary commands at Normal's competence, starts the raid clock (*Derived:* 15 minutes, D-313) when the arrival shroud ends, attacks the target commander's MULEs, outposts, weaker ships and peripheral structures in that order, and withdraws on the clock, at half its value lost or before a force more than twice its own (D-222). D-223 and D-224 were already built by S4 and S6b. The readings the plan left open, what the first `--raids` runs showed, and the D-313 confirmation in AI play are in the A3 plan §12.
 
 ## 9. Doctrine presets
 

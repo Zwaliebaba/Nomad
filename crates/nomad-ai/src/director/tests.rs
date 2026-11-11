@@ -217,7 +217,7 @@ fn groups_are_evaluated_at_2_hz_by_their_id() {
 }
 
 #[test]
-fn the_clock_starts_when_the_shroud_ends_and_withdraws_the_group_after_10_minutes() {
+fn the_clock_starts_when_the_shroud_ends_and_withdraws_the_group_after_15_minutes() {
     let (mut fake, mut memory) = raiding();
     fake.public.insert(
         HUB,
@@ -249,9 +249,9 @@ fn the_clock_starts_when_the_shroud_ends_and_withdraws_the_group_after_10_minute
     outcome(&mut fake, orders(&out)[0].clone(), CommandOutcome::Applied);
     fake.fleets.get_mut(&GROUP).unwrap().place = FleetPlace::InSpace(at(HUB, 4_000.0, 0.0));
     fake.fleets.get_mut(&GROUP).unwrap().busy = true;
-    assert!(run_at(&mut fake, &mut memory, 7_095).commands.is_empty());
-    // 10 minutes after the shroud: home.
-    let out = run_at(&mut fake, &mut memory, 7_100);
+    assert!(run_at(&mut fake, &mut memory, 10_095).commands.is_empty());
+    // 15 minutes after the shroud (D-313): home.
+    let out = run_at(&mut fake, &mut memory, 10_100);
     assert_eq!(orders(&out), [FleetOrder::Jump { system: HAVEN }]);
     assert_eq!(
         out.director_events,
@@ -262,12 +262,12 @@ fn the_clock_starts_when_the_shroud_ends_and_withdraws_the_group_after_10_minute
     );
     assert_eq!(
         memory.withdrawal(GROUP),
-        Some((Tick::new(7_100), Withdrawal::Clock))
+        Some((Tick::new(10_100), Withdrawal::Clock))
     );
     // Withdrawing, it attacks nothing, even with a target in front of it.
     fake.contacts
         .insert(HUB, vec![contact(70, 71, TARGET, ShipClass::Mule, 4_500.0)]);
-    assert!(run_at(&mut fake, &mut memory, 7_105).commands.is_empty());
+    assert!(run_at(&mut fake, &mut memory, 10_105).commands.is_empty());
 }
 
 #[test]

@@ -163,7 +163,7 @@ pub(crate) fn progress(
     events: &mut Vec<EconomyEvent>,
     fleet_events: &mut Vec<crate::fleet::FleetEvent>,
 ) {
-    progress_core(state, holding, events);
+    progress_core(state, holding, now, events);
     let Some(e) = state.economy.holdings.get(&holding) else {
         return;
     };
@@ -213,7 +213,12 @@ pub(crate) fn progress(
 /// Counts down an outpost's core deployment, grows its hull by the second's share (D-224:
 /// from 10% to 100% over the deployment; damage taken stays taken), and completes the
 /// holding (D-054, D-135).
-fn progress_core(state: &mut UniverseState, holding: HoldingId, events: &mut Vec<EconomyEvent>) {
+fn progress_core(
+    state: &mut UniverseState,
+    holding: HoldingId,
+    now: Tick,
+    events: &mut Vec<EconomyEvent>,
+) {
     let Some(core) = state
         .economy
         .holdings
@@ -246,6 +251,9 @@ fn progress_core(state: &mut UniverseState, holding: HoldingId, events: &mut Vec
         state.entities.remove::<Construction>(core);
         if let Some(h) = state.holdings.get_mut(&holding) {
             h.core_complete = true;
+        }
+        if let Some(e) = state.economy.holdings.get_mut(&holding) {
+            e.completed_at = Some(now);
         }
         // The new holding counts for control and the standings (D-041, D-191).
         crate::season::mark_dirty(state);

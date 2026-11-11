@@ -26,9 +26,9 @@ pub(crate) struct Contact {
     pub(crate) shrouded: bool,
 }
 
-/// The rules file's values (D-081, D-222; doc 15 §5.3; D-055).
+/// The rules file's values (D-081, D-222, D-313; doc 15 §5.3; D-055).
 pub(crate) const RULES: RaidRules = RaidRules {
-    clock_ticks: 6_000,
+    clock_ticks: 9_000,
     loss_limit_permille: 500,
     withdraw_ratio_permille: 2_000,
     withdraw_radius_m: 5_000,

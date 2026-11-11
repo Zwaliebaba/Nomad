@@ -18,8 +18,8 @@
 //! **A group's raid (A3 plan §4.5–§4.7):**
 //!
 //! 1. Spawned at the haven, it jumps to the target system (`Jump`; S3 routes it).
-//! 2. On arrival the 10-minute clock starts when the shroud ends: the inbox's arrival tick
-//!    plus the shroud (D-055, D-222).
+//! 2. On arrival the raid clock (D-313: 15 minutes) starts when the shroud ends: the
+//!    inbox's arrival tick plus the shroud (D-055, D-222).
 //! 3. It withdraws, with a `Jump` back to the haven, when the clock runs out, when it has
 //!    lost half its spawned value (destroyed ships, by value), or when the sensed hostile
 //!    value within 5 km exceeds twice its remaining value (D-081, D-222). The launch rule
@@ -175,7 +175,7 @@ enum Intent {
 /// Why a group withdrew (D-081, D-222).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Withdrawal {
-    /// Its 10 minutes ran out.
+    /// Its clock ran out (D-313: 15 minutes).
     Clock,
     /// It lost half its spawned value.
     Losses,

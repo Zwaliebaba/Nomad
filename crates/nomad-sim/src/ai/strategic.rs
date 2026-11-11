@@ -143,6 +143,11 @@ impl StrategicView for AiView<'_> {
             docked: state.docked_ships(holding),
             docking_capacity: state.docking_capacity(holding),
             rally: state.economy.holdings.get(&holding).and_then(|x| x.rally),
+            completed_at: state
+                .economy
+                .holdings
+                .get(&holding)
+                .and_then(|x| x.completed_at),
         })
     }
 

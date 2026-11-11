@@ -11,7 +11,9 @@
 //! - **Full cap-fleet rebuild:** the cost of a fleet at the mean command cap over days 21–35,
 //!   in the Garrison stand-in's composition (A2 §4.7: by value about 30% VX, 40% LANCER and
 //!   30% WARDEN), ÷ the mean income over the same days, in hours of the binding resource.
-//! - **Build-out (D-283):** the time from a holding's core completion to its full build-out.
+//! - **Build-out (D-283):** the time from a remote holding's core completion to its full
+//!   build-out, which D-295 reads as every pylon and turret of its blueprint complete. A
+//!   holding not built out by the end counts as not built out, not as missing ([`BuildOut`]).
 //! - **Late income:** the mean alloy income over days 42–56 ÷ 600 A/h.
 //!
 //! *Derived:* a run too short for a window measures the last 7 days instead (the last third,
@@ -20,6 +22,13 @@
 //! reach (by about day 10): in the D-279 tuning study the measures were identical to two
 //! decimals over days 10–14, 14–21 and 21–25. A full 56-day run takes hours in a release
 //! build, so tuning runs use 14 or 21 days and the α runs confirm with the full windows.
+//!
+//! *Proposed:* build-out is judged only for holdings whose core completed at least
+//! [`JUDGE_BUILD_OUT_H`] (1.5 × D-070's 72 h, the ±50% bound of doc 30 §3) before the run's
+//! end. Each of those has either finished, with its time, or is already past the bound, and
+//! counts as never built out (an infinite time), so the median sees it instead of dropping
+//! it. Younger holdings are left out whether finished or not, since keeping only the finished
+//! ones would favour the fast; the report counts both.
 
 use std::io::Write;
 
@@ -31,6 +40,20 @@ const DAY_H: u64 = 24;
 
 /// The mother station's income at the season start, the reference for late income (D-070).
 pub const START_INCOME: f64 = 600.0;
+
+/// A holding's build-out is judged once its core completed this many hours before the run's
+/// end: 1.5 × D-070's 72 h, the ±50% bound (the module documentation's reading).
+pub const JUDGE_BUILD_OUT_H: f64 = 108.0;
+
+/// One remote holding's build-out (D-283, D-295).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BuildOut {
+    /// Hours from its core completion to its build-out, or `None` if not built out by the
+    /// run's end.
+    pub hours: Option<f64>,
+    /// Hours from its core completion to the run's end.
+    pub age_h: f64,
+}
 
 /// One commander's economy at the end of an hour.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -204,9 +227,8 @@ pub struct CommanderRun<'a> {
     pub completions: &'a [f64],
     /// When its first core kit started, in hours since its first online minute.
     pub first_kit: Option<f64>,
-    /// Each of its holdings other than the mother station: the hours from its core completion
-    /// to its full build-out (D-283), or `None` if it was not built out by the end.
-    pub build_outs: &'a [Option<f64>],
+    /// Each of its holdings other than the mother station that it still holds.
+    pub build_outs: &'a [BuildOut],
 }
 
 /// Each commander's D-070 measures (D-218 §5.4, D-283), collected for the report.
@@ -223,6 +245,8 @@ pub struct Measures {
     mid_income: Vec<(f64, f64)>,
     build_out: Vec<f64>,
     remote_holdings: usize,
+    build_out_unfinished: usize,
+    build_out_young: usize,
     late: Vec<f64>,
 }
 
@@ -269,7 +293,16 @@ impl Measures {
             self.per_holding.push(h);
         }
         self.remote_holdings += run.build_outs.len();
-        self.build_out.extend(run.build_outs.iter().flatten());
+        for b in run.build_outs {
+            if b.age_h < JUDGE_BUILD_OUT_H {
+                self.build_out_young += 1;
+            } else if let Some(h) = b.hours {
+                self.build_out.push(h);
+            } else {
+                self.build_out.push(f64::INFINITY);
+                self.build_out_unfinished += 1;
+            }
+        }
     }
 
     /// Writes each measure as the median over the commanders, with the range and a verdict
@@ -339,7 +372,7 @@ impl Measures {
                 "h",
             ),
             (
-                "build-out from core completion, D-283 [48-72 h]",
+                "build-out from core completion, D-283 and D-295 [48-72 h]",
                 &self.build_out,
                 48.0,
                 72.0,
@@ -361,7 +394,7 @@ impl Measures {
         let crystal: Vec<f64> = self.mid_income.iter().map(|x| x.1).collect();
         writeln!(
             out,
-            "  also: storage fill, crystal {:.1} h | rebuild on alloy {:.1} h, on crystal {:.1} h | mid-season income {:.0} A/h {:.0} C/h | build-out finished at {} of {} remote holdings",
+            "  also: storage fill, crystal {:.1} h | rebuild on alloy {:.1} h, on crystal {:.1} h | mid-season income {:.0} A/h {:.0} C/h | build-out judged at {} of {} remote holdings, {} of them not built out; {} younger than {JUDGE_BUILD_OUT_H:.0} h left out",
             median(&self.storage_mid_crystal),
             median(&self.rebuild_alloy),
             median(&self.rebuild_crystal),
@@ -369,6 +402,8 @@ impl Measures {
             median(&crystal),
             self.build_out.len(),
             self.remote_holdings,
+            self.build_out_unfinished,
+            self.build_out_young,
         )
         .map_err(|e| e.to_string())
     }
@@ -488,6 +523,59 @@ mod tests {
         let (a, c) = rebuild_hours((alloy, crystal), 300.0, (2_000.0, 0.0));
         assert!((a - 27.9).abs() < 0.1, "{a}");
         assert!(c.is_infinite());
+    }
+
+    #[test]
+    fn build_out_counts_unfinished_holdings_and_leaves_young_ones_out() {
+        let samples = [sample(1, 600, 0, 6_500, 120)];
+        let build_outs = [
+            BuildOut {
+                hours: Some(50.0),
+                age_h: 200.0,
+            },
+            BuildOut {
+                hours: Some(60.0),
+                age_h: 120.0,
+            },
+            // Past the bound and not built out: it counts, as never built out.
+            BuildOut {
+                hours: None,
+                age_h: 150.0,
+            },
+            // Too young to judge, finished or not: left out.
+            BuildOut {
+                hours: Some(10.0),
+                age_h: 30.0,
+            },
+            BuildOut {
+                hours: None,
+                age_h: 100.0,
+            },
+        ];
+        let mut m = Measures::default();
+        let w = Window::days(0, 1, 1);
+        m.add(
+            &CommanderRun {
+                samples: &samples,
+                start_cap: Stock::units(6_500, 0),
+                completions: &[],
+                first_kit: None,
+                build_outs: &build_outs,
+            },
+            (0.0, 0.0),
+            w,
+            w,
+        );
+        assert_eq!(m.build_out.len(), 3);
+        assert!((median(&m.build_out) - 60.0).abs() < 1e-12);
+        assert_eq!((m.build_out_unfinished, m.build_out_young), (1, 2));
+        let mut text = Vec::new();
+        m.write(&mut text, w, w).unwrap();
+        let text = String::from_utf8(text).unwrap();
+        assert!(
+            text.contains("judged at 3 of 5 remote holdings, 1 of them not built out; 2 younger"),
+            "{text}"
+        );
     }
 
     #[test]

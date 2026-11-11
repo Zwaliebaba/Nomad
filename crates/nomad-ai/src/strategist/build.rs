@@ -10,6 +10,13 @@
 //! 3. pylons N, E, S, W; 4. two turrets; 5. a dry dock only at the mother station (built)
 //!    and one forward holding; empty sites stop after storage and pylons (their blueprint).
 //!
+//! **Defence before the next kit (D-309):** the pylons and turrets of a holding whose core
+//! completed at least [`DEFEND_AFTER`] ago are *due*: they may spend what *Expand* holds back
+//! for its kit ([`super::Turn::spend_before_kit`]), so the kit reserve never holds back
+//! their defence, and the sign-off queues them alongside a waiting kit (they cost less, so
+//! they start first, D-068). *Proposed:* the mother station, complete from the season start,
+//! is due from hour 48, and a solar array a due step needs for power is due with it.
+//!
 //! Across holdings, productive steps go by value per cost ([`super::model`]: the change in
 //! the commander's output after D-217 and D-281), so a step that adds nothing is not built.
 //! Defensive steps follow, nearest the raider haven and the most hostiles first.
@@ -33,11 +40,17 @@ use nomad_types::{
     BuildItem, Command, EconomyCommand, HoldingId, ModuleKind, ShipClass, Slot, Stock,
 };
 
+use nomad_types::{Tick, Ticks};
+
 use super::model::{self, Features};
 use super::rules::BlueprintMode;
 use super::view::{HoldingStatus, StrategicView, StrategistParams};
 use super::{Plan, Turn};
 use crate::view::BuildCheck;
+
+/// D-309: a holding's pylons and turrets go before the next kit once its core completed this
+/// long ago.
+pub(crate) const DEFEND_AFTER: Ticks = Ticks::from_hours(48);
 
 /// A step one holding could take.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,6 +60,8 @@ pub(crate) struct Step {
     pub(crate) slot: Slot,
     pub(crate) price: Stock,
     pub(crate) score: i64,
+    /// Due defence (D-309): it goes before the next kit.
+    pub(crate) due: bool,
 }
 
 /// What a holding has or has queued in each slot.
@@ -173,6 +188,7 @@ pub(crate) fn steps(
                     slot,
                     price: f.numbers.module_cost(ModuleKind::Storage),
                     score: expand_score.saturating_add(1),
+                    due: false,
                 });
                 break;
             }
@@ -247,12 +263,15 @@ pub(crate) fn steps(
                     slot: step_slot,
                     price: f.numbers.module_cost(step_kind),
                     score,
+                    due: false,
                 });
                 continue;
             }
         }
         // Defensive: the blueprint's pylons, turrets and the forward dry dock.
         let raid_turrets = mode == BlueprintMode::PerSiteKindRaidTurrets && struck.contains(&h.id);
+        // A holding placed complete (the mother station) counts from the season start.
+        let aged = f.now.since(h.completed_at.unwrap_or(Tick::ZERO)) >= DEFEND_AFTER;
         for step in &blueprint.steps {
             if taken(h, step.slot).is_some() || !model::fits(step.kind, step.slot, deposits) {
                 continue;
@@ -271,6 +290,7 @@ pub(crate) fn steps(
                 slot,
                 price: f.numbers.module_cost(kind),
                 score: weight.saturating_add(exposure(f, h)),
+                due: aged && matches!(step.kind, ModuleKind::Pylon | ModuleKind::Turret),
             });
             break;
         }
@@ -405,7 +425,12 @@ pub(crate) fn advance_build(
         if view.build_check(step.holding, item) != BuildCheck::Ok {
             continue;
         }
-        if turn.spend_or_reserve(step.price) {
+        let paid = if step.due {
+            turn.spend_before_kit(step.price)
+        } else {
+            turn.spend_or_reserve(step.price)
+        };
+        if paid {
             turn.build(step.holding, item);
         }
         plan.observe(
